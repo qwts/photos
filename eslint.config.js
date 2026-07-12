@@ -48,42 +48,31 @@ export default tseslint.config(
       ],
     },
   },
-  {
-    // Process-boundary layering (#49): renderer, preload, and shared code may
-    // never import main-process modules — the typed IPC bridge is the only
-    // channel. Main may not reach into the renderer either. See CLAUDE.md
-    // §Architecture.
-    files: ['src/renderer/**', 'src/preload/**', 'src/shared/**'],
+  // Process-boundary layering (#49), the full matrix from CLAUDE.md
+  // §Architecture: every process dir may import src/shared; shared is
+  // process-free; nothing else crosses — the typed IPC bridge is the only
+  // channel. One override per layer so each direction is actually enforced.
+  ...[
+    { files: 'src/renderer/**', banned: ['**/main/**', '**/main', '**/preload/**', '**/preload'] },
+    { files: 'src/preload/**', banned: ['**/main/**', '**/main', '**/renderer/**'] },
+    { files: 'src/shared/**', banned: ['**/main/**', '**/main', '**/preload/**', '**/preload', '**/renderer/**'] },
+    { files: 'src/main/**', banned: ['**/renderer/**', '**/preload/**', '**/preload'] },
+  ].map(({ files, banned }) => ({
+    files: [files],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: ['**/main/**', '**/main'],
-              message: 'Only src/main may contain main-process code; talk over the typed IPC bridge.',
+              group: banned,
+              message: `${files} may import src/shared only; cross-process traffic rides the typed IPC bridge.`,
             },
           ],
         },
       ],
     },
-  },
-  {
-    files: ['src/main/**'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['**/renderer/**'],
-              message: 'Main must not import renderer code; talk over the typed IPC bridge.',
-            },
-          ],
-        },
-      ],
-    },
-  },
+  })),
   {
     // node:test's test()/describe() return promises that the runner itself awaits;
     // requiring `void`/`await` on every registration is pure noise. Scope the
