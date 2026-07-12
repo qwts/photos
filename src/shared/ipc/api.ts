@@ -5,4 +5,8 @@ import type { FocusChangedPayload, PingRequest, PingResponse } from './channels.
 export interface OverlookApi {
   readonly ping: (request: PingRequest) => Promise<PingResponse>;
   readonly onFocusChanged: (listener: (payload: FocusChangedPayload) => void) => () => void;
+  readonly getPlatform: () => Promise<string>;
+  readonly minimizeWindow: () => Promise<void>;
+  readonly toggleMaximizeWindow: () => Promise<boolean>;
+  readonly closeWindow: () => Promise<void>;
 }

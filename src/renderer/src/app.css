@@ -1,0 +1,16 @@
+/* Frameless-window drag contract (#50): the top strip (design --titlebar-h,
+   30px) drags the window; interactive elements inside it opt out with
+   .titlebar-no-drag. The styled TitleBar component arrives with M02 — this
+   is only the behavioral contract. */
+.titlebar-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}

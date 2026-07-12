@@ -19,9 +19,22 @@ const subscribeTransport: SubscribeTransport = (eventName, listener) => {
   };
 };
 
+const getPlatform = createInvoker(channels.getPlatform, invokeTransport);
+const minimizeWindow = createInvoker(channels.windowMinimize, invokeTransport);
+const toggleMaximizeWindow = createInvoker(channels.windowToggleMaximize, invokeTransport);
+const closeWindow = createInvoker(channels.windowClose, invokeTransport);
+
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
   onFocusChanged: createSubscriber(events.focusChanged, subscribeTransport),
+  getPlatform: async () => (await getPlatform({})).platform,
+  minimizeWindow: async () => {
+    await minimizeWindow({});
+  },
+  toggleMaximizeWindow: async () => (await toggleMaximizeWindow({})).maximized,
+  closeWindow: async () => {
+    await closeWindow({});
+  },
 };
 
 contextBridge.exposeInMainWorld('overlook', Object.freeze(overlook));
