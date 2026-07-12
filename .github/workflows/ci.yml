@@ -57,6 +57,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history so lint:new-files can compute a merge-base with origin/main;
+          # the default single-commit fetch made that gate silently skip in PR runs.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
