@@ -7,11 +7,15 @@
   "scripts": {
     "format": "prettier --write \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
     "format:check": "prettier --check \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
+    "eslint": "10.7.0",
     "prettier": "3.9.5",
-    "typescript": "7.0.2"
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.63.0"
   }
 }
