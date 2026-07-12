@@ -18,6 +18,11 @@ updates:
       # deliberately (see PR #21 for the original downgrade rationale).
       - dependency-name: typescript
         versions: ['>=6.1.0']
+      # @types/node must track the runtime major pinned in .nvmrc (Node 24), not npm's
+      # latest — typecheck would otherwise accept APIs the runtime doesn't have. Bump
+      # together with .nvmrc when the runtime moves.
+      - dependency-name: '@types/node'
+        versions: ['>=25']
 
   # Keep the pinned action versions in .github/workflows current the same way.
   - package-ecosystem: github-actions
