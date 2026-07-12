@@ -1,0 +1,14 @@
+{
+  "name": "photos",
+  "version": "0.1.0",
+  "description": "A photo library app.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "typescript": "7.0.2"
+  }
+}
