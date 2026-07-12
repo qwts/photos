@@ -51,6 +51,7 @@ const scanSummarySchema = z.object({
   newBytes: z.number().int().nonnegative(),
   newRaw: z.number().int().nonnegative(),
   newJpg: z.number().int().nonnegative(),
+  newOther: z.number().int().nonnegative(),
 });
 
 const photoRecordSchema = z.object({
