@@ -81,8 +81,10 @@ possible, enforced as executable checks._
   (see the wiki [Repo Documentation Pointer Map](https://github.com/qwts/photos/wiki/Repo-Documentation-Pointer-Map)).
 - Before claiming done: run `npm run ci` (lint chain → format:check → test:cov →
   build — the same non-browser gates CI enforces, including the `.c8rc.json`
-  coverage floor). For E2E-relevant changes also run `npm run test:e2e`. Do not
-  report a build you did not run.
+  coverage floor). For E2E-relevant changes also run `npm run test:e2e`; for
+  renderer/story-relevant changes also run `npm run test:stories:ci` (Storybook
+  interaction tests — CI runs them in the core job). Do not report a build you
+  did not run.
 - Floors are ratchets — c8 (lines 90 / branches 80), type-coverage (99.8), the
   800-line file budget: raise them as coverage improves; never lower them to
   pass. See the wiki [Testing Strategy](https://github.com/qwts/photos/wiki/Testing-Strategy)
