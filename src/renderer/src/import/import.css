@@ -67,3 +67,11 @@
   color: var(--accent-green);
   font-size: var(--text-md);
 }
+
+.ovl-import__failed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent-amber);
+  font-size: var(--text-md);
+}
