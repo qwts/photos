@@ -42,6 +42,9 @@ const VOCABULARY = [
   'triangle-alert',
   // Checkbox mark the design's Checkbox.jsx uses beyond the readme list (#61).
   'check',
+  // Empty-state glyph the design's LibraryGrid.jsx uses beyond the readme
+  // list (#76).
+  'image-off',
 ] as const;
 
 describe('Icon', () => {

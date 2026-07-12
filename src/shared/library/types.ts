@@ -4,6 +4,9 @@
 
 export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'other';
 
+/** sync_ledger.status vocabulary (ADR-0005). */
+export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offloaded';
+
 export interface PhotoRecord {
   readonly id: string;
   readonly fileName: string;
@@ -27,9 +30,11 @@ export interface PhotoRecord {
   readonly favorite: boolean;
   readonly keyId: number;
   readonly deletedAt: string | null;
+  /** From the sync_ledger join; new rows start 'local'. */
+  readonly syncState: SyncStatus;
 }
 
-export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt'> & {
+export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'syncState'> & {
   readonly favorite?: boolean;
 };
 

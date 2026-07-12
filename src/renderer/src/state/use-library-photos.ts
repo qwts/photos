@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { PageCursor } from '../../../shared/library/types.js';
+import type { ChipFilters, PageCursor, PageRequest } from '../../../shared/library/types.js';
 import { useAppState, useAppDispatch } from './app-state-context';
 
 const PAGE_SIZE = 500; // channel max — fewest round-trips on deep scrolls
@@ -11,27 +11,50 @@ function recentSinceIso(): string {
   return new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
 }
 
-// Data windowing for the grid engine (#74): first page per source, cursor
-// pages on demand. Stale-cancel: a source switch bumps the request id, so a
-// late response from the previous source is dropped instead of appended.
-export function useLibraryPhotos(): { readonly loadMore: () => void } {
-  const { source } = useAppState();
+function chipsActive(chips: ChipFilters): boolean {
+  return Object.values(chips).some(Boolean);
+}
+
+// Data windowing for the grid engine (#74): first page per visible set
+// (source + query + chips, #76), cursor pages on demand. Stale-cancel: any
+// visible-set change bumps the request id, so a late response from the
+// previous set is dropped instead of appended. `exhausted` tells the grid
+// the loaded count IS the filtered total (counts can't answer for filters).
+export function useLibraryPhotos(): { readonly loadMore: () => void; readonly exhausted: boolean } {
+  const { source, query, chips } = useAppState();
   const dispatch = useAppDispatch();
   const cursorRef = useRef<PageCursor | null>(null);
   const requestRef = useRef(0);
   const inFlightRef = useRef(false);
+  // Exhaustion is keyed to the visible set: switching sets changes the key,
+  // which resets `exhausted` derivationally (no setState-in-effect).
+  const setKey = `${source}|${query}|${JSON.stringify(chips)}`;
+  const [exhaustedKey, setExhaustedKey] = useState<string | null>(null);
+  const exhausted = exhaustedKey === setKey;
+
+  const baseRequest = useCallback(
+    (): Omit<PageRequest, 'cursor'> => ({
+      source,
+      limit: PAGE_SIZE,
+      ...(source === 'recent' ? { recentSince: recentSinceIso() } : {}),
+      ...(query === '' ? {} : { query }),
+      ...(chipsActive(chips) ? { chips } : {}),
+    }),
+    [source, query, chips],
+  );
 
   useEffect(() => {
     const requestId = (requestRef.current += 1);
     inFlightRef.current = true;
     cursorRef.current = null;
     void window.overlook.library
-      .page({ source, limit: PAGE_SIZE, ...(source === 'recent' ? { recentSince: recentSinceIso() } : {}) })
+      .page(baseRequest())
       .then(({ photos, nextCursor }) => {
         if (requestRef.current !== requestId) {
           return;
         }
         cursorRef.current = nextCursor;
+        setExhaustedKey(nextCursor === null ? setKey : null);
         dispatch({ type: 'photos/loaded', photos, append: false });
       })
       .finally(() => {
@@ -39,7 +62,7 @@ export function useLibraryPhotos(): { readonly loadMore: () => void } {
           inFlightRef.current = false;
         }
       });
-  }, [source, dispatch]);
+  }, [baseRequest, setKey, dispatch]);
 
   const loadMore = useCallback(() => {
     const cursor = cursorRef.current;
@@ -49,12 +72,13 @@ export function useLibraryPhotos(): { readonly loadMore: () => void } {
     const requestId = requestRef.current;
     inFlightRef.current = true;
     void window.overlook.library
-      .page({ source, limit: PAGE_SIZE, cursor, ...(source === 'recent' ? { recentSince: recentSinceIso() } : {}) })
+      .page({ ...baseRequest(), cursor })
       .then(({ photos, nextCursor }) => {
         if (requestRef.current !== requestId) {
           return;
         }
         cursorRef.current = nextCursor;
+        setExhaustedKey(nextCursor === null ? setKey : null);
         dispatch({ type: 'photos/loaded', photos, append: true });
       })
       .finally(() => {
@@ -62,7 +86,7 @@ export function useLibraryPhotos(): { readonly loadMore: () => void } {
           inFlightRef.current = false;
         }
       });
-  }, [source, dispatch]);
+  }, [baseRequest, setKey, dispatch]);
 
-  return { loadMore };
+  return { loadMore, exhausted };
 }

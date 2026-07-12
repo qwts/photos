@@ -39,14 +39,13 @@ test('virtualizes and cursor-pages a synthetic library', async () => {
     expect((planeBox?.height ?? 0) > (gridBox?.height ?? 1) * 10).toBe(true);
 
     // Wheel to the bottom: the engine must page the cursor (4× limit 500)
-    // until the final photo's tile renders as loaded (not the loading tint).
+    // until the final photo's tile renders as a real PhotoTile (#76), not
+    // the loading placeholder.
     await grid.hover();
-    const lastTile = grid.locator('.ovl-grid__cell[data-index="1999"] .ovl-grid__placeholder');
+    const lastTile = grid.locator('.ovl-grid__cell[data-index="1999"] .ovl-tile');
     await expect(async () => {
       await page.mouse.wheel(0, 1_000_000);
-      const tileClass = await lastTile.getAttribute('class', { timeout: 500 });
-      expect(tileClass).not.toBeNull();
-      expect(tileClass).not.toContain('ovl-grid__placeholder--loading');
+      await expect(lastTile).toBeVisible({ timeout: 500 });
     }).toPass({ timeout: 15_000 });
 
     // Frame instrumentation recorded the scroll for M11's budgets.

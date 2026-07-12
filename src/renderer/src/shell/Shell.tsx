@@ -3,11 +3,13 @@ import type { ReactElement } from 'react';
 
 import './shell.css';
 import type { SourceCounts, SourceFilter } from '../../../shared/library/types.js';
+import { ZOOM_MAX, ZOOM_MIN } from '../../../shared/library/app-state.js';
+import { Slider } from '../components/Slider';
 import { TitleBar } from '../components/TitleBar';
-import { VirtualGrid } from '../grid/VirtualGrid';
+import { LibraryGridView } from '../grid/LibraryGridView';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
-import { useLibraryPhotos, RECENT_WINDOW_MS } from '../state/use-library-photos';
+import { RECENT_WINDOW_MS } from '../state/use-library-photos';
 
 const SOURCES: readonly { key: SourceFilter; label: string }[] = [
   { key: 'all', label: 'All Photos' },
@@ -31,15 +33,12 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
   const [stats, setStats] = useState<{ photos: number; bytes: number } | null>(null);
-  const { loadMore } = useLibraryPhotos();
 
   useEffect(() => {
     const recentSince = new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
     void window.overlook.library.counts({ recentSince }).then(setCounts);
     void window.overlook.library.stats().then(setStats);
   }, [dispatch]);
-
-  const total = counts === null ? state.photos.length : counts[state.source];
 
   return (
     <div className="ovl-shell">
@@ -62,6 +61,19 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
         <span className="mono-data" style={{ color: 'var(--text-faint)' }}>
           Toolbar — #79
         </span>
+        <div style={{ marginLeft: 'auto' }} className="titlebar-no-drag">
+          <Slider
+            label="Zoom"
+            value={state.zoom}
+            min={ZOOM_MIN}
+            max={ZOOM_MAX}
+            step={8}
+            width={140}
+            onChange={(zoom) => {
+              dispatch({ type: 'zoom/set', zoom });
+            }}
+          />
+        </div>
       </div>
       <div className="ovl-shell__body">
         <nav className="ovl-shell__sidebar" aria-label="Library">
@@ -82,16 +94,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           ))}
         </nav>
         <main className="ovl-shell__content" data-testid="content-region">
-          {total > 0 ? (
-            <VirtualGrid photos={state.photos} total={total} zoom={state.zoom} onNeedMore={loadMore} />
-          ) : (
-            <div style={{ padding: 'var(--space-7)' }}>
-              <p style={{ margin: 0 }}>Overlook — shell placeholder</p>
-              <p className="mono-data" style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>
-                Empty library · the mock empty state lands with #76
-              </p>
-            </div>
-          )}
+          <LibraryGridView knownTotal={counts === null ? null : counts[state.source]} />
         </main>
         {state.inspectorOpen ? (
           <aside className="ovl-shell__inspector" aria-label="Inspector">

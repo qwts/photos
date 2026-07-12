@@ -12,6 +12,7 @@ import {
   Download,
   Funnel,
   HardDrive,
+  ImageOff,
   Info,
   KeyRound,
   LayoutGrid,
@@ -49,6 +50,7 @@ export const ICON_NAMES = [
   'download',
   'funnel',
   'hard-drive',
+  'image-off',
   'info',
   'key-round',
   'layout-grid',
@@ -85,6 +87,7 @@ const ICONS = {
   download: Download,
   funnel: Funnel,
   'hard-drive': HardDrive,
+  'image-off': ImageOff,
   info: Info,
   'key-round': KeyRound,
   'layout-grid': LayoutGrid,
@@ -108,7 +111,8 @@ const ICONS = {
 // 13 (TitleBar controls, Chip glyphs), and 18 (lg Button) are the design
 // mock's own additional usages, adopted as-is — as are the minus/square/x
 // window-control glyphs above.
-export type IconSize = 11 | 12 | 13 | 14 | 16 | 18 | 20;
+// 28 is the empty-state glyph size the design's LibraryGrid.jsx uses (#76).
+export type IconSize = 11 | 12 | 13 | 14 | 16 | 18 | 20 | 28;
 
 export interface IconProps {
   readonly name: IconName;
