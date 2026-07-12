@@ -48,6 +48,8 @@ export function ImportDialog({ open, source, onClose, onDone }: ImportDialogProp
   const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: source.newCount });
   const [thumbBar, setThumbBar] = useState<Bar>({ done: 0, total: source.newCount });
   const [imported, setImported] = useState(0);
+  const [failed, setFailed] = useState(0);
+  const [runError, setRunError] = useState(false);
 
   useEffect(() => {
     if (phase !== 'running') {
@@ -75,10 +77,14 @@ export function ImportDialog({ open, source, onClose, onDone }: ImportDialogProp
       .run({ path: source.path, mode })
       .then((summary) => {
         setImported(summary.imported);
+        setFailed(summary.failed);
         setPhase('done');
       })
       .catch(() => {
-        setPhase('done'); // engine reports per-file failures in counts
+        // The run itself died (source vanished mid-scan): nothing on the
+        // card was deleted (Move cleanup only follows verification).
+        setRunError(true);
+        setPhase('done');
       });
   };
 
@@ -88,7 +94,7 @@ export function ImportDialog({ open, source, onClose, onDone }: ImportDialogProp
       title="Import from SD card"
       icon="download"
       width={420}
-      onClose={onClose}
+      onClose={phase === 'running' ? () => undefined : onClose}
       footer={
         phase === 'options' ? (
           <>
@@ -167,10 +173,19 @@ export function ImportDialog({ open, source, onClose, onDone }: ImportDialogProp
             detail={`${formatCount(thumbBar.done)} / ${formatCount(thumbBar.total)}`}
           />
           {phase === 'done' ? (
-            <div className="ovl-import__done">
-              <Icon name="shield-check" size={15} />
-              All {formatCount(imported)} photos imported and encrypted.
-            </div>
+            runError || failed > 0 ? (
+              <div className="ovl-import__failed" role="alert">
+                <Icon name="triangle-alert" size={15} />
+                {runError
+                  ? 'Import failed — nothing was deleted from the card. Check the source and try again.'
+                  : `${formatCount(imported)} imported · ${formatCount(failed)} failed — failed files were kept on the card.`}
+              </div>
+            ) : (
+              <div className="ovl-import__done">
+                <Icon name="shield-check" size={15} />
+                All {formatCount(imported)} photos imported and encrypted.
+              </div>
+            )
           ) : null}
         </div>
       )}
