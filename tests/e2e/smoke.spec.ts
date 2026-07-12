@@ -1,3 +1,7 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { test, expect, _electron as electron } from '@playwright/test';
 
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
@@ -11,11 +15,23 @@ import type { OverlookApi } from '../../src/shared/ipc/api.js';
 // tests project compiles without the DOM lib, so there is no `window` type —
 // the bridge is typed through the shared contract instead.
 test('opens a window rendering the React shell', async () => {
-  const app = await electron.launch({ args: ['.'] });
+  // The composed shell (#73) fetches library counts on mount, so even the
+  // smoke needs an isolated temp profile + the CI-safe keystore.
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-smoke-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: { ...process.env, OVERLOOK_USER_DATA: userData, OVERLOOK_INSECURE_KEYSTORE: '1' },
+  });
   try {
     const page = await app.firstWindow();
-    await expect(page.locator('#root p')).toHaveText('Overlook — shell placeholder');
+    await expect(page.getByText('Overlook — shell placeholder')).toBeVisible();
     await expect(page).toHaveTitle('Overlook');
+
+    // Composed chrome (#73): sidebar sources, statusbar, toolbar region all
+    // present on boot — their internals arrive with #74–#81.
+    await expect(page.getByRole('navigation', { name: 'Library' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /All Photos/ })).toBeVisible();
+    await expect(page.getByTestId('statusbar-left')).toHaveText('0 PHOTOS');
 
     // The scaffold's security posture is part of the smoke: the typed bridge
     // is present and no raw Electron surface leaks into the renderer.
