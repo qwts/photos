@@ -15,7 +15,7 @@
     "lint:types": "type-coverage --at-least 99.8 --strict",
     "typecheck": "tsc --noEmit",
     "test:compile": "rm -rf .test-dist && tsc -p tsconfig.test.json",
-    "test:unit:run": "node --test .test-dist/tests/*.test.js",
+    "test:unit:run": "node --test '.test-dist/tests/**/*.test.js'",
     "test": "npm run typecheck && npm run test:compile && npm run test:unit:run",
     "test:cov": "npm run typecheck && npm run test:compile && c8 npm run test:unit:run",
     "coverage:summary": "node scripts/report-coverage-summary.mjs"
