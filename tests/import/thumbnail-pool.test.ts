@@ -1,0 +1,129 @@
+import { test, describe, after } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { randomBytes } from 'node:crypto';
+import { mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { buffer } from 'node:stream/consumers';
+
+import { BlobStore } from '../../src/main/blobs/blob-store.js';
+import { ThumbnailPool } from '../../src/main/import/thumbnail-pool.js';
+import { ThumbnailService } from '../../src/main/import/thumbnail-service.js';
+import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
+
+const WORKER_URL = new URL('../../src/main/import/thumbnail-worker.js', import.meta.url);
+const CRASH_WORKER_URL = new URL('../../../tests/fixtures/import/crash-worker.js', import.meta.url);
+const FIXTURES = join(import.meta.dirname, '../../../tests/fixtures/exif');
+
+const pool = new ThumbnailPool({ workerUrl: WORKER_URL, size: 2 });
+after(async () => {
+  await pool.close();
+});
+
+function isWebp(bytes: Buffer | undefined): boolean {
+  return bytes !== undefined && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
+}
+
+describe('thumbnail pipeline (#86)', () => {
+  test('EXIT CRITERIA: a JPEG yields both ADR-0006 WebP derivatives', async () => {
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    const result = await pool.generate(jpeg);
+    assert.notEqual(result, null);
+    assert.ok(isWebp(result?.thumb), 'thumb is WebP');
+    assert.ok(isWebp(result?.mid), 'mid is WebP');
+    assert.equal(result?.width, 1);
+    assert.equal(result?.height, 1);
+  });
+
+  test('EXIT CRITERIA: RAF resolves the embedded preview first', async () => {
+    const raf = readFileSync(join(FIXTURES, 'sample.raf'));
+    const result = await pool.generate(raf);
+    assert.notEqual(result, null, 'a RAF with a preview must produce derivatives');
+    assert.ok(isWebp(result?.thumb));
+  });
+
+  test('EXIT CRITERIA: undecodable bytes yield the placeholder marker (null), not a failure', async () => {
+    assert.equal(await pool.generate(randomBytes(256)), null);
+    // A corrupt "JPEG" (SOI then garbage) is the same placeholder, and the
+    // worker survives to serve the next real job.
+    assert.equal(await pool.generate(readFileSync(join(FIXTURES, 'corrupt.jpg'))), null);
+    assert.notEqual(await pool.generate(readFileSync(join(FIXTURES, 'exif-full.jpg'))), null);
+  });
+
+  test('derivatives strip metadata — camera identity must not survive', async () => {
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    const result = await pool.generate(jpeg);
+    const thumb = result?.thumb ?? Buffer.alloc(0);
+    assert.ok(jpeg.includes(Buffer.from('FUJIFILM', 'ascii')), 'source carries the make');
+    assert.equal(thumb.includes(Buffer.from('FUJIFILM', 'ascii')), false, 'derivative must not');
+    assert.equal(thumb.includes(Buffer.from('Exif', 'ascii')), false);
+  });
+
+  test('cancellation drains queued jobs without spending worker time', async () => {
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    const controller = new AbortController();
+    controller.abort();
+    assert.equal(await pool.generate(jpeg, controller.signal), null);
+  });
+
+  test('EXIT CRITERIA: a crashed worker rejects its job, the queue never hangs', async () => {
+    // A "worker" that dies on arrival — whether it exits before or after the
+    // job dispatch, the pool must reject that job, correct its capacity
+    // books, and stay usable. Two sequential jobs prove no capacity leak:
+    // with broken idle-crash accounting the second generate() would deadlock
+    // waiting on a phantom worker.
+    const crashy = new ThumbnailPool({ workerUrl: CRASH_WORKER_URL, size: 1 });
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    await assert.rejects(crashy.generate(jpeg), /exited with code/u);
+    await assert.rejects(crashy.generate(jpeg), /exited with code/u);
+    await crashy.close();
+  });
+
+  test('EXIT CRITERIA: fixture set through the service — encrypted thumbs + one placeholder, no plaintext', async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'overlook-thumbgen-'));
+    const store = new BlobStore({ dataDir });
+    await store.init();
+    const key: EnvelopeKey = { id: 1, key: randomBytes(32) };
+    const service = new ThumbnailService(pool, store);
+
+    // JPEG + RAF generate; the unsupported file records a placeholder.
+    const fixtures = [
+      { name: 'exif-full.jpg', hash: 'a'.repeat(64) },
+      { name: 'sample.raf', hash: 'b'.repeat(64) },
+      { name: 'corrupt.jpg', hash: 'c'.repeat(64) },
+    ];
+    const outcomes = [];
+    for (const [index, fixture] of fixtures.entries()) {
+      outcomes.push(
+        await service.generateFor({
+          photoId: `PHOTOGEN${String(index)}`,
+          bytes: readFileSync(join(FIXTURES, fixture.name)),
+          contentHash: fixture.hash,
+          key,
+        }),
+      );
+    }
+    assert.deepEqual(
+      outcomes.map((outcome) => outcome.generated),
+      [true, true, false],
+    );
+
+    // Encrypt-then-move: no file anywhere under the store is plaintext WebP,
+    // and no staging leftovers survive.
+    for (const name of readdirSync(dataDir, { recursive: true, encoding: 'utf8' })) {
+      const path = join(dataDir, name);
+      if (!statSync(path).isFile()) {
+        continue;
+      }
+      assert.equal(isWebp(readFileSync(path)), false, `plaintext derivative at ${name}`);
+    }
+    assert.deepEqual(readdirSync(join(dataDir, 'tmp')), [], 'no staging leftovers');
+
+    // And the stored derivative round-trips through decrypt byte-exact.
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    const expected = await pool.generate(jpeg);
+    const decrypted = await buffer(store.getThumbStream('a'.repeat(64), 'thumb', () => key.key, 'PHOTOGEN0'));
+    assert.deepEqual(decrypted, expected?.thumb);
+  });
+});

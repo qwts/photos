@@ -20,6 +20,9 @@ export default tseslint.config(
       '.claude/**',
       // Vendored design handoff (reference material, not source) — #173.
       'design/handoff/**',
+      // Test fixtures are inputs, not source (the #86 crash-worker is plain
+      // JS loaded directly by worker_threads, outside any tsconfig).
+      'tests/fixtures/**',
     ],
   },
   js.configs.recommended,
