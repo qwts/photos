@@ -73,6 +73,13 @@ export interface PageResult {
 
 export type SourceCounts = Readonly<Record<SourceFilter, number>>;
 
+/** Sidebar albums list (#80); CRUD arrives with M10. */
+export interface AlbumSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly count: number;
+}
+
 export interface LibraryStats {
   readonly photos: number;
   readonly bytes: number;

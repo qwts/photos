@@ -31,6 +31,9 @@ export function registerLibraryHandlers(getService: () => LibraryService): void 
   ipcMain.handle(channels.libraryStats.name, (_event, request: unknown) =>
     wrapHandler(channels.libraryStats, () => getService().stats())(request),
   );
+  ipcMain.handle(channels.libraryAlbums.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryAlbums, () => ({ albums: getService().albums() }))(request),
+  );
 }
 
 export function registerIpcHandlers(): void {

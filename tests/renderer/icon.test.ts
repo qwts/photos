@@ -50,6 +50,10 @@ const VOCABULARY = [
   'grid-2x2',
   'grid-3x3',
   'image',
+  // Sidebar glyphs the design's Sidebar.jsx uses beyond the readme list
+  // (#80): All Photos row and the albums + affordance.
+  'images',
+  'plus',
 ] as const;
 
 describe('Icon', () => {
