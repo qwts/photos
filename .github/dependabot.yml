@@ -1,14 +1,51 @@
 version: 2
 updates:
-  # Grouped weekly npm updates: one PR for all devDependencies instead of a PR per package.
-  # Pairs with the exact-pin policy (scripts/check-package-pins.mjs): Dependabot is the only
-  # actor that bumps versions; the pins make every bump an explicit, reviewable diff.
+  # Grouped weekly npm updates. Pairs with the exact-pin policy
+  # (scripts/check-package-pins.mjs): Dependabot is the only actor that bumps
+  # versions; the pins make every bump an explicit, reviewable diff.
+  #
+  # Split by peer-coupled cluster (not one big group) so an unresolvable major
+  # in one dependency graph only reddens its own PR instead of blocking every
+  # other safe bump — PR #153 was one Vite 8 conflict that failed `npm ci` for
+  # the whole batch and masked five unrelated updates. Dependabot assigns each
+  # dependency to the FIRST group whose patterns match, so the specific clusters
+  # are listed before the `dev-tooling` catch-all.
   - package-ecosystem: npm
     directory: '/'
     schedule:
       interval: weekly
     groups:
-      dev-deps:
+      # Vite + Electron + React + Storybook are one peer graph: @vitejs/plugin-react
+      # bridges vite<->react and @storybook/react-vite bridges both, so they must
+      # move in lockstep and a wall on any one legitimately holds the whole
+      # coordinated upgrade (both current walls — Vite 8 and React 19 — live here).
+      build-toolchain:
+        patterns:
+          - 'vite'
+          - '@vitejs/*'
+          - 'electron*'
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+          - 'storybook'
+          - '@storybook/*'
+          - 'eslint-plugin-react-hooks'
+          - '@eslint-react/*'
+          - 'lucide-react'
+      # TypeScript + its lint/analysis tools; all gated on the TS major via
+      # typescript-eslint's peer cap — the next likely wall as TS 7 lands.
+      lint-and-types:
+        patterns:
+          - 'typescript'
+          - 'typescript-eslint'
+          - 'eslint'
+          - '@eslint/*'
+          - 'type-coverage'
+          - 'madge'
+          - 'knip'
+      # Everything else: low peer-constraint risk, keeps flowing as one PR.
+      dev-tooling:
         patterns:
           - '*'
     ignore:
