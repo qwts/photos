@@ -194,13 +194,40 @@
   overflow: auto;
 }
 
-.ovl-shell__statusbar {
+.ovl-statusbar {
   flex: none;
   height: var(--statusbar-h);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-5);
   padding: 0 var(--space-4);
   border-top: 1px solid var(--border-1);
-  background: var(--gray-0);
+  background: var(--gray-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-mono);
+  color: var(--text-faint);
+}
+
+.ovl-statusbar__spacer {
+  flex: 1;
+}
+
+.ovl-statusbar__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ovl-statusbar__item--amber {
+  color: var(--accent-amber);
+}
+
+.ovl-statusbar__item--green {
+  color: var(--accent-green);
+}
+
+.ovl-statusbar__spin {
+  display: flex;
+  animation: ovl-spin 1.2s linear infinite;
 }

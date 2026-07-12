@@ -33,7 +33,9 @@ test('opens a window rendering the React shell', async () => {
     // present on boot — their internals arrive with #74–#81.
     await expect(page.getByRole('navigation', { name: 'Library' })).toBeVisible();
     await expect(page.getByRole('button', { name: /All Photos/ })).toBeVisible();
-    await expect(page.getByTestId('statusbar-left')).toHaveText('0 PHOTOS');
+    await expect(page.getByTestId('statusbar-left')).toHaveText('0 PHOTOS · 0 B');
+    // #81: an empty library is fully backed up by definition.
+    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP');
 
     // The scaffold's security posture is part of the smoke: the typed bridge
     // is present and no raw Electron surface leaks into the renderer.
