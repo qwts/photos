@@ -101,10 +101,11 @@ const ICONS = {
   x: X,
 } satisfies Record<IconName, typeof Album>;
 
-// 14/16/20 are the DS's stated sizes; 11 (Badge glyphs), 13 (TitleBar window
-// controls), and 18 (lg Button) are the design mock's own additional usages,
-// adopted as-is — as are the minus/square/x window-control glyphs above.
-export type IconSize = 11 | 13 | 14 | 16 | 18 | 20;
+// 14/16/20 are the DS's stated sizes; 11 (Badge glyphs), 12 (Chip remove),
+// 13 (TitleBar controls, Chip glyphs), and 18 (lg Button) are the design
+// mock's own additional usages, adopted as-is — as are the minus/square/x
+// window-control glyphs above.
+export type IconSize = 11 | 12 | 13 | 14 | 16 | 18 | 20;
 
 export interface IconProps {
   readonly name: IconName;
