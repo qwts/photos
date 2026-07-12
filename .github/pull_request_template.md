@@ -10,6 +10,13 @@
 
 <!-- Link docs/ADR/user-story/acceptance-test updates, or state why no documentation change is needed. -->
 
+## Changeset
+
+<!-- Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only PRs may skip. -->
+<!-- Semantics (0.x minor vs patch): see the wiki ADR-0002 Versioning Policy. -->
+
+- [ ] Changeset included, or not needed (say why)
+
 ## Testing
 
 <!-- List the exact commands you ran locally, for example: `npm run ci`. -->
