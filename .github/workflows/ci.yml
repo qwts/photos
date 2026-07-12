@@ -148,6 +148,12 @@ jobs:
           npx playwright install-deps chromium
           sudo apt-get install --yes xvfb
 
+      # Materialize the Electron binary BEFORE tests: parallel workers racing
+      # the lazy first-run download exec a half-written binary (ETXTBSY).
+      # Idempotent when the postinstall already fetched it.
+      - name: Ensure Electron binary
+        run: node node_modules/electron/install.js
+
       - name: Playwright E2E tests (Electron under Xvfb)
         run: xvfb-run --auto-servernum -- npm run test:e2e
 
