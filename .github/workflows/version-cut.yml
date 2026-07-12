@@ -89,7 +89,21 @@ jobs:
       - name: Tag when the current version is a fresh cut
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          # Push events only tag when this push actually changed the version —
+          # otherwise the first changeset-free push after this workflow lands
+          # would tag the never-cut 0.1.0 at an arbitrary commit. Manual
+          # dispatch skips the comparison (recovery for a cut whose tagging
+          # failed) but still requires no-pending-changesets + untagged below.
+          if [ "$EVENT_NAME" = "push" ]; then
+            prev=$(git show 'HEAD~1:package.json' 2>/dev/null | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version' 2>/dev/null || echo '')
+            cur=$(node -p 'require("./package.json").version')
+            if [ "$prev" = "$cur" ]; then
+              echo "Version unchanged ($cur) — not a version-cut merge."
+              exit 0
+            fi
+          fi
           pending=$(find .changeset -name '*.md' ! -name 'README.md' | head -1)
           if [ -n "$pending" ]; then
             echo "Changesets pending — nothing to tag."
