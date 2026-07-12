@@ -70,8 +70,11 @@ function gatherAddedFiles() {
   const addedFiles = splitList(
     execFileSync('git', ['diff', '--name-only', '--diff-filter=A', `${mergeBase}...HEAD`], { encoding: 'utf8' }),
   );
+  // Staged-but-uncommitted additions are in neither the commit range nor --others;
+  // without this, an oversized `git add`ed file passes lint until after the commit.
+  const stagedFiles = splitList(execFileSync('git', ['diff', '--name-only', '--diff-filter=A', '--cached'], { encoding: 'utf8' }));
   const untrackedFiles = splitList(execFileSync('git', ['ls-files', '--others', '--exclude-standard'], { encoding: 'utf8' }));
-  return [...new Set([...addedFiles, ...untrackedFiles])];
+  return [...new Set([...addedFiles, ...stagedFiles, ...untrackedFiles])];
 }
 
 function main() {
