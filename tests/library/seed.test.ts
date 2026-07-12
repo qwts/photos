@@ -88,6 +88,21 @@ describe('dev seed', () => {
     assert.equal(repo.stats().photos, 4);
   });
 
+  test('seed dates stay valid ISO at any index (month/year rollover)', async () => {
+    const { db } = await seeded(2);
+    seedSynthetic(db, 1, 'rollover', 1000);
+    const bad = queryAll<{ taken_at: string }>(
+      db,
+      `SELECT taken_at FROM photos WHERE taken_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]T*'`,
+    );
+    assert.deepEqual(bad, []);
+    const months = queryAll<{ m: string }>(db, `SELECT DISTINCT substr(taken_at, 6, 2) AS m FROM photos`);
+    for (const { m } of months) {
+      const month = Number(m);
+      assert.ok(month >= 1 && month <= 12, `invalid month ${m}`);
+    }
+  });
+
   test('synthetic variant inserts metadata-only rows fast', async () => {
     const { db, repo } = await seeded(2);
     const inserted = seedSynthetic(db, 1, 'synthetic', 5000);
