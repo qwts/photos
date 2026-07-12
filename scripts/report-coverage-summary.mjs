@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 // Renders a Markdown coverage summary for the PR run: c8 line/branch totals against the ratcheting
-// floor from .c8rc.json. Appends to $GITHUB_STEP_SUMMARY when set (so it shows on the run's Checks
-// tab), otherwise prints to stdout. This is a REPORTER, never a gate — it always exits 0; the
-// actual coverage gate is c8's own check-coverage. It runs even when that gate fails, since a red
-// run is exactly when you want to read the numbers.
+// floor from .c8rc.json, plus the acceptance coverage-map distribution (#82) and any flow that
+// lacks automated coverage. Appends to $GITHUB_STEP_SUMMARY when set (so it shows on the run's
+// Checks tab), otherwise prints to stdout. This is a REPORTER, never a gate — it always exits 0;
+// the coverage gate is c8's own check-coverage and the map gate is check-e2e-coverage-map.mjs. It
+// runs even when those gates fail, since a red run is exactly when you want to read the numbers.
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -59,7 +60,50 @@ function renderCoverageSection(summary, thresholds) {
   ];
 }
 
-const [summary, c8Config] = await Promise.all([readJson('coverage/coverage-summary.json'), readJson('.c8rc.json')]);
+const AUTOMATED_COVERAGE_TYPES = new Set(['playwright-e2e', 'storybook', 'unit-dom']);
+
+function renderCoverageMapSection(coverageMap) {
+  const entries = Array.isArray(coverageMap?.entries) ? coverageMap.entries : [];
+  if (entries.length === 0) {
+    return ['### Acceptance coverage map', '', '_No `tests/e2e/coverage-map.json` entries found._'];
+  }
+
+  const distribution = new Map();
+  const unautomated = [];
+  for (const entry of entries) {
+    // Guard against a malformed entry (coverage not an array) — degrade, don't throw.
+    const coverages = Array.isArray(entry.coverage) ? entry.coverage : [];
+    const types = new Set(coverages.map((coverage) => coverage.type));
+    for (const type of types) distribution.set(type, (distribution.get(type) ?? 0) + 1);
+    const hasAutomated = [...types].some((type) => AUTOMATED_COVERAGE_TYPES.has(type));
+    if (!hasAutomated) unautomated.push({ id: entry.id, types: [...types].sort() });
+  }
+
+  const distributionLine = [...distribution.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([type, count]) => `${type}: ${count}`)
+    .join(' · ');
+
+  const lines = [
+    '### Acceptance coverage map',
+    '',
+    `${entries.length} canonical flows — flow count per coverage source (a flow may use several, so these can sum to more than ${entries.length}): ${distributionLine}`,
+    '',
+  ];
+  if (unautomated.length === 0) {
+    lines.push('✅ Every flow has automated coverage.');
+  } else {
+    lines.push(`⚠️ ${unautomated.length} flow(s) with **no automated coverage** (manual/deferred only):`);
+    for (const flow of unautomated) lines.push(`- \`${flow.id}\` — ${flow.types.join(', ')}`);
+  }
+  return lines;
+}
+
+const [summary, coverageMap, c8Config] = await Promise.all([
+  readJson('coverage/coverage-summary.json'),
+  readJson('tests/e2e/coverage-map.json'),
+  readJson('.c8rc.json'),
+]);
 
 const thresholds = {
   lines: c8Config?.lines,
@@ -88,7 +132,14 @@ if (process.env.GITHUB_ACTIONS && summary?.total) {
   }
 }
 
-const markdown = ['## Test coverage', '', ...renderCoverageSection(summary, thresholds), ''].join('\n');
+const markdown = [
+  '## Test coverage',
+  '',
+  ...renderCoverageSection(summary, thresholds),
+  '',
+  ...renderCoverageMapSection(coverageMap),
+  '',
+].join('\n');
 
 const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 if (summaryPath) {
