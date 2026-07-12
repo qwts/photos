@@ -8,6 +8,10 @@ on:
   push:
     branches:
       - main
+  # The version-cut workflow dispatches CI onto its bot-maintained version branch:
+  # GITHUB_TOKEN-created PRs get no pull_request runs, yet main requires the
+  # "CI" and "E2E gate" checks (contexts match by name across event types).
+  workflow_dispatch:
 
 # Cancel superseded PR runs — a stacked push otherwise burns a full run per commit. Main-push
 # runs are keyed by SHA instead of ref: a shared ref group would let GitHub replace the single
@@ -30,12 +34,15 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      e2e: ${{ steps.filter.outputs.e2e }}
+      # workflow_dispatch (the version branch) always runs E2E: paths-filter has no
+      # base for dispatch events, and the version bump touches package.json anyway.
+      e2e: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.e2e }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Filter paths
         id: filter
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: dorny/paths-filter@v4
         with:
           filters: |

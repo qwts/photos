@@ -1,0 +1,111 @@
+# Version-cut automation (#171): consumes accumulated changesets into releases.
+#
+# Two halves, both driven by pushes to main:
+#  1. version-pr — while changesets are pending, keep a "Version packages" PR
+#     open and current (changesets/action force-refreshes changeset-release/main
+#     on every main push). Merging that PR is the human "cut a release" act.
+#  2. tag — after the version PR merges (no changesets pending, version in
+#     package.json untagged), tag v<version> and hand off to the release
+#     workflow.
+#
+# GITHUB_TOKEN events cannot trigger other workflows, which bites twice here:
+#  - the bot-refreshed version PR gets no pull_request CI runs, yet main
+#    requires the "CI" and "E2E gate" checks — so we explicitly dispatch ci.yml
+#    onto the version branch after each refresh;
+#  - the tag push triggers no on:push:tags run — so we explicitly dispatch the
+#    release workflow instead of relying on the tag event.
+name: Version cut
+
+on:
+  push:
+    branches:
+      - main
+  # Manual refresh / recovery (e.g. re-tag after a partial failure).
+  workflow_dispatch:
+
+# Serialize whole-workflow runs: back-to-back merges otherwise race the
+# version-branch force-push and the tag/rev-parse check.
+concurrency:
+  group: version-cut
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version-pr:
+    name: Version packages PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # Dispatching ci.yml onto the version branch.
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # The changeset CLI is plain JS — skip postinstall (Electron binary
+      # download + native rebuild) that versioning never needs.
+      - name: Install dependencies (scripts skipped)
+        run: npm ci --ignore-scripts
+
+      - name: Create or refresh the Version packages PR
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: npx changeset version
+          commit: 'Version packages'
+          title: 'Version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run required checks on the version branch
+        if: steps.changesets.outputs.hasChangesets == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref changeset-release/main
+
+  tag:
+    name: Tag version merges
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # Dispatching the release workflow for the new tag.
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Tags + history for the already-tagged check.
+          fetch-depth: 0
+
+      - name: Tag when the current version is a fresh cut
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pending=$(find .changeset -name '*.md' ! -name 'README.md' | head -1)
+          if [ -n "$pending" ]; then
+            echo "Changesets pending — nothing to tag."
+            exit 0
+          fi
+          version="v$(node -p "require('./package.json').version")"
+          if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
+            echo "$version already tagged."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "$version" -m "Release $version"
+          git push origin "$version"
+          echo "Tagged $version."
+          # Tag pushes from GITHUB_TOKEN fire no workflows — dispatch the
+          # release directly. Survives release.yml not existing yet (#172).
+          gh workflow run release.yml --ref "$version" \
+            || echo "::notice::release.yml not dispatchable yet (#172) — tag $version created without a release run."
