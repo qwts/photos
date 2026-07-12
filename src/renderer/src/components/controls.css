@@ -1,0 +1,223 @@
+/* Core controls (#57) — pixel-matched to components/core/core.card.html.
+   Tokens only; the three literal colors the mock hardcodes are named here
+   once (source: Button.jsx primary hover/press, danger hover foreground). */
+:root {
+  --btn-primary-hover: oklch(0.78 0.125 215);
+  --btn-primary-press: oklch(0.68 0.125 215);
+  --on-danger-strong: oklch(0.97 0.005 25);
+}
+
+/* ---- Button ---- */
+.ovl-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  border-radius: var(--radius-1);
+  font: var(--type-body);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.ovl-button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: default;
+}
+
+.ovl-button--sm {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.ovl-button--md {
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  font-size: var(--text-md);
+}
+
+.ovl-button--lg {
+  height: var(--control-h-lg);
+  padding: 0 var(--space-5);
+  font-size: var(--text-md);
+}
+
+.ovl-button--primary {
+  background: var(--accent-cyan);
+  color: var(--text-on-accent);
+}
+
+.ovl-button--primary:hover {
+  background: var(--btn-primary-hover);
+}
+
+.ovl-button--primary:active {
+  background: var(--btn-primary-press);
+}
+
+.ovl-button--secondary {
+  background: var(--gray-3);
+  color: var(--text-body);
+  border-color: var(--border-1);
+}
+
+.ovl-button--secondary:hover {
+  background: var(--gray-4);
+}
+
+.ovl-button--secondary:active {
+  background: var(--gray-2);
+}
+
+.ovl-button--ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.ovl-button--ghost:hover,
+.ovl-button--ghost:active {
+  background: var(--gray-3);
+  color: var(--text-body);
+}
+
+.ovl-button--danger {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+}
+
+.ovl-button--danger:hover,
+.ovl-button--danger:active {
+  background: var(--accent-red);
+  color: var(--on-danger-strong);
+}
+
+/* ---- IconButton ---- */
+.ovl-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-1);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.ovl-icon-button:hover {
+  background: var(--gray-3);
+  color: var(--text-body);
+}
+
+.ovl-icon-button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: default;
+}
+
+.ovl-icon-button--active,
+.ovl-icon-button--active:hover {
+  background: var(--accent-cyan-dim);
+  color: var(--accent-cyan);
+}
+
+.ovl-icon-button--sm {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+}
+
+.ovl-icon-button--md {
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+}
+
+.ovl-icon-button--lg {
+  width: var(--control-h-lg);
+  height: var(--control-h-lg);
+}
+
+/* ---- Badge ---- */
+.ovl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 18px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  font: var(--type-meta);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ovl-badge--neutral {
+  background: var(--gray-3);
+  color: var(--text-muted);
+}
+
+.ovl-badge--cyan {
+  background: var(--accent-cyan-dim);
+  color: var(--accent-cyan);
+}
+
+.ovl-badge--amber {
+  background: var(--accent-amber-dim);
+  color: var(--accent-amber);
+}
+
+.ovl-badge--green {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+}
+
+.ovl-badge--red {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+}
+
+/* ---- Tooltip ---- */
+.ovl-tooltip {
+  position: relative;
+  display: inline-flex;
+}
+
+.ovl-tooltip__bubble {
+  position: absolute;
+  z-index: 100;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 6px);
+  background: var(--gray-4);
+  color: var(--text-body);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-1);
+  padding: 3px var(--space-3);
+  font-size: var(--text-sm);
+  font-family: var(--font-ui);
+  white-space: nowrap;
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+  animation: ovl-tooltip-fade var(--duration-normal) var(--ease-out);
+}
+
+.ovl-tooltip__bubble--bottom {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+
+@keyframes ovl-tooltip-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
