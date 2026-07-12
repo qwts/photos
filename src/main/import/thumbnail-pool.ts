@@ -1,0 +1,168 @@
+import { Worker } from 'node:worker_threads';
+
+import { embeddedJpegFromRaf } from './raf-preview.js';
+import type { ThumbJobRequest, ThumbJobResponse } from './thumbnail-worker.js';
+
+// Bounded worker pool (#86): sharp runs off the main thread per ADR-0006.
+// Each worker carries permanent message/exit listeners and at most one
+// current job — a crash rejects only that job and corrects the pool's
+// accounting whether the worker was busy OR idle, so the queue never hangs
+// and the pool never leaks capacity. Cancellation drains queued jobs
+// without spending worker time.
+
+export interface ThumbnailDerivatives {
+  readonly thumb: Buffer;
+  readonly mid: Buffer;
+  readonly width: number | null;
+  readonly height: number | null;
+}
+
+interface Job {
+  readonly bytes: Buffer;
+  readonly signal: AbortSignal | undefined;
+  readonly resolve: (result: ThumbnailDerivatives | null) => void;
+  readonly reject: (error: Error) => void;
+}
+
+interface CurrentJob {
+  readonly jobId: number;
+  readonly job: Job;
+}
+
+export interface ThumbnailPoolOptions {
+  /** Worker entry URL — production passes the bundled worker, tests the compiled one. */
+  readonly workerUrl: URL;
+  /** Bounded parallelism. Default 2. */
+  readonly size?: number | undefined;
+}
+
+export class ThumbnailPool {
+  private readonly workerUrl: URL;
+  private readonly size: number;
+  private readonly workers = new Set<Worker>();
+  private readonly idle: Worker[] = [];
+  private readonly current = new Map<Worker, CurrentJob>();
+  private readonly queue: Job[] = [];
+  private nextJobId = 1;
+  private closed = false;
+
+  constructor(options: ThumbnailPoolOptions) {
+    this.workerUrl = options.workerUrl;
+    this.size = options.size ?? 2;
+  }
+
+  /**
+   * Decodable-image derivatives per ADR-0006, or null when the bytes are not
+   * decodable (the placeholder contract) or the job was cancelled. RAF
+   * containers resolve their embedded preview first; a RAW with no usable
+   * preview is a placeholder, never a failed import.
+   */
+  async generate(bytes: Buffer, signal?: AbortSignal): Promise<ThumbnailDerivatives | null> {
+    if (this.closed) {
+      throw new Error('thumbnail pool is closed');
+    }
+    if (signal?.aborted === true) {
+      return null;
+    }
+    const target = embeddedJpegFromRaf(bytes) ?? bytes;
+    return new Promise<ThumbnailDerivatives | null>((resolve, reject) => {
+      this.queue.push({ bytes: target, signal, resolve, reject });
+      this.pump();
+    });
+  }
+
+  async close(): Promise<void> {
+    this.closed = true;
+    await Promise.all([...this.workers].map(async (worker) => worker.terminate()));
+  }
+
+  private pump(): void {
+    while (this.queue.length > 0) {
+      const job = this.queue[0];
+      if (job === undefined) {
+        return;
+      }
+      if (job.signal?.aborted === true) {
+        this.queue.shift();
+        job.resolve(null);
+        continue;
+      }
+      const worker = this.checkout();
+      if (worker === null) {
+        return; // At capacity — the next completion or exit re-pumps.
+      }
+      this.queue.shift();
+      this.dispatch(worker, job);
+    }
+  }
+
+  private checkout(): Worker | null {
+    const worker = this.idle.pop();
+    if (worker !== undefined) {
+      return worker;
+    }
+    if (this.workers.size >= this.size) {
+      return null;
+    }
+    return this.spawn();
+  }
+
+  private spawn(): Worker {
+    const worker = new Worker(this.workerUrl);
+    this.workers.add(worker);
+    worker.on('message', (response: ThumbJobResponse) => {
+      this.onMessage(worker, response);
+    });
+    worker.on('exit', (code: number) => {
+      this.onExit(worker, code);
+    });
+    return worker;
+  }
+
+  private onMessage(worker: Worker, response: ThumbJobResponse): void {
+    const entry = this.current.get(worker);
+    if (entry === undefined || entry.jobId !== response.jobId) {
+      return;
+    }
+    this.current.delete(worker);
+    if (entry.job.signal?.aborted === true || !response.ok) {
+      // Undecodable bytes → placeholder marker, not a failure (E5.3); a
+      // cancelled batch drops its in-flight result the same way.
+      entry.job.resolve(null);
+    } else {
+      entry.job.resolve({
+        thumb: Buffer.from(response.thumb ?? new Uint8Array()),
+        mid: Buffer.from(response.mid ?? new Uint8Array()),
+        width: response.width ?? null,
+        height: response.height ?? null,
+      });
+    }
+    this.idle.push(worker);
+    this.pump();
+  }
+
+  private onExit(worker: Worker, code: number): void {
+    // Fires for busy AND idle workers: correct the books either way, reject
+    // only the crashed worker's own job, and respawn lazily via pump().
+    this.workers.delete(worker);
+    const idleAt = this.idle.indexOf(worker);
+    if (idleAt !== -1) {
+      this.idle.splice(idleAt, 1);
+    }
+    const entry = this.current.get(worker);
+    if (entry !== undefined) {
+      this.current.delete(worker);
+      entry.job.reject(new Error(`thumbnail worker exited with code ${String(code)}`));
+    }
+    if (!this.closed) {
+      this.pump();
+    }
+  }
+
+  private dispatch(worker: Worker, job: Job): void {
+    const jobId = this.nextJobId;
+    this.nextJobId += 1;
+    this.current.set(worker, { jobId, job });
+    worker.postMessage({ jobId, bytes: job.bytes } satisfies ThumbJobRequest);
+  }
+}

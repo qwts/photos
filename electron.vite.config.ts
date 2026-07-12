@@ -32,7 +32,18 @@ function relaxCspForDev(): Plugin {
 }
 
 export default defineConfig({
-  main: {},
+  main: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: 'src/main/index.ts',
+          // The #86 thumbnail worker boots via new Worker(url) at runtime,
+          // so it needs its own bundle entry next to index.js.
+          'thumbnail-worker': 'src/main/import/thumbnail-worker.ts',
+        },
+      },
+    },
+  },
   preload: {
     build: {
       rollupOptions: {
