@@ -21,9 +21,10 @@
 
 <!-- UI-touching PRs (src/renderer .ts/.tsx/.css) must update tests/e2e/coverage-map.json — add or -->
 <!-- update the flow's entry (playwright-e2e / storybook / unit-dom, or manual with a reason / -->
-<!-- deferred with an issue). No user-facing impact? Say `no-acceptance-impact` here instead. -->
+<!-- deferred with an issue). The gate only honors the opt-out below when its box is CHECKED. -->
 
-- [ ] Coverage map updated, or `no-acceptance-impact` (say why)
+- [ ] Coverage map updated
+- [ ] `no-acceptance-impact` — this PR touches renderer source but changes no user-facing flow (say why)
 
 ## Testing
 
