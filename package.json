@@ -92,6 +92,10 @@
   "allowScripts": {
     "electron@43.1.0": true,
     "esbuild@0.25.12": true,
-    "esbuild@0.28.1": true
+    "esbuild@0.28.1": true,
+    "better-sqlite3-multiple-ciphers@12.11.1": true
+  },
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "12.11.1"
   }
 }
