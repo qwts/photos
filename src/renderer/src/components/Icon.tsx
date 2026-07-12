@@ -89,17 +89,20 @@ const ICONS = {
   'trash-2': Trash2,
 } satisfies Record<IconName, typeof Album>;
 
-export type IconSize = 14 | 16 | 20;
+// 14/16/20 are the DS's stated sizes; 11 (Badge glyphs) and 18 (lg Button)
+// are the design mock's own additional usages, adopted as-is.
+export type IconSize = 11 | 14 | 16 | 18 | 20;
 
 export interface IconProps {
   readonly name: IconName;
-  /** DS sizes only: 14 (dense/mono rows), 16 (default UI), 20 (toolbar). */
   readonly size?: IconSize;
   /** Defaults to currentColor so icons inherit text color/tokens. */
   readonly color?: string;
+  /** 1.75 everywhere except Badge glyphs (the mock uses 2 at 11px). */
+  readonly strokeWidth?: 1.75 | 2;
 }
 
-export function Icon({ name, size = 16, color = 'currentColor' }: IconProps): ReactElement {
+export function Icon({ name, size = 16, color = 'currentColor', strokeWidth = 1.75 }: IconProps): ReactElement {
   const Glyph = ICONS[name];
-  return <Glyph size={size} strokeWidth={1.75} color={color} aria-hidden style={{ flex: 'none' }} />;
+  return <Glyph size={size} strokeWidth={strokeWidth} color={color} aria-hidden style={{ flex: 'none' }} />;
 }
