@@ -1,0 +1,20 @@
+# Unsigned dev packaging (#53). Signing/notarization arrives with M11 —
+# until then mac builds carry no identity and win builds are unsigned nsis.
+appId: com.qwts.overlook
+productName: Overlook
+directories:
+  output: release
+files:
+  - out/**
+# Everything ships bundled by electron-vite (no runtime node_modules yet);
+# native modules must land in "dependencies" so npmRebuild picks them up
+# (ADR-0006's prebuilt-only policy — better-sqlite3/sharp arrive with M03).
+npmRebuild: true
+mac:
+  target:
+    - dmg
+    - zip
+  identity: null
+win:
+  target:
+    - nsis
