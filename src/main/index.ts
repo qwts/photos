@@ -9,7 +9,8 @@ import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { KeyStore } from './crypto/keystore.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
-import { registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
+import { ImportService } from './import/import-service.js';
+import { registerImportHandlers, registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerThumbProtocol, registerThumbSchemePrivileges } from './thumbs/thumb-protocol.js';
@@ -92,6 +93,27 @@ function getLibraryService(): LibraryService {
   return libraryService;
 }
 
+let importService: ImportService | undefined;
+
+function getImportService(): ImportService {
+  if (importService === undefined) {
+    getLibraryService();
+    const parts = libraryParts;
+    if (parts === undefined) {
+      throw new Error('library bootstrap failed; import service unavailable');
+    }
+    const emitScanProgress = createEmitter(events.scanProgress, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    importService = new ImportService(new PhotosRepository(parts.db), {
+      scanProgress: (path, progress) => {
+        emitScanProgress({ path, ...progress });
+      },
+    });
+  }
+  return importService;
+}
+
 let thumbService: ThumbService | undefined;
 
 function getThumbService(): ThumbService {
@@ -170,6 +192,7 @@ void app.whenReady().then(async () => {
   registerIpcHandlers();
   registerLibraryHandlers(getLibraryService);
   registerThumbProtocol(getThumbService);
+  registerImportHandlers(getImportService);
   const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();

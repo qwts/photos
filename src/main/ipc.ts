@@ -3,6 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 
 import { channels } from '../shared/ipc/channels.js';
 import { wrapHandler } from '../shared/ipc/registry.js';
+import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
 
 function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
@@ -33,6 +34,15 @@ export function registerLibraryHandlers(getService: () => LibraryService): void 
   );
   ipcMain.handle(channels.libraryAlbums.name, (_event, request: unknown) =>
     wrapHandler(channels.libraryAlbums, () => ({ albums: getService().albums() }))(request),
+  );
+}
+
+export function registerImportHandlers(getService: () => ImportService): void {
+  ipcMain.handle(channels.importListSources.name, (_event, request: unknown) =>
+    wrapHandler(channels.importListSources, async () => ({ sources: await getService().listSources() }))(request),
+  );
+  ipcMain.handle(channels.importScanSource.name, (_event, request: unknown) =>
+    wrapHandler(channels.importScanSource, async ({ path }) => getService().scanSource(path))(request),
   );
 }
 

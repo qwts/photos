@@ -194,6 +194,13 @@ export class PhotosRepository {
     return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount() };
   }
 
+  /** Dedupe primitive (#84): does this content already live in the library?
+   *  Deleted-but-unpurged photos still own their blobs, so no deleted_at
+   *  filter — re-importing them is still "not new". */
+  hasContentHash(contentHash: string): boolean {
+    return queryGet<{ one: number }>(this.db, 'SELECT 1 AS one FROM photos WHERE content_hash = ? LIMIT 1', contentHash) !== undefined;
+  }
+
   /** Sidebar albums list (#80): names + live membership counts. */
   albums(): AlbumSummary[] {
     return queryAll<{ id: string; name: string; n: number }>(
