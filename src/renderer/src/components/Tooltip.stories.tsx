@@ -31,6 +31,15 @@ export const AppearsOnHover: Story = {
     await waitFor(async () => {
       await expect(canvas.queryByRole('tooltip')).not.toBeInTheDocument();
     });
+    // Keyboard parity (PR #140 review): focus shows the same hint.
+    await userEvent.tab();
+    await waitFor(async () => {
+      await expect(canvas.getByRole('tooltip')).toHaveTextContent('All photos backed up');
+    });
+    await userEvent.tab();
+    await waitFor(async () => {
+      await expect(canvas.queryByRole('tooltip')).not.toBeInTheDocument();
+    });
   },
 };
 
