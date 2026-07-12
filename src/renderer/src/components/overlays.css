@@ -92,3 +92,17 @@
   gap: var(--space-3);
   align-items: flex-end;
 }
+
+/* Toast action (#89): the "Show" jump in the import-completion toast. */
+.ovl-toast__action {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-cyan);
+  font: var(--type-meta);
+  cursor: pointer;
+}
+
+.ovl-toast__action:hover {
+  text-decoration: underline;
+}

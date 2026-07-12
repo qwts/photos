@@ -33,6 +33,8 @@ export interface ImportDialogProps {
   readonly onClose: () => void;
   /** "Show in library" — the shell jumps to Recent imports (E6.7). */
   readonly onDone: () => void;
+  /** Clean completion (no failures): feeds the green toast (#89). */
+  readonly onComplete?: ((imported: number) => void) | undefined;
 }
 
 type Phase = 'options' | 'running' | 'done';
@@ -42,7 +44,7 @@ interface Bar {
   readonly total: number;
 }
 
-export function ImportDialog({ open, source, onClose, onDone }: ImportDialogProps): ReactElement | null {
+export function ImportDialog({ open, source, onClose, onDone, onComplete }: ImportDialogProps): ReactElement | null {
   const [phase, setPhase] = useState<Phase>('options');
   const [mode, setMode] = useState<'copy' | 'move'>('copy');
   const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: source.newCount });
@@ -79,6 +81,9 @@ export function ImportDialog({ open, source, onClose, onDone }: ImportDialogProp
         setImported(summary.imported);
         setFailed(summary.failed);
         setPhase('done');
+        if (summary.failed === 0) {
+          onComplete?.(summary.imported);
+        }
       })
       .catch(() => {
         // The run itself died (source vanished mid-scan): nothing on the

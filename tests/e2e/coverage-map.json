@@ -1,89 +1,170 @@
 {
-  "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered — automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
+  "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered \u2014 automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
   "entries": [
     {
       "id": "m04-browse-zoom",
       "wiki": "User-Story-M04-Library-browsing",
       "coverage": [
-        { "type": "playwright-e2e", "path": "tests/e2e/browse.spec.ts" },
-        { "type": "playwright-e2e", "path": "tests/e2e/grid.spec.ts" },
-        { "type": "storybook", "path": "src/renderer/src/grid/VirtualGrid.stories.tsx" }
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/grid.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/VirtualGrid.stories.tsx"
+        }
       ]
     },
     {
       "id": "m04-grid-list-toggle",
       "wiki": "User-Story-M04-Library-browsing",
       "coverage": [
-        { "type": "playwright-e2e", "path": "tests/e2e/browse.spec.ts" },
-        { "type": "storybook", "path": "src/renderer/src/grid/ListRow.stories.tsx" }
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/ListRow.stories.tsx"
+        }
       ]
     },
     {
       "id": "m04-search-and-chips",
       "wiki": "User-Story-M04-Library-browsing",
-      "coverage": [{ "type": "playwright-e2e", "path": "tests/e2e/browse.spec.ts" }]
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        }
+      ]
     },
     {
       "id": "m04-selection-and-pill",
       "wiki": "User-Story-M04-Library-browsing",
       "coverage": [
-        { "type": "playwright-e2e", "path": "tests/e2e/browse.spec.ts" },
-        { "type": "storybook", "path": "src/renderer/src/grid/SelectionPill.stories.tsx" }
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/SelectionPill.stories.tsx"
+        }
       ]
     },
     {
       "id": "m04-sidebar-sources-and-albums",
       "wiki": "User-Story-M04-Library-browsing",
-      "coverage": [{ "type": "playwright-e2e", "path": "tests/e2e/browse.spec.ts" }]
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        }
+      ]
     },
     {
       "id": "m04-chrome-status-truth",
       "wiki": "User-Story-M04-Library-browsing",
-      "coverage": [{ "type": "playwright-e2e", "path": "tests/e2e/browse.spec.ts" }]
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        }
+      ]
     },
     {
       "id": "m04-thumbnail-delivery",
       "wiki": "User-Story-M04-Library-browsing",
       "coverage": [
-        { "type": "playwright-e2e", "path": "tests/e2e/seeded-library.spec.ts" },
-        { "type": "unit-dom", "path": "tests/thumbs/thumb-service.test.ts" }
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/seeded-library.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/thumbs/thumb-service.test.ts"
+        }
       ]
     },
     {
       "id": "m04-200k-scroll-performance",
       "wiki": "User-Story-M04-Library-browsing",
       "coverage": [
-        { "type": "playwright-e2e", "path": "tests/e2e/grid.spec.ts" },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/grid.spec.ts"
+        },
         {
           "type": "manual",
-          "reason": "The 200K profile takes ~17s to seed; the recorded baseline lives in the wiki Testing-Strategy §Perf baselines and re-runs via npm run seed:perf when the engine changes. CI keeps the 2,000-row variant."
+          "reason": "The 200K profile takes ~17s to seed; the recorded baseline lives in the wiki Testing-Strategy \u00a7Perf baselines and re-runs via npm run seed:perf when the engine changes. CI keeps the 2,000-row variant."
         }
       ]
     },
     {
       "id": "m04-frameless-window-smoke",
       "wiki": "User-Story-M01-Desktop-shell",
-      "coverage": [{ "type": "playwright-e2e", "path": "tests/e2e/smoke.spec.ts" }]
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/smoke.spec.ts"
+        }
+      ]
     },
     {
       "id": "m04-lightbox-open",
       "wiki": "User-Story-M06-Lightbox-Inspector",
-      "coverage": [{ "type": "deferred", "issue": 96 }]
+      "coverage": [
+        {
+          "type": "deferred",
+          "issue": 96
+        }
+      ]
     },
     {
       "id": "m05-import-dialog",
       "wiki": "User-Story-M05-Import-pipeline",
       "coverage": [
-        { "type": "storybook", "path": "src/renderer/src/import/ImportDialog.stories.tsx" },
-        { "type": "deferred", "issue": 90 }
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/import/ImportDialog.stories.tsx"
+        },
+        {
+          "type": "deferred",
+          "issue": 90
+        }
       ]
     },
     {
       "id": "m06-full-res-delivery",
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [
-        { "type": "playwright-e2e", "path": "tests/e2e/fullres.spec.ts" },
-        { "type": "unit-dom", "path": "tests/fullres/full-service.test.ts" }
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/fullres.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/fullres/full-service.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "m05-recent-imports-toast",
+      "wiki": "User-Story-M05-Import-pipeline",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "path": "tests/library/app-state.test.ts"
+        },
+        {
+          "type": "deferred",
+          "issue": 90
+        }
       ]
     }
   ]

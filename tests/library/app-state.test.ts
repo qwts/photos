@@ -112,4 +112,16 @@ describe('app state reducer', () => {
     state = apply(state, { type: 'toast/dismissed' });
     assert.equal(state.toast, null);
   });
+
+  test('import-completion toast carries its serializable Show action (#89)', () => {
+    const state = apply(initialAppState, {
+      type: 'toast/shown',
+      toast: { title: 'Imported 1,204 photos', tone: 'green', action: 'show-recent' },
+    });
+    assert.equal(state.toast?.action, 'show-recent');
+    // The Show jump is a plain source/set — reducer semantics unchanged.
+    const jumped = apply(state, { type: 'source/set', source: 'recent' }, { type: 'toast/dismissed' });
+    assert.equal(jumped.source, 'recent');
+    assert.equal(jumped.toast, null);
+  });
 });
