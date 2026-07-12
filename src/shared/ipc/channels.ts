@@ -62,6 +62,7 @@ const photoRecordSchema = z.object({
   favorite: z.boolean(),
   keyId: z.number(),
   deletedAt: z.string().nullable(),
+  syncState: z.enum(['local', 'syncing', 'synced', 'offloaded']),
 });
 
 export const channels = {

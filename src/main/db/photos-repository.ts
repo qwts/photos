@@ -38,6 +38,7 @@ interface PhotoRow {
   favorite: number;
   key_id: number;
   deleted_at: string | null;
+  sync_state: string | null;
   sort_key: string;
 }
 
@@ -65,12 +66,15 @@ function toRecord(row: PhotoRow): PhotoRecord {
     favorite: row.favorite === 1,
     keyId: row.key_id,
     deletedAt: row.deleted_at,
+    // New rows always get a ledger row; LEFT JOIN keeps reads total anyway.
+    syncState: (row.sync_state ?? 'local') as PhotoRecord['syncState'],
   };
 }
 
 const SELECT = `
-  SELECT p.*, COALESCE(p.taken_at, p.imported_at) AS sort_key
+  SELECT p.*, l.status AS sync_state, COALESCE(p.taken_at, p.imported_at) AS sort_key
   FROM photos p
+  LEFT JOIN sync_ledger l ON l.photo_id = p.id
 `;
 
 function sourceWhere(source: PageRequest['source']): string {
