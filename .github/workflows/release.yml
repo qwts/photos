@@ -1,0 +1,80 @@
+# Dev releases (#172): v* tag → unsigned builds → GitHub pre-release.
+#
+# Normally dispatched by version-cut.yml right after it tags (GITHUB_TOKEN tag
+# pushes fire no workflows); the on:push:tags trigger still covers tags pushed
+# by humans. Builds reuse the Package workflow via workflow_call so the matrix
+# lives in one place. Pre-release (not release) while builds are unsigned —
+# signed/notarized promotion is #128.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build packages
+    uses: ./.github/workflows/package.yml
+
+  publish:
+    name: Publish pre-release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Guard tag shape
+        run: |
+          case "$GITHUB_REF_NAME" in
+            v[0-9]*) ;;
+            *) echo "::error::Release runs only on v* tags (got $GITHUB_REF_NAME)."; exit 1;;
+          esac
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: overlook-*
+          path: dist
+          merge-multiple: true
+
+      - name: Zip the design package
+        run: (cd design && zip -qr ../dist/overlook-design-package.zip handoff)
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v ver="$version" '
+            $0 ~ "^## " ver "$" { grab = 1; next }
+            grab && /^## / { exit }
+            grab { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "_No CHANGELOG section found for $version._" > notes.md
+          fi
+
+      - name: Create pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME exists — replacing assets."
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --prerelease \
+              --title "Overlook $GITHUB_REF_NAME (unsigned dev build)" \
+              --notes-file notes.md \
+              --repo "$GITHUB_REPOSITORY"
+          fi
