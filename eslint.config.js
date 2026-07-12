@@ -24,6 +24,13 @@ export default tseslint.config(
       },
     },
     rules: {
+      // Size discipline, repo-wide from day one (greenfield: no legacy exemptions).
+      // Keep the 800 budget in sync with scripts/check-new-file-size.mjs — that script
+      // guards new/untracked files with a physical-line count; this rule is what stops
+      // EXISTING files growing past the cap (it skips blanks/comments, so it is the
+      // slightly looser bound of the pair).
+      'max-lines': ['error', { max: 800, skipBlankLines: true, skipComments: true }],
+      'max-lines-per-function': ['warn', { max: 80, skipBlankLines: true, skipComments: true }],
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': [

@@ -7,7 +7,9 @@
   "scripts": {
     "format": "prettier --write \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
     "format:check": "prettier --check \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
-    "lint": "eslint . && npm run lint:cycles && npm run lint:dead && npm run lint:types",
+    "lint": "npm run lint:package && npm run lint:new-files && eslint . && npm run lint:cycles && npm run lint:dead && npm run lint:types",
+    "lint:package": "node scripts/check-package-pins.mjs",
+    "lint:new-files": "node scripts/check-new-file-size.mjs",
     "lint:cycles": "madge --circular --extensions ts src",
     "lint:dead": "knip",
     "lint:types": "type-coverage --at-least 99.8 --strict",
