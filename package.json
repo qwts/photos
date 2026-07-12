@@ -5,10 +5,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "format": "prettier --write \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
+    "prettier": "3.9.5",
     "typescript": "7.0.2"
   }
 }
