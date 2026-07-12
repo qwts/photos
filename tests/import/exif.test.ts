@@ -21,7 +21,9 @@ describe('EXIF extraction (#85)', () => {
     assert.equal(meta.aperture, '1.4');
     assert.equal(meta.shutter, '1/250');
     assert.equal(meta.focalLength, 35);
-    assert.ok(meta.takenAt?.startsWith('2026-06-12'), meta.takenAt ?? 'null');
+    // Floating wall clock: the EXIF digits verbatim, no offset — identical
+    // whatever timezone the import runs in (Codex review, PR #176).
+    assert.equal(meta.takenAt, '2026-06-12T12:34:56');
     assert.ok(Math.abs((meta.gpsLat ?? 0) - 38.7223) < 0.001);
     assert.ok(Math.abs((meta.gpsLon ?? 0) - -9.1393) < 0.001);
   });

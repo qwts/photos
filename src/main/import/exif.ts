@@ -16,7 +16,11 @@ export interface ExtractedMetadata {
   /** Formatted like the mock's shutter strings: "1/250". */
   readonly shutter: string | null;
   readonly focalLength: number | null;
-  /** ISO 8601, from DateTimeOriginal. */
+  /**
+   * ISO 8601 *floating* local time (no offset/Z), from DateTimeOriginal.
+   * EXIF timestamps are wall-clock digits with no timezone — they are
+   * persisted verbatim so the value never depends on the importer's zone.
+   */
   readonly takenAt: string | null;
   readonly gpsLat: number | null;
   readonly gpsLon: number | null;
@@ -79,11 +83,19 @@ function formatShutter(exposureSeconds: number | null): string | null {
   return `${String(Math.round(exposureSeconds * 10) / 10)}s`;
 }
 
-function asIsoDate(value: unknown): string | null {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString();
+function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function asFloatingIsoDate(value: unknown): string | null {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return null;
   }
-  return null;
+  // exifr revives the (timezone-less) EXIF digits as a Date in the current
+  // process timezone, so the Date's *local* components are the file's
+  // original digits. Serialize those — never toISOString(), which would
+  // shift the stored value by the importer's UTC offset.
+  return `${String(value.getFullYear())}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}T${pad2(value.getHours())}:${pad2(value.getMinutes())}:${pad2(value.getSeconds())}`;
 }
 
 /**
@@ -115,7 +127,7 @@ export async function extractMetadata(bytes: Buffer): Promise<ExtractedMetadata>
     aperture: formatAperture(asFiniteNumber(parsed['FNumber'])),
     shutter: formatShutter(asFiniteNumber(parsed['ExposureTime'])),
     focalLength: asFiniteNumber(parsed['FocalLength']),
-    takenAt: asIsoDate(parsed['DateTimeOriginal']) ?? asIsoDate(parsed['CreateDate']),
+    takenAt: asFloatingIsoDate(parsed['DateTimeOriginal']) ?? asFloatingIsoDate(parsed['CreateDate']),
     gpsLat: asFiniteNumber(parsed['latitude']),
     gpsLon: asFiniteNumber(parsed['longitude']),
   };
