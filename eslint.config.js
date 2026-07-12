@@ -47,10 +47,17 @@ export default tseslint.config(
   },
   {
     // node:test's test()/describe() return promises that the runner itself awaits;
-    // requiring `void`/`await` on every top-level registration is pure noise.
+    // requiring `void`/`await` on every registration is pure noise. Scope the
+    // exemption to exactly those calls so a missed await on an async helper or
+    // assertion inside a test still fails lint.
     files: ['tests/**/*.ts'],
     rules: {
-      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-floating-promises': [
+        'error',
+        {
+          allowForKnownSafeCalls: [{ from: 'package', name: ['test', 'describe', 'it', 'suite'], package: 'node:test' }],
+        },
+      ],
     },
   },
   {
