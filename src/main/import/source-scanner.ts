@@ -35,6 +35,8 @@ export interface SourceScanSummary {
   /** RAW/JPG split of the NEW files (the card's "812 RAW / 392 JPG"). */
   readonly newRaw: number;
   readonly newJpg: number;
+  /** New non-RAW, non-JPEG media (HEIC/PNG) — not JPGs (PR #174 review). */
+  readonly newOther: number;
 }
 
 export interface SourceScanProgress extends SourceScanSummary {
@@ -61,7 +63,15 @@ async function hashFile(path: string): Promise<string> {
 
 async function listMediaFiles(dir: string): Promise<{ path: string; fileName: string; kind: FileKind }[]> {
   const found: { path: string; fileName: string; kind: FileKind }[] = [];
-  const entries = await readdir(dir, { withFileTypes: true });
+  // Unreadable directories (e.g. "System Volume Information" at a Windows
+  // drive root) are skipped, never fatal — one system folder must not sink
+  // the whole source-card scan (PR #174 review).
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return found;
+  }
   for (const entry of entries) {
     const entryPath = join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -92,6 +102,7 @@ export async function scanSource(
   let newBytes = 0;
   let newRaw = 0;
   let newJpg = 0;
+  let newOther = 0;
 
   const snapshot = (scanned: number, done: boolean): SourceScanProgress => ({
     total: candidates.length,
@@ -99,6 +110,7 @@ export async function scanSource(
     newBytes,
     newRaw,
     newJpg,
+    newOther,
     scanned,
     done,
   });
@@ -112,8 +124,10 @@ export async function scanSource(
       newBytes += size;
       if (candidate.kind === 'raw') {
         newRaw += 1;
-      } else {
+      } else if (candidate.kind === 'jpeg') {
         newJpg += 1;
+      } else {
+        newOther += 1;
       }
     }
     files.push({ ...candidate, bytes: size, contentHash, isNew });

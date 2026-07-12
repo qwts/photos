@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -48,6 +48,7 @@ function fixtureCard(): { dir: string; jpegBytes: Buffer[] } {
   // Two "RAW" files (content is arbitrary — the scanner hashes, not decodes).
   writeFileSync(join(dir, 'DCIM', '100MSDCF', 'IMG_9000.RAF'), randomBytes(64));
   writeFileSync(join(dir, 'DCIM', '100MSDCF', 'IMG_9001.ARW'), randomBytes(64));
+  writeFileSync(join(dir, 'DCIM', '100MSDCF', 'IMG_9002.HEIC'), randomBytes(48));
   // Noise the allowlist must ignore.
   writeFileSync(join(dir, 'DCIM', '100MSDCF', 'IMG_9000.XMP'), 'sidecar');
   writeFileSync(join(dir, 'DCIM', '.hiddenfile.jpg'), 'hidden');
@@ -69,27 +70,42 @@ describe('source scan (#84)', () => {
       progress.push(snapshot.scanned);
     });
 
-    assert.equal(summary.total, 6, 'allowlist media only — sidecars/hidden/trash ignored');
-    assert.equal(summary.newCount, 5);
+    assert.equal(summary.total, 7, 'allowlist media only — sidecars/hidden/trash ignored');
+    assert.equal(summary.newCount, 6);
     assert.equal(summary.newRaw, 2);
     assert.equal(summary.newJpg, 3);
-    const expectedBytes = jpegBytes.slice(1).reduce((sum, bytes) => sum + bytes.length, 0) + 64 + 64;
+    assert.equal(summary.newOther, 1, 'HEIC is not a JPG (PR #174 review)');
+    const expectedBytes = jpegBytes.slice(1).reduce((sum, bytes) => sum + bytes.length, 0) + 64 + 64 + 48;
     assert.equal(summary.newBytes, expectedBytes);
-    assert.equal(files.length, 6);
+    assert.equal(files.length, 7);
     assert.equal(files.filter((file) => !file.isNew).length, 1);
-    assert.equal(progress.at(-1), 6, 'a final done snapshot always fires');
+    assert.equal(progress.at(-1), 7, 'a final done snapshot always fires');
   });
 
   test('re-scan after "import" reports 0 new (dedupe by content hash)', async () => {
     const { dir } = fixtureCard();
     const first = await scanSource(dir, { hasContentHash: () => false });
-    assert.equal(first.summary.newCount, 6);
+    assert.equal(first.summary.newCount, 7);
     // "Import" = the library now knows every hash the scan found.
     const known = new Set(first.files.map((file) => file.contentHash));
     const second = await scanSource(dir, { hasContentHash: (hash) => known.has(hash) });
     assert.equal(second.summary.newCount, 0);
     assert.equal(second.summary.newBytes, 0);
-    assert.equal(second.summary.total, 6, 'the card itself is unchanged');
+    assert.equal(second.summary.total, 7, 'the card itself is unchanged');
+  });
+
+  test('an unreadable directory is skipped, never fatal (PR #174 review)', async () => {
+    const { dir } = fixtureCard();
+    const locked = join(dir, 'System Volume Information');
+    mkdirSync(locked);
+    writeFileSync(join(locked, 'ghost.jpg'), 'unreachable');
+    chmodSync(locked, 0o000);
+    try {
+      const { summary } = await scanSource(dir, { hasContentHash: () => false });
+      assert.equal(summary.total, 7, 'valid media still counted');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
   });
 
   test('scanner hash matches the repository dedupe primitive end to end', async () => {
