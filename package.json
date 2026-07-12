@@ -8,11 +8,17 @@
     "format": "prettier --write \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
     "format:check": "prettier --check \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:compile": "rm -rf .test-dist && tsc -p tsconfig.test.json",
+    "test:unit:run": "node --test .test-dist/tests/*.test.js",
+    "test": "npm run typecheck && npm run test:compile && npm run test:unit:run",
+    "test:cov": "npm run typecheck && npm run test:compile && c8 npm run test:unit:run",
+    "coverage:summary": "node scripts/report-coverage-summary.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.3",
+    "c8": "11.0.0",
     "eslint": "10.7.0",
     "prettier": "3.9.5",
     "typescript": "6.0.3",

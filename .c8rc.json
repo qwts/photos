@@ -1,0 +1,11 @@
+{
+  "all": true,
+  "include": ["src/**"],
+  "exclude": ["tests/**", "**/*.test.ts"],
+  "excludeAfterRemap": true,
+  "reporter": ["text", "lcov", "json-summary"],
+  "reports-dir": "coverage",
+  "check-coverage": true,
+  "lines": 90,
+  "branches": 80
+}
