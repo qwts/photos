@@ -1,0 +1,11 @@
+<!-- @dsCard group="Brand" viewport="700x160" subtitle="No logo mark yet — wordmark set in Plex Sans; lock glyph is the identity anchor" name="Wordmark" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css">
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-ui);display:flex;align-items:center;justify-content:center;height:160px;">
+<div style="display:flex;align-items:center;gap:14px;">
+  <i data-lucide="aperture" style="width:28px;height:28px;color:var(--accent-cyan);"></i>
+  <span style="font-size:26px;font-weight:600;letter-spacing:0.14em;color:var(--text-body);">OVERLOOK</span>
+  <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;color:var(--text-faint);margin-left:6px;">PRIVATE PHOTO LIBRARY</span>
+</div>
+<script>lucide.createIcons();</script>
+</body></html>

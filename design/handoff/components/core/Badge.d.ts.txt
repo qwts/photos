@@ -1,0 +1,12 @@
+/**
+ * Uppercase mono status pill (sync/encryption states, counts).
+ */
+export interface BadgeProps {
+  /** "neutral" | "cyan" | "amber" | "green" | "red". Default "neutral" */
+  tone?: "neutral" | "cyan" | "amber" | "green" | "red";
+  /** Optional leading Lucide icon name */
+  icon?: string;
+  children?: React.ReactNode;
+  style?: React.CSSProperties;
+}
+export declare function Badge(props: BadgeProps): JSX.Element;

@@ -1,0 +1,143 @@
+const { Dialog, Button, Switch, Segmented, Slider, ProgressBar, Icon, Badge } = window.DS;
+
+function NavRow({ icon, label, active, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, height: 30, padding: "0 10px",
+        borderRadius: "var(--radius-1)", cursor: "pointer",
+        background: active ? "var(--gray-3)" : hover ? "var(--gray-2)" : "transparent",
+        color: active ? "var(--text-body)" : "var(--text-muted)",
+      }}>
+      <Icon name={icon} size={14} color={active ? "var(--accent-cyan)" : "var(--text-faint)"} />
+      <span style={{ fontSize: "var(--text-md)" }}>{label}</span>
+    </div>
+  );
+}
+
+function Field({ label, hint, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid var(--border-1)" }}>
+      <div>
+        <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>{label}</div>
+        {hint ? <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>{hint}</div> : null}
+      </div>
+      <div style={{ flex: "none" }}>{children}</div>
+    </div>
+  );
+}
+
+function StorageBackupPane() {
+  const [connected, setConnected] = React.useState(true);
+  const [autoBackup, setAutoBackup] = React.useState(true);
+  const [wifiOnly, setWifiOnly] = React.useState(true);
+  const [bandwidth, setBandwidth] = React.useState(80);
+  const [onImport, setOnImport] = React.useState("copy");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12, background: "var(--gray-2)",
+        border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", padding: "12px 14px", marginBottom: 8,
+      }}>
+        <Icon name="cloud" size={20} color={connected ? "var(--accent-cyan)" : "var(--text-faint)"} />
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: "var(--text-md)", color: "var(--text-body)", fontWeight: 500 }}>pCloud</span>
+            {connected ? <Badge tone="green">Connected</Badge> : <Badge tone="neutral">Not connected</Badge>}
+          </div>
+          {connected ? (
+            <React.Fragment>
+              <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>m.rivera@pcloud.com · 380 GB / 500 GB used</div>
+              <ProgressBar value={380} max={500} tone="cyan" style={{ marginTop: 8 }} />
+            </React.Fragment>
+          ) : (
+            <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>Link a pCloud account to store encrypted originals off-device.</div>
+          )}
+        </div>
+        <Button variant={connected ? "secondary" : "primary"} onClick={() => setConnected((v) => !v)}>
+          {connected ? "Disconnect" : "Connect pCloud"}
+        </Button>
+      </div>
+
+      <Field label="Back up new imports automatically" hint="Encrypts and uploads originals to pCloud after import.">
+        <Switch checked={autoBackup} onChange={setAutoBackup} disabled={!connected} />
+      </Field>
+      <Field label="On import, from card or drive" hint="Move frees space immediately; copy keeps the source untouched.">
+        <Segmented value={onImport} onChange={setOnImport} options={[{ value: "copy", label: "Copy" }, { value: "move", label: "Move" }]} />
+      </Field>
+      <Field label="Wi-Fi only" hint="Pause uploads on cellular or metered connections.">
+        <Switch checked={wifiOnly} onChange={setWifiOnly} disabled={!connected} />
+      </Field>
+      <Field label="Upload bandwidth limit" hint={bandwidth >= 100 ? "Unlimited" : bandwidth + "% of available upload"}>
+        <div style={{ opacity: connected ? 1 : 0.45, pointerEvents: connected ? "auto" : "none" }}>
+          <Slider value={bandwidth} min={10} max={100} step={5} onChange={setBandwidth} width={130} />
+        </div>
+      </Field>
+      <Field label="Encrypt originals" hint="Client-side encryption before any upload. Cannot be disabled.">
+        <Switch checked disabled />
+      </Field>
+    </div>
+  );
+}
+
+function GeneralPane() {
+  const [sort, setSort] = React.useState("date");
+  const [theme, setTheme] = React.useState("dark");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <Field label="Default sort order">
+        <Segmented value={sort} onChange={setSort} options={[{ value: "date", label: "Date" }, { value: "name", label: "Name" }, { value: "size", label: "Size" }]} />
+      </Field>
+      <Field label="Appearance">
+        <Segmented value={theme} onChange={setTheme} options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]} />
+      </Field>
+      <Field label="Generate thumbnails on import">
+        <Switch checked disabled />
+      </Field>
+    </div>
+  );
+}
+
+function PrivacyPane() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <Field label="End-to-end encryption" hint="Originals and thumbnails are encrypted on this device before leaving it.">
+        <Badge tone="green">Always on</Badge>
+      </Field>
+      <Field label="Face grouping" hint="Runs entirely on-device; no photo data leaves your library.">
+        <Switch checked disabled />
+      </Field>
+      <Field label="Share diagnostics" hint="Anonymous crash reports only — never photo content or metadata.">
+        <Switch checked={false} onChange={() => {}} />
+      </Field>
+    </div>
+  );
+}
+
+function SettingsDialog({ open, onClose }) {
+  const [pane, setPane] = React.useState("storage");
+  if (!open) return null;
+  const PANES = {
+    general: { label: "General", icon: "sliders-horizontal", render: GeneralPane },
+    storage: { label: "Storage & Backup", icon: "cloud", render: StorageBackupPane },
+    privacy: { label: "Privacy", icon: "shield-check", render: PrivacyPane },
+  };
+  const Active = PANES[pane].render;
+  return (
+    <Dialog title="Settings" icon="settings" width={640} onClose={onClose}>
+      <div style={{ display: "flex", gap: 20, margin: "-4px -8px" }}>
+        <div style={{ width: 160, flex: "none", display: "flex", flexDirection: "column", gap: 2 }}>
+          {Object.entries(PANES).map(([key, p]) => (
+            <NavRow key={key} icon={p.icon} label={p.label} active={pane === key} onClick={() => setPane(key)} />
+          ))}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Active />
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+window.SettingsDialog = SettingsDialog;

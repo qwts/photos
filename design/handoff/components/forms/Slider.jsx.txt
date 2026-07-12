@@ -1,0 +1,30 @@
+import React from "react";
+
+export function Slider({ value = 50, min = 0, max = 100, step = 1, onChange, width = 140, style }) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <input
+      type="range"
+      value={value} min={min} max={max} step={step}
+      onChange={(e) => onChange && onChange(Number(e.target.value))}
+      style={{
+        WebkitAppearance: "none", appearance: "none", width, height: 14, background: "transparent",
+        backgroundImage: `linear-gradient(to right, var(--white-2) ${pct}%, var(--gray-4) ${pct}%)`,
+        backgroundSize: "100% 3px", backgroundPosition: "center", backgroundRepeat: "no-repeat",
+        cursor: "pointer", ...style,
+      }}
+      className="overlook-slider"
+    />
+  );
+}
+
+// Thumb styling must come from a stylesheet; injected once.
+if (typeof document !== "undefined" && !document.getElementById("overlook-slider-style")) {
+  const s = document.createElement("style");
+  s.id = "overlook-slider-style";
+  s.textContent = `
+    .overlook-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--white-1); border: none; box-shadow: var(--shadow-1); }
+    .overlook-slider::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--white-1); border: none; }
+  `;
+  document.head.appendChild(s);
+}

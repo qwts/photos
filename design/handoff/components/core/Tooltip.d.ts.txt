@@ -1,0 +1,10 @@
+/**
+ * Hover tooltip wrapper.
+ */
+export interface TooltipProps {
+  label: string;
+  /** "top" | "bottom". Default "top" */
+  side?: "top" | "bottom";
+  children: React.ReactNode;
+}
+export declare function Tooltip(props: TooltipProps): JSX.Element;

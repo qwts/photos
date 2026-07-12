@@ -1,0 +1,51 @@
+const { MetadataRow, Badge, StatusGlyph } = window.DS;
+
+function Section({ title, children }) {
+  return (
+    <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-1)" }}>
+      <div style={{ font: "var(--type-meta)", letterSpacing: "var(--tracking-wide)", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 6 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Inspector({ photo, onClose }) {
+  if (!photo) return null;
+  const statusText = { local: "LOCAL ONLY — NOT BACKED UP", synced: "ENCRYPTED · PCLOUD · 2H AGO", syncing: "ENCRYPTING → PCLOUD…", offloaded: "OFFLOADED — ORIGINAL IN PCLOUD", error: "SYNC FAILED — WILL RETRY" };
+  const statusTone = { local: "var(--text-muted)", synced: "var(--accent-green)", syncing: "var(--accent-amber)", offloaded: "var(--accent-amber)", error: "var(--accent-red)" };
+  return (
+    <div style={{ width: "var(--inspector-w)", flex: "none", background: "var(--gray-1)", borderLeft: "1px solid var(--border-1)", overflow: "auto", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border-1)", display: "flex", alignItems: "center", gap: 10 }}>
+        <img src={photo.src} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: "var(--radius-tile)" }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--text-body)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{photo.name}</div>
+          <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>{photo.date} · {photo.place.toUpperCase()}</div>
+        </div>
+        <StatusGlyph state={photo.status} />
+      </div>
+      <Section title="Badges">
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <Badge tone="green" icon="lock">Encrypted</Badge>
+          {photo.name.endsWith(".RAF") ? <Badge>RAW</Badge> : <Badge>JPG</Badge>}
+          {photo.favorite ? <Badge tone="cyan" icon="star">Favorite</Badge> : null}
+        </div>
+      </Section>
+      <Section title="Capture">
+        <MetadataRow label="Camera" value={photo.camera} />
+        <MetadataRow label="Lens" value={photo.lens} />
+        <MetadataRow label="Exposure" value={"ƒ/" + photo.f + " · " + photo.shutter + "S · ISO " + photo.iso} />
+        <MetadataRow label="Focal" value={photo.focal + "MM"} />
+      </Section>
+      <Section title="File">
+        <MetadataRow label="Dimensions" value={photo.w + "×" + photo.h + " · " + photo.mp + " MP"} />
+        <MetadataRow label="Size" value={photo.mb.toFixed(1) + " MB"} />
+        <MetadataRow label="Imported" value="2026-07-02 · SD CARD" />
+      </Section>
+      <Section title="Backup">
+        <MetadataRow label="State" value={statusText[photo.status]} tone={statusTone[photo.status]} />
+        <MetadataRow label="Cipher" value="AES-256-GCM · KEY #2" />
+      </Section>
+    </div>
+  );
+}
+window.Inspector = Inspector;

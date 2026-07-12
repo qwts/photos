@@ -1,0 +1,21 @@
+/**
+ * Library grid tile: thumbnail + selection + favorite + sync state.
+ * @startingPoint section="Media" subtitle="Photo tiles, status glyphs, metadata rows" viewport="700x420"
+ */
+export interface PhotoTileProps {
+  /** Thumbnail URL */
+  src: string;
+  alt?: string;
+  selected?: boolean;
+  favorite?: boolean;
+  /** "local" | "synced" | "syncing" | "offloaded" | "error". Default "local" */
+  status?: "local" | "synced" | "syncing" | "offloaded" | "error";
+  /** Show the status glyph (hidden for "local"). Default true */
+  showStatus?: boolean;
+  /** Open the photo (lightbox) */
+  onClick?: () => void;
+  /** Toggle selection (check control) */
+  onToggleSelect?: () => void;
+  style?: React.CSSProperties;
+}
+export declare function PhotoTile(props: PhotoTileProps): JSX.Element;

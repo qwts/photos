@@ -1,0 +1,32 @@
+import React from "react";
+import { Icon } from "../core/Icon.jsx";
+
+export function Chip({ selected = false, icon, onRemove, children, style, ...rest }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: "var(--space-2)",
+        height: "var(--control-h-sm)", padding: "0 var(--space-4)",
+        borderRadius: "var(--radius-full)", cursor: "pointer", whiteSpace: "nowrap",
+        background: selected ? "var(--accent-cyan-dim)" : hover ? "var(--gray-3)" : "var(--gray-2)",
+        color: selected ? "var(--accent-cyan)" : "var(--text-muted)",
+        border: selected ? "1px solid var(--accent-cyan)" : "1px solid var(--border-1)",
+        fontSize: "var(--text-sm)", fontFamily: "var(--font-ui)", fontWeight: "var(--weight-medium)",
+        transition: "background var(--duration-fast) var(--ease-out)", userSelect: "none",
+        ...style,
+      }}
+      {...rest}
+    >
+      {icon ? <Icon name={icon} size={13} /> : null}
+      {children}
+      {onRemove ? (
+        <span onClick={(e) => { e.stopPropagation(); onRemove(); }} style={{ display: "inline-flex", marginRight: -4, opacity: 0.7 }}>
+          <Icon name="x" size={12} />
+        </span>
+      ) : null}
+    </button>
+  );
+}

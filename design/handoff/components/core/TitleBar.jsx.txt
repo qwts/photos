@@ -1,0 +1,57 @@
+import React from "react";
+import { Icon } from "./Icon.jsx";
+
+// Custom frameless-window title bar for the Electron/Tauri shell.
+// This is NOT a browser page header — there is no OS chrome around the app,
+// so this bar (plus its drag region) is the only thing standing in for one.
+//
+// platform="mac": the app should be created with titleBarStyle:"hiddenInset"
+// so macOS draws the real traffic lights over the top-left of this bar —
+// we only reserve the space (`trafficLightInset`) and never draw fake dots.
+// platform="win": there is no native chrome to inherit, so we draw minimal
+// custom minimize/maximize/close controls on the right.
+function WinButton({ icon, tone, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        WebkitAppRegion: "no-drag",
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 44, height: "var(--titlebar-h)", border: "none",
+        background: hover ? (tone === "close" ? "var(--accent-red)" : "var(--gray-3)") : "transparent",
+        color: hover && tone === "close" ? "oklch(0.97 0.005 25)" : "var(--text-muted)",
+        cursor: "pointer", transition: "background var(--duration-fast) var(--ease-out)",
+      }}
+    >
+      <Icon name={icon} size={13} />
+    </button>
+  );
+}
+
+export function TitleBar({ platform = "mac", trafficLightInset = 78, onMinimize, onMaximize, onClose, style }) {
+  const isMac = platform === "mac";
+  return (
+    <div
+      style={{
+        WebkitAppRegion: "drag",
+        flex: "none", height: "var(--titlebar-h)",
+        background: "var(--gray-0)", borderBottom: "1px solid var(--border-1)",
+        display: "flex", alignItems: "center",
+        ...style,
+      }}
+    >
+      {isMac ? <div style={{ width: trafficLightInset, flex: "none" }} /> : null}
+      <div style={{ flex: 1, height: "100%" }} />
+      {!isMac ? (
+        <div style={{ display: "flex", flex: "none" }}>
+          <WinButton icon="minus" onClick={onMinimize} />
+          <WinButton icon="square" onClick={onMaximize} />
+          <WinButton icon="x" tone="close" onClick={onClose} />
+        </div>
+      ) : null}
+    </div>
+  );
+}

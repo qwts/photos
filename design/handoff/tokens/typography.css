@@ -1,0 +1,31 @@
+/* Overlook type system — desktop-density. Sans for UI, Mono for metadata/EXIF/counts. */
+
+:root {
+  --font-ui: "IBM Plex Sans", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Sizes (desktop app density; base 13px) */
+  --text-xs: 11px;      /* mono captions, badges, EXIF labels */
+  --text-sm: 12px;      /* secondary UI, menu items */
+  --text-md: 13px;      /* base UI: buttons, inputs, rows */
+  --text-lg: 15px;      /* panel titles */
+  --text-xl: 18px;      /* dialog titles */
+  --text-display: 24px; /* empty states, onboarding */
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.45;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Mono metadata style: always uppercase + tracked */
+  --tracking-mono: 0.04em;
+  --tracking-wide: 0.08em;
+
+  /* Semantic aliases */
+  --type-body: var(--weight-regular) var(--text-md) / var(--leading-normal) var(--font-ui);
+  --type-label: var(--weight-medium) var(--text-sm) / var(--leading-tight) var(--font-ui);
+  --type-meta: var(--weight-regular) var(--text-xs) / var(--leading-tight) var(--font-mono);
+  --type-title: var(--weight-semibold) var(--text-lg) / var(--leading-tight) var(--font-ui);
+}

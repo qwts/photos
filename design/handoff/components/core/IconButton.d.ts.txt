@@ -1,0 +1,17 @@
+/**
+ * Square icon-only button for toolbars and inline actions.
+ */
+export interface IconButtonProps {
+  /** Lucide icon name */
+  icon: string;
+  /** "sm" (24px) | "md" (28px) | "lg" (34px). Default "md" */
+  size?: "sm" | "md" | "lg";
+  /** Highlighted/toggled state (cyan tint) */
+  active?: boolean;
+  disabled?: boolean;
+  /** Tooltip text via native title */
+  title?: string;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+}
+export declare function IconButton(props: IconButtonProps): JSX.Element;

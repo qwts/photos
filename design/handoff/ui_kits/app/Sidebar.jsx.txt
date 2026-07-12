@@ -1,0 +1,58 @@
+const { Icon, Badge, ProgressBar } = window.DS;
+
+function SideRow({ icon, label, count, active, onClick }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div onClick={onClick} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 8, height: 28, padding: "0 10px",
+        borderRadius: "var(--radius-1)", cursor: "pointer",
+        background: active ? "var(--gray-3)" : hover ? "var(--gray-2)" : "transparent",
+        color: active ? "var(--text-body)" : "var(--text-muted)",
+      }}>
+      <Icon name={icon} size={14} color={active ? "var(--accent-cyan)" : "var(--text-faint)"} />
+      <span style={{ flex: 1, fontSize: "var(--text-md)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+      {count != null ? <span style={{ font: "var(--type-meta)", color: "var(--text-faint)", letterSpacing: "0.02em" }}>{count.toLocaleString()}</span> : null}
+    </div>
+  );
+}
+
+function SideHeading({ children, action }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px", marginTop: 14, marginBottom: 4 }}>
+      <span style={{ font: "var(--type-meta)", letterSpacing: "var(--tracking-wide)", textTransform: "uppercase", color: "var(--text-faint)" }}>{children}</span>
+      {action}
+    </div>
+  );
+}
+
+function Sidebar({ source, setSource, total, onSettings }) {
+  const albums = window.OVERLOOK_ALBUMS;
+  return (
+    <div style={{ width: "var(--sidebar-w)", flex: "none", display: "flex", flexDirection: "column", background: "var(--gray-1)", borderRight: "1px solid var(--border-1)", padding: "var(--space-3)" }}>
+      <SideHeading>Library</SideHeading>
+      <SideRow icon="images" label="All Photos" count={total} active={source === "all"} onClick={() => setSource("all")} />
+      <SideRow icon="star" label="Favorites" count={11} active={source === "favorites"} onClick={() => setSource("favorites")} />
+      <SideRow icon="download" label="Recent imports" count={96} active={source === "recent"} onClick={() => setSource("recent")} />
+      <SideRow icon="cloud" label="Offloaded" count={12} active={source === "offloaded"} onClick={() => setSource("offloaded")} />
+      <SideRow icon="trash-2" label="Recently deleted" count={3} active={source === "trash"} onClick={() => setSource("trash")} />
+      <SideHeading action={<Icon name="plus" size={13} color="var(--text-faint)" />}>Albums</SideHeading>
+      {albums.map((a) => (
+        <SideRow key={a.name} icon={a.icon} label={a.name} count={a.count} active={source === a.name} onClick={() => setSource(a.name)} />
+      ))}
+      <div style={{ flex: 1 }} />
+      <div style={{ background: "var(--gray-2)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="shield-check" size={14} color="var(--accent-green)" />
+          <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-body)", flex: 1 }}>Library encrypted</span>
+          <span onClick={onSettings} style={{ display: "flex", cursor: "pointer" }}>
+            <Icon name="settings" size={13} color="var(--text-faint)" />
+          </span>
+        </div>
+        <ProgressBar label="Backing up" detail="842 / 1,204" value={842} max={1204} tone="amber" />
+        <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", letterSpacing: "0.02em" }}>1.2 TB LOCAL · 380 GB PCLOUD</div>
+      </div>
+    </div>
+  );
+}
+window.Sidebar = Sidebar;

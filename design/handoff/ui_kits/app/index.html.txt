@@ -1,0 +1,147 @@
+<!-- @dsCard group="Overlook App" viewport="1440x900" subtitle="Library grid · lightbox · import · inspector — interactive" name="Desktop app" -->
+<!-- @startingPoint section="Screens" subtitle="Full Overlook desktop app shell" viewport="1440x900" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Overlook — Photos</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<script src="../../ds-loader.js" data-root="../.."></script>
+<script src="photos.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: var(--gray-0); }
+  #root { height: 100%; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--gray-4); border-radius: 5px; border: 2px solid var(--gray-0); }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="Toolbar.jsx"></script>
+<script type="text/babel" src="Sidebar.jsx"></script>
+<script type="text/babel" src="LibraryGrid.jsx"></script>
+<script type="text/babel" src="Inspector.jsx"></script>
+<script type="text/babel" src="Lightbox.jsx"></script>
+<script type="text/babel" src="ImportDialog.jsx"></script>
+<script type="text/babel" src="ExportDialog.jsx"></script>
+<script type="text/babel" src="SettingsDialog.jsx"></script>
+<script type="text/babel" src="StatusBar.jsx"></script>
+<script type="text/babel">
+const { Toast, TitleBar } = window.DS;
+
+function App() {
+  const [photos, setPhotos] = React.useState(window.OVERLOOK_PHOTOS);
+  const [q, setQ] = React.useState("");
+  const [zoom, setZoom] = React.useState(160);
+  const [view, setView] = React.useState("grid");
+  const [source, setSource] = React.useState("all");
+  const [filters, setFilters] = React.useState({});
+  const [filterOpen, setFilterOpen] = React.useState(false);
+  const [selected, setSelected] = React.useState(new Set());
+  const [lightboxId, setLightboxId] = React.useState(null);
+  const [inspectorOpen, setInspectorOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const [toast, setToast] = React.useState(null);
+  const [pendingCount, setPendingCount] = React.useState(362);
+  const [lastBackupLabel, setLastBackupLabel] = React.useState("2H AGO");
+
+  const visible = photos.filter((p) => {
+    if (q && !(p.name + " " + p.place + " " + p.camera).toLowerCase().includes(q.toLowerCase())) return false;
+    if (source === "favorites" && !p.favorite) return false;
+    if (source === "offloaded" && p.status !== "offloaded") return false;
+    if (source === "trash") return false;
+    if (filters.favorites && !p.favorite) return false;
+    if (filters.raw && !p.name.endsWith(".RAF")) return false;
+    if (filters.offloaded && p.status !== "offloaded") return false;
+    if (filters.local && p.status !== "local") return false;
+    return true;
+  });
+
+  const idx = visible.findIndex((p) => p.id === lightboxId);
+  const current = idx >= 0 ? visible[idx] : null;
+
+  const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleFilter = (k) => setFilters((f) => ({ ...f, [k]: !f[k] }));
+  const step = (d) => { if (idx >= 0 && visible.length) setLightboxId(visible[(idx + d + visible.length) % visible.length].id); };
+  const toggleFav = () => {
+    if (!current) return;
+    setPhotos((ps) => ps.map((p) => p.id === current.id ? { ...p, favorite: !p.favorite } : p));
+    setPendingCount((n) => n + 1);
+  };
+  const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 4000); };
+  const runBackup = () => {
+    if (pendingCount === 0) return;
+    const n = pendingCount;
+    showToast({ tone: "amber", title: "Backup started", detail: `Encrypting ${n} changed photo${n === 1 ? "" : "s"} → pCloud` });
+    setTimeout(() => {
+      setPendingCount(0);
+      setLastBackupLabel("JUST NOW");
+      showToast({ tone: "green", title: "Backup complete", detail: `${n} photo${n === 1 ? "" : "s"} encrypted and uploaded` });
+    }, 1800);
+  };
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (lightboxId == null) {
+        if ((e.metaKey || e.ctrlKey) && (e.key === "a" || e.key === "A")) {
+          e.preventDefault();
+          setSelected(new Set(visible.map((p) => p.id)));
+        }
+        if (e.key === "Escape" && selected.size) setSelected(new Set());
+        return;
+      }
+      if (e.key === "Escape") setLightboxId(null);
+      if (e.key === "ArrowLeft") step(-1);
+      if (e.key === "ArrowRight") step(1);
+      if (e.key === "i" || e.key === "I") setInspectorOpen((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", fontFamily: "var(--font-ui)", color: "var(--text-body)" }}>
+      <TitleBar platform="mac" />
+      <Toolbar q={q} setQ={setQ} zoom={zoom} setZoom={setZoom} view={view} setView={setView}
+        filters={filters} toggleFilter={toggleFilter} filterOpen={filterOpen} setFilterOpen={setFilterOpen}
+        onImport={() => setImportOpen(true)}
+        onBackup={runBackup} pendingCount={pendingCount} />
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <Sidebar source={source} setSource={setSource} total={204318} onSettings={() => setSettingsOpen(true)} />
+        <LibraryGrid photos={visible} zoom={zoom} view={view} selected={selected} onToggle={toggle}
+          onOpen={(id) => { setLightboxId(id); }} onClearSelection={() => setSelected(new Set())}
+          onExport={() => setExportOpen(true)} />
+        {inspectorOpen && !current ? <Inspector photo={visible[0]} /> : null}
+      </div>
+      <StatusBar count={204318} pendingCount={pendingCount} lastBackupLabel={lastBackupLabel} />
+      {current ? (
+        <div style={{ position: "absolute", inset: 0, zIndex: 50, display: "flex" }}>
+          <Lightbox photo={current} onClose={() => setLightboxId(null)} onPrev={() => step(-1)} onNext={() => step(1)}
+            inspectorOpen={inspectorOpen} setInspectorOpen={setInspectorOpen} onToggleFavorite={toggleFav}
+            onExport={() => setExportOpen(true)} />
+          {inspectorOpen ? <Inspector photo={current} /> : null}
+        </div>
+      ) : null}
+      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)}
+        onDone={() => showToast({ tone: "green", title: "Import complete", detail: "1,204 photos encrypted · thumbnails ready" })} />
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} count={current ? 1 : Math.max(1, selected.size)} />
+      {toast ? (
+        <div style={{ position: "absolute", right: 16, bottom: 42, zIndex: 300 }}>
+          <Toast tone={toast.tone} title={toast.title} detail={toast.detail} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<!-- @dsCard group="Spacing" viewport="700x180" subtitle="Hairlines + subtle lift; dark UI barely uses shadow" name="Elevation" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);padding:20px;">
+<div style="display:flex;gap:16px;">
+  <div style="flex:1;height:96px;background:var(--gray-2);border:1px solid var(--border-1);border-radius:var(--radius-2);box-shadow:var(--shadow-1);display:flex;align-items:flex-end;padding:10px;font-size:10px;color:var(--white-3);">SHADOW-1 · ROWS, CHIPS</div>
+  <div style="flex:1;height:96px;background:var(--gray-3);border:1px solid var(--border-2);border-radius:var(--radius-2);box-shadow:var(--shadow-2);display:flex;align-items:flex-end;padding:10px;font-size:10px;color:var(--white-3);">SHADOW-2 · MENUS, POPOVERS</div>
+  <div style="flex:1;height:96px;background:var(--gray-1);border:1px solid var(--border-2);border-radius:var(--radius-3);box-shadow:var(--shadow-3);display:flex;align-items:flex-end;padding:10px;font-size:10px;color:var(--white-3);">SHADOW-3 · DIALOGS</div>
+</div>
+</body></html>

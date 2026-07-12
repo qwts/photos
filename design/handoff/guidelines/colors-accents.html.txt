@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x170" subtitle="Shared lightness & chroma; hue carries meaning" name="Accents & status hues" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;">
+  <div>
+    <div style="height:64px;border-radius:6px;background:var(--accent-cyan);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-cyan</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">selection · primary</div>
+  </div>
+  <div>
+    <div style="height:64px;border-radius:6px;background:var(--accent-amber);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-amber</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">cloud · offloaded</div>
+  </div>
+  <div>
+    <div style="height:64px;border-radius:6px;background:var(--accent-green);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-green</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">encrypted · verified</div>
+  </div>
+  <div>
+    <div style="height:64px;border-radius:6px;background:var(--accent-red);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-red</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">destructive · error</div>
+  </div>
+</div>
+</body></html>

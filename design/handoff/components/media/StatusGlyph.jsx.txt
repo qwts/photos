@@ -1,0 +1,32 @@
+import React from "react";
+import { Icon } from "../core/Icon.jsx";
+
+const STATES = {
+  local: { icon: "hard-drive", color: "var(--text-muted)", label: "Local only" },
+  synced: { icon: "cloud-check", color: "var(--accent-green)", label: "Backed up (encrypted)" },
+  syncing: { icon: "refresh-cw", color: "var(--accent-amber)", label: "Uploading…" },
+  offloaded: { icon: "cloud", color: "var(--accent-amber)", label: "Offloaded to pCloud" },
+  error: { icon: "cloud-alert", color: "var(--accent-red)", label: "Sync failed" },
+};
+
+export function StatusGlyph({ state = "local", size = 20, title }) {
+  const s = STATES[state] || STATES.local;
+  return (
+    <span title={title || s.label} style={{
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: size, height: size, borderRadius: "50%", flex: "none",
+      background: "oklch(0.12 0.005 250 / 0.7)", backdropFilter: "blur(4px)",
+      color: s.color,
+    }}>
+      <Icon name={s.icon} size={Math.round(size * 0.6)} strokeWidth={2}
+        style={state === "syncing" ? { animation: "overlook-spin 1.2s linear infinite" } : undefined} />
+    </span>
+  );
+}
+
+if (typeof document !== "undefined" && !document.getElementById("overlook-spin-style")) {
+  const s = document.createElement("style");
+  s.id = "overlook-spin-style";
+  s.textContent = "@keyframes overlook-spin { to { transform: rotate(360deg); } }";
+  document.head.appendChild(s);
+}

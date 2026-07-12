@@ -1,0 +1,15 @@
+<!-- @dsCard group="Brand" viewport="700x170" subtitle="Lucide, 1.75 stroke — the app's full glyph vocabulary" name="Iconography" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css">
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);padding:18px 20px;">
+<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:14px 8px;color:var(--white-2);justify-items:center;">
+  <i data-lucide="layout-grid"></i><i data-lucide="list"></i><i data-lucide="search"></i><i data-lucide="funnel"></i>
+  <i data-lucide="images"></i><i data-lucide="album"></i><i data-lucide="star"></i><i data-lucide="trash-2"></i>
+  <i data-lucide="download"></i><i data-lucide="share"></i><i data-lucide="info"></i><i data-lucide="settings-2"></i>
+  <i data-lucide="lock"></i><i data-lucide="shield-check"></i><i data-lucide="key-round"></i><i data-lucide="cloud"></i>
+  <i data-lucide="cloud-upload"></i><i data-lucide="cloud-download"></i><i data-lucide="cloud-check"></i><i data-lucide="refresh-cw"></i>
+  <i data-lucide="hard-drive"></i><i data-lucide="database"></i><i data-lucide="camera"></i><i data-lucide="map-pin"></i>
+</div>
+<div style="font-size:10px;letter-spacing:0.04em;color:var(--white-3);margin-top:16px;">LUCIDE · STROKE 1.75 · 14/16/20PX · NEVER HAND-DRAWN, NEVER EMOJI</div>
+<script>lucide.createIcons({attrs:{width:18,height:18,'stroke-width':1.75}});</script>
+</body></html>

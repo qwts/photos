@@ -1,0 +1,16 @@
+/**
+ * Modal dialog — import/export flows, destructive confirms, unlock prompt.
+ */
+export interface DialogProps {
+  open?: boolean;
+  title: string;
+  /** Optional Lucide icon beside the title */
+  icon?: string;
+  /** Pixel width. Default 440 */
+  width?: number;
+  onClose?: () => void;
+  /** Right-aligned action row (Buttons) */
+  footer?: React.ReactNode;
+  children?: React.ReactNode;
+}
+export declare function Dialog(props: DialogProps): JSX.Element | null;

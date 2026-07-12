@@ -1,0 +1,12 @@
+<!-- @dsCard group="Type" viewport="700x210" subtitle="Six sizes, 13px base — compact desktop density" name="Type scale" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);color:var(--text-body);font-family:var(--font-ui);padding:14px 20px;">
+<div style="display:grid;grid-template-columns:110px 1fr;gap:4px 16px;align-items:baseline;">
+  <span style="font:var(--type-meta);color:var(--text-faint);letter-spacing:0.04em;">DISPLAY 24</span><span style="font-size:var(--text-display);font-weight:600;">No photos yet</span>
+  <span style="font:var(--type-meta);color:var(--text-faint);letter-spacing:0.04em;">XL 18</span><span style="font-size:var(--text-xl);font-weight:600;">Export 12 photos</span>
+  <span style="font:var(--type-meta);color:var(--text-faint);letter-spacing:0.04em;">LG 15</span><span style="font-size:var(--text-lg);font-weight:600;">Albums</span>
+  <span style="font:var(--type-meta);color:var(--text-faint);letter-spacing:0.04em;">MD 13 · BASE</span><span style="font-size:var(--text-md);">Back up automatically when idle</span>
+  <span style="font:var(--type-meta);color:var(--text-faint);letter-spacing:0.04em;">SM 12</span><span style="font-size:var(--text-sm);color:var(--text-muted);">Sorted by capture date</span>
+  <span style="font:var(--type-meta);color:var(--text-faint);letter-spacing:0.04em;">XS 11 MONO</span><span style="font-family:var(--font-mono);font-size:var(--text-xs);letter-spacing:0.04em;color:var(--text-muted);">IMG_4021.RAF · 26.1 MP</span>
+</div>
+</body></html>

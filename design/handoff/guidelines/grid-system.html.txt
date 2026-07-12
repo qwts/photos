@@ -1,0 +1,21 @@
+<!-- @dsCard group="Spacing" viewport="700x210" subtitle="4px gaps, edge-to-edge, zoomable 96–320px tiles" name="Grid system" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);">
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:var(--grid-gap);padding:var(--grid-gap);">
+  <img src="../assets/thumbs/t01.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t03.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t05.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t07.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t09.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t11.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t13.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t02.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t04.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t06.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t08.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t10.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t12.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+  <img src="../assets/thumbs/t14.png" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-tile);">
+</div>
+<div style="font-size:10px;letter-spacing:0.04em;color:var(--white-3);padding:8px 12px;">SQUARE CROP THUMBS · GAP 4PX · ZOOM RANGE 96–320PX · VIRTUALIZED FOR 200K+</div>
+</body></html>

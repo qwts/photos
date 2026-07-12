@@ -1,0 +1,11 @@
+<!-- @dsCard group="Spacing" viewport="700x160" subtitle="Tight radii — tiles 3, controls 4, cards 6, dialogs 10" name="Corner radii" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);padding:16px 20px;">
+<div style="display:flex;gap:16px;align-items:flex-end;">
+  <div style="text-align:center;"><div style="width:80px;height:80px;background:var(--gray-3);border-radius:var(--radius-tile);"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">TILE · 3</div></div>
+  <div style="text-align:center;"><div style="width:80px;height:80px;background:var(--gray-3);border-radius:var(--radius-1);"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">CONTROL · 4</div></div>
+  <div style="text-align:center;"><div style="width:80px;height:80px;background:var(--gray-3);border-radius:var(--radius-2);"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">CARD · 6</div></div>
+  <div style="text-align:center;"><div style="width:80px;height:80px;background:var(--gray-3);border-radius:var(--radius-3);"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">DIALOG · 10</div></div>
+  <div style="text-align:center;"><div style="width:80px;height:28px;background:var(--gray-3);border-radius:var(--radius-full);"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">PILL · FULL</div></div>
+</div>
+</body></html>

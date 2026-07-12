@@ -1,0 +1,34 @@
+import React from "react";
+import { Icon } from "../core/Icon.jsx";
+
+export function SearchField({ value, onChange, placeholder = "Search photos, places, cameras…", shortcut = "⌘K", width = 280, style }) {
+  const [focus, setFocus] = React.useState(false);
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: "var(--space-3)",
+      height: "var(--control-h-md)", width, padding: "0 var(--space-3)",
+      background: "var(--gray-2)", borderRadius: "var(--radius-1)",
+      border: focus ? "1px solid var(--accent-cyan)" : "1px solid var(--border-1)",
+      transition: "border-color var(--duration-fast) var(--ease-out)", ...style,
+    }}>
+      <Icon name="search" size={14} color={focus ? "var(--text-body)" : "var(--text-faint)"} />
+      <input
+        value={value}
+        onChange={(e) => onChange && onChange(e.target.value)}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        placeholder={placeholder}
+        style={{
+          flex: 1, minWidth: 0, background: "none", border: "none", outline: "none",
+          color: "var(--text-body)", fontSize: "var(--text-md)", fontFamily: "var(--font-ui)",
+        }}
+      />
+      {shortcut && !focus ? (
+        <span style={{
+          font: "var(--type-meta)", color: "var(--text-faint)", letterSpacing: "var(--tracking-mono)",
+          border: "1px solid var(--border-1)", borderRadius: 3, padding: "1px 4px",
+        }}>{shortcut}</span>
+      ) : null}
+    </div>
+  );
+}

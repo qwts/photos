@@ -1,0 +1,14 @@
+/**
+ * Filter chip — toggled filters under the toolbar (file type, sync state, date, album).
+ */
+export interface ChipProps {
+  selected?: boolean;
+  /** Optional leading Lucide icon name */
+  icon?: string;
+  /** Shows an × affordance; called on click */
+  onRemove?: () => void;
+  children?: React.ReactNode;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+}
+export declare function Chip(props: ChipProps): JSX.Element;

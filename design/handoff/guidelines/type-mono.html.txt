@@ -1,0 +1,9 @@
+<!-- @dsCard group="Type" viewport="700x170" subtitle="IBM Plex Mono — anything machine-generated: EXIF, counts, sync states" name="Metadata type" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);color:var(--text-body);font-family:var(--font-mono);padding:18px 20px;">
+<div style="font-size:var(--text-xs);letter-spacing:var(--tracking-mono);color:var(--text-faint);text-transform:uppercase;">Aperture · Shutter · ISO · Focal</div>
+<div style="font-size:13px;margin-top:6px;">ƒ/1.8 &nbsp; 1/250s &nbsp; ISO 400 &nbsp; 35mm</div>
+<div style="font-size:var(--text-xs);letter-spacing:var(--tracking-mono);color:var(--text-faint);text-transform:uppercase;margin-top:14px;">Library</div>
+<div style="font-size:13px;margin-top:6px;">204,318 PHOTOS · 1.2 TB · <span style="color:var(--accent-green);">AES-256 ENCRYPTED</span> · <span style="color:var(--accent-amber);">38,412 OFFLOADED</span></div>
+<div style="font-size:var(--text-xs);color:var(--text-faint);margin-top:14px;">IBM Plex Mono · 400 / 500 · uppercase labels tracked +0.04em</div>
+</body></html>
