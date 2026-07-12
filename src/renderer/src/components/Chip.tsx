@@ -10,36 +10,40 @@ export interface ChipProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly onRemove?: () => void;
 }
 
-// components/forms/Chip.jsx — filter pill. The remove affordance is a real
-// (nested-safe) button so it is keyboard/screen-reader operable, unlike the
-// mock's span.
+// components/forms/Chip.jsx — filter pill. A removable chip renders the pill
+// as a wrapper with the toggle and the × as SIBLING buttons (never nested
+// interactive controls — PR #143 review); without onRemove the chip is a
+// single button.
 export function Chip({ selected = false, icon, onRemove, className, children, ...rest }: ChipProps): ReactElement {
-  const classes = ['ovl-chip', selected ? 'ovl-chip--selected' : undefined, className].filter(Boolean).join(' ');
-  return (
-    <button type="button" aria-pressed={selected} className={classes} {...rest}>
+  const pill = ['ovl-chip', selected ? 'ovl-chip--selected' : undefined, className].filter(Boolean).join(' ');
+  const content = (
+    <>
       {icon === undefined ? null : <Icon name={icon} size={13} />}
       {children}
-      {onRemove === undefined ? null : (
-        <span
-          role="button"
-          tabIndex={0}
-          aria-label="Remove filter"
-          className="ovl-chip__remove"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemove();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              event.stopPropagation();
-              onRemove();
-            }
-          }}
-        >
-          <Icon name="x" size={12} />
-        </span>
-      )}
-    </button>
+    </>
+  );
+  if (onRemove === undefined) {
+    return (
+      <button type="button" aria-pressed={selected} className={pill} {...rest}>
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span className={pill}>
+      <button type="button" aria-pressed={selected} className="ovl-chip__main" {...rest}>
+        {content}
+      </button>
+      <button
+        type="button"
+        aria-label="Remove filter"
+        className="ovl-chip__remove"
+        onClick={() => {
+          onRemove();
+        }}
+      >
+        <Icon name="x" size={12} />
+      </button>
+    </span>
   );
 }
