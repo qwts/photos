@@ -1,0 +1,33 @@
+/* Virtualized grid engine (#74). The scroll plane is sized by grid-layout
+   math; cells are absolutely positioned via transforms so scrolling never
+   relayouts. Placeholder tiles carry the engine until PhotoTile wiring
+   (#76). */
+.ovl-grid {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--gray-0);
+}
+
+.ovl-grid__plane {
+  position: relative;
+}
+
+.ovl-grid__cell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+.ovl-grid__placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+}
+
+.ovl-grid__placeholder--loading {
+  background: var(--gray-1);
+}

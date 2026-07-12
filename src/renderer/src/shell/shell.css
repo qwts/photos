@@ -37,7 +37,9 @@
 .ovl-shell__content {
   flex: 1;
   min-width: 0;
-  overflow: auto;
+  /* The grid engine owns scrolling (absolute inset overlay, #74). */
+  position: relative;
+  overflow: hidden;
   background: var(--surface-window);
 }
 
