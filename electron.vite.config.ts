@@ -1,5 +1,33 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
+import type { Plugin } from 'vite';
+
+// Vite's dev tooling needs CSP allowances production must never ship: the
+// React Fast Refresh preamble is an inline script, @vite/client spawns a
+// blob: worker, and HMR runs over a websocket. While serving, swap the strict
+// production policy in index.html (kept there as the source of truth) for
+// this dev policy.
+const DEV_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "connect-src 'self' ws:",
+  "worker-src 'self' blob:",
+].join('; ');
+
+function relaxCspForDev(): Plugin {
+  return {
+    name: 'overlook:relax-csp-for-dev',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      const swapped = html.replace(/content="default-src [^"]*"/, `content="${DEV_CSP}"`);
+      if (swapped === html) {
+        throw new Error('relax-csp-for-dev: CSP meta tag not found in index.html');
+      }
+      return swapped;
+    },
+  };
+}
 
 export default defineConfig({
   main: {},
@@ -16,6 +44,6 @@ export default defineConfig({
     },
   },
   renderer: {
-    plugins: [react()],
+    plugins: [react(), relaxCspForDev()],
   },
 });
