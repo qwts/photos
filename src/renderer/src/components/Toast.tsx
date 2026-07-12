@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import './overlays.css';
@@ -56,14 +56,21 @@ function ToastTimer({
   readonly onDismiss: (id: string) => void;
   readonly autoDismissMs: number;
 }): ReactElement {
+  // The timer is keyed to the toast, not the callback: parents passing inline
+  // onDismiss rerender freely without resetting (and so extending) the 4s
+  // lifetime — the latest callback is read through a ref at fire time.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  });
   useEffect(() => {
     const timer = setTimeout(() => {
-      onDismiss(toast.id);
+      onDismissRef.current(toast.id);
     }, autoDismissMs);
     return () => {
       clearTimeout(timer);
     };
-  }, [toast.id, onDismiss, autoDismissMs]);
+  }, [toast.id, autoDismissMs]);
   return <Toast {...toast} />;
 }
 
