@@ -10,6 +10,15 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    minWidth: 960,
+    minHeight: 600,
+    // Design --gray-0 — paints the frame before the renderer does, so no
+    // white flash on launch.
+    backgroundColor: '#050708',
+    // Frameless chrome (#50): mac keeps native traffic lights over the
+    // renderer's reserved 30px strip; win/linux get no OS frame at all and
+    // drive minimize/maximize/close over IPC.
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : { frame: false }),
     webPreferences: {
       // The preload bundle is CJS (.cjs): sandboxed renderers cannot load ESM
       // preloads, and sandbox stays on as a day-one security default.

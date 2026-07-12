@@ -32,6 +32,12 @@ export const channels = {
   // Demo round-trip channel proving the registry under test; real domain
   // channels (library, import, backup, settings) arrive with their epics.
   ping: defineChannel('demo:ping', z.object({ message: z.string() }), z.object({ echoed: z.string() })),
+  // Frameless-window chrome (#50): Windows/Linux draw custom controls, so the
+  // renderer drives the window over IPC; mac uses native traffic lights.
+  getPlatform: defineChannel('app:get-platform', z.object({}), z.object({ platform: z.string() })),
+  windowMinimize: defineChannel('window:minimize', z.object({}), z.object({})),
+  windowToggleMaximize: defineChannel('window:toggle-maximize', z.object({}), z.object({ maximized: z.boolean() })),
+  windowClose: defineChannel('window:close', z.object({}), z.object({})),
 } as const;
 
 export const events = {
