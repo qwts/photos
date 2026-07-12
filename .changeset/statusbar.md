@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 StatusBar: the 26px mono strip per the mock — "N PHOTOS · size" with
