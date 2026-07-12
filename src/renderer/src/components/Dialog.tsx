@@ -16,7 +16,10 @@ export interface DialogProps {
   readonly children: ReactNode;
 }
 
-const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+// Disabled controls are skipped by the browser's tab order, so the trap must
+// skip them too or Tab from the real last control escapes the modal.
+const FOCUSABLE =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // feedback/Dialog.jsx, upgraded per #59: aria-modal + labelled title, Esc
 // closes, and focus is trapped inside while open (the mock only had
@@ -25,16 +28,28 @@ export function Dialog({ open, title, icon, width = 420, onClose, footer, childr
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
+  // The key handler reads the latest onClose through a ref so parent
+  // rerenders (form state, inline callbacks) never re-run the effects below —
+  // re-running would steal focus back to the panel on every update.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    if (open) {
+      panelRef.current?.focus();
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) {
       return;
     }
-    const panel = panelRef.current;
-    panel?.focus();
-
     const onKeyDown = (event: KeyboardEvent): void => {
+      const panel = panelRef.current;
       if (event.key === 'Escape') {
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (event.key !== 'Tab' || panel === null) {
@@ -60,7 +75,7 @@ export function Dialog({ open, title, icon, width = 420, onClose, footer, childr
     return () => {
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) {
     return null;
