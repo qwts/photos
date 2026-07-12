@@ -11,6 +11,13 @@ updates:
       dev-deps:
         patterns:
           - '*'
+    ignore:
+      # The toolchain is pinned to the TS 6 line: typescript-eslint's peer range caps at
+      # <6.1.0 (no stable release supports TS 7), and type-coverage is overridden to the
+      # project compiler. Remove this once typescript-eslint supports TS 7 and bump
+      # deliberately (see PR #21 for the original downgrade rationale).
+      - dependency-name: typescript
+        versions: ['>=6.1.0']
 
   # Keep the pinned action versions in .github/workflows current the same way.
   - package-ecosystem: github-actions
