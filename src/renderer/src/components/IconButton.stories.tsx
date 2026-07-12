@@ -15,13 +15,13 @@ type Story = StoryObj<typeof IconButton>;
 function Row(): ReactElement {
   return (
     <div style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center', padding: 'var(--space-7)' }}>
-      <IconButton icon="funnel" size="sm" />
-      <IconButton icon="funnel" size="md" />
-      <IconButton icon="funnel" size="lg" />
-      <IconButton icon="info" active />
-      <IconButton icon="refresh-cw" disabled />
+      <IconButton icon="funnel" label="Filter" size="sm" />
+      <IconButton icon="funnel" label="Filter" size="md" />
+      <IconButton icon="funnel" label="Filter" size="lg" />
+      <IconButton icon="info" label="Inspector" active />
+      <IconButton icon="refresh-cw" label="Sync" disabled />
       <Tooltip label="Back up now">
-        <IconButton icon="cloud-upload" />
+        <IconButton icon="cloud-upload" label="Back up" />
       </Tooltip>
     </div>
   );
