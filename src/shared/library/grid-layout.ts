@@ -15,14 +15,18 @@ export interface GridSpec {
 
 export interface GridLayout {
   readonly columns: number;
-  /** Actual tile size after stretching to fill the row (>= zoom). */
+  /** Cell HEIGHT (grid: stretched square side; list: the fixed row height). */
   readonly tileSize: number;
+  /** Cell WIDTH (grid: equals tileSize; list: the full inner width). */
+  readonly cellWidth: number;
   /** Vertical stride: tileSize + gap. */
   readonly rowHeight: number;
   readonly rows: number;
   /** Scrollable content height including outer padding. */
   readonly totalHeight: number;
   readonly gap: number;
+  /** Outer padding (grid: equals gap; list: the mock's space-3). */
+  readonly padding: number;
   readonly total: number;
 }
 
@@ -36,7 +40,25 @@ export function computeLayout(spec: GridSpec): GridLayout {
   const rowHeight = tileSize + gap;
   const rows = total === 0 ? 0 : Math.ceil(total / columns);
   const totalHeight = rows === 0 ? 0 : 2 * gap + rows * rowHeight - gap;
-  return { columns, tileSize, rowHeight, rows, totalHeight, gap, total };
+  return { columns, tileSize, cellWidth: tileSize, rowHeight, rows, totalHeight, gap, padding: gap, total };
+}
+
+/** Single-column row mode (#77) — same windowing functions, list geometry. */
+export interface ListSpec {
+  readonly viewportWidth: number;
+  readonly rowHeight: number;
+  readonly gap: number;
+  readonly padding: number;
+  readonly total: number;
+}
+
+export function computeListLayout(spec: ListSpec): GridLayout {
+  const { viewportWidth, rowHeight, gap, padding, total } = spec;
+  const cellWidth = Math.max(0, viewportWidth - 2 * padding);
+  const stride = rowHeight + gap;
+  const rows = total;
+  const totalHeight = rows === 0 ? 0 : 2 * padding + rows * stride - gap;
+  return { columns: 1, tileSize: rowHeight, cellWidth, rowHeight: stride, rows, totalHeight, gap, padding, total };
 }
 
 export interface VisibleRange {
@@ -57,10 +79,10 @@ export function visibleRange(layout: GridLayout, scrollTop: number, viewportHeig
   // firstRow clamps to the last row too: a scroll offset past the end of a
   // freshly SHRUNK layout (deep in All → switch to Favorites) must still
   // render the final rows, not an empty window (PR #156 review).
-  const firstRow = Math.min(layout.rows - 1, Math.max(0, Math.floor((scrollTop - layout.gap) / layout.rowHeight) - overscan));
+  const firstRow = Math.min(layout.rows - 1, Math.max(0, Math.floor((scrollTop - layout.padding) / layout.rowHeight) - overscan));
   const lastRow = Math.min(
     layout.rows - 1,
-    Math.floor((scrollTop - layout.gap + Math.max(0, viewportHeight)) / layout.rowHeight) + overscan,
+    Math.floor((scrollTop - layout.padding + Math.max(0, viewportHeight)) / layout.rowHeight) + overscan,
   );
   return {
     firstRow,
@@ -73,8 +95,8 @@ export function visibleRange(layout: GridLayout, scrollTop: number, viewportHeig
 /** Absolute position of a tile inside the scrollable content. */
 export function tilePosition(layout: GridLayout, index: number): { readonly left: number; readonly top: number } {
   return {
-    left: layout.gap + (index % layout.columns) * (layout.tileSize + layout.gap),
-    top: layout.gap + Math.floor(index / layout.columns) * layout.rowHeight,
+    left: layout.padding + (index % layout.columns) * (layout.cellWidth + layout.gap),
+    top: layout.padding + Math.floor(index / layout.columns) * layout.rowHeight,
   };
 }
 
@@ -83,7 +105,7 @@ export function anchorIndex(layout: GridLayout, scrollTop: number): number | nul
   if (layout.total === 0) {
     return null;
   }
-  const row = Math.min(layout.rows - 1, Math.max(0, Math.round((scrollTop - layout.gap) / layout.rowHeight)));
+  const row = Math.min(layout.rows - 1, Math.max(0, Math.round((scrollTop - layout.padding) / layout.rowHeight)));
   return Math.min(layout.total - 1, row * layout.columns);
 }
 

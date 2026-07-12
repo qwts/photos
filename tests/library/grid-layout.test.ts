@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   anchorIndex,
   computeLayout,
+  computeListLayout,
   needsMore,
   scrollTopForAnchor,
   tilePosition,
@@ -123,5 +124,27 @@ describe('grid layout math', () => {
     assert.ok(last.top + layout.tileSize <= layout.totalHeight);
     const range = visibleRange(layout, layout.totalHeight - 800, 800, 2);
     assert.equal(range.lastIndex, 199_999);
+  });
+
+  test('list mode (#77): single column, fixed 52px rows, full-width cells', () => {
+    const layout = computeListLayout({ viewportWidth: 900, rowHeight: 52, gap: 2, padding: 8, total: 1000 });
+    assert.equal(layout.columns, 1);
+    assert.equal(layout.cellWidth, 884); // 900 - 2*8
+    assert.equal(layout.tileSize, 52);
+    assert.equal(layout.rowHeight, 54);
+    assert.equal(layout.totalHeight, 16 + 1000 * 54 - 2);
+    assert.deepEqual(tilePosition(layout, 10), { left: 8, top: 8 + 10 * 54 });
+    const range = visibleRange(layout, 8 + 54 * 100, 700, 2);
+    assert.equal(range.firstIndex, 98); // row 100 minus overscan
+    assert.ok(range.lastIndex >= 100 + Math.floor(700 / 54));
+  });
+
+  test('grid → list toggle keeps the anchor photo in the window', () => {
+    const grid = computeLayout({ viewportWidth: 900, zoom: 160, gap: GAP, total: 1000 });
+    const list = computeListLayout({ viewportWidth: 900, rowHeight: 52, gap: 2, padding: 8, total: 1000 });
+    const anchor = anchorIndex(grid, 40 * grid.rowHeight);
+    const restored = scrollTopForAnchor(list, anchor ?? 0);
+    const range = visibleRange(list, restored, 700, 0);
+    assert.ok((anchor ?? 0) >= range.firstIndex && (anchor ?? 0) <= range.lastIndex);
   });
 });

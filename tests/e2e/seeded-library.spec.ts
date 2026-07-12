@@ -78,6 +78,20 @@ test('boots a seeded temp profile deterministically', async () => {
       el.src = 'overlook-thumb://library/01J8DOESNOTEXIST?size=thumb';
     })`);
     expect(missing).toBe(false);
+
+    // #77: grid/list toggle — rows render, the zoom slider hides (not
+    // disables), and the id-based selection survives the round-trip.
+    await page.getByRole('button', { name: 'All Photos 12' }).click();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
+    await page.locator('.ovl-tile__select').first().click();
+    await expect(page.locator('.ovl-tile--selected')).toHaveCount(1);
+    await page.getByRole('radio', { name: 'List' }).click();
+    await expect(page.locator('.ovl-listrow')).toHaveCount(12);
+    await expect(page.getByRole('slider', { name: 'Zoom' })).toHaveCount(0);
+    await expect(page.locator('.ovl-listrow--selected')).toHaveCount(1);
+    await page.getByRole('radio', { name: 'Grid' }).click();
+    await expect(page.locator('.ovl-tile--selected')).toHaveCount(1);
+    await expect(page.getByRole('slider', { name: 'Zoom' })).toBeVisible();
   } finally {
     await app.close();
   }

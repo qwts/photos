@@ -6,12 +6,14 @@ import { Icon } from '../components/Icon';
 import { PhotoTile } from '../components/PhotoTile';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useLibraryPhotos } from '../state/use-library-photos';
+import { ListRow } from './ListRow';
 import { VirtualGrid } from './VirtualGrid';
 
-// Grid view (#76): PhotoTile over the #74 engine, thumbs via the #75
-// protocol, empty state per the mock. Totals: sidebar counts size the plane
-// for unfiltered sets; under query/chips the plane tracks the loaded count
-// (+1 while pages remain) until an exact filtered count lands with #79.
+// Library view (#76/#77): PhotoTile or ListRow over the #74 engine, thumbs
+// via the #75 protocol, empty state per the mock. Totals: sidebar counts
+// size the plane for unfiltered sets; under query/chips the plane tracks the
+// loaded count (+1 while pages remain) until an exact filtered count lands
+// with #79.
 export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | null }): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -30,21 +32,35 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
     );
   }
 
-  const renderTile = (photo: PhotoRecord): ReactElement => (
-    <PhotoTile
-      src={thumbUrl(photo.id)}
-      alt={photo.fileName}
-      favorite={photo.favorite}
-      status={photo.syncState}
-      selected={state.selection.has(photo.id)}
-      onClick={() => {
-        dispatch({ type: 'lightbox/opened', photoId: photo.id });
-      }}
-      onToggleSelect={() => {
-        dispatch({ type: 'selection/toggled', photoId: photo.id });
-      }}
-    />
-  );
+  const renderTile = (photo: PhotoRecord): ReactElement =>
+    state.view === 'list' ? (
+      <ListRow
+        photo={photo}
+        selected={state.selection.has(photo.id)}
+        onOpen={() => {
+          dispatch({ type: 'lightbox/opened', photoId: photo.id });
+        }}
+        onToggleSelect={() => {
+          dispatch({ type: 'selection/toggled', photoId: photo.id });
+        }}
+      />
+    ) : (
+      <PhotoTile
+        src={thumbUrl(photo.id)}
+        alt={photo.fileName}
+        favorite={photo.favorite}
+        status={photo.syncState}
+        selected={state.selection.has(photo.id)}
+        onClick={() => {
+          dispatch({ type: 'lightbox/opened', photoId: photo.id });
+        }}
+        onToggleSelect={() => {
+          dispatch({ type: 'selection/toggled', photoId: photo.id });
+        }}
+      />
+    );
 
-  return <VirtualGrid photos={state.photos} total={total} zoom={state.zoom} onNeedMore={loadMore} renderTile={renderTile} />;
+  return (
+    <VirtualGrid photos={state.photos} total={total} zoom={state.zoom} mode={state.view} onNeedMore={loadMore} renderTile={renderTile} />
+  );
 }
