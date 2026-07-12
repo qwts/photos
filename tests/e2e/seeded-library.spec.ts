@@ -87,7 +87,8 @@ test('boots a seeded temp profile deterministically', async () => {
     await expect(page.locator('.ovl-tile--selected')).toHaveCount(1);
     await page.getByRole('radio', { name: 'List' }).click();
     await expect(page.locator('.ovl-listrow')).toHaveCount(12);
-    await expect(page.getByRole('slider', { name: 'Zoom' })).toHaveCount(0);
+    // #79: visibility-hidden per the mock — layout holds, control unusable.
+    await expect(page.getByRole('slider', { name: 'Zoom' })).toBeHidden();
     await expect(page.locator('.ovl-listrow--selected')).toHaveCount(1);
     await page.getByRole('radio', { name: 'Grid' }).click();
     await expect(page.locator('.ovl-tile--selected')).toHaveCount(1);
@@ -103,6 +104,30 @@ test('boots a seeded temp profile deterministically', async () => {
     await page.getByRole('button', { name: 'Clear selection' }).click();
     await expect(page.getByTestId('selection-pill')).toHaveCount(0);
     await page.getByRole('button', { name: 'All Photos 12' }).click();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
+
+    // #79: search + chips filter the seeded library live (E4.7 semantics).
+    const search = page.getByRole('searchbox', { name: 'Search library' });
+    await search.fill('lisbon');
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(2);
+    await search.fill('zzz-no-match');
+    await expect(page.getByTestId('empty-state')).toBeVisible();
+    await search.fill('');
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
+
+    await page.getByRole('button', { name: 'Filters' }).click();
+    await expect(page.getByTestId('chip-row')).toContainText('SEMANTIC SEARCH — COMING SOON');
+    await page.getByRole('button', { name: 'RAW' }).click();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
+    await page.getByRole('button', { name: 'RAW' }).click();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
+
+    // #79: the seed leaves 4 dirty ledger rows, so backup starts enabled;
+    // the action itself is the M08 stub toast.
+    const backup = page.getByRole('button', { name: 'Back up' });
+    await expect(backup).toBeEnabled();
+    await backup.click();
+    await expect(page.getByText('BACKUP LANDS WITH M08')).toBeVisible();
   } finally {
     await app.close();
   }

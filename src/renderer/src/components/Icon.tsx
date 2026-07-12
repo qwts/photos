@@ -11,7 +11,10 @@ import {
   Database,
   Download,
   Funnel,
+  Grid2x2,
+  Grid3x3,
   HardDrive,
+  Image,
   ImageOff,
   Info,
   KeyRound,
@@ -49,7 +52,10 @@ export const ICON_NAMES = [
   'database',
   'download',
   'funnel',
+  'grid-2x2',
+  'grid-3x3',
   'hard-drive',
+  'image',
   'image-off',
   'info',
   'key-round',
@@ -86,7 +92,10 @@ const ICONS = {
   database: Database,
   download: Download,
   funnel: Funnel,
+  'grid-2x2': Grid2x2,
+  'grid-3x3': Grid3x3,
   'hard-drive': HardDrive,
+  image: Image,
   'image-off': ImageOff,
   info: Info,
   'key-round': KeyRound,
@@ -111,8 +120,8 @@ const ICONS = {
 // 13 (TitleBar controls, Chip glyphs), and 18 (lg Button) are the design
 // mock's own additional usages, adopted as-is — as are the minus/square/x
 // window-control glyphs above.
-// 28 is the empty-state glyph size the design's LibraryGrid.jsx uses (#76).
-export type IconSize = 11 | 12 | 13 | 14 | 16 | 18 | 20 | 28;
+// 15 and 28 come from the design's own Toolbar.jsx / LibraryGrid.jsx usage.
+export type IconSize = 11 | 12 | 13 | 14 | 15 | 16 | 18 | 20 | 28;
 
 export interface IconProps {
   readonly name: IconName;

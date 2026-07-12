@@ -6,17 +6,66 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
-.ovl-shell__toolbar {
+.ovl-toolbar {
   flex: none;
-  height: var(--toolbar-h);
+  background: var(--gray-1);
+  border-bottom: 1px solid var(--border-1);
+}
+
+.ovl-toolbar__row {
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  height: var(--toolbar-h);
   padding: 0 var(--space-4);
-  border-bottom: 1px solid var(--border-1);
-  background: var(--gray-0);
+}
+
+.ovl-toolbar__wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: calc(var(--sidebar-w) - 24px); /* the mock's own alignment offset */
+  flex: none;
+}
+
+.ovl-toolbar__brand {
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.14em; /* the mock's own wordmark tracking */
+  color: var(--text-body);
+}
+
+.ovl-toolbar__spacer {
+  flex: 1;
+}
+
+.ovl-toolbar__zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ovl-toolbar__chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+.ovl-toolbar__hint {
+  color: var(--text-faint);
+  margin-left: var(--space-1);
+}
+
+/* Toast surfacing (#79): bottom-right above the status bar. */
+.ovl-shell__toast {
+  position: absolute;
+  right: var(--space-4);
+  bottom: calc(var(--statusbar-h) + var(--space-4));
+  z-index: 10;
 }
 
 .ovl-shell__body {

@@ -105,7 +105,11 @@ export const channels = {
       deleted: z.number(),
     }),
   ),
-  libraryStats: defineChannel('library:stats', z.object({}), z.object({ photos: z.number(), bytes: z.number() })),
+  libraryStats: defineChannel(
+    'library:stats',
+    z.object({}),
+    z.object({ photos: z.number(), bytes: z.number(), pending: z.number().int().nonnegative() }),
+  ),
 } as const;
 
 export const events = {
