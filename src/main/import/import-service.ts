@@ -23,11 +23,25 @@ export interface ImportServiceEvents {
 }
 
 export class ImportService {
+  /** One journal, one writer: batches and resumes run strictly in turn —
+   * overlapping runs would overwrite or clear each other's resume state
+   * (PR #183 review). */
+  private turn: Promise<unknown> = Promise.resolve();
+
   constructor(
     private readonly repo: PhotosRepository,
     private readonly events: ImportServiceEvents,
     private readonly engine: ImportEngine,
   ) {}
+
+  private async serialize<T>(task: () => Promise<T>): Promise<T> {
+    const next = this.turn.then(task, task);
+    this.turn = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
 
   async listSources(): Promise<ImportSource[]> {
     return listVolumes(defaultVolumeListerDeps());
@@ -47,22 +61,26 @@ export class ImportService {
 
   /** Runs a batch over the source's NEW files (fresh scan → engine). */
   async run(path: string, mode: ImportMode, signal?: AbortSignal): Promise<ImportSummary> {
-    const { files } = await scanSource(path, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, () => undefined);
-    const fresh = files.filter((file) => file.isNew).map(({ path: filePath, fileName, kind }) => ({ path: filePath, fileName, kind }));
-    const summary = await this.engine.importFiles(fresh, mode, path, signal);
-    if (summary.photoIds.length > 0) {
-      this.events.imported(summary.photoIds);
-    }
-    return summary;
+    return this.serialize(async () => {
+      const { files } = await scanSource(path, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, () => undefined);
+      const fresh = files.filter((file) => file.isNew).map(({ path: filePath, fileName, kind }) => ({ path: filePath, fileName, kind }));
+      const summary = await this.engine.importFiles(fresh, mode, path, signal);
+      if (summary.photoIds.length > 0) {
+        this.events.imported(summary.photoIds);
+      }
+      return summary;
+    });
   }
 
   /** Completes a journaled batch an earlier run left behind (crash-safety:
    * called once at service bootstrap). */
   async resume(): Promise<ImportSummary | null> {
-    const summary = await this.engine.resume();
-    if (summary !== null && summary.photoIds.length > 0) {
-      this.events.imported(summary.photoIds);
-    }
-    return summary;
+    return this.serialize(async () => {
+      const summary = await this.engine.resume();
+      if (summary !== null && summary.photoIds.length > 0) {
+        this.events.imported(summary.photoIds);
+      }
+      return summary;
+    });
   }
 }

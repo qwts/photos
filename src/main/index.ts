@@ -68,7 +68,8 @@ function broadcast(send: (win: BrowserWindow) => void): void {
   }
 }
 
-let libraryParts: { db: ReturnType<typeof openLibraryDatabase>; blobStore: BlobStore; keyStore: KeyStore } | undefined;
+let libraryParts:
+  { db: ReturnType<typeof openLibraryDatabase>; blobStore: BlobStore; blobStoreReady: Promise<void>; keyStore: KeyStore } | undefined;
 
 function getLibraryService(): LibraryService {
   if (libraryService === undefined) {
@@ -83,8 +84,10 @@ function getLibraryService(): LibraryService {
     }
     const db = openLibraryDatabase({ path: path.join(dataDir, 'library.db'), dbKey });
     const store = new BlobStore({ dataDir });
-    void store.init();
-    libraryParts = { db, blobStore: store, keyStore };
+    // Reads fail clean before init, but WRITES race the directory creation
+    // on a fresh profile — importers await this promise (PR #183 review).
+    const blobStoreReady = store.init();
+    libraryParts = { db, blobStore: store, blobStoreReady, keyStore };
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -144,8 +147,17 @@ function getImportService(): ImportService {
           repo.insert(photo);
         },
       },
-      blobs: parts.blobStore,
-      generateThumbs: async (request) => thumbs.generateFor(request),
+      blobs: {
+        putOriginal: async (plaintext, key, photoId) => {
+          await parts.blobStoreReady;
+          return parts.blobStore.putOriginal(plaintext, key, photoId);
+        },
+        verifyOriginal: async (contentHash, resolveKey, photoId) => parts.blobStore.verifyOriginal(contentHash, resolveKey, photoId),
+      },
+      generateThumbs: async (request) => {
+        await parts.blobStoreReady;
+        return thumbs.generateFor(request);
+      },
       extractMetadata,
       currentKey: () => parts.keyStore.currentKey(),
       resolveKey: parts.keyStore.resolver(),

@@ -128,9 +128,15 @@ export class ImportEngine {
         // A per-file failure is recorded and the batch continues; the source
         // file is never deleted on any failed path (cleanup is the LAST
         // stage and only runs after verification).
-        file.status = 'failed';
         file.error = error instanceof Error ? error.message : String(error);
-        file.stage = 'done';
+        if (file.status === 'imported') {
+          // The row is committed — this photo IS in the library (PR #183
+          // review). Keep it imported and leave the stage where it failed:
+          // the retained journal retries the remaining stages on resume.
+        } else {
+          file.status = 'failed';
+          file.stage = 'done';
+        }
         await persist();
       }
     }
