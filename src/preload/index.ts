@@ -26,6 +26,7 @@ const closeWindow = createInvoker(channels.windowClose, invokeTransport);
 
 const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
+const importListSources = createInvoker(channels.importListSources, invokeTransport);
 
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
@@ -39,6 +40,11 @@ const overlook: OverlookApi = {
     albums: async () => libraryAlbums({}),
     onChanged: createSubscriber(events.libraryChanged, subscribeTransport),
     onPendingCountChanged: createSubscriber(events.pendingCountChanged, subscribeTransport),
+  }),
+  import: Object.freeze({
+    listSources: async () => importListSources({}),
+    scanSource: createInvoker(channels.importScanSource, invokeTransport),
+    onScanProgress: createSubscriber(events.scanProgress, subscribeTransport),
   }),
   getPlatform: async () => (await getPlatform({})).platform,
   minimizeWindow: async () => {

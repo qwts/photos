@@ -39,6 +39,20 @@ const chipFiltersSchema = z.object({
 
 const sourceFilterSchema = z.enum(['all', 'favorites', 'recent', 'offloaded', 'deleted']);
 
+const importSourceSchema = z.object({
+  path: z.string(),
+  label: z.string(),
+  kind: z.enum(['volume', 'folder']),
+});
+
+const scanSummarySchema = z.object({
+  total: z.number().int().nonnegative(),
+  newCount: z.number().int().nonnegative(),
+  newBytes: z.number().int().nonnegative(),
+  newRaw: z.number().int().nonnegative(),
+  newJpg: z.number().int().nonnegative(),
+});
+
 const photoRecordSchema = z.object({
   id: z.string(),
   fileName: z.string(),
@@ -110,6 +124,9 @@ export const channels = {
     z.object({}),
     z.object({ albums: z.array(z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() })).readonly() }),
   ),
+  // Import sources (#84): discovery + the source-card scan. Copying is #87.
+  importListSources: defineChannel('import:list-sources', z.object({}), z.object({ sources: z.array(importSourceSchema).readonly() })),
+  importScanSource: defineChannel('import:scan-source', z.object({ path: z.string() }), scanSummarySchema),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
@@ -124,6 +141,11 @@ export const events = {
   // Targeted library pushes (#71) — never refetch-the-world signals.
   libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
   pendingCountChanged: defineEvent('library:pending-count', z.object({ count: z.number().int().nonnegative() })),
+  // Progressive scan counts for big cards (#84).
+  scanProgress: defineEvent(
+    'import:scan-progress',
+    scanSummarySchema.extend({ path: z.string(), scanned: z.number().int().nonnegative(), done: z.boolean() }),
+  ),
 } as const;
 
 export type PingRequest = z.output<typeof channels.ping.request>;

@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-import type { channels, FocusChangedPayload, PingRequest, PingResponse } from './channels.js';
+import type { channels, events, FocusChangedPayload, PingRequest, PingResponse } from './channels.js';
 
 type Req<C extends { request: z.ZodType }> = z.input<C['request']>;
 type Res<C extends { response: z.ZodType }> = z.output<C['response']>;
@@ -23,5 +23,10 @@ export interface OverlookApi {
     readonly albums: () => Promise<Res<typeof channels.libraryAlbums>>;
     readonly onChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
     readonly onPendingCountChanged: (listener: (payload: { count: number }) => void) => () => void;
+  };
+  readonly import: {
+    readonly listSources: () => Promise<Res<typeof channels.importListSources>>;
+    readonly scanSource: (request: Req<typeof channels.importScanSource>) => Promise<Res<typeof channels.importScanSource>>;
+    readonly onScanProgress: (listener: (payload: z.output<typeof events.scanProgress.payload>) => void) => () => void;
   };
 }
