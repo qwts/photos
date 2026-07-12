@@ -8,8 +8,10 @@ issue, PR, and comment links continue to work.
 | -------------------------------------- | -------------------------------------------------------- |
 | `README.md`                             | Canonical in the repository (quickstart + script table)  |
 | `CONTRIBUTING.md`                       | Pointer stub → [Contributing](Contributing)               |
-| `AGENTS.md`                             | Compact agent instructions (repo-canonical); long-form workflow → [Contributing](Contributing) — lands with issue [#15](https://github.com/qwts/photos/issues/15) |
-| `CLAUDE.md`                             | Compact agent instructions (repo-canonical); long-form workflow → [Contributing](Contributing) — lands with issue [#15](https://github.com/qwts/photos/issues/15) |
+| `AGENTS.md`                             | Shared agent-context file (repo-canonical); long-form workflow → [Contributing](Contributing) |
+| `CLAUDE.md`                             | Claude Code orientation pointing into `AGENTS.md` (repo-canonical)  |
+| `.github/copilot-instructions.md`       | Copilot review orientation pointing into `AGENTS.md` (repo-canonical) |
+| `.claude/commands/check.md`             | `/check` command wrapping the local gate run (repo-canonical)        |
 | ADRs                                    | Wiki-only: [Architecture Decision Records](Architecture-Decision-Records) (no repo copies) |
 | User-story / milestone planning         | Wiki-only: [User Stories](User-Stories)                    |
 | Testing strategy                        | Wiki-only: [Testing Strategy](Testing-Strategy)            |
