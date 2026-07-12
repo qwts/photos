@@ -9,6 +9,36 @@ import { KeyStore } from './crypto/keystore.js';
 import { openLibraryDatabase } from './db/database.js';
 import { registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
+import { seedLibrary } from './library/seed.js';
+import type { SafeStorageLike } from './crypto/keystore.js';
+
+// Test/dev harness hooks (#72): OVERLOOK_USER_DATA isolates profiles (E2E
+// temp profile per run); OVERLOOK_SEED seeds an empty library at startup;
+// OVERLOOK_INSECURE_KEYSTORE swaps in an obfuscation-only keystore for
+// environments without a real keychain (CI Linux). The insecure keystore is
+// honored ONLY in unpackaged builds and logs loudly — real libraries never
+// touch it (ADR-0004 stance stands for production).
+const userDataOverride = process.env['OVERLOOK_USER_DATA'];
+if (userDataOverride !== undefined && userDataOverride !== '') {
+  app.setPath('userData', userDataOverride);
+}
+
+function devInsecureKeystore(): SafeStorageLike {
+  const pad = 0x5f;
+  console.warn('[overlook] OVERLOOK_INSECURE_KEYSTORE active — dev/test profile only, no real key protection');
+  return {
+    isEncryptionAvailable: () => true,
+    encryptString: (plain) => Buffer.from(Buffer.from(plain, 'utf8').map((byte) => byte ^ pad)),
+    decryptString: (encrypted) => Buffer.from(encrypted.map((byte) => byte ^ pad)).toString('utf8'),
+  };
+}
+
+function pickSafeStorage(): SafeStorageLike {
+  if (process.env['OVERLOOK_INSECURE_KEYSTORE'] === '1' && !app.isPackaged) {
+    return devInsecureKeystore();
+  }
+  return safeStorage;
+}
 
 // Lazy library bootstrap: nothing touches the keychain or the database until
 // the renderer's first library.* call (the E2E smoke never does).
@@ -20,10 +50,12 @@ function broadcast(send: (win: BrowserWindow) => void): void {
   }
 }
 
+let libraryParts: { db: ReturnType<typeof openLibraryDatabase>; blobStore: BlobStore; keyStore: KeyStore } | undefined;
+
 function getLibraryService(): LibraryService {
   if (libraryService === undefined) {
     const dataDir = path.join(app.getPath('userData'), 'library');
-    const keyStore = KeyStore.open({ safeStorage, dataDir });
+    const keyStore = KeyStore.open({ safeStorage: pickSafeStorage(), dataDir });
     // The DB key is KEY #1: stable across rotation (rotation only moves the
     // blob WRITE key), wrapped by the master key per ADR-0004. A dedicated
     // db-key slot can arrive later via migration if ever needed.
@@ -34,6 +66,7 @@ function getLibraryService(): LibraryService {
     const db = openLibraryDatabase({ path: path.join(dataDir, 'library.db'), dbKey });
     const store = new BlobStore({ dataDir });
     void store.init();
+    libraryParts = { db, blobStore: store, keyStore };
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -95,9 +128,17 @@ function createWindow(): void {
   }
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   registerIpcHandlers();
   registerLibraryHandlers(getLibraryService);
+  const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
+  if (Number.isInteger(seedCount) && seedCount > 0) {
+    getLibraryService();
+    if (libraryParts !== undefined) {
+      await libraryParts.blobStore.init();
+      await seedLibrary(libraryParts.db, libraryParts.blobStore, libraryParts.keyStore.currentKey(), seedCount);
+    }
+  }
   createWindow();
 
   // macOS: re-create the window when the dock icon is clicked with none open.

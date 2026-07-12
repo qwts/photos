@@ -23,6 +23,12 @@ updates:
       # together with .nvmrc when the runtime moves.
       - dependency-name: '@types/node'
         versions: ['>=25']
+      # Electron is capped at the newest major with better-sqlite3-multiple-ciphers
+      # Electron-ABI prebuilds (ADR-0006 prebuilt-only policy; 43 = ABI v148 has none
+      # as of 2026-07-12). Remove once the fork publishes the matching ABI, and bump
+      # electron + the driver together (issue #72 records the pin-down from 43.1.0).
+      - dependency-name: electron
+        versions: ['>=43']
 
   # Keep the pinned action versions in .github/workflows current the same way.
   - package-ecosystem: github-actions
