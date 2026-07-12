@@ -3,6 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 
 import { channels } from '../shared/ipc/channels.js';
 import { wrapHandler } from '../shared/ipc/registry.js';
+import type { LibraryService } from './library/library-service.js';
 
 function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
   const win = BrowserWindow.fromWebContents(event.sender);
@@ -15,6 +16,23 @@ function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
 // Registers a main-process handler for every channel in the registry. Called
 // once at startup, before any window exists. Handlers stay thin here; domain
 // logic gets its own modules as the epics land.
+export function registerLibraryHandlers(getService: () => LibraryService): void {
+  const page = (request: unknown): unknown => wrapHandler(channels.libraryPage, (req) => getService().page(req))(request);
+  ipcMain.handle(channels.libraryPage.name, (_event, request: unknown) => page(request));
+  ipcMain.handle(channels.libraryGet.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryGet, ({ id }) => ({ photo: getService().get(id) ?? null }))(request),
+  );
+  ipcMain.handle(channels.libraryToggleFavorite.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryToggleFavorite, ({ id }) => getService().toggleFavorite(id))(request),
+  );
+  ipcMain.handle(channels.libraryCounts.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryCounts, ({ recentSince }) => getService().counts(recentSince))(request),
+  );
+  ipcMain.handle(channels.libraryStats.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryStats, () => getService().stats())(request),
+  );
+}
+
 export function registerIpcHandlers(): void {
   const ping = wrapHandler(channels.ping, ({ message }) => ({ echoed: message }));
   ipcMain.handle(channels.ping.name, (_event, request: unknown) => ping(request));

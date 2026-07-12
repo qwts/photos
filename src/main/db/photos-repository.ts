@@ -2,7 +2,15 @@ import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
-import type { PageCursor, PageRequest, PageResult, PhotoInsert, PhotoRecord, SourceCounts } from '../../shared/library/types.js';
+import type {
+  LibraryStats,
+  PageCursor,
+  PageRequest,
+  PageResult,
+  PhotoInsert,
+  PhotoRecord,
+  SourceCounts,
+} from '../../shared/library/types.js';
 
 // Typed repository over the photos + sync_ledger tables (#69). No raw SQL
 // leaves this module; the IPC service (#71) speaks records only.
@@ -103,16 +111,37 @@ export class PhotosRepository {
     })();
   }
 
-  /** Keyset-paged query per ADR-0005 — never OFFSET. */
+  /** Keyset-paged query per ADR-0005 — never OFFSET. Chips AND-combine; q is
+   * a case-insensitive substring over name/place/camera (mock semantics —
+   * recorded on #71; the FTS table waits for token search). */
   page(request: PageRequest): PageResult {
     if (request.source === 'recent' && request.recentSince === undefined) {
       throw new Error(`the 'recent' source requires recentSince`);
     }
+    const filters: string[] = [];
+    if (request.chips?.favorites === true) {
+      filters.push('p.favorite = 1');
+    }
+    if (request.chips?.raw === true) {
+      filters.push(`p.file_kind = 'raw'`);
+    }
+    if (request.chips?.offloaded === true) {
+      filters.push(`p.id IN (SELECT photo_id FROM sync_ledger WHERE status = 'offloaded')`);
+    }
+    if (request.chips?.localOnly === true) {
+      filters.push(`p.id IN (SELECT photo_id FROM sync_ledger WHERE status = 'local')`);
+    }
+    if (request.query !== undefined && request.query !== '') {
+      filters.push(
+        `(instr(lower(p.file_name), @query) > 0 OR instr(lower(COALESCE(p.place, '')), @query) > 0 OR instr(lower(COALESCE(p.camera, '')), @query) > 0)`,
+      );
+    }
+    const chipClause = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
     const cursorClause = request.cursor === undefined ? '' : 'AND (COALESCE(p.taken_at, p.imported_at), p.id) < (@cursorKey, @cursorId)';
     const rows = queryAll<PhotoRow>(
       this.db,
       `${SELECT}
-       WHERE ${sourceWhere(request.source)} ${cursorClause}
+       WHERE ${sourceWhere(request.source)} ${chipClause} ${cursorClause}
        ORDER BY sort_key DESC, p.id DESC
        LIMIT @limit`,
       {
@@ -120,6 +149,7 @@ export class PhotosRepository {
         recentSince: request.recentSince ?? null,
         cursorKey: request.cursor?.sortKey ?? null,
         cursorId: request.cursor?.id ?? null,
+        query: request.query?.toLowerCase() ?? null,
       },
     );
     const last = rows[rows.length - 1];
@@ -142,6 +172,26 @@ export class PhotosRepository {
       run(this.db, 'UPDATE sync_ledger SET dirty = 1 WHERE photo_id = ?', photoId);
       return updated.favorite === 1;
     })();
+  }
+
+  get(photoId: string): PhotoRecord | undefined {
+    const rows = queryAll<PhotoRow>(this.db, `${SELECT} WHERE p.id = @id LIMIT 1`, { id: photoId });
+    const row = rows[0];
+    return row === undefined ? undefined : toRecord(row);
+  }
+
+  /** StatusBar totals: live (non-deleted) photo count + bytes. */
+  stats(): LibraryStats {
+    const row = queryAll<{ n: number; b: number | null }>(
+      this.db,
+      'SELECT count(*) AS n, sum(bytes) AS b FROM photos p WHERE p.deleted_at IS NULL',
+    )[0];
+    return { photos: row?.n ?? 0, bytes: row?.b ?? 0 };
+  }
+
+  /** pendingCount source: dirty ledger rows (design §backup dirtiness). */
+  pendingCount(): number {
+    return queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM sync_ledger WHERE dirty = 1')[0]?.n ?? 0;
   }
 
   counts(recentSince: string): SourceCounts {
