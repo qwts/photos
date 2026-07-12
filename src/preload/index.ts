@@ -24,9 +24,20 @@ const minimizeWindow = createInvoker(channels.windowMinimize, invokeTransport);
 const toggleMaximizeWindow = createInvoker(channels.windowToggleMaximize, invokeTransport);
 const closeWindow = createInvoker(channels.windowClose, invokeTransport);
 
+const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
+
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
   onFocusChanged: createSubscriber(events.focusChanged, subscribeTransport),
+  library: Object.freeze({
+    page: createInvoker(channels.libraryPage, invokeTransport),
+    get: createInvoker(channels.libraryGet, invokeTransport),
+    toggleFavorite: createInvoker(channels.libraryToggleFavorite, invokeTransport),
+    counts: createInvoker(channels.libraryCounts, invokeTransport),
+    stats: async () => libraryStats({}),
+    onChanged: createSubscriber(events.libraryChanged, subscribeTransport),
+    onPendingCountChanged: createSubscriber(events.pendingCountChanged, subscribeTransport),
+  }),
   getPlatform: async () => (await getPlatform({})).platform,
   minimizeWindow: async () => {
     await minimizeWindow({});

@@ -1,10 +1,56 @@
 import path from 'node:path';
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, safeStorage } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
-import { registerIpcHandlers } from './ipc.js';
+import { BlobStore } from './blobs/blob-store.js';
+import { KeyStore } from './crypto/keystore.js';
+import { openLibraryDatabase } from './db/database.js';
+import { registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
+import { LibraryService } from './library/library-service.js';
+
+// Lazy library bootstrap: nothing touches the keychain or the database until
+// the renderer's first library.* call (the E2E smoke never does).
+let libraryService: LibraryService | undefined;
+
+function broadcast(send: (win: BrowserWindow) => void): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    send(win);
+  }
+}
+
+function getLibraryService(): LibraryService {
+  if (libraryService === undefined) {
+    const dataDir = path.join(app.getPath('userData'), 'library');
+    const keyStore = KeyStore.open({ safeStorage, dataDir });
+    // The DB key is KEY #1: stable across rotation (rotation only moves the
+    // blob WRITE key), wrapped by the master key per ADR-0004. A dedicated
+    // db-key slot can arrive later via migration if ever needed.
+    const dbKey = keyStore.resolver()(1);
+    if (dbKey === undefined) {
+      throw new Error('library key #1 is missing; cannot key the database');
+    }
+    const db = openLibraryDatabase({ path: path.join(dataDir, 'library.db'), dbKey });
+    const store = new BlobStore({ dataDir });
+    void store.init();
+    const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    libraryService = new LibraryService(db, {
+      libraryChanged: (photoIds) => {
+        emitChanged({ photoIds: [...photoIds] });
+      },
+      pendingCountChanged: (count) => {
+        emitPending({ count });
+      },
+    });
+  }
+  return libraryService;
+}
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -51,6 +97,7 @@ function createWindow(): void {
 
 void app.whenReady().then(() => {
   registerIpcHandlers();
+  registerLibraryHandlers(getLibraryService);
   createWindow();
 
   // macOS: re-create the window when the dock icon is clicked with none open.
