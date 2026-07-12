@@ -1,0 +1,110 @@
+# Codex environment for this repo. Adapted from image-trail's; maintained BY HAND here —
+# edit freely and keep it in review like any other tooling config.
+version = 1
+name = "photos"
+
+[setup]
+script = '''
+set -Eeuo pipefail
+
+echo "==> Codex setup starting"
+
+# Codex should already run from the checked-out repo, but this keeps it safe.
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  cd "$(git rev-parse --show-toplevel)"
+fi
+
+echo "==> Working directory: $(pwd)"
+
+# Load nvm explicitly because setup scripts are non-interactive shells.
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+else
+  echo "ERROR: nvm not found at $NVM_DIR/nvm.sh"
+  exit 1
+fi
+
+if [ ! -f ".nvmrc" ]; then
+  echo "ERROR: .nvmrc not found in repo root."
+  exit 1
+fi
+
+echo "==> Installing/using Node from .nvmrc: $(cat .nvmrc)"
+nvm install
+nvm use
+
+# Later agent commands run in fresh shells; without a default alias they would fall back to the
+# image's stock Node instead of .nvmrc's (misleading lint/knip failures follow).
+nvm alias default "$(nvm current)"
+
+echo "==> Node: $(node --version)"
+echo "==> npm:  $(npm --version)"
+
+# Deterministic package install based on lockfile.
+if [ -f "package-lock.json" ]; then
+  echo "==> Installing dependencies with npm ci"
+  npm ci --no-audit --no-fund
+elif [ -f "package.json" ]; then
+  echo "==> Installing dependencies with npm install"
+  npm install
+else
+  echo "==> No package.json found; skipping dependency install"
+fi
+
+# Browser automation support, only when Playwright is present.
+if [ -f "package.json" ] && grep -qiE '"@playwright/test"|"playwright"' package.json; then
+  echo "==> Playwright detected; installing Chromium (with system deps for fresh containers)"
+  npx playwright install --with-deps chromium || npx playwright install chromium || true
+fi
+
+# Initial build is deliberately FATAL: a broken build should fail setup loudly instead of
+# wasting the session.
+if [ -f "package.json" ] && npm run | grep -qE '^[[:space:]]+build$'; then
+  echo "==> build script detected; running initial build"
+  npm run build
+fi
+
+echo "==> Codex setup complete"
+'''
+
+[cleanup]
+script = '''
+set -u
+
+echo "==> Codex cleanup starting"
+
+# Run from repo root when possible.
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  cd "$(git rev-parse --show-toplevel)"
+fi
+
+echo "==> Working directory: $(pwd)"
+
+# Remove transient project-local output.
+# Do not remove source files, lockfiles, package manifests, or repo config.
+echo "==> Removing transient outputs"
+
+rm -rf \
+  tmp \
+  temp \
+  .tmp \
+  dist \
+  .test-dist \
+  coverage \
+  playwright-report \
+  test-results \
+  .eslintcache \
+  tsconfig.tsbuildinfo
+
+# Remove OS/editor noise.
+find . \
+  \( -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" \) \
+  -type f \
+  -delete 2>/dev/null || true
+
+echo "==> Codex cleanup complete"
+
+exit 0
+'''
