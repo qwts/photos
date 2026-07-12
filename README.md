@@ -29,6 +29,8 @@ npm ci
 | `npm run test`             | Typecheck, compile tests, run `node --test`                     |
 | `npm run test:cov`         | `test` under c8 with the `.c8rc.json` coverage floor            |
 | `npm run coverage:summary` | Render c8 totals vs. floor (CI step summary)                    |
+| `npm run build`            | Compile `src/` to `dist/` (`tsconfig.build.json`)               |
+| `npm run ci`               | Full local gate suite — mirrors the CI workflow                 |
 
 ## Testing
 

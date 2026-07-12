@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  # Post-merge signal: merges may land via admin bypass, so run the same gates on main itself.
+  push:
+    branches:
+      - main
+
+# Cancel superseded PR runs — a stacked push otherwise burns a full run per commit. Main-push
+# runs are keyed by SHA instead of ref: a shared ref group would let GitHub replace the single
+# queued run when merges land back-to-back, silently dropping an intermediate commit's verdict.
+# Per-SHA groups never collide, so every merge commit keeps its own post-merge run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          # Single source of truth: CI and local resolve Node from the same .nvmrc, so versions
+          # never drift. `npm run ci` mirrors this job's gates (lint, format:check, test:cov,
+          # build); bump .nvmrc to move local and CI together.
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      # NODE_OPTIONS adds a second node:test reporter that turns failures into GitHub annotations
+      # (file/line-anchored ::error in the run summary) — without it a red test step shows only a
+      # blank "Error:" in the UI. CI-only by construction: the flags live here, not in package.json,
+      # so local runs keep the plain spec output. Non-test node processes under the same step (tsc,
+      # c8, npm itself) accept and ignore the flags.
+      - name: Test
+        env:
+          NODE_OPTIONS: >-
+            --test-reporter=spec --test-reporter-destination=stdout
+            --test-reporter=node-test-github-reporter --test-reporter-destination=stdout
+        run: npm run test:cov
+
+      # Render c8 totals vs. the floor into the run summary. Runs even when test:cov failed
+      # (dropped below the floor) — that is when the numbers matter most.
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        run: npm run coverage:summary
+
+      - name: Upload coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage/lcov.info
+
+      - name: Build
+        run: npm run build
