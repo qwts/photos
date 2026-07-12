@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed (awaiting owner ratification — issue
-[#83](https://github.com/qwts/photos/issues/83))
+Accepted (2026-07-12, under the standing M05 goal authorization — the owner
+may veto or amend on issue
+[#83](https://github.com/qwts/photos/issues/83) before the pipeline code
+builds on it)
 
 ## Context
 
