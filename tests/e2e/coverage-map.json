@@ -69,6 +69,14 @@
       "id": "m04-lightbox-open",
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [{ "type": "deferred", "issue": 96 }]
+    },
+    {
+      "id": "m06-full-res-delivery",
+      "wiki": "User-Story-M06-Lightbox-Inspector",
+      "coverage": [
+        { "type": "playwright-e2e", "path": "tests/e2e/fullres.spec.ts" },
+        { "type": "unit-dom", "path": "tests/fullres/full-service.test.ts" }
+      ]
     }
   ]
 }

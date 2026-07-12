@@ -1,0 +1,105 @@
+import { embeddedJpegFromRaf, looksLikeJpeg } from '../import/raf-preview.js';
+import { ByteLru } from '../cache/byte-lru.js';
+import type { FileKind } from '../../shared/library/types.js';
+
+// Full-resolution decrypt-to-view delivery (#91): originals decrypt into a
+// byte-capped in-memory LRU and are served over overlook-full:// — plaintext
+// never touches disk (ADR-0004). RAW records resolve to a *viewable* payload
+// per ADR-0006 v1: the RAF embedded preview (or the bytes themselves when
+// they are already a JPEG), flagged `preview` so the UI can badge it. A RAW
+// with no viewable payload is a placeholder (null), never a failure.
+
+export interface LoadedOriginal {
+  readonly bytes: Buffer;
+  readonly contentHash: string;
+  readonly fileKind: FileKind;
+}
+
+export interface FullPayload {
+  readonly bytes: Buffer;
+  readonly contentHash: string;
+  readonly mime: string;
+  /** True when this is a RAW's embedded preview, not a full render. */
+  readonly preview: boolean;
+}
+
+export interface FullServiceOptions {
+  /** Resolves and decrypts an original; null = missing/offloaded. */
+  readonly loadOriginal: (photoId: string) => Promise<LoadedOriginal | null>;
+  /** LRU cap over decrypted full-res bytes. Default 256 MiB. */
+  readonly maxCacheBytes?: number | undefined;
+  /** Concurrent decrypts. Default 2 — full-res reads are large. */
+  readonly maxConcurrent?: number | undefined;
+}
+
+const DEFAULT_CACHE_BYTES = 256 * 1024 * 1024;
+const DEFAULT_CONCURRENT = 2;
+
+const MIME_BY_KIND: Partial<Record<FileKind, string>> = {
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  heic: 'image/heic',
+};
+
+export class FullService {
+  private readonly loadOriginal: FullServiceOptions['loadOriginal'];
+  private readonly lru: ByteLru<FullPayload>;
+
+  constructor(options: FullServiceOptions) {
+    this.loadOriginal = options.loadOriginal;
+    this.lru = new ByteLru({
+      maxCacheBytes: options.maxCacheBytes ?? DEFAULT_CACHE_BYTES,
+      maxConcurrent: options.maxConcurrent ?? DEFAULT_CONCURRENT,
+    });
+  }
+
+  /**
+   * The viewable full-res payload, or null when the photo/original is
+   * missing, the RAW has no viewable preview, or `signal` aborts while the
+   * request is still queued (rapid paging never spends decrypt work on
+   * frames the user already left).
+   */
+  async getFull(photoId: string, signal?: AbortSignal): Promise<FullPayload | null> {
+    return this.lru.get(photoId, () => this.resolvePayload(photoId), signal);
+  }
+
+  /**
+   * Fire-and-forget neighbor warm (←/→ nav must not stall): kicks a decrypt
+   * for every id not already cached or loading. Prefetches share the same
+   * concurrency cap, so they queue behind on-demand requests already running.
+   */
+  prefetch(photoIds: readonly string[]): void {
+    for (const photoId of photoIds) {
+      if (!this.lru.isWarm(photoId)) {
+        void this.getFull(photoId).catch(() => undefined);
+      }
+    }
+  }
+
+  /** {cachedBytes, peakConcurrent} — the memory-budget observability hook. */
+  stats(): { readonly cachedBytes: number; readonly peakConcurrent: number } {
+    return this.lru.stats();
+  }
+
+  private async resolvePayload(photoId: string): Promise<FullPayload | null> {
+    const original = await this.loadOriginal(photoId);
+    if (original === null) {
+      return null;
+    }
+    if (original.fileKind === 'raw') {
+      // Viewable-by-magic, not by extension: a RAF yields its documented
+      // embedded JPEG; bytes that are already a JPEG serve as-is (dev seeds
+      // and pre-converted files). Anything else has no v1 render — null.
+      const viewable = embeddedJpegFromRaf(original.bytes) ?? (looksLikeJpeg(original.bytes) ? original.bytes : null);
+      if (viewable === null) {
+        return null;
+      }
+      return { bytes: viewable, contentHash: original.contentHash, mime: 'image/jpeg', preview: true };
+    }
+    const mime = MIME_BY_KIND[original.fileKind];
+    if (mime === undefined) {
+      return null;
+    }
+    return { bytes: original.bytes, contentHash: original.contentHash, mime, preview: false };
+  }
+}

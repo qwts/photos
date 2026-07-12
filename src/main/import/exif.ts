@@ -1,5 +1,7 @@
 import exifr from 'exifr';
 
+import { embeddedJpegFromRaf } from './raf-preview.js';
+
 // EXIF extraction (#85) per ADR-0006's field set, robust to weird files:
 // missing or corrupt metadata degrades to an all-null record — the import
 // engine (#87) composes file-level facts around it. NEVER fabricate a value
@@ -39,24 +41,6 @@ const EMPTY: ExtractedMetadata = {
   gpsLat: null,
   gpsLon: null,
 };
-
-// RAF layout (documented FUJIFILM container): ASCII magic, then the offset
-// and length of the embedded JPEG as u32 big-endian at bytes 84 and 88.
-const RAF_MAGIC = 'FUJIFILMCCD-RAW ';
-const RAF_JPEG_OFFSET_AT = 84;
-const RAF_JPEG_LENGTH_AT = 88;
-
-function embeddedJpegFromRaf(bytes: Buffer): Buffer | null {
-  if (bytes.length < RAF_JPEG_LENGTH_AT + 4 || bytes.toString('ascii', 0, RAF_MAGIC.length) !== RAF_MAGIC) {
-    return null;
-  }
-  const offset = bytes.readUInt32BE(RAF_JPEG_OFFSET_AT);
-  const length = bytes.readUInt32BE(RAF_JPEG_LENGTH_AT);
-  if (offset <= 0 || length <= 0 || offset + length > bytes.length) {
-    return null;
-  }
-  return bytes.subarray(offset, offset + length);
-}
 
 function asFiniteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
