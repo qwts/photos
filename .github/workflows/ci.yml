@@ -207,14 +207,14 @@ jobs:
   # Publishes the Playwright HTML report to GitHub Pages at a stable per-PR URL:
   #   https://qwts.github.io/photos/reports/pr-<number>/
   # Each run replaces that PR's report (bounded growth); the artifact above keeps 14 days of
-  # history. Publishes ONLY when the E2E job fails — the browsable report exists to debug red
-  # runs (traces/screenshots/videos), and green runs deploying to Pages on every push was pure
-  # deploy-race noise. Green-run reports remain available as the workflow artifact.
+  # history. Publishes on every run where E2E actually executed — green or red. The deploy
+  # races that once made green publishing noisy are contained by the freshness check below
+  # plus the gh-pages concurrency group; red runs still carry traces/screenshots/videos.
   e2e-report:
     name: Publish E2E report
     needs: e2e
-    # PR-only (the stable URL is per-PR).
-    if: ${{ !cancelled() && needs.e2e.result == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    # PR-only (the stable URL is per-PR). Skipped E2E (non-E2E PRs) has no report to publish.
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
