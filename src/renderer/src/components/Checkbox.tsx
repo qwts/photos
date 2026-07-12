@@ -32,6 +32,10 @@ export function Checkbox({ checked, indeterminate = false, onChange, disabled = 
         checked={checked}
         disabled={disabled}
         onChange={(event) => {
+          // Browsers clear the DOM indeterminate flag on activation; keep it
+          // in sync with the prop so mixed state survives until the parent
+          // decides the next state (PR #144 review).
+          event.target.indeterminate = indeterminate;
           onChange?.(event.target.checked);
         }}
       />
