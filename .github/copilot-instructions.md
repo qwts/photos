@@ -15,7 +15,8 @@ Invariants become review priorities here._
 
 - Flag dependency changes that are not exact pins, hand-edited version bumps
   (Dependabot owns upgrades), or `typescript` / `@types/node` moves off their
-  pinned lines (TS 6.x; `@types/node` tracks `.nvmrc`'s Node 24).
+  pinned lines (TS **< 6.1.0** — typescript-eslint's peer cap, mirrored by the
+  Dependabot ignore; `@types/node` tracks `.nvmrc`'s Node 24).
 - Flag lowered floors: `.c8rc.json` coverage thresholds, `type-coverage`
   `--at-least`, or the 800-line file budget must only ratchet upward.
 - Flag files approaching or evading the 800-line budget (splitting is the fix,

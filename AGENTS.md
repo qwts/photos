@@ -88,9 +88,9 @@ possible, enforced as executable checks._
   pass. See the wiki [Testing Strategy](https://github.com/qwts/photos/wiki/Testing-Strategy)
   and [ADR-0001](https://github.com/qwts/photos/wiki/ADR-0001-Automation-Check-Governance).
 - Dependencies use **exact pins**; Dependabot is the only actor that bumps
-  versions. TypeScript stays on the 6.x line and `@types/node` tracks the
-  `.nvmrc` runtime major (both enforced as Dependabot ignores — see
-  `.github/dependabot.yml` for the removal conditions).
+  versions. TypeScript stays **below 6.1.0** (typescript-eslint's peer cap) and
+  `@types/node` tracks the `.nvmrc` runtime major (both enforced as Dependabot
+  ignores — see `.github/dependabot.yml` for the removal conditions).
 
 ## Tooling
 
