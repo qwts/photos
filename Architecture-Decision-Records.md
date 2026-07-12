@@ -11,8 +11,8 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0001](ADR-0001-Automation-Check-Governance)                    | Automation Check Governance | Accepted |
 | [ADR-0002](ADR-0002-Versioning-Policy)                              | Versioning Policy           | Accepted |
 | [ADR-0003](ADR-0003-Desktop-Stack)                                  | Desktop Stack               | Accepted |
-| [ADR-0004](ADR-0004-Encryption-And-Key-Management)                  | Encryption & Key Management | Proposed |
-| [ADR-0005](ADR-0005-Library-Data-Model)                             | Library Data Model          | Proposed |
+| [ADR-0004](ADR-0004-Encryption-And-Key-Management)                  | Encryption & Key Management | Accepted |
+| [ADR-0005](ADR-0005-Library-Data-Model)                             | Library Data Model          | Accepted |
 | [ADR-0006](ADR-0006-Media-Processing)                               | Media Processing            | Proposed |
 | [ADR-0007](ADR-0007-Backup-Format-And-Offload)                      | Backup Format & Offload     | Proposed |
 

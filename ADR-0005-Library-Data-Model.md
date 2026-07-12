@@ -2,8 +2,7 @@
 
 ## Status
 
-Proposed (awaiting owner ratification — issue
-[#66](https://github.com/qwts/photos/issues/66))
+Accepted (proposed 2026-07-12 on issue [#66](https://github.com/qwts/photos/issues/66); accepted under the owner's standing work-through-M11 authorization after an open review window — any section may still be amended by owner veto before its implementing code lands)
 
 ## Context
 
