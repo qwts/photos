@@ -1,0 +1,53 @@
+/* TitleBar (#58) — components/core/TitleBar.jsx. The whole 30px bar drags the
+   frameless window; interactive islands opt out. Close-hover foreground is
+   the mock's literal light-on-red value, named once here. */
+:root {
+  --titlebar-close-fg: oklch(0.97 0.005 25);
+}
+
+.ovl-titlebar {
+  -webkit-app-region: drag;
+  flex: none;
+  height: var(--titlebar-h);
+  background: var(--gray-0);
+  border-bottom: 1px solid var(--border-1);
+  display: flex;
+  align-items: center;
+}
+
+.ovl-titlebar__inset {
+  flex: none;
+}
+
+.ovl-titlebar__spacer {
+  flex: 1;
+  height: 100%;
+}
+
+.ovl-titlebar__controls {
+  display: flex;
+  flex: none;
+}
+
+.ovl-titlebar__button {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: var(--titlebar-h);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-titlebar__button:hover {
+  background: var(--gray-3);
+}
+
+.ovl-titlebar__button--close:hover {
+  background: var(--accent-red);
+  color: var(--titlebar-close-fg);
+}

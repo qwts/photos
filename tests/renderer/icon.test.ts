@@ -34,6 +34,11 @@ const VOCABULARY = [
   'camera',
   'map-pin',
   'aperture',
+  // Window-control glyphs the design's TitleBar.jsx uses beyond the readme
+  // list (#58).
+  'minus',
+  'square',
+  'x',
 ] as const;
 
 describe('Icon', () => {
