@@ -18,5 +18,6 @@ npm ci
 | Script                 | Purpose                                  |
 | ---------------------- | ---------------------------------------- |
 | `npm run typecheck`    | Type-check the codebase (`tsc --noEmit`) |
+| `npm run lint`         | ESLint (type-aware correctness rules)    |
 | `npm run format`       | Format all files with Prettier           |
 | `npm run format:check` | Fail on formatting violations (CI gate)  |
