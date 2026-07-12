@@ -55,6 +55,25 @@ test('boots a seeded temp profile deterministically', async () => {
     // marks every 9th photo favorite, so 12 photos yield 2 favorites.
     await page.getByRole('button', { name: 'Favorites 2' }).click();
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(2);
+
+    // #75: thumbs decrypt over overlook-thumb:// straight into <img> — the
+    // seeded thumb decodes (naturalWidth > 0), a missing id errors so the
+    // renderer keeps its placeholder. String-form evaluate: the tests
+    // project has no DOM lib.
+    const thumb = await page.evaluate<{ ok: boolean; width: number }>(`new Promise((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve({ ok: true, width: el.naturalWidth });
+      el.onerror = () => resolve({ ok: false, width: 0 });
+      el.src = 'overlook-thumb://library/01J8SEEDPHOTO0000?size=thumb';
+    })`);
+    expect(thumb).toEqual({ ok: true, width: 1 });
+    const missing = await page.evaluate<boolean>(`new Promise((resolve) => {
+      const el = new Image();
+      el.onload = () => resolve(true);
+      el.onerror = () => resolve(false);
+      el.src = 'overlook-thumb://library/01J8DOESNOTEXIST?size=thumb';
+    })`);
+    expect(missing).toBe(false);
   } finally {
     await app.close();
   }
