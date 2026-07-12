@@ -1,3 +1,4 @@
+import { readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
@@ -11,7 +12,13 @@ import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
 import { registerFullProtocol } from './fullres/full-protocol.js';
 import { FullService } from './fullres/full-service.js';
+import { extractMetadata } from './import/exif.js';
+import { ImportEngine } from './import/import-engine.js';
+import { ImportJournal } from './import/import-journal.js';
 import { ImportService } from './import/import-service.js';
+import { ThumbnailPool } from './import/thumbnail-pool.js';
+import { ThumbnailService } from './import/thumbnail-service.js';
+import { ulid } from './import/ulid.js';
 import { registerImportHandlers, registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
@@ -97,6 +104,7 @@ function getLibraryService(): LibraryService {
 }
 
 let importService: ImportService | undefined;
+let thumbnailPool: ThumbnailPool | undefined;
 
 function getImportService(): ImportService {
   if (importService === undefined) {
@@ -105,13 +113,76 @@ function getImportService(): ImportService {
     if (parts === undefined) {
       throw new Error('library bootstrap failed; import service unavailable');
     }
+    const repo = new PhotosRepository(parts.db);
     const emitScanProgress = createEmitter(events.scanProgress, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    importService = new ImportService(new PhotosRepository(parts.db), {
-      scanProgress: (path, progress) => {
-        emitScanProgress({ path, ...progress });
+    const emitCopyProgress = createEmitter(events.importCopyProgress, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const emitThumbProgress = createEmitter(events.importThumbProgress, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    thumbnailPool = new ThumbnailPool({ workerUrl: new URL('./thumbnail-worker.js', import.meta.url) });
+    const thumbs = new ThumbnailService(thumbnailPool, parts.blobStore);
+    const journal = new ImportJournal(path.join(app.getPath('userData'), 'library', 'import-journal.json'));
+    const engine = new ImportEngine({
+      readFile: async (filePath) => readFile(filePath),
+      deleteFile: async (filePath) => unlink(filePath),
+      readManifest: async () => journal.read(),
+      writeManifest: async (manifest) => journal.write(manifest),
+      repo: {
+        hasContentHash: (hash) => repo.hasContentHash(hash),
+        get: (id) => repo.get(id),
+        insert: (photo) => {
+          repo.insert(photo);
+        },
       },
+      blobs: parts.blobStore,
+      generateThumbs: async (request) => thumbs.generateFor(request),
+      extractMetadata,
+      currentKey: () => parts.keyStore.currentKey(),
+      resolveKey: parts.keyStore.resolver(),
+      newId: ulid,
+      now: () => new Date().toISOString(),
+      events: {
+        copyProgress: (done, total) => {
+          emitCopyProgress({ done, total });
+        },
+        thumbProgress: (done, total) => {
+          emitThumbProgress({ done, total });
+        },
+      },
+    });
+    importService = new ImportService(
+      repo,
+      {
+        scanProgress: (path, progress) => {
+          emitScanProgress({ path, ...progress });
+        },
+        copyProgress: (done, total) => {
+          emitCopyProgress({ done, total });
+        },
+        thumbProgress: (done, total) => {
+          emitThumbProgress({ done, total });
+        },
+        imported: (photoIds) => {
+          emitChanged({ photoIds: [...photoIds] });
+          emitPending({ count: repo.stats().pending });
+        },
+      },
+      engine,
+    );
+    // Crash-safety (#87): a journaled batch from an interrupted run
+    // completes before any new import starts.
+    void importService.resume().catch((error: unknown) => {
+      console.error('[overlook] import resume failed', error);
     });
   }
   return importService;
@@ -270,4 +341,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  void thumbnailPool?.close();
 });

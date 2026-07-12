@@ -44,6 +44,12 @@ export function registerImportHandlers(getService: () => ImportService): void {
   ipcMain.handle(channels.importScanSource.name, (_event, request: unknown) =>
     wrapHandler(channels.importScanSource, async ({ path }) => getService().scanSource(path))(request),
   );
+  ipcMain.handle(channels.importRun.name, (_event, request: unknown) =>
+    wrapHandler(channels.importRun, async ({ path, mode }) => {
+      const summary = await getService().run(path, mode);
+      return { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed };
+    })(request),
+  );
 }
 
 export function registerIpcHandlers(): void {

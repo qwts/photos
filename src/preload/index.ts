@@ -44,7 +44,10 @@ const overlook: OverlookApi = {
   import: Object.freeze({
     listSources: async () => importListSources({}),
     scanSource: createInvoker(channels.importScanSource, invokeTransport),
+    run: createInvoker(channels.importRun, invokeTransport),
     onScanProgress: createSubscriber(events.scanProgress, subscribeTransport),
+    onCopyProgress: createSubscriber(events.importCopyProgress, subscribeTransport),
+    onThumbProgress: createSubscriber(events.importThumbProgress, subscribeTransport),
   }),
   getPlatform: async () => (await getPlatform({})).platform,
   minimizeWindow: async () => {

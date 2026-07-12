@@ -128,6 +128,16 @@ export const channels = {
   // Import sources (#84): discovery + the source-card scan. Copying is #87.
   importListSources: defineChannel('import:list-sources', z.object({}), z.object({ sources: z.array(importSourceSchema).readonly() })),
   importScanSource: defineChannel('import:scan-source', z.object({ path: z.string() }), scanSummarySchema),
+  // Import engine (#87): run a batch (new files on the source) copy or move.
+  importRun: defineChannel(
+    'import:run',
+    z.object({ path: z.string(), mode: z.enum(['copy', 'move']) }),
+    z.object({
+      imported: z.number().int().nonnegative(),
+      duplicates: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+    }),
+  ),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
@@ -146,6 +156,16 @@ export const events = {
   scanProgress: defineEvent(
     'import:scan-progress',
     scanSummarySchema.extend({ path: z.string(), scanned: z.number().int().nonnegative(), done: z.boolean() }),
+  ),
+  // The import dialog's two aggregate bars (#87): copy+encrypt+record, then
+  // thumbnails — both n/total over the batch.
+  importCopyProgress: defineEvent(
+    'import:copy-progress',
+    z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() }),
+  ),
+  importThumbProgress: defineEvent(
+    'import:thumb-progress',
+    z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() }),
   ),
 } as const;
 
