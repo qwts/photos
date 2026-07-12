@@ -29,6 +29,26 @@ updates:
       # electron + the driver together (issue #72 records the pin-down from 43.1.0).
       - dependency-name: electron
         versions: ['>=43']
+      # Vite is capped at the 7 line: electron-vite@5 (stable) peers vite ^5||^6||^7,
+      # with Vite 8 support only in the unreleased 6.0 betas, and @vitejs/plugin-react@6
+      # peers vite ^8 (plus new babel-plugin-react-compiler peers), so both are gated on
+      # the same wall. Remove both once electron-vite ships a stable Vite 8 release and
+      # bump vite + @vitejs/plugin-react + electron-vite together (blocked PR #153).
+      - dependency-name: vite
+        versions: ['>=8']
+      - dependency-name: '@vitejs/plugin-react'
+        versions: ['>=6']
+      # React is held on the 18 line: React 19 is a deliberate migration (new JSX
+      # transform, ref-as-prop, removed legacy APIs), not a nod-through bump. Remove
+      # these four together when React 19 is taken on as its own reviewed PR.
+      - dependency-name: react
+        versions: ['>=19']
+      - dependency-name: react-dom
+        versions: ['>=19']
+      - dependency-name: '@types/react'
+        versions: ['>=19']
+      - dependency-name: '@types/react-dom'
+        versions: ['>=19']
 
   # Keep the pinned action versions in .github/workflows current the same way.
   - package-ecosystem: github-actions
