@@ -39,6 +39,7 @@ const VOCABULARY = [
   'minus',
   'square',
   'x',
+  'triangle-alert',
 ] as const;
 
 describe('Icon', () => {

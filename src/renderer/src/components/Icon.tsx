@@ -26,6 +26,7 @@ import {
   Square,
   Star,
   Trash2,
+  TriangleAlert,
   X,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
@@ -61,6 +62,7 @@ export const ICON_NAMES = [
   'square',
   'star',
   'trash-2',
+  'triangle-alert',
   'x',
 ] as const;
 
@@ -95,6 +97,7 @@ const ICONS = {
   square: Square,
   star: Star,
   'trash-2': Trash2,
+  'triangle-alert': TriangleAlert,
   x: X,
 } satisfies Record<IconName, typeof Album>;
 
