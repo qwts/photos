@@ -15,6 +15,8 @@ npm ci
 
 ### Scripts
 
-| Script              | Purpose                          |
-| ------------------- | -------------------------------- |
-| `npm run typecheck` | Type-check the codebase (`tsc --noEmit`) |
+| Script                 | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| `npm run typecheck`    | Type-check the codebase (`tsc --noEmit`) |
+| `npm run format`       | Format all files with Prettier           |
+| `npm run format:check` | Fail on formatting violations (CI gate)  |
