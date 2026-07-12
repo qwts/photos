@@ -2,4 +2,6 @@ node_modules/
 dist/
 coverage/
 .test-dist/
+playwright-report/
+test-results/
 .DS_Store

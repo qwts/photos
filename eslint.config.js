@@ -7,6 +7,8 @@ export default tseslint.config(
       'dist/**',
       '.test-dist/**',
       'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
       'node_modules/**',
       // Agent worktrees carry in-progress copies of the repo; linting them from the
       // main checkout breaks local gates on unrelated work (prettier already ignores
