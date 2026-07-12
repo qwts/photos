@@ -1,15 +1,19 @@
 import path from 'node:path';
+import { buffer } from 'node:stream/consumers';
 
 import { app, BrowserWindow, safeStorage } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
-import { BlobStore } from './blobs/blob-store.js';
+import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { KeyStore } from './crypto/keystore.js';
 import { openLibraryDatabase } from './db/database.js';
+import { PhotosRepository } from './db/photos-repository.js';
 import { registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
+import { registerThumbProtocol, registerThumbSchemePrivileges } from './thumbs/thumb-protocol.js';
+import { ThumbService } from './thumbs/thumb-service.js';
 import type { SafeStorageLike } from './crypto/keystore.js';
 
 // Test/dev harness hooks (#72): OVERLOOK_USER_DATA isolates profiles (E2E
@@ -22,6 +26,9 @@ const userDataOverride = process.env['OVERLOOK_USER_DATA'];
 if (userDataOverride !== undefined && userDataOverride !== '') {
   app.setPath('userData', userDataOverride);
 }
+
+// Privileged-scheme registration must precede app ready (#75).
+registerThumbSchemePrivileges();
 
 function devInsecureKeystore(): SafeStorageLike {
   const pad = 0x5f;
@@ -85,6 +92,37 @@ function getLibraryService(): LibraryService {
   return libraryService;
 }
 
+let thumbService: ThumbService | undefined;
+
+function getThumbService(): ThumbService {
+  if (thumbService === undefined) {
+    getLibraryService();
+    const parts = libraryParts;
+    if (parts === undefined) {
+      throw new Error('library bootstrap failed; thumb service unavailable');
+    }
+    const repo = new PhotosRepository(parts.db);
+    thumbService = new ThumbService({
+      loadThumb: async (photoId, size) => {
+        const photo = repo.get(photoId);
+        if (photo === undefined) {
+          return null;
+        }
+        try {
+          const stream = parts.blobStore.getThumbStream(photo.contentHash, size, parts.keyStore.resolver(), photoId);
+          return { bytes: await buffer(stream), contentHash: photo.contentHash };
+        } catch (error) {
+          if (error instanceof BlobStoreError) {
+            return null; // No thumb in the store yet — M05 backfills.
+          }
+          throw error;
+        }
+      },
+    });
+  }
+  return thumbService;
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -131,6 +169,7 @@ function createWindow(): void {
 void app.whenReady().then(async () => {
   registerIpcHandlers();
   registerLibraryHandlers(getLibraryService);
+  registerThumbProtocol(getThumbService);
   const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();
