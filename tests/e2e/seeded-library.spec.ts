@@ -145,6 +145,17 @@ test('boots a seeded temp profile deterministically', async () => {
       await overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' });
     });
     await expect(page.getByRole('button', { name: 'Favorites 3' })).toBeVisible();
+
+    // PR #167 review: mutations refetch the VISIBLE page too — while viewing
+    // Favorites, un-favoriting drops the row instead of leaving stale cells.
+    await page.getByRole('button', { name: 'Favorites 3' }).click();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
+    await page.evaluate(async () => {
+      // type-coverage:ignore-next-line
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      await overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' });
+    });
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(2);
   } finally {
     await app.close();
   }

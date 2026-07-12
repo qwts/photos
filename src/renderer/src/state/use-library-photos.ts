@@ -43,7 +43,7 @@ export function useLibraryPhotos(): { readonly loadMore: () => void; readonly ex
     [source, query, chips],
   );
 
-  useEffect(() => {
+  const fetchFirstPage = useCallback(() => {
     const requestId = (requestRef.current += 1);
     inFlightRef.current = true;
     cursorRef.current = null;
@@ -63,6 +63,20 @@ export function useLibraryPhotos(): { readonly loadMore: () => void; readonly ex
         }
       });
   }, [baseRequest, setKey, dispatch]);
+
+  useEffect(() => {
+    fetchFirstPage();
+  }, [fetchFirstPage]);
+
+  // Library mutations refetch the visible page too (PR #167 review): a
+  // favorite toggle while viewing Favorites must add/remove the row, not
+  // leave stale cells or permanent loading placeholders. Replace semantics
+  // reset the cursor; the selection intersects safely in the reducer.
+  useEffect(() => {
+    return window.overlook.library.onChanged(() => {
+      fetchFirstPage();
+    });
+  }, [fetchFirstPage]);
 
   const loadMore = useCallback(() => {
     const cursor = cursorRef.current;

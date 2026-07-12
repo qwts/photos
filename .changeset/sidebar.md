@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 Sidebar: the 216px navigation rail per the mock — Library sources with live
