@@ -2,6 +2,10 @@ import path from 'node:path';
 
 import { app, BrowserWindow } from 'electron';
 
+import { events } from '../shared/ipc/channels.js';
+import { createEmitter } from '../shared/ipc/registry.js';
+import { registerIpcHandlers } from './ipc.js';
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -16,6 +20,16 @@ function createWindow(): void {
     },
   });
 
+  const emitFocusChanged = createEmitter(events.focusChanged, (name, payload) => {
+    win.webContents.send(name, payload);
+  });
+  win.on('focus', () => {
+    emitFocusChanged({ focused: true });
+  });
+  win.on('blur', () => {
+    emitFocusChanged({ focused: false });
+  });
+
   // electron-vite sets ELECTRON_RENDERER_URL only in dev (HMR server); packaged
   // and `electron-vite preview` runs load the built renderer from disk.
   const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
@@ -27,6 +41,7 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(() => {
+  registerIpcHandlers();
   createWindow();
 
   // macOS: re-create the window when the dock icon is clicked with none open.
