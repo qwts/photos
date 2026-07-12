@@ -13,6 +13,8 @@ const DEV_CSP = [
   "style-src 'self' 'unsafe-inline'",
   "connect-src 'self' ws:",
   "worker-src 'self' blob:",
+  // Mirror production's thumb-protocol allowance (#75).
+  "img-src 'self' overlook-thumb:",
 ].join('; ');
 
 function relaxCspForDev(): Plugin {
