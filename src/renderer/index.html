@@ -5,10 +5,7 @@
     <!-- Production CSP. Dev tooling needs allowances production must not have
          (inline Fast Refresh preamble, blob: worker, HMR websocket);
          electron.vite.config.ts swaps this tag's content while serving. -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
-    />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
     <title>Overlook</title>
   </head>
   <body>

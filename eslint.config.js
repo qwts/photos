@@ -1,4 +1,6 @@
+import eslintReact from '@eslint-react/eslint-plugin';
 import js from '@eslint/js';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -47,6 +49,13 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // React correctness for the renderer (#51): hooks rules are
+    // non-negotiable; @eslint-react (the eslint-10-compatible successor to
+    // eslint-plugin-react) covers JSX/runtime pitfalls type-aware.
+    files: ['src/renderer/**/*.tsx', 'src/renderer/**/*.ts'],
+    extends: [reactHooks.configs.flat.recommended, eslintReact.configs['recommended-type-checked']],
   },
   // Process-boundary layering (#49), the full matrix from CLAUDE.md
   // §Architecture: every process dir may import src/shared; shared is

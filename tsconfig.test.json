@@ -4,6 +4,7 @@
     "rootDir": ".",
     "outDir": ".test-dist",
     "noEmit": false,
-    "sourceMap": true
+    "sourceMap": true,
+    "jsx": "react-jsx"
   }
 }
