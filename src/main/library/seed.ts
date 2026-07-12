@@ -35,6 +35,11 @@ export function sampleJpeg(index: number): Buffer {
 function seedPhoto(index: number): Omit<PhotoInsert, 'contentHash' | 'bytes' | 'keyId'> {
   const n = String(index).padStart(4, '0');
   const raw = index % 5 === 0;
+  // Walk backwards one month every 32 photos from June 2026, rolling the
+  // year over so any index yields a valid ISO date (PR #152 review).
+  const totalMonths = 2026 * 12 + 5 - (index >> 5);
+  const year = Math.floor(totalMonths / 12);
+  const month = (totalMonths % 12) + 1;
   return {
     id: `01J8SEEDPHOTO${n}`,
     fileName: `IMG_${String(4021 + index * 7)}${raw ? '.RAF' : '.JPG'}`,
@@ -47,7 +52,7 @@ function seedPhoto(index: number): Omit<PhotoInsert, 'contentHash' | 'bytes' | '
     aperture: ['1.8', '2.8', '4.0', '5.6'][index % 4] ?? null,
     shutter: ['1/250', '1/125', '1/60', '1/1000'][index % 4] ?? null,
     focalLength: [23, 35, 50, 28][index % 4] ?? null,
-    takenAt: `2026-${String(6 - (index >> 5)).padStart(2, '0')}-${String(28 - (index % 27)).padStart(2, '0')}T12:00:00.000Z`,
+    takenAt: `${String(year)}-${String(month).padStart(2, '0')}-${String(28 - (index % 27)).padStart(2, '0')}T12:00:00.000Z`,
     gpsLat: null,
     gpsLon: null,
     place: PLACES[index % 6] ?? null,
