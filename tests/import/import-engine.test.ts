@@ -1,0 +1,297 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { ImportEngine, type ImportEngineDeps, type ImportManifest, type ManifestFile } from '../../src/main/import/import-engine.js';
+import type { ExtractedMetadata } from '../../src/main/import/exif.js';
+import type { PhotoInsert, PhotoRecord } from '../../src/shared/library/types.js';
+
+const FIXTURES = join(import.meta.dirname, '../../../tests/fixtures/exif');
+
+const NULL_META: ExtractedMetadata = {
+  width: null,
+  height: null,
+  camera: null,
+  lens: null,
+  iso: null,
+  aperture: null,
+  shutter: null,
+  focalLength: null,
+  takenAt: null,
+  gpsLat: null,
+  gpsLon: null,
+};
+
+function sha256(bytes: Buffer): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+/** In-memory world: sources, blob set, rows, journal — all inspectable. */
+function harness(overrides?: Partial<ImportEngineDeps>) {
+  const sources = new Map<string, Buffer>();
+  const blobs = new Set<string>();
+  const rows = new Map<string, PhotoInsert>();
+  const hashes = new Set<string>();
+  const copyEvents: number[] = [];
+  const thumbEvents: number[] = [];
+  let journal: string | null = null;
+  let idCounter = 0;
+  let insertCalls = 0;
+
+  const deps: ImportEngineDeps = {
+    readFile: (path) => {
+      const bytes = sources.get(path);
+      return bytes === undefined ? Promise.reject(new Error(`ENOENT ${path}`)) : Promise.resolve(bytes);
+    },
+    deleteFile: (path) => {
+      sources.delete(path);
+      return Promise.resolve();
+    },
+    readManifest: () => Promise.resolve(journal === null ? null : (JSON.parse(journal) as ImportManifest)),
+    writeManifest: (manifest) => {
+      journal = manifest === null ? null : JSON.stringify(manifest);
+      return Promise.resolve();
+    },
+    repo: {
+      hasContentHash: (hash) => hashes.has(hash),
+      get: (id) => rows.get(id) as unknown as PhotoRecord | undefined,
+      insert: (photo) => {
+        insertCalls += 1;
+        if (rows.has(photo.id)) {
+          throw new Error(`duplicate id ${photo.id}`);
+        }
+        rows.set(photo.id, photo);
+        hashes.add(photo.contentHash);
+      },
+    },
+    blobs: {
+      putOriginal: async (plaintext, _key, _photoId) => {
+        let size = 0;
+        const hasher = createHash('sha256');
+        // type-coverage:ignore-next-line -- Readable yields untyped chunks
+        for await (const chunk of plaintext) {
+          // type-coverage:ignore-next-line -- Readable yields untyped chunks
+          hasher.update(chunk as Buffer);
+          size += (chunk as Buffer).length;
+        }
+        blobs.add(hasher.digest('hex'));
+        return { keyId: 1, bytes: size };
+      },
+      verifyOriginal: (contentHash) => Promise.resolve(blobs.has(contentHash)),
+    },
+    generateThumbs: () => Promise.resolve({ generated: true, width: 1, height: 1 }),
+    extractMetadata: () => Promise.resolve(NULL_META),
+    currentKey: () => ({ id: 1, key: Buffer.alloc(32) }),
+    resolveKey: () => Buffer.alloc(32),
+    newId: () => {
+      idCounter += 1;
+      return `01IMPORT${String(idCounter).padStart(18, '0')}`;
+    },
+    now: () => '2026-07-12T00:00:00.000Z',
+    events: {
+      copyProgress: (done) => copyEvents.push(done),
+      thumbProgress: (done) => thumbEvents.push(done),
+    },
+    ...overrides,
+  };
+  return {
+    deps,
+    sources,
+    blobs,
+    rows,
+    hashes,
+    copyEvents,
+    thumbEvents,
+    journalRaw: () => journal,
+    setJournal: (manifest: ImportManifest) => {
+      journal = JSON.stringify(manifest);
+    },
+    insertCalls: () => insertCalls,
+    engine: () => new ImportEngine(deps),
+  };
+}
+
+function addSource(world: ReturnType<typeof harness>, name: string, bytes: Buffer) {
+  world.sources.set(`/card/${name}`, bytes);
+  return { path: `/card/${name}`, fileName: name, kind: 'jpeg' as const };
+}
+
+describe('import engine (#87)', () => {
+  const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+  const other = readFileSync(join(FIXTURES, 'exif-stripped.jpg'));
+
+  test('EXIT CRITERIA: copy batch — encrypted, recorded, journal cleared, sources intact', async () => {
+    const world = harness();
+    const files = [addSource(world, 'a.jpg', jpeg), addSource(world, 'b.jpg', other)];
+    const summary = await world.engine().importFiles(files, 'copy', '/card');
+    assert.deepEqual(
+      { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed },
+      { imported: 2, duplicates: 0, failed: 0 },
+    );
+    assert.equal(world.rows.size, 2);
+    assert.ok(world.blobs.has(sha256(jpeg)));
+    assert.equal(world.sources.size, 2, 'copy never touches sources');
+    assert.equal(world.journalRaw(), null, 'completed batch clears the journal');
+    // Both aggregate streams reach n/total = 2/2 and are monotonic.
+    assert.equal(world.copyEvents.at(-1), 2);
+    assert.equal(world.thumbEvents.at(-1), 2);
+    assert.ok(world.copyEvents.every((value, index, all) => index === 0 || value >= (all[index - 1] ?? 0)));
+    const row = [...world.rows.values()][0];
+    assert.equal(row?.importSource, '/card');
+  });
+
+  test('already-known content hashes record as duplicates without storing', async () => {
+    const world = harness();
+    world.hashes.add(sha256(jpeg));
+    const summary = await world.engine().importFiles([addSource(world, 'a.jpg', jpeg)], 'copy', '/card');
+    assert.deepEqual({ imported: summary.imported, duplicates: summary.duplicates }, { imported: 0, duplicates: 1 });
+    assert.equal(world.blobs.size, 0);
+    assert.equal(world.insertCalls(), 0);
+  });
+
+  test('EXIT CRITERIA (Move): source deleted only after ITS blob verifies; a failed verify retains it', async () => {
+    const world = harness();
+    const good = addSource(world, 'good.jpg', jpeg);
+    const summary = await world.engine().importFiles([good], 'move', '/card');
+    assert.equal(summary.imported, 1);
+    assert.equal(world.sources.has(good.path), false, 'verified move removes the source');
+
+    // Now a world whose store never verifies: the file fails, source stays.
+    const broken = harness({
+      blobs: {
+        putOriginal: async () => Promise.resolve({ keyId: 1, bytes: 1 }),
+        verifyOriginal: async () => Promise.resolve(false),
+      },
+    });
+    const bad = addSource(broken, 'bad.jpg', other);
+    const badSummary = await broken.engine().importFiles([bad], 'move', '/card');
+    assert.equal(badSummary.failed, 1);
+    assert.equal(broken.sources.has(bad.path), true, 'unverified source must NEVER be deleted');
+  });
+
+  test('a per-file failure is isolated; the batch continues', async () => {
+    const world = harness();
+    const one = addSource(world, 'one.jpg', jpeg);
+    const gone = { path: '/card/vanished.jpg', fileName: 'vanished.jpg', kind: 'jpeg' as const }; // no bytes → readFile throws
+    const two = addSource(world, 'two.jpg', other);
+    const summary = await world.engine().importFiles([one, gone, two], 'copy', '/card');
+    assert.deepEqual({ imported: summary.imported, failed: summary.failed }, { imported: 2, failed: 1 });
+    assert.equal(world.journalRaw(), null);
+  });
+
+  describe('kill-test matrix: resume completes idempotently from every journaled stage', () => {
+    function manifestWith(file: Partial<ManifestFile> & { path: string; fileName: string }, mode: 'copy' | 'move'): ImportManifest {
+      return {
+        batchId: 'BATCH',
+        mode,
+        source: '/card',
+        files: [{ kind: 'jpeg', stage: 'pending', ...file }],
+      };
+    }
+
+    test('killed before anything persisted (stage pending) → full import', async () => {
+      const world = harness();
+      const src = addSource(world, 'a.jpg', jpeg);
+      world.setJournal(manifestWith({ path: src.path, fileName: src.fileName }, 'copy'));
+      const summary = await world.engine().resume();
+      assert.equal(summary?.imported, 1);
+      assert.equal(world.rows.size, 1);
+      assert.equal(world.journalRaw(), null);
+    });
+
+    test('killed between DB commit and journal write → own row recognized, never re-inserted', async () => {
+      const world = harness();
+      const src = addSource(world, 'a.jpg', jpeg);
+      // Simulate: photoId journaled, row committed, but stage still pending.
+      world.deps.repo.insert({
+        id: 'OWNROW',
+        fileName: src.fileName,
+        fileKind: 'jpeg',
+        width: 0,
+        height: 0,
+        bytes: jpeg.length,
+        contentHash: sha256(jpeg),
+        camera: null,
+        lens: null,
+        iso: null,
+        aperture: null,
+        shutter: null,
+        focalLength: null,
+        takenAt: null,
+        gpsLat: null,
+        gpsLon: null,
+        place: null,
+        importedAt: 'x',
+        importSource: '/card',
+        keyId: 1,
+      });
+      const before = world.insertCalls();
+      world.setJournal(manifestWith({ path: src.path, fileName: src.fileName, photoId: 'OWNROW' }, 'copy'));
+      const summary = await world.engine().resume();
+      assert.equal(summary?.imported, 1, 'finished as imported, not duplicate');
+      assert.equal(world.insertCalls(), before, 'no second insert');
+      assert.equal(world.journalRaw(), null);
+    });
+
+    test('killed after record, before thumbs (stage recorded) → thumbs + cleanup only', async () => {
+      const world = harness();
+      const src = addSource(world, 'a.jpg', jpeg);
+      let thumbCalls = 0;
+      const deps = { ...world.deps, generateThumbs: () => ((thumbCalls += 1), Promise.resolve({ generated: true, width: 1, height: 1 })) };
+      world.setJournal(
+        manifestWith({ path: src.path, fileName: src.fileName, photoId: 'P1', status: 'imported', stage: 'recorded' }, 'copy'),
+      );
+      const summary = await new ImportEngine(deps).resume();
+      assert.equal(summary?.imported, 1);
+      assert.equal(thumbCalls, 1);
+      assert.equal(world.insertCalls(), 0, 'record stage never re-runs');
+    });
+
+    test('killed after thumbs, before Move cleanup (stage thumbed) → verify then delete source', async () => {
+      const world = harness();
+      const src = addSource(world, 'a.jpg', jpeg);
+      world.blobs.add(sha256(jpeg)); // the blob landed before the kill
+      world.setJournal(
+        manifestWith({ path: src.path, fileName: src.fileName, photoId: 'P1', status: 'imported', stage: 'thumbed' }, 'move'),
+      );
+      const summary = await world.engine().resume();
+      assert.equal(summary?.imported, 1);
+      assert.equal(world.sources.has(src.path), false, 'cleanup completed on resume');
+      assert.equal(world.insertCalls(), 0);
+    });
+
+    test('abort mid-batch keeps the journal; a later resume finishes the remainder', async () => {
+      const world = harness();
+      const files = [addSource(world, 'a.jpg', jpeg), addSource(world, 'b.jpg', other)];
+      const controller = new AbortController();
+      const deps = {
+        ...world.deps,
+        events: {
+          copyProgress: (done: number) => {
+            world.copyEvents.push(done);
+            if (done === 1) {
+              controller.abort(); // "kill" after the first file lands
+            }
+          },
+          thumbProgress: () => undefined,
+        },
+      };
+      const first = await new ImportEngine(deps).importFiles(files, 'copy', '/card', controller.signal);
+      assert.equal(first.imported, 1);
+      assert.notEqual(world.journalRaw(), null, 'interrupted batch keeps its journal');
+      const resumed = await world.engine().resume();
+      assert.equal(resumed?.imported, 2, 'summary spans the whole batch');
+      assert.equal(world.rows.size, 2);
+      assert.equal(world.insertCalls(), 2, 'each file inserted exactly once across runs');
+      assert.equal(world.journalRaw(), null);
+    });
+
+    test('resume with no journal is a no-op', async () => {
+      const world = harness();
+      assert.equal(await world.engine().resume(), null);
+    });
+  });
+});
