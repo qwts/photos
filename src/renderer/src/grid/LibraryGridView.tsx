@@ -7,6 +7,7 @@ import { PhotoTile } from '../components/PhotoTile';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useLibraryPhotos } from '../state/use-library-photos';
 import { ListRow } from './ListRow';
+import { SelectionPill } from './SelectionPill';
 import { VirtualGrid } from './VirtualGrid';
 
 // Library view (#76/#77): PhotoTile or ListRow over the #74 engine, thumbs
@@ -61,6 +62,16 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
     );
 
   return (
-    <VirtualGrid photos={state.photos} total={total} zoom={state.zoom} mode={state.view} onNeedMore={loadMore} renderTile={renderTile} />
+    <>
+      <VirtualGrid photos={state.photos} total={total} zoom={state.zoom} mode={state.view} onNeedMore={loadMore} renderTile={renderTile} />
+      {state.selection.size > 0 ? (
+        <SelectionPill
+          count={state.selection.size}
+          onClear={() => {
+            dispatch({ type: 'selection/cleared' });
+          }}
+        />
+      ) : null}
+    </>
   );
 }

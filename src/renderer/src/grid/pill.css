@@ -1,0 +1,29 @@
+/* Selection pill (#78) per the mock's sticky bottom bar — floated over the
+   content region (the grid owns scrolling, so absolute beats sticky here). */
+.ovl-pill-anchor {
+  position: absolute;
+  bottom: var(--space-4);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.ovl-pill {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--gray-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+  padding: 6px 10px; /* the mock's own pill padding */
+}
+
+.ovl-pill__count {
+  color: var(--text-body);
+  letter-spacing: var(--tracking-wide);
+  padding: 0 var(--space-1);
+}

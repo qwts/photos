@@ -34,13 +34,21 @@ describe('app state reducer', () => {
     assert.equal(state.selection.size, 0);
   });
 
-  test('source and chip changes reset the selection (visible set changed)', () => {
+  test('selection survives filter changes only for still-visible items (#78)', () => {
+    const b = { id: 'b' } as AppState['photos'][number];
+    const c = { id: 'c' } as AppState['photos'][number];
     const selected = apply(initialAppState, { type: 'selection/all', photoIds: ['a', 'b'] });
-    assert.equal(apply(selected, { type: 'source/set', source: 'favorites' }).selection.size, 0);
-    const chipped = apply(selected, { type: 'chip/toggled', chip: 'raw' });
-    assert.equal(chipped.selection.size, 0);
-    assert.equal(chipped.chips.raw, true);
-    assert.equal(apply(chipped, { type: 'chip/toggled', chip: 'raw' }).chips.raw, false);
+    // Switching source/chips keeps the selection until the new page lands…
+    const switched = apply(selected, { type: 'source/set', source: 'favorites' }, { type: 'chip/toggled', chip: 'raw' });
+    assert.equal(switched.selection.size, 2);
+    assert.equal(switched.chips.raw, true);
+    assert.equal(apply(switched, { type: 'chip/toggled', chip: 'raw' }).chips.raw, false);
+    // …then intersects with the freshly visible set: b stays, a drops.
+    const landed = apply(switched, { type: 'photos/loaded', photos: [b, c], append: false });
+    assert.deepEqual([...landed.selection], ['b']);
+    // Appending pages never trims the selection.
+    const appended = apply(landed, { type: 'photos/loaded', photos: [{ id: 'd' } as AppState['photos'][number]], append: true });
+    assert.deepEqual([...appended.selection], ['b']);
   });
 
   test('escape exits the lightbox when open, otherwise clears selection', () => {

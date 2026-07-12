@@ -92,6 +92,17 @@ test('boots a seeded temp profile deterministically', async () => {
     await page.getByRole('radio', { name: 'Grid' }).click();
     await expect(page.locator('.ovl-tile--selected')).toHaveCount(1);
     await expect(page.getByRole('slider', { name: 'Zoom' })).toBeVisible();
+
+    // #78: select-all (visible set) shows the pill; the selection survives a
+    // source switch only for still-visible photos (12 selected → 2 in
+    // Favorites); clear-× empties it.
+    await page.keyboard.press('ControlOrMeta+a');
+    await expect(page.getByTestId('selection-pill')).toContainText('12 SELECTED');
+    await page.getByRole('button', { name: 'Favorites 2' }).click();
+    await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
+    await page.getByRole('button', { name: 'Clear selection' }).click();
+    await expect(page.getByTestId('selection-pill')).toHaveCount(0);
+    await page.getByRole('button', { name: 'All Photos 12' }).click();
   } finally {
     await app.close();
   }

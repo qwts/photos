@@ -68,8 +68,16 @@ export type AppAction =
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
-    case 'photos/loaded':
-      return { ...state, photos: action.append ? [...state.photos, ...action.photos] : action.photos };
+    case 'photos/loaded': {
+      if (action.append) {
+        return { ...state, photos: [...state.photos, ...action.photos] };
+      }
+      // Mock semantics (#78): selection survives filter/source changes only
+      // for still-visible items — intersect with each fresh first page.
+      const visible = new Set(action.photos.map((photo) => photo.id));
+      const selection = new Set([...state.selection].filter((id) => visible.has(id)));
+      return { ...state, photos: action.photos, selection };
+    }
     case 'query/set':
       return { ...state, query: action.query };
     case 'zoom/set':
@@ -77,11 +85,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'view/set':
       return { ...state, view: action.view };
     case 'source/set':
-      // Changing source resets selection — the visible set changes wholesale.
-      return { ...state, source: action.source, selection: new Set<string>() };
+      // Selection is NOT cleared here: the next photos/loaded intersects it
+      // with the new visible set (still-visible items survive, #78).
+      return { ...state, source: action.source };
     case 'chip/toggled': {
       const next = { ...state.chips, [action.chip]: state.chips[action.chip] !== true };
-      return { ...state, chips: next, selection: new Set<string>() };
+      return { ...state, chips: next };
     }
     case 'selection/toggled': {
       const selection = new Set(state.selection);
