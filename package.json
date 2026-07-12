@@ -38,6 +38,9 @@
   "overrides": {
     "madge": {
       "typescript": "$typescript"
+    },
+    "type-coverage": {
+      "typescript": "$typescript"
     }
   },
   "lint-staged": {
