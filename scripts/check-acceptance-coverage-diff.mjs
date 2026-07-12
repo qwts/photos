@@ -12,6 +12,10 @@
 //
 // Intentionally strict: on an agent-driven repo a false positive is cheap
 // (add the entry or the opt-out), while a silent coverage gap compounds.
+// The body opt-out only counts as a CHECKED checkbox line containing the
+// token — the PR template ships the token in its (unchecked) acceptance
+// checkbox, so a bare substring match would bypass the gate on every PR
+// (PR #169 review).
 //
 // Inputs come from the pull_request event + `gh` (live PR body/labels, so an
 // edited opt-out is honored on a re-run). Outside that context (a local run,
@@ -29,6 +33,8 @@ import { pathToFileURL } from 'node:url';
 
 const COVERAGE_MAP_PATH = 'tests/e2e/coverage-map.json';
 const ACK_TOKEN = 'no-acceptance-impact';
+// A checked task-list item mentioning the token: "- [x] ... no-acceptance-impact ...".
+const ACK_CHECKBOX = /-\s*\[x\][^\n]*no-acceptance-impact/iu;
 const ACCEPTANCE_SOURCE = /^src\/renderer\/src\/.*\.(ts|tsx|css)$/u;
 const NON_FLOW = /(\.test\.tsx?|\.stories\.tsx?|\.d\.ts)$/u;
 
@@ -48,9 +54,9 @@ export function evaluateAcceptanceCoverage({ changedFiles, body = '', labels = [
   if (changedFiles.includes(COVERAGE_MAP_PATH)) {
     return { ok: true, acceptanceFiles, reason: 'coverage-map.json updated alongside the change' };
   }
-  const acknowledged = body.toLowerCase().includes(ACK_TOKEN) || labels.some((label) => label.toLowerCase() === ACK_TOKEN);
+  const acknowledged = ACK_CHECKBOX.test(body) || labels.some((label) => label.toLowerCase() === ACK_TOKEN);
   if (acknowledged) {
-    return { ok: true, acceptanceFiles, reason: `opted out via "${ACK_TOKEN}"` };
+    return { ok: true, acceptanceFiles, reason: `opted out via "${ACK_TOKEN}" (checked box or label)` };
   }
   return { ok: false, acceptanceFiles, reason: 'acceptance-relevant source changed with no coverage-map update or opt-out' };
 }
@@ -151,8 +157,8 @@ async function main() {
   console.error('or deferred (with an issue). See the wiki Testing Strategy page.');
   console.error('');
   if (inputs.context.startsWith('PR #')) {
-    console.error(`If this change genuinely has no acceptance-flow impact, add "${ACK_TOKEN}" to the PR`);
-    console.error(`description (or apply the "${ACK_TOKEN}" label) and re-run.`);
+    console.error(`If this change genuinely has no acceptance-flow impact, CHECK the "${ACK_TOKEN}"`);
+    console.error(`box in the PR description (or apply the "${ACK_TOKEN}" label) and re-run.`);
   } else {
     console.error(`If this change genuinely has no acceptance-flow impact, you can opt out once the PR`);
     console.error(`exists by adding "${ACK_TOKEN}" to its description or label — this local check has no`);

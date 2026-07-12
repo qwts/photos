@@ -119,6 +119,19 @@ test('sidebar: source switching refilters; counts live-update on mutation', asyn
       await overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' });
     });
     await expect(page.getByRole('button', { name: 'Favorites 3' })).toBeVisible();
+
+    // PR #167/#169 review: the VISIBLE page refreshes on mutation too —
+    // while viewing Favorites, un-favoriting drops the row, not just the
+    // sidebar count.
+    await page.getByRole('button', { name: 'Favorites 3' }).click();
+    await expect(grid.locator('.ovl-grid__cell')).toHaveCount(3);
+    await page.evaluate(async () => {
+      // type-coverage:ignore-next-line
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      await overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' });
+    });
+    await expect(grid.locator('.ovl-grid__cell')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: 'Favorites 2' })).toBeVisible();
   } finally {
     await app.close();
   }
