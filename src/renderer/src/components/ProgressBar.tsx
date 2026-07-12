@@ -16,7 +16,8 @@ export interface ProgressBarProps {
 
 // feedback/ProgressBar.jsx — 4px track, width animates 200ms.
 export function ProgressBar({ value, max = 100, tone = 'cyan', label, detail, width = '100%' }: ProgressBarProps): ReactElement {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  const clamped = Math.max(0, Math.min(max, value));
+  const pct = (clamped / max) * 100;
   return (
     <div className="ovl-progress" style={{ width }}>
       {label !== undefined || detail !== undefined ? (
@@ -28,7 +29,7 @@ export function ProgressBar({ value, max = 100, tone = 'cyan', label, detail, wi
       <div
         className="ovl-progress__track"
         role="progressbar"
-        aria-valuenow={value}
+        aria-valuenow={clamped}
         aria-valuemin={0}
         aria-valuemax={max}
         aria-label={label}
