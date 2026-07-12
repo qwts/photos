@@ -2,6 +2,7 @@ import {
   Album,
   Aperture,
   Camera,
+  Check,
   Cloud,
   CloudAlert,
   CloudCheck,
@@ -38,6 +39,7 @@ export const ICON_NAMES = [
   'album',
   'aperture',
   'camera',
+  'check',
   'cloud',
   'cloud-alert',
   'cloud-check',
@@ -73,6 +75,7 @@ const ICONS = {
   album: Album,
   aperture: Aperture,
   camera: Camera,
+  check: Check,
   cloud: Cloud,
   'cloud-alert': CloudAlert,
   'cloud-check': CloudCheck,
@@ -112,8 +115,9 @@ export interface IconProps {
   readonly size?: IconSize;
   /** Defaults to currentColor so icons inherit text color/tokens. */
   readonly color?: string;
-  /** 1.75 everywhere except Badge glyphs (the mock uses 2 at 11px). */
-  readonly strokeWidth?: 1.75 | 2;
+  /** 1.75 everywhere except Badge glyphs (2 at 11px) and Checkbox marks (3
+   * at 11px) per the mock. */
+  readonly strokeWidth?: 1.75 | 2 | 3;
 }
 
 export function Icon({ name, size = 16, color = 'currentColor', strokeWidth = 1.75 }: IconProps): ReactElement {

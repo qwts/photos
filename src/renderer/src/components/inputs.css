@@ -1,0 +1,126 @@
+/* Input form controls (#61) — components/forms/{Slider,Switch,Checkbox}.jsx.
+   Slider thumb styling lives here properly instead of the mock's injected
+   style tag. */
+.ovl-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  background: transparent;
+  background-size: 100% 3px;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.ovl-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--white-1);
+  border: none;
+  box-shadow: var(--shadow-1);
+}
+
+.ovl-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--white-1);
+  border: none;
+}
+
+.ovl-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: var(--text-md);
+  font-family: var(--font-ui);
+  color: var(--text-body);
+}
+
+.ovl-switch:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.ovl-switch__track {
+  width: 32px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  position: relative;
+  flex: none;
+  background: var(--gray-4);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-switch[aria-checked='true'] .ovl-switch__track {
+  background: var(--accent-cyan);
+}
+
+.ovl-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--white-2);
+  transition: left var(--duration-fast) var(--ease-out);
+}
+
+.ovl-switch[aria-checked='true'] .ovl-switch__knob {
+  left: 16px;
+  background: var(--text-on-accent);
+}
+
+.ovl-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--text-md);
+  font-family: var(--font-ui);
+  color: var(--text-body);
+}
+
+.ovl-checkbox--disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.ovl-checkbox__input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.ovl-checkbox__box {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-2);
+  border: 1px solid var(--border-2);
+  color: var(--text-on-accent);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-checkbox__box--on {
+  background: var(--accent-cyan);
+  border-color: transparent;
+}
+
+.ovl-checkbox__input:focus-visible + .ovl-checkbox__box {
+  box-shadow: var(--focus-ring);
+}

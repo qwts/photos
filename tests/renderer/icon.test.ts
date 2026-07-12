@@ -40,6 +40,8 @@ const VOCABULARY = [
   'square',
   'x',
   'triangle-alert',
+  // Checkbox mark the design's Checkbox.jsx uses beyond the readme list (#61).
+  'check',
 ] as const;
 
 describe('Icon', () => {
