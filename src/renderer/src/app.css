@@ -1,14 +1,16 @@
-/* Frameless-window drag contract (#50): the top strip (design --titlebar-h,
-   30px) drags the window; interactive elements inside it opt out with
-   .titlebar-no-drag. The styled TitleBar component arrives with M02 — this
-   is only the behavioral contract. */
-.titlebar-drag-region {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 30px;
-  -webkit-app-region: drag;
+/* Shell layout: fixed TitleBar over a scrolling content region. The drag
+   region lives in the TitleBar component (#58); .titlebar-no-drag remains the
+   opt-out contract for interactive islands inside dragging chrome. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-shell__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .titlebar-no-drag {

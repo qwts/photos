@@ -1,16 +1,37 @@
+import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import './app.css';
+import { TitleBar } from './components/TitleBar';
 import { TokenSpecimen } from './TokenSpecimen';
 
-// Shell placeholder — real app chrome arrives with the M02 components. The
-// drag region is the frameless-window contract from #50; the token specimen
-// keeps the styling foundation verifiable until Storybook (#56).
+// Shell: real TitleBar chrome (#58) over the token specimen placeholder —
+// the remaining app chrome (Toolbar, Sidebar, StatusBar) arrives with M04+.
 export function App(): ReactElement {
+  // Until the platform round-trip resolves, render the mac variant: it draws
+  // no controls, so a wrong first frame on win/linux flashes nothing broken.
+  const [platform, setPlatform] = useState('darwin');
+  useEffect(() => {
+    void window.overlook.getPlatform().then(setPlatform);
+  }, []);
+
   return (
-    <>
-      <div className="titlebar-drag-region" />
-      <TokenSpecimen />
-    </>
+    <div className="app-shell">
+      <TitleBar
+        platform={platform}
+        onMinimize={() => {
+          void window.overlook.minimizeWindow();
+        }}
+        onToggleMaximize={() => {
+          void window.overlook.toggleMaximizeWindow();
+        }}
+        onClose={() => {
+          void window.overlook.closeWindow();
+        }}
+      />
+      <main className="app-shell__content">
+        <TokenSpecimen />
+      </main>
+    </div>
   );
 }

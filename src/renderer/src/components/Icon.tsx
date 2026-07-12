@@ -17,13 +17,16 @@ import {
   List,
   Lock,
   MapPin,
+  Minus,
   RefreshCw,
   Search,
   Settings2,
   Share,
   ShieldCheck,
+  Square,
   Star,
   Trash2,
+  X,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 
@@ -49,13 +52,16 @@ export const ICON_NAMES = [
   'list',
   'lock',
   'map-pin',
+  'minus',
   'refresh-cw',
   'search',
   'settings-2',
   'share',
   'shield-check',
+  'square',
   'star',
   'trash-2',
+  'x',
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -80,18 +86,22 @@ const ICONS = {
   list: List,
   lock: Lock,
   'map-pin': MapPin,
+  minus: Minus,
   'refresh-cw': RefreshCw,
   search: Search,
   'settings-2': Settings2,
   share: Share,
   'shield-check': ShieldCheck,
+  square: Square,
   star: Star,
   'trash-2': Trash2,
+  x: X,
 } satisfies Record<IconName, typeof Album>;
 
-// 14/16/20 are the DS's stated sizes; 11 (Badge glyphs) and 18 (lg Button)
-// are the design mock's own additional usages, adopted as-is.
-export type IconSize = 11 | 14 | 16 | 18 | 20;
+// 14/16/20 are the DS's stated sizes; 11 (Badge glyphs), 13 (TitleBar window
+// controls), and 18 (lg Button) are the design mock's own additional usages,
+// adopted as-is — as are the minus/square/x window-control glyphs above.
+export type IconSize = 11 | 13 | 14 | 16 | 18 | 20;
 
 export interface IconProps {
   readonly name: IconName;
