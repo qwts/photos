@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Grouped weekly npm updates: one PR for all devDependencies instead of a PR per package.
+  # Pairs with the exact-pin policy (scripts/check-package-pins.mjs): Dependabot is the only
+  # actor that bumps versions; the pins make every bump an explicit, reviewable diff.
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    groups:
+      dev-deps:
+        patterns:
+          - '*'
+
+  # Keep the pinned action versions in .github/workflows current the same way.
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'
