@@ -49,6 +49,42 @@ export default tseslint.config(
     },
   },
   {
+    // Process-boundary layering (#49): renderer, preload, and shared code may
+    // never import main-process modules — the typed IPC bridge is the only
+    // channel. Main may not reach into the renderer either. See CLAUDE.md
+    // §Architecture.
+    files: ['src/renderer/**', 'src/preload/**', 'src/shared/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/main/**', '**/main'],
+              message: 'Only src/main may contain main-process code; talk over the typed IPC bridge.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/main/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/renderer/**'],
+              message: 'Main must not import renderer code; talk over the typed IPC bridge.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // node:test's test()/describe() return promises that the runner itself awaits;
     // requiring `void`/`await` on every registration is pure noise. Scope the
     // exemption to exactly those calls so a missed await on an async helper or

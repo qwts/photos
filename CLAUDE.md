@@ -8,9 +8,20 @@ workflow. This file only adds Claude-specific orientation; do not duplicate
 
 ## Architecture
 
-No layering yet — `src/` holds a single trivial module until feature work
-begins. When layers exist, record the import-direction rules here and enforce
-them with `no-restricted-imports` in `eslint.config.js` (image-trail's pattern).
+Electron process layout (ADR-0003), enforced with `no-restricted-imports` in
+`eslint.config.js`:
+
+- `src/main/` — main process (lifecycle, windows, IPC handlers). May import
+  `src/shared/`, never `src/renderer/`.
+- `src/preload/` — contextBridge only; builds the typed `window.overlook`
+  surface. May import `src/shared/`, never `src/main/`.
+- `src/renderer/` — sandboxed React app. May import `src/shared/` (types +
+  pure logic), never `src/main/` or `src/preload/`.
+- `src/shared/` — pure, process-free modules (IPC contract registry in
+  `shared/ipc/`, domain logic). Imports nothing process-specific.
+
+All renderer↔main traffic goes through the zod-validated channel/event
+registry in `src/shared/ipc/channels.ts` (#49) — never raw `ipcRenderer`.
 
 ## Before "done"
 
