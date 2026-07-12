@@ -1,0 +1,8 @@
+<!-- @dsCard group="Type" viewport="700x190" subtitle="IBM Plex Sans — all UI text" name="UI type" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);color:var(--text-body);font-family:var(--font-ui);padding:18px 20px;">
+<div style="font-size:var(--text-display);font-weight:var(--weight-semibold);letter-spacing:-0.01em;">Your library, encrypted.</div>
+<div style="font-size:var(--text-xl);font-weight:var(--weight-semibold);margin-top:10px;">Import 1,204 photos from SD card?</div>
+<div style="font-size:var(--text-md);color:var(--text-muted);margin-top:8px;line-height:var(--leading-normal);">Originals stay on disk, encrypted with your key. Thumbnails are generated on import so the grid never waits.</div>
+<div style="font-size:var(--text-sm);color:var(--text-faint);margin-top:8px;">IBM Plex Sans · 400 / 500 / 600 · 13px base</div>
+</body></html>

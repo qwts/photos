@@ -1,0 +1,15 @@
+<!-- @dsCard group="Spacing" viewport="700x160" subtitle="4px scale; 4px grid gap between tiles" name="Spacing" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);padding:16px 20px;">
+<div style="display:flex;align-items:flex-end;gap:14px;">
+  <div style="text-align:center;"><div style="width:2px;height:2px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">1·2</div></div>
+  <div style="text-align:center;"><div style="width:4px;height:4px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">2·4</div></div>
+  <div style="text-align:center;"><div style="width:8px;height:8px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">3·8</div></div>
+  <div style="text-align:center;"><div style="width:12px;height:12px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">4·12</div></div>
+  <div style="text-align:center;"><div style="width:16px;height:16px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">5·16</div></div>
+  <div style="text-align:center;"><div style="width:20px;height:20px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">6·20</div></div>
+  <div style="text-align:center;"><div style="width:24px;height:24px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">7·24</div></div>
+  <div style="text-align:center;"><div style="width:32px;height:32px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">8·32</div></div>
+  <div style="text-align:center;"><div style="width:48px;height:48px;background:var(--accent-cyan);margin:0 auto;"></div><div style="font-size:10px;color:var(--white-3);margin-top:8px;">9·48</div></div>
+</div>
+</body></html>

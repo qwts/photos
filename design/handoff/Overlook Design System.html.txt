@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Overlook Design System</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; }
+  body { background:var(--gray-0); color:var(--text-body); font-family:var(--font-ui); display:flex; }
+  a { color:inherit; }
+
+  .rail { width:264px; flex:0 0 264px; height:100vh; overflow-y:auto; border-right:1px solid var(--border-1); background:var(--gray-1); padding:22px 0 48px; }
+  .brand { display:flex; align-items:center; gap:9px; padding:0 22px 8px; }
+  .brand .dot { width:14px; height:14px; border-radius:var(--radius-full); background:var(--accent-cyan); }
+  .brand .wm { font-weight:600; letter-spacing:0.14em; font-size:14px; }
+  .brand .tag { font-family:var(--font-mono); font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-faint); margin-left:auto; }
+  .group { font-family:var(--font-mono); font-size:10px; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint); padding:20px 22px 6px; }
+  .item { display:block; padding:7px 22px; font-size:13px; color:var(--text-muted); cursor:pointer; border:0; background:none; width:100%; text-align:left; font-family:inherit; transition:background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out); }
+  .item:hover { background:var(--gray-2); color:var(--text-body); }
+  .item.active { background:var(--gray-3); color:var(--text-body); box-shadow:inset 2px 0 0 var(--accent-cyan); }
+  .item.app { color:var(--accent-cyan); font-weight:500; }
+
+  .stage { flex:1; height:100vh; display:flex; flex-direction:column; min-width:0; }
+  .bar { height:48px; flex:0 0 48px; border-bottom:1px solid var(--border-1); display:flex; align-items:center; gap:12px; padding:0 22px; }
+  .bar .title { font-size:14px; font-weight:600; }
+  .bar .sub { font-size:12px; color:var(--text-muted); font-family:var(--font-mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar .open { margin-left:auto; font-size:12px; color:var(--accent-cyan); text-decoration:none; font-family:var(--font-mono); flex:0 0 auto; }
+  .bar .open.hidden { display:none; }
+
+  .frameWrap { flex:1; overflow:auto; background:var(--gray-0); display:flex; align-items:flex-start; justify-content:center; padding:24px; }
+  .frameWrap.full { padding:0; }
+  iframe { border:1px solid var(--border-1); border-radius:var(--radius-2); background:var(--gray-0); box-shadow:var(--shadow-2); display:block; }
+  iframe.full { width:100%; height:100%; border-radius:0; border:0; box-shadow:none; }
+
+  /* Home overview */
+  .home { flex:1; overflow-y:auto; padding:44px 48px 80px; }
+  .home.hidden { display:none; }
+  .frameWrap.hidden { display:none; }
+  .home h1 { margin:0 0 6px; font-size:26px; font-weight:600; letter-spacing:-0.01em; }
+  .home .lead { color:var(--text-muted); font-size:14px; max-width:620px; line-height:1.5; margin:0 0 32px; }
+  .hero { display:flex; align-items:center; gap:20px; border:1px solid var(--accent-cyan); border-radius:var(--radius-3); background:var(--gray-1); padding:22px 24px; cursor:pointer; box-shadow:var(--shadow-2); margin-bottom:36px; }
+  .hero:hover { background:var(--gray-2); }
+  .hero .badge { font-family:var(--font-mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent-cyan); }
+  .hero h2 { margin:6px 0 3px; font-size:19px; font-weight:600; }
+  .hero p { margin:0; font-size:13px; color:var(--text-muted); }
+  .hero .arw { margin-left:auto; font-size:22px; color:var(--accent-cyan); }
+  .ov-group { font-family:var(--font-mono); font-size:10px; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-faint); margin:28px 0 12px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .card { border:1px solid var(--border-1); border-radius:var(--radius-2); background:var(--gray-1); padding:15px 16px; cursor:pointer; transition:background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out); }
+  .card:hover { background:var(--gray-2); border-color:var(--border-2); }
+  .card .n { font-size:13px; font-weight:600; }
+  .card .d { font-size:11.5px; color:var(--text-muted); margin-top:4px; line-height:1.4; }
+</style>
+</head>
+<body>
+  <nav class="rail" id="rail">
+    <div class="brand"><span class="dot"></span><span class="wm">OVERLOOK</span><span class="tag">Design system</span></div>
+  </nav>
+  <main class="stage">
+    <div class="bar">
+      <span class="title" id="ttl">Overview</span>
+      <span class="sub" id="sub"></span>
+      <a class="open hidden" id="openNew" href="#" target="_blank">Open in new tab &nearr;</a>
+    </div>
+
+    <section class="home" id="home">
+      <h1>Overlook</h1>
+      <p class="lead">Privacy-first encrypted desktop photos app. Dark, chrome-recessive UI — photos own the color. Pick any surface below; it opens in this pane.</p>
+      <div class="hero" data-src="ui_kits/app/index.html" data-name="Desktop app" data-sub="Library grid · lightbox · import · inspector" data-full="1">
+        <div>
+          <div class="badge">The app</div>
+          <h2>Overlook desktop app</h2>
+          <p>Full interactive shell — grid, lightbox, import, inspector, backup states.</p>
+        </div>
+        <div class="arw">&rarr;</div>
+      </div>
+      <div id="ovCards"></div>
+    </section>
+
+    <div class="frameWrap hidden" id="wrap"><iframe id="frame" title="preview"></iframe></div>
+  </main>
+
+<script>
+const CARDS = [
+  { group:"Foundations", name:"Design tokens", src:"Design Tokens.dc.html", sub:"All tokens on one board", full:true },
+  { group:"Foundations", name:"Neutrals", src:"guidelines/colors-neutrals.html", sub:"Cool near-black ramp", w:700, h:150 },
+  { group:"Foundations", name:"Accents & status hues", src:"guidelines/colors-accents.html", sub:"Cyan / amber / green / red", w:700, h:170 },
+  { group:"Foundations", name:"Accent tints", src:"guidelines/colors-tints.html", sub:"-dim fills for chips/badges", w:700, h:170 },
+  { group:"Foundations", name:"Type scale", src:"guidelines/type-scale.html", sub:"Six sizes, 13px base", w:700, h:210 },
+  { group:"Foundations", name:"UI type", src:"guidelines/type-ui.html", sub:"IBM Plex Sans", w:700, h:190 },
+  { group:"Foundations", name:"Metadata type", src:"guidelines/type-mono.html", sub:"IBM Plex Mono — EXIF, counts", w:700, h:170 },
+  { group:"Foundations", name:"Spacing", src:"guidelines/spacing.html", sub:"4px scale", w:700, h:160 },
+  { group:"Foundations", name:"Grid system", src:"guidelines/grid-system.html", sub:"Zoomable 96–320px tiles", w:700, h:210 },
+  { group:"Foundations", name:"Corner radii", src:"guidelines/radii.html", sub:"3 / 4 / 6 / 10 / full", w:700, h:160 },
+  { group:"Foundations", name:"Elevation", src:"guidelines/elevation.html", sub:"Hairlines + subtle lift", w:700, h:180 },
+  { group:"Brand", name:"Wordmark", src:"guidelines/brand-wordmark.html", sub:"OVERLOOK + aperture glyph", w:700, h:160 },
+  { group:"Brand", name:"Iconography", src:"guidelines/iconography.html", sub:"Lucide, 1.75 stroke", w:700, h:170 },
+  { group:"Components", name:"Core", src:"components/core/core.card.html", sub:"Button, IconButton, Badge, Tooltip", w:700, h:340 },
+  { group:"Components", name:"Forms", src:"components/forms/forms.card.html", sub:"Search, chips, toggles, sliders", w:700, h:380 },
+  { group:"Components", name:"Feedback", src:"components/feedback/feedback.card.html", sub:"Dialog, Toast, ProgressBar", w:700, h:400 },
+  { group:"Components", name:"Media", src:"components/media/media.card.html", sub:"PhotoTile, StatusGlyph, MetadataRow", w:700, h:420 },
+];
+const HOME = { name:"Overview", home:true };
+
+const rail=document.getElementById('rail'), frame=document.getElementById('frame'), wrap=document.getElementById('wrap'),
+      home=document.getElementById('home'), ttl=document.getElementById('ttl'), sub=document.getElementById('sub'),
+      openNew=document.getElementById('openNew'), ovCards=document.getElementById('ovCards');
+
+function show(card, btn){
+  document.querySelectorAll('.item.active').forEach(e=>e.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  ttl.textContent = card.name;
+  sub.textContent = card.sub || '';
+  if (card.home){
+    home.classList.remove('hidden'); wrap.classList.add('hidden'); openNew.classList.add('hidden');
+    frame.src='about:blank'; return;
+  }
+  home.classList.add('hidden'); wrap.classList.remove('hidden'); openNew.classList.remove('hidden');
+  openNew.href = card.src;
+  if (card.full){ frame.className='full'; wrap.classList.add('full'); frame.style.width=''; frame.style.height=''; }
+  else { frame.className=''; wrap.classList.remove('full'); frame.style.width=card.w+'px'; frame.style.height=card.h+'px'; }
+  frame.src = card.src;
+}
+
+// Sidebar: Home, app, then groups
+function addItem(label, cls, onClick){ const b=document.createElement('button'); b.className='item'+(cls?' '+cls:''); b.textContent=label; b.onclick=()=>onClick(b); rail.appendChild(b); return b; }
+const homeBtn = addItem('Overview','', b=>show(HOME,b));
+const appCard = { name:"Desktop app", src:"ui_kits/app/index.html", sub:"Library grid · lightbox · import · inspector", full:true };
+addItem('Desktop app','app', b=>show(appCard,b));
+let last=null;
+CARDS.forEach(c=>{ if(c.group!==last){ const g=document.createElement('div'); g.className='group'; g.textContent=c.group; rail.appendChild(g); last=c.group; } addItem(c.name,'', b=>show(c,b)); });
+
+// Overview cards
+let og=null;
+CARDS.forEach(c=>{ if(c.group!==og){ const h=document.createElement('div'); h.className='ov-group'; h.textContent=c.group; ovCards.appendChild(h); const grid=document.createElement('div'); grid.className='cards'; grid.id='g-'+c.group; ovCards.appendChild(grid); og=c.group; }
+  const d=document.createElement('div'); d.className='card'; d.innerHTML='<div class="n"></div><div class="d"></div>'; d.querySelector('.n').textContent=c.name; d.querySelector('.d').textContent=c.sub; d.onclick=()=>{ show(c); const sb=[...document.querySelectorAll('.item')].find(x=>x.textContent===c.name); if(sb){document.querySelectorAll('.item.active').forEach(e=>e.classList.remove('active')); sb.classList.add('active');} };
+  document.getElementById('g-'+c.group).appendChild(d);
+});
+document.querySelector('.hero').onclick=()=>{ show(appCard); document.querySelectorAll('.item').forEach(x=>{ if(x.classList.contains('app')){document.querySelectorAll('.item.active').forEach(e=>e.classList.remove('active')); x.classList.add('active');} }); };
+
+show(HOME, homeBtn); // default
+</script>
+</body>
+</html>

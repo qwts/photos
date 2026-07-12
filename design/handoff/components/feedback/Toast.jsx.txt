@@ -1,0 +1,29 @@
+import React from "react";
+import { Icon } from "../core/Icon.jsx";
+
+const TONES = {
+  neutral: { icon: "info", color: "var(--text-muted)" },
+  green: { icon: "shield-check", color: "var(--accent-green)" },
+  amber: { icon: "cloud-upload", color: "var(--accent-amber)" },
+  red: { icon: "triangle-alert", color: "var(--accent-red)" },
+};
+
+export function Toast({ tone = "neutral", icon, title, detail, action, style }) {
+  const t = TONES[tone] || TONES.neutral;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: "var(--space-4)",
+      minWidth: 280, maxWidth: 420, padding: "var(--space-4) var(--space-5)",
+      background: "var(--gray-3)", border: "1px solid var(--border-2)",
+      borderRadius: "var(--radius-2)", boxShadow: "var(--shadow-2)",
+      fontFamily: "var(--font-ui)", ...style,
+    }}>
+      <Icon name={icon || t.icon} size={16} color={t.color} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: "var(--text-md)", fontWeight: "var(--weight-medium)", color: "var(--text-body)" }}>{title}</div>
+        {detail ? <div style={{ fontSize: "var(--text-sm)", color: "var(--text-faint)", marginTop: 1 }}>{detail}</div> : null}
+      </div>
+      {action}
+    </div>
+  );
+}

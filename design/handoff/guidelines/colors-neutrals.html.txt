@@ -1,0 +1,17 @@
+<!-- @dsCard group="Colors" viewport="700x150" subtitle="Cool near-black neutral ramp — chrome recedes, photos own the color" name="Neutrals" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);">
+<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;padding:16px;">
+  <div style="height:76px;border-radius:6px;background:var(--gray-0);border:1px solid var(--border-1);"></div>
+  <div style="height:76px;border-radius:6px;background:var(--gray-1);"></div>
+  <div style="height:76px;border-radius:6px;background:var(--gray-2);"></div>
+  <div style="height:76px;border-radius:6px;background:var(--gray-3);"></div>
+  <div style="height:76px;border-radius:6px;background:var(--gray-4);"></div>
+  <div style="height:76px;border-radius:6px;background:var(--white-3);"></div>
+  <div style="height:76px;border-radius:6px;background:var(--white-2);"></div>
+  <div style="height:76px;border-radius:6px;background:var(--white-1);"></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;padding:0 16px;font-size:10px;letter-spacing:0.04em;color:var(--white-3);text-transform:uppercase;text-align:center;">
+  <div>gray-0</div><div>gray-1</div><div>gray-2</div><div>gray-3</div><div>gray-4</div><div>white-3</div><div>white-2</div><div>white-1</div>
+</div>
+</body></html>

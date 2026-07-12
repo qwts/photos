@@ -1,0 +1,15 @@
+/**
+ * Transient notification card (bottom-right stack).
+ */
+export interface ToastProps {
+  /** "neutral" | "green" | "amber" | "red". Default "neutral" */
+  tone?: "neutral" | "green" | "amber" | "red";
+  /** Override the tone's default Lucide icon */
+  icon?: string;
+  title: string;
+  detail?: string;
+  /** Optional trailing action (ghost Button) */
+  action?: React.ReactNode;
+  style?: React.CSSProperties;
+}
+export declare function Toast(props: ToastProps): JSX.Element;

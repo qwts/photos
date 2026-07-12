@@ -1,0 +1,14 @@
+<!-- @dsCard group="Colors" viewport="700x170" subtitle="Every accent has a -dim tint for fills; text sits at full accent" name="Accent tints" -->
+<!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);">
+<div style="display:flex;flex-direction:column;gap:8px;padding:16px;">
+  <div style="display:flex;gap:8px;">
+    <div style="flex:1;height:52px;border-radius:6px;background:var(--accent-cyan-dim);display:flex;align-items:center;justify-content:center;color:var(--accent-cyan);font-size:11px;letter-spacing:0.04em;">CYAN-DIM + CYAN TEXT</div>
+    <div style="flex:1;height:52px;border-radius:6px;background:var(--accent-amber-dim);display:flex;align-items:center;justify-content:center;color:var(--accent-amber);font-size:11px;letter-spacing:0.04em;">AMBER-DIM + AMBER TEXT</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <div style="flex:1;height:52px;border-radius:6px;background:var(--accent-green-dim);display:flex;align-items:center;justify-content:center;color:var(--accent-green);font-size:11px;letter-spacing:0.04em;">GREEN-DIM + GREEN TEXT</div>
+    <div style="flex:1;height:52px;border-radius:6px;background:var(--accent-red-dim);display:flex;align-items:center;justify-content:center;color:var(--accent-red);font-size:11px;letter-spacing:0.04em;">RED-DIM + RED TEXT</div>
+  </div>
+</div>
+</body></html>

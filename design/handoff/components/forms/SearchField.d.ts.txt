@@ -1,0 +1,15 @@
+/**
+ * Library search input with shortcut hint. Designed to grow into semantic search.
+ * @startingPoint section="Forms" subtitle="Search, chips, toggles, sliders" viewport="700x400"
+ */
+export interface SearchFieldProps {
+  value?: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+  /** Keyboard hint shown at right; null hides. Default "⌘K" */
+  shortcut?: string | null;
+  /** Pixel width. Default 280 */
+  width?: number | string;
+  style?: React.CSSProperties;
+}
+export declare function SearchField(props: SearchFieldProps): JSX.Element;

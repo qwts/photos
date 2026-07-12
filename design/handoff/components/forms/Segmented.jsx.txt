@@ -1,0 +1,35 @@
+import React from "react";
+import { Icon } from "../core/Icon.jsx";
+
+export function Segmented({ options = [], value, onChange, style }) {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 2,
+      height: "var(--control-h-md)", padding: 2,
+      background: "var(--gray-2)", borderRadius: "var(--radius-1)",
+      border: "1px solid var(--border-1)", ...style,
+    }}>
+      {options.map((opt) => {
+        const o = typeof opt === "string" ? { value: opt, label: opt } : opt;
+        const on = o.value === value;
+        return (
+          <button key={o.value}
+            onClick={() => onChange && onChange(o.value)}
+            title={o.label}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: "var(--space-2)",
+              height: "100%", padding: o.icon && !o.label ? "0 8px" : "0 10px",
+              borderRadius: 3, border: "none", cursor: "pointer",
+              background: on ? "var(--gray-4)" : "transparent",
+              color: on ? "var(--text-body)" : "var(--text-faint)",
+              fontSize: "var(--text-sm)", fontFamily: "var(--font-ui)", fontWeight: "var(--weight-medium)",
+              transition: "background var(--duration-fast) var(--ease-out)",
+            }}>
+            {o.icon ? <Icon name={o.icon} size={14} /> : null}
+            {o.label && !o.iconOnly ? o.label : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

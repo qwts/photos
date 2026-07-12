@@ -1,0 +1,28 @@
+import React from "react";
+import { Icon } from "./Icon.jsx";
+
+export function IconButton({ icon, size = "md", active = false, disabled = false, title, style, ...rest }) {
+  const [hover, setHover] = React.useState(false);
+  const px = size === "sm" ? 24 : size === "lg" ? 34 : 28;
+  return (
+    <button
+      title={title}
+      disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: px, height: px, borderRadius: "var(--radius-1)", border: "1px solid transparent",
+        background: active ? "var(--accent-cyan-dim)" : hover ? "var(--gray-3)" : "transparent",
+        color: active ? "var(--accent-cyan)" : hover ? "var(--text-body)" : "var(--text-muted)",
+        cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.45 : 1,
+        pointerEvents: disabled ? "none" : "auto",
+        transition: "background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)",
+        ...style,
+      }}
+      {...rest}
+    >
+      <Icon name={icon} size={size === "lg" ? 20 : 16} />
+    </button>
+  );
+}

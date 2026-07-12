@@ -1,0 +1,46 @@
+/* Overlook color system — dark-first. Photos own the color; chrome stays neutral. */
+
+:root {
+  /* ---- Base neutrals (cool, hue 250) ---- */
+  --gray-0: oklch(0.125 0.006 250);  /* window / canvas behind photos */
+  --gray-1: oklch(0.165 0.007 250);  /* panels, sidebars */
+  --gray-2: oklch(0.205 0.008 250);  /* cards, inputs, raised rows */
+  --gray-3: oklch(0.255 0.009 250);  /* hover fills, popovers */
+  --gray-4: oklch(0.32 0.01 250);    /* pressed fills, scrollbar thumb */
+
+  --white-1: oklch(0.955 0.004 250); /* primary text */
+  --white-2: oklch(0.74 0.008 250);  /* secondary text */
+  --white-3: oklch(0.55 0.01 250);   /* faint text, disabled */
+
+  /* ---- Accents — shared L/C, hue varies ---- */
+  --accent-cyan: oklch(0.74 0.125 215);   /* selection, focus, primary action */
+  --accent-amber: oklch(0.74 0.125 75);   /* cloud / offloaded / sync states */
+  --accent-green: oklch(0.74 0.125 155);  /* encrypted / verified / success */
+  --accent-red: oklch(0.62 0.19 25);      /* destructive */
+
+  --accent-cyan-dim: oklch(0.74 0.125 215 / 0.16);
+  --accent-amber-dim: oklch(0.74 0.125 75 / 0.16);
+  --accent-green-dim: oklch(0.74 0.125 155 / 0.16);
+  --accent-red-dim: oklch(0.62 0.19 25 / 0.16);
+
+  /* ---- Hairlines & overlays ---- */
+  --border-1: oklch(1 0 0 / 0.08);   /* default hairline */
+  --border-2: oklch(1 0 0 / 0.14);   /* emphasized hairline */
+  --scrim: oklch(0.1 0.005 250 / 0.72);           /* modal backdrop */
+  --protect-grad: linear-gradient(to top, oklch(0.1 0.005 250 / 0.75), transparent 60%); /* @kind other */
+
+  /* ---- Semantic aliases ---- */
+  --surface-window: var(--gray-0);
+  --surface-panel: var(--gray-1);
+  --surface-card: var(--gray-2);
+  --surface-raised: var(--gray-3);
+
+  --text-body: var(--white-1);
+  --text-muted: var(--white-2);
+  --text-faint: var(--white-3);
+  --text-on-accent: oklch(0.14 0.01 250);
+
+  --selection: var(--accent-cyan);
+  --focus-ring: 0 0 0 2px var(--gray-0), 0 0 0 4px var(--accent-cyan);
+  --tile-selected-ring: inset 0 0 0 2.5px var(--accent-cyan);
+}

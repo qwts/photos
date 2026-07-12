@@ -1,0 +1,19 @@
+import React from "react";
+
+export function MetadataRow({ label, value, mono = true, tone, style }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-4)", padding: "3px 0", ...style }}>
+      <span style={{
+        width: 88, flex: "none",
+        font: "var(--type-meta)", letterSpacing: "var(--tracking-mono)", textTransform: "uppercase",
+        color: "var(--text-faint)",
+      }}>{label}</span>
+      <span style={{
+        flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        fontFamily: mono ? "var(--font-mono)" : "var(--font-ui)",
+        fontSize: mono ? "var(--text-xs)" : "var(--text-sm)",
+        color: tone || "var(--text-body)",
+      }}>{value}</span>
+    </div>
+  );
+}

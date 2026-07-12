@@ -1,0 +1,17 @@
+/**
+ * Standard push button.
+ * @startingPoint section="Core" subtitle="Buttons, icon buttons, badges, tooltips" viewport="700x360"
+ */
+export interface ButtonProps {
+  /** "primary" | "secondary" | "ghost" | "danger". Default "secondary" */
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  /** "sm" | "md" | "lg". Default "md" */
+  size?: "sm" | "md" | "lg";
+  /** Optional leading Lucide icon name */
+  icon?: string;
+  disabled?: boolean;
+  children?: React.ReactNode;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+}
+export declare function Button(props: ButtonProps): JSX.Element;

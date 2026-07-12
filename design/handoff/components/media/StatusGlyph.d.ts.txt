@@ -1,0 +1,12 @@
+/**
+ * Per-photo sync/storage state glyph (on tiles, in inspector, in status bar).
+ */
+export interface StatusGlyphProps {
+  /** "local" | "synced" | "syncing" | "offloaded" | "error". Default "local" */
+  state?: "local" | "synced" | "syncing" | "offloaded" | "error";
+  /** Pixel diameter. Default 20 */
+  size?: number;
+  /** Tooltip override */
+  title?: string;
+}
+export declare function StatusGlyph(props: StatusGlyphProps): JSX.Element;

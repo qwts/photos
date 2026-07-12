@@ -1,0 +1,27 @@
+import React from "react";
+
+function toPascal(name) {
+  return String(name).split("-").map((s) => (s ? s[0].toUpperCase() + s.slice(1) : s)).join("");
+}
+
+/** Renders a Lucide icon from the lucide UMD global (load lucide from CDN first). */
+export function Icon({ name, size = 16, strokeWidth = 1.75, color = "currentColor", style }) {
+  const lib = typeof window !== "undefined" && window.lucide && window.lucide.icons;
+  let node = lib ? lib[toPascal(name)] || lib[name] : null;
+  if (node && node.length === 3 && node[0] === "svg") node = node[2]; // tolerate [tag,attrs,children] shape
+  const kids = Array.isArray(node)
+    ? node.map((child, i) => {
+        const [tag, attrs, children] = child;
+        return React.createElement(tag, { key: i, ...attrs }, Array.isArray(children)
+          ? children.map((c, j) => React.createElement(c[0], { key: j, ...c[1] }))
+          : undefined);
+      })
+    : null;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+      strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+      style={{ flex: "none", ...style }} aria-hidden="true">
+      {kids}
+    </svg>
+  );
+}

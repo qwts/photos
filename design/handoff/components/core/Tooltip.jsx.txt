@@ -1,0 +1,23 @@
+import React from "react";
+
+export function Tooltip({ label, side = "top", children }) {
+  const [open, setOpen] = React.useState(false);
+  const pos = side === "bottom"
+    ? { top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)" }
+    : { bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)" };
+  return (
+    <span style={{ position: "relative", display: "inline-flex" }}
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      {children}
+      {open ? (
+        <span style={{
+          position: "absolute", zIndex: 100, ...pos,
+          background: "var(--gray-4)", color: "var(--text-body)",
+          border: "1px solid var(--border-2)", borderRadius: "var(--radius-1)",
+          padding: "3px 8px", fontSize: "var(--text-sm)", fontFamily: "var(--font-ui)",
+          whiteSpace: "nowrap", boxShadow: "var(--shadow-2)", pointerEvents: "none",
+        }}>{label}</span>
+      ) : null}
+    </span>
+  );
+}

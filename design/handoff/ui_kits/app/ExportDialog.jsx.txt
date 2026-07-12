@@ -1,0 +1,84 @@
+const { Dialog, Button, Switch, Segmented, ProgressBar, Icon } = window.DS;
+
+function ExportDialog({ open, onClose, count = 1 }) {
+  const [phase, setPhase] = React.useState("options"); // options | running | done
+  const [progress, setProgress] = React.useState(0);
+  const [format, setFormat] = React.useState("original");
+  const [decrypt, setDecrypt] = React.useState(true);
+
+  React.useEffect(() => { if (open) { setPhase("options"); setProgress(0); setDecrypt(true); } }, [open]);
+  React.useEffect(() => {
+    if (phase !== "running") return;
+    const iv = setInterval(() => {
+      setProgress((p) => {
+        if (p >= count) { clearInterval(iv); setPhase("done"); return count; }
+        return Math.min(count, p + Math.max(1, Math.round(count / 12)));
+      });
+    }, 120);
+    return () => clearInterval(iv);
+  }, [phase, count]);
+
+  if (!open) return null;
+  const noun = count === 1 ? "photo" : "photos";
+
+  return (
+    <Dialog title="Export" icon="share" width={420} onClose={onClose}
+      footer={phase === "options" ? (
+        <React.Fragment>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" icon="share" onClick={() => setPhase("running")} disabled={!decrypt}>
+            Export {count} {noun}
+          </Button>
+        </React.Fragment>
+      ) : phase === "done" ? (
+        <Button variant="primary" onClick={onClose}>Done</Button>
+      ) : null}>
+      {phase === "options" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--gray-2)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "10px 12px" }}>
+            <Icon name="image" size={16} color="var(--text-muted)" />
+            <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)", fontWeight: 500 }}>
+              {count} {noun} selected
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>Format</span>
+            <Segmented value={format} onChange={setFormat} options={[
+              { value: "original", label: "Original" },
+              { value: "jpeg", label: "JPEG" }]} />
+          </div>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>Decrypt originals</div>
+              <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2, maxWidth: 260 }}>
+                Files are stored encrypted. Turn this on to write plain, openable files to disk.
+              </div>
+            </div>
+            <Switch checked={decrypt} onChange={setDecrypt} />
+          </div>
+          {!decrypt ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--accent-amber)", font: "var(--type-meta)" }}>
+              <Icon name="alert-triangle" size={12} />
+              Without decryption, exported files can't be opened outside Overlook.
+            </div>
+          ) : null}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>Destination</span>
+            <Button variant="secondary" icon="folder" size="sm">Choose folder…</Button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "4px 0" }}>
+          <ProgressBar label={decrypt ? "Decrypting & writing files" : "Writing files"}
+            detail={progress + " / " + count} value={progress} max={count} tone="cyan" />
+          {phase === "done" ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent-green)", fontSize: "var(--text-md)" }}>
+              <Icon name="check-circle-2" size={15} /> {count} {noun} exported{decrypt ? " and decrypted" : ""}.
+            </div>
+          ) : null}
+        </div>
+      )}
+    </Dialog>
+  );
+}
+window.ExportDialog = ExportDialog;

@@ -1,0 +1,37 @@
+/* Overlook spacing, radii, sizing — 4px scale, compact desktop chrome. */
+
+:root {
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 48px;
+
+  /* Radii — tight; photos themselves get --radius-tile */
+  --radius-1: 4px;   /* buttons, inputs, chips */
+  --radius-2: 6px;   /* cards, popovers */
+  --radius-3: 10px;  /* dialogs */
+  --radius-tile: 3px;/* photo tiles */
+  --radius-full: 999px;
+
+  /* Grid system */
+  --grid-gap: 4px;            /* gap between photo tiles */
+  --tile-min: 96px;           /* smallest zoom level */
+  --tile-max: 320px;          /* largest zoom level */
+
+  /* Fixed chrome */
+  --titlebar-h: 30px;
+  --toolbar-h: 48px;
+  --statusbar-h: 26px;
+  --sidebar-w: 216px;
+  --inspector-w: 280px;
+
+  /* Controls */
+  --control-h-sm: 24px;
+  --control-h-md: 28px;
+  --control-h-lg: 34px;
+}

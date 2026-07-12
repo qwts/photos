@@ -1,0 +1,30 @@
+const { Icon } = window.DS;
+
+function StatusBar({ count, pendingCount = 0, lastBackupLabel = "2H AGO" }) {
+  const syncing = pendingCount > 0;
+  return (
+    <div style={{
+      flex: "none", height: "var(--statusbar-h)", display: "flex", alignItems: "center",
+      gap: 16, padding: "0 12px", background: "var(--gray-1)", borderTop: "1px solid var(--border-1)",
+      fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", letterSpacing: "var(--tracking-mono)",
+      color: "var(--text-faint)",
+    }}>
+      <span>{count.toLocaleString()} PHOTOS · 1.2 TB</span>
+      <span style={{ flex: 1 }} />
+      {syncing ? (
+        <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--accent-amber)" }}>
+          <Icon name="refresh-cw" size={11} strokeWidth={2} style={{ animation: "overlook-spin 1.2s linear infinite" }} />
+          ENCRYPTING {pendingCount} → PCLOUD
+        </span>
+      ) : (
+        <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--accent-green)" }}>
+          <Icon name="cloud-check" size={12} strokeWidth={2} /> ALL BACKED UP · {lastBackupLabel}
+        </span>
+      )}
+      <span style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--accent-green)" }}>
+        <Icon name="lock" size={11} strokeWidth={2} /> AES-256
+      </span>
+    </div>
+  );
+}
+window.StatusBar = StatusBar;

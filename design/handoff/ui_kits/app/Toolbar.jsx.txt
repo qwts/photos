@@ -1,0 +1,44 @@
+const { Icon, IconButton, Button, SearchField, Segmented, Slider, Chip, Tooltip } = window.DS;
+
+function Toolbar({ q, setQ, zoom, setZoom, view, setView, filters, toggleFilter, filterOpen, setFilterOpen, onImport, onBackup, pendingCount = 0 }) {
+  const FILTERS = [
+    { key: "favorites", icon: "star", label: "Favorites" },
+    { key: "raw", icon: "image", label: "RAW" },
+    { key: "offloaded", icon: "cloud", label: "Offloaded" },
+    { key: "local", icon: "hard-drive", label: "Local only" },
+  ];
+  return (
+    <div style={{ flex: "none", background: "var(--gray-1)", borderBottom: "1px solid var(--border-1)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", height: "var(--toolbar-h)", padding: "0 var(--space-4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, width: "calc(var(--sidebar-w) - 24px)", flex: "none" }}>
+          <Icon name="aperture" size={18} color="var(--accent-cyan)" />
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.14em", color: "var(--text-body)" }}>OVERLOOK</span>
+        </div>
+        <SearchField value={q} onChange={setQ} width={300} />
+        <IconButton icon="funnel" title="Filters" active={filterOpen || Object.values(filters).some(Boolean)} onClick={() => setFilterOpen(!filterOpen)} />
+        <div style={{ flex: 1 }} />
+        <Segmented value={view} onChange={setView} options={[
+          { value: "grid", icon: "layout-grid", iconOnly: true, label: "Grid" },
+          { value: "list", icon: "list", iconOnly: true, label: "List" }]} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, visibility: view === "list" ? "hidden" : "visible" }}>
+          <Icon name="grid-3x3" size={13} color="var(--text-faint)" />
+          <Slider value={zoom} min={96} max={320} onChange={setZoom} width={110} />
+          <Icon name="grid-2x2" size={15} color="var(--text-faint)" />
+        </div>
+        <Tooltip label={pendingCount > 0 ? "Back up now" : "All photos backed up"} side="bottom">
+          <IconButton icon="cloud-upload" onClick={onBackup} disabled={pendingCount === 0} />
+        </Tooltip>
+        <Button variant="primary" icon="download" size="md" onClick={onImport}>Import</Button>
+      </div>
+      {filterOpen ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "0 var(--space-4) var(--space-3)" }}>
+          {FILTERS.map((f) => (
+            <Chip key={f.key} icon={f.icon} selected={!!filters[f.key]} onClick={() => toggleFilter(f.key)}>{f.label}</Chip>
+          ))}
+          <span style={{ font: "var(--type-meta)", color: "var(--text-faint)", letterSpacing: "0.04em", marginLeft: 4 }}>SEMANTIC SEARCH — COMING SOON</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+window.Toolbar = Toolbar;

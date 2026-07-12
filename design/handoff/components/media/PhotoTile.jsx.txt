@@ -1,0 +1,56 @@
+import React from "react";
+import { Icon } from "../core/Icon.jsx";
+import { StatusGlyph } from "./StatusGlyph.jsx";
+
+export function PhotoTile({ src, alt = "", selected = false, favorite = false, status = "local",
+  showStatus = true, onClick, onToggleSelect, style }) {
+  const [hover, setHover] = React.useState(false);
+  const showCheck = hover || selected;
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onClick}
+      style={{
+        position: "relative", overflow: "hidden", borderRadius: "var(--radius-tile)",
+        background: "var(--gray-2)", cursor: "pointer", width: "100%", height: "100%",
+        boxShadow: selected ? "var(--tile-selected-ring)" : "none",
+        ...style,
+      }}>
+      <img src={src} alt={alt} loading="lazy" draggable={false} style={{
+        width: "100%", height: "100%", objectFit: "cover", display: "block",
+        transform: selected ? "scale(0.92)" : "none",
+        borderRadius: selected ? 2 : 0,
+        opacity: status === "offloaded" ? 0.55 : 1,
+        transition: "transform var(--duration-fast) var(--ease-out)",
+      }} />
+      {hover && !selected ? (
+        <div style={{ position: "absolute", inset: 0, background: "oklch(1 0 0 / 0.06)", pointerEvents: "none" }} />
+      ) : null}
+      {showCheck ? (
+        <span
+          onClick={(e) => { e.stopPropagation(); onToggleSelect && onToggleSelect(); }}
+          title={selected ? "Deselect" : "Select"}
+          style={{
+            position: "absolute", top: 6, left: 6, width: 18, height: 18, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: selected ? "var(--accent-cyan)" : "oklch(0.12 0.005 250 / 0.55)",
+            border: selected ? "1px solid transparent" : "1px solid oklch(1 0 0 / 0.6)",
+            color: "var(--text-on-accent)",
+          }}>
+          {selected ? <Icon name="check" size={12} strokeWidth={3} /> : null}
+        </span>
+      ) : null}
+      {favorite ? (
+        <span style={{ position: "absolute", top: 7, right: 7, color: "oklch(0.95 0.005 250)", filter: "drop-shadow(0 1px 2px oklch(0 0 0 / 0.6))" }}>
+          <Icon name="star" size={13} strokeWidth={2} color="currentColor" />
+        </span>
+      ) : null}
+      {showStatus && status !== "local" ? (
+        <span style={{ position: "absolute", bottom: 6, right: 6 }}>
+          <StatusGlyph state={status} size={18} />
+        </span>
+      ) : null}
+    </div>
+  );
+}

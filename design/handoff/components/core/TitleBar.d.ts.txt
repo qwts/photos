@@ -1,0 +1,15 @@
+/**
+ * Custom frameless-window title bar (Electron/Tauri shell chrome, not a web header).
+ * @startingPoint section="Core" subtitle="Frameless window title bar" viewport="700x160"
+ */
+export interface TitleBarProps {
+  /** "mac" reserves space for native traffic lights (hiddenInset); "win" draws custom controls. Default "mac" */
+  platform?: "mac" | "win";
+  /** Width reserved for native macOS traffic lights. Default 78 */
+  trafficLightInset?: number;
+  onMinimize?: () => void;
+  onMaximize?: () => void;
+  onClose?: () => void;
+  style?: React.CSSProperties;
+}
+export declare function TitleBar(props: TitleBarProps): JSX.Element;

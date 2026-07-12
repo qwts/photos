@@ -1,0 +1,14 @@
+/**
+ * Compact slider — grid zoom (tile size), export quality.
+ */
+export interface SliderProps {
+  value?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onChange?: (value: number) => void;
+  /** Pixel width. Default 140 */
+  width?: number | string;
+  style?: React.CSSProperties;
+}
+export declare function Slider(props: SliderProps): JSX.Element;

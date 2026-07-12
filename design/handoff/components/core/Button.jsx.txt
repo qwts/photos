@@ -1,0 +1,52 @@
+import React from "react";
+import { Icon } from "./Icon.jsx";
+
+const H = { sm: "var(--control-h-sm)", md: "var(--control-h-md)", lg: "var(--control-h-lg)" };
+const PAD = { sm: "0 var(--space-3)", md: "0 var(--space-4)", lg: "0 var(--space-5)" };
+
+export function Button({ variant = "secondary", size = "md", icon, disabled = false, children, style, ...rest }) {
+  const [hover, setHover] = React.useState(false);
+  const [press, setPress] = React.useState(false);
+  const variants = {
+    primary: {
+      background: press ? "oklch(0.68 0.125 215)" : hover ? "oklch(0.78 0.125 215)" : "var(--accent-cyan)",
+      color: "var(--text-on-accent)", border: "1px solid transparent",
+    },
+    secondary: {
+      background: press ? "var(--gray-2)" : hover ? "var(--gray-4)" : "var(--gray-3)",
+      color: "var(--text-body)", border: "1px solid var(--border-1)",
+    },
+    ghost: {
+      background: hover || press ? "var(--gray-3)" : "transparent",
+      color: hover ? "var(--text-body)" : "var(--text-muted)", border: "1px solid transparent",
+    },
+    danger: {
+      background: hover || press ? "var(--accent-red)" : "var(--accent-red-dim)",
+      color: hover || press ? "oklch(0.97 0.005 25)" : "var(--accent-red)", border: "1px solid transparent",
+    },
+  };
+  return (
+    <button
+      disabled={disabled}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setPress(false); }}
+      onMouseDown={() => setPress(true)}
+      onMouseUp={() => setPress(false)}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "var(--space-3)",
+        height: H[size], padding: PAD[size], borderRadius: "var(--radius-1)",
+        font: "var(--type-body)", fontWeight: "var(--weight-medium)",
+        fontSize: size === "sm" ? "var(--text-sm)" : "var(--text-md)",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.45 : 1, pointerEvents: disabled ? "none" : "auto",
+        transition: "background var(--duration-fast) var(--ease-out)",
+        whiteSpace: "nowrap", userSelect: "none",
+        ...variants[variant], ...style,
+      }}
+      {...rest}
+    >
+      {icon ? <Icon name={icon} size={size === "lg" ? 18 : 16} /> : null}
+      {children}
+    </button>
+  );
+}

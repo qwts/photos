@@ -1,0 +1,42 @@
+import React from "react";
+import { Icon } from "../core/Icon.jsx";
+import { Button } from "../core/Button.jsx";
+import { IconButton } from "../core/IconButton.jsx";
+
+export function Dialog({ open = true, title, icon, width = 440, onClose, footer, children }) {
+  if (!open) return null;
+  return (
+    <div style={{
+      position: "absolute", inset: 0, zIndex: 200, background: "var(--scrim)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width, maxWidth: "90%", background: "var(--gray-1)",
+        border: "1px solid var(--border-2)", borderRadius: "var(--radius-3)",
+        boxShadow: "var(--shadow-3)", overflow: "hidden",
+        fontFamily: "var(--font-ui)", color: "var(--text-body)",
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: "var(--space-3)",
+          padding: "var(--space-5) var(--space-6) 0",
+        }}>
+          {icon ? <Icon name={icon} size={18} color="var(--text-muted)" /> : null}
+          <div style={{ flex: 1, fontSize: "var(--text-xl)", fontWeight: "var(--weight-semibold)" }}>{title}</div>
+          {onClose ? <IconButton icon="x" size="sm" title="Close" onClick={onClose} /> : null}
+        </div>
+        <div style={{ padding: "var(--space-5) var(--space-6)", fontSize: "var(--text-md)", lineHeight: "var(--leading-normal)", color: "var(--text-muted)" }}>
+          {children}
+        </div>
+        {footer ? (
+          <div style={{
+            display: "flex", justifyContent: "flex-end", gap: "var(--space-3)",
+            padding: "var(--space-4) var(--space-6)", borderTop: "1px solid var(--border-1)",
+            background: "var(--gray-2)",
+          }}>{footer}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+Dialog.Button = Button;

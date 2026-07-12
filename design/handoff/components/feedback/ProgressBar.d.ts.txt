@@ -1,0 +1,16 @@
+/**
+ * Thin progress bar with mono detail — import, thumbnailing, backup.
+ */
+export interface ProgressBarProps {
+  value?: number;
+  max?: number;
+  /** "cyan" (default, general) | "amber" (cloud) | "green" (encryption) */
+  tone?: "cyan" | "amber" | "green";
+  /** Bold left label */
+  label?: string;
+  /** Mono right detail, e.g. "842 / 1,204" */
+  detail?: string;
+  width?: number | string;
+  style?: React.CSSProperties;
+}
+export declare function ProgressBar(props: ProgressBarProps): JSX.Element;

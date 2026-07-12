@@ -1,0 +1,14 @@
+/**
+ * Inspector key/value row — EXIF, file info, sync details.
+ */
+export interface MetadataRowProps {
+  /** Uppercase mono label, e.g. "APERTURE" */
+  label: string;
+  value: React.ReactNode;
+  /** Render value in mono (machine data). Default true */
+  mono?: boolean;
+  /** Value color override (e.g. var(--accent-green)) */
+  tone?: string;
+  style?: React.CSSProperties;
+}
+export declare function MetadataRow(props: MetadataRowProps): JSX.Element;

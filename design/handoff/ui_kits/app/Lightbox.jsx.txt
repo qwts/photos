@@ -1,0 +1,59 @@
+const { Icon, IconButton } = window.DS;
+
+function Lightbox({ photo, onClose, onPrev, onNext, inspectorOpen, setInspectorOpen, onToggleFavorite, onExport }) {
+  const [chrome, setChrome] = React.useState(true);
+  const timer = React.useRef(null);
+  const wake = () => {
+    setChrome(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setChrome(false), 2200);
+  };
+  React.useEffect(() => { wake(); return () => clearTimeout(timer.current); }, [photo && photo.id]);
+  if (!photo) return null;
+  return (
+    <div onMouseMove={wake} style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", background: "var(--gray-0)" }}>
+      <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <img src={photo.src} alt={photo.name} style={{
+          maxWidth: "100%", maxHeight: "100%", aspectRatio: photo.w + " / " + photo.h,
+          width: photo.w >= photo.h ? "100%" : "auto", height: photo.w >= photo.h ? "auto" : "100%",
+          objectFit: "cover",
+        }} />
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 64,
+          display: "flex", alignItems: "flex-start", gap: 6, padding: "10px 12px",
+          background: "linear-gradient(to bottom, oklch(0.1 0.005 250 / 0.75), transparent)",
+          opacity: chrome ? 1 : 0, transition: "opacity var(--duration-normal) var(--ease-out)",
+          pointerEvents: chrome ? "auto" : "none",
+        }}>
+          <IconButton icon="arrow-left" title="Back to library (Esc)" onClick={onClose} />
+          <div style={{ flex: 1, textAlign: "center", paddingTop: 5 }}>
+            <span style={{ font: "var(--type-meta)", letterSpacing: "0.04em", color: "var(--text-muted)" }}>{photo.name} — {photo.date}</span>
+          </div>
+          <IconButton icon="star" title="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
+          <IconButton icon="share" title="Export" onClick={onExport} />
+          <IconButton icon="info" title="Inspector (I)" active={inspectorOpen} onClick={() => setInspectorOpen(!inspectorOpen)} />
+          <IconButton icon="trash-2" title="Delete" />
+        </div>
+        <div style={{
+          position: "absolute", inset: "0 0 0 0", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0 10px", pointerEvents: "none",
+          opacity: chrome ? 1 : 0, transition: "opacity var(--duration-normal) var(--ease-out)",
+        }}>
+          <span style={{ pointerEvents: chrome ? "auto" : "none" }}><IconButton icon="chevron-left" size="lg" title="Previous (←)" onClick={onPrev} /></span>
+          <span style={{ pointerEvents: chrome ? "auto" : "none" }}><IconButton icon="chevron-right" size="lg" title="Next (→)" onClick={onNext} /></span>
+        </div>
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0, height: 46,
+          display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 10,
+          background: "var(--protect-grad)",
+          opacity: chrome ? 1 : 0, transition: "opacity var(--duration-normal) var(--ease-out)", pointerEvents: "none",
+        }}>
+          <span style={{ font: "var(--type-meta)", letterSpacing: "0.04em", color: "var(--text-muted)" }}>
+            {photo.camera} · ƒ/{photo.f} · {photo.shutter}S · ISO {photo.iso} · {photo.focal}MM
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+window.Lightbox = Lightbox;

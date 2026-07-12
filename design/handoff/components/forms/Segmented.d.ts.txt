@@ -1,0 +1,18 @@
+/**
+ * Segmented control — view modes (grid/list), sort direction, small exclusive choices.
+ */
+export interface SegmentedOption {
+  value: string;
+  label?: string;
+  /** Lucide icon name */
+  icon?: string;
+  /** Hide the label, icon only (label becomes tooltip) */
+  iconOnly?: boolean;
+}
+export interface SegmentedProps {
+  options: (SegmentedOption | string)[];
+  value?: string;
+  onChange?: (value: string) => void;
+  style?: React.CSSProperties;
+}
+export declare function Segmented(props: SegmentedProps): JSX.Element;

@@ -1,0 +1,12 @@
+/**
+ * Toggle switch for settings (encryption, auto-backup, offload rules).
+ */
+export interface SwitchProps {
+  checked?: boolean;
+  onChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  /** Optional trailing text label */
+  label?: string;
+  style?: React.CSSProperties;
+}
+export declare function Switch(props: SwitchProps): JSX.Element;

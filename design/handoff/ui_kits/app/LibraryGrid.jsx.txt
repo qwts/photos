@@ -1,0 +1,93 @@
+const { PhotoTile, StatusGlyph, Button, IconButton, Icon } = window.DS;
+
+function ListRow({ p, selected, onOpen, onToggle }) {
+  const [hover, setHover] = React.useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={() => onOpen(p.id)}
+      style={{
+        display: "flex", alignItems: "center", gap: "var(--space-4)", height: 52,
+        padding: "0 var(--space-3)", borderRadius: "var(--radius-1)", cursor: "pointer",
+        background: selected ? "var(--accent-cyan-dim)" : hover ? "var(--gray-2)" : "transparent",
+      }}>
+      <span
+        onClick={(e) => { e.stopPropagation(); onToggle(p.id); }}
+        style={{
+          width: 16, height: 16, borderRadius: "50%", flex: "none",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: selected ? "var(--accent-cyan)" : "transparent",
+          border: selected ? "1px solid transparent" : "1px solid var(--border-2)",
+          opacity: hover || selected ? 1 : 0,
+        }}>
+        {selected ? <Icon name="check" size={11} strokeWidth={3} color="var(--text-on-accent)" /> : null}
+      </span>
+      <div style={{ width: 40, height: 40, flex: "none", borderRadius: "var(--radius-1)", overflow: "hidden", background: "var(--gray-2)" }}>
+        <img src={p.src} alt={p.name} loading="lazy" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: p.status === "offloaded" ? 0.55 : 1 }} />
+      </div>
+      <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+        <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+        <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>{p.place} · {p.date}</div>
+      </div>
+      <div style={{ flex: "0 0 170px", font: "var(--type-meta)", color: "var(--text-faint)" }}>{p.camera}</div>
+      <div style={{ flex: "0 0 70px", font: "var(--type-meta)", color: "var(--text-faint)" }}>{p.mb.toFixed(1)} MB</div>
+      {p.favorite ? <Icon name="star" size={13} color="var(--text-muted)" /> : <span style={{ width: 13 }} />}
+      <span style={{ flex: "none", width: 18, display: "flex", justifyContent: "center" }}>
+        <StatusGlyph state={p.status} size={16} />
+      </span>
+    </div>
+  );
+}
+
+function LibraryGrid({ photos, zoom, view, selected, onToggle, onOpen, onClearSelection, onExport }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0, position: "relative", overflow: "auto", background: "var(--gray-0)" }}>
+      {photos.length === 0 ? (
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <Icon name="image-off" size={28} color="var(--text-faint)" />
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 600, color: "var(--text-body)" }}>Nothing matches</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-faint)" }}>Try clearing search or filters.</div>
+        </div>
+      ) : view === "list" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "var(--space-3)" }}>
+          {photos.map((p) => (
+            <ListRow key={p.id} p={p} selected={selected.has(p.id)} onOpen={onOpen} onToggle={onToggle} />
+          ))}
+        </div>
+      ) : (
+        <div style={{
+          display: "grid", gap: "var(--grid-gap)", padding: "var(--grid-gap)",
+          gridTemplateColumns: "repeat(auto-fill, minmax(" + zoom + "px, 1fr))",
+        }}>
+          {photos.map((p) => (
+            <div key={p.id} style={{ aspectRatio: "1" }}>
+              <PhotoTile src={p.src} alt={p.name} favorite={p.favorite} status={p.status}
+                selected={selected.has(p.id)}
+                onClick={() => onOpen(p.id)}
+                onToggleSelect={() => onToggle(p.id)} />
+            </div>
+          ))}
+        </div>
+      )}
+      {selected.size > 0 ? (
+        <div style={{
+          position: "sticky", bottom: 12, display: "flex", justifyContent: "center", pointerEvents: "none",
+        }}>
+          <div style={{
+            pointerEvents: "auto", display: "flex", alignItems: "center", gap: "var(--space-3)",
+            background: "var(--gray-3)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-2)",
+            boxShadow: "var(--shadow-2)", padding: "6px 10px",
+          }}>
+            <span style={{ font: "var(--type-meta)", color: "var(--text-body)", letterSpacing: "0.04em", padding: "0 4px" }}>{selected.size} SELECTED</span>
+            <Button size="sm" variant="secondary" icon="share" onClick={onExport}>Export</Button>
+            <Button size="sm" variant="secondary" icon="album">Add to album</Button>
+            <Button size="sm" variant="danger" icon="trash-2">Delete</Button>
+            <IconButton icon="x" size="sm" title="Clear selection" onClick={onClearSelection} />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+window.LibraryGrid = LibraryGrid;

@@ -1,0 +1,59 @@
+<!-- @dsCard group="Components" viewport="700x380" subtitle="SearchField, Chip, Segmented, Slider, Switch, Checkbox" name="Forms" -->
+<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<script src="../../ds-loader.js" data-root="../.."></script>
+</head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-ui);">
+<div id="root"></div>
+<script type="text/babel">
+const DS = window.DS || {};
+const { SearchField, Chip, Segmented, Slider, Switch, Checkbox } = DS;
+function Row({ label, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", flexWrap: "wrap" }}>
+      <span style={{ width: 92, flex: "none", font: "var(--type-meta)", letterSpacing: "0.04em", color: "var(--text-faint)", textTransform: "uppercase" }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+function Card() {
+  const [q, setQ] = React.useState("");
+  const [view, setView] = React.useState("grid");
+  const [zoom, setZoom] = React.useState(160);
+  const [auto, setAuto] = React.useState(true);
+  const [meta, setMeta] = React.useState(true);
+  return (
+    <div style={{ padding: "10px 18px" }}>
+      <Row label="Search"><SearchField value={q} onChange={setQ} width={300} /></Row>
+      <Row label="Chips">
+        <Chip icon="image" selected>RAW</Chip>
+        <Chip icon="video">Video</Chip>
+        <Chip icon="star">Favorites</Chip>
+        <Chip icon="cloud" onRemove={() => {}}>Offloaded</Chip>
+      </Row>
+      <Row label="Segmented">
+        <Segmented value={view} onChange={setView} options={[
+          { value: "grid", icon: "layout-grid", iconOnly: true, label: "Grid" },
+          { value: "list", icon: "list", iconOnly: true, label: "List" }]} />
+        <Segmented value="date" options={[{ value: "date", label: "Date" }, { value: "name", label: "Name" }, { value: "size", label: "Size" }]} />
+      </Row>
+      <Row label="Slider">
+        <Slider value={zoom} min={96} max={320} onChange={setZoom} />
+        <span style={{ font: "var(--type-meta)", color: "var(--text-faint)" }}>{zoom}PX TILES</span>
+      </Row>
+      <Row label="Switch"><Switch checked={auto} onChange={setAuto} label="Back up automatically" /><Switch checked={false} label="Off state" /></Row>
+      <Row label="Checkbox">
+        <Checkbox checked={meta} onChange={setMeta} label="Include EXIF metadata" />
+        <Checkbox indeterminate label="812 of 1,204" />
+      </Row>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Card />);
+</script>
+</body></html>

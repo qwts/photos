@@ -1,0 +1,47 @@
+<!-- @dsCard group="Components" viewport="700x420" subtitle="PhotoTile states, StatusGlyph, MetadataRow" name="Media" -->
+<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<script src="../../ds-loader.js" data-root="../.."></script>
+</head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-ui);">
+<div id="root"></div>
+<script type="text/babel">
+const DS = window.DS || {};
+const { PhotoTile, StatusGlyph, MetadataRow } = DS;
+const T = (n) => "../../assets/thumbs/t" + String(n).padStart(2, "0") + ".png";
+function Label({ children }) {
+  return <div style={{ font: "var(--type-meta)", letterSpacing: "0.04em", color: "var(--text-faint)", textTransform: "uppercase", marginTop: 6, textAlign: "center" }}>{children}</div>;
+}
+function Card() {
+  return (
+    <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+        <div><div style={{ aspectRatio: "1" }}><PhotoTile src={T(1)} /></div><Label>Default</Label></div>
+        <div><div style={{ aspectRatio: "1" }}><PhotoTile src={T(3)} selected /></div><Label>Selected</Label></div>
+        <div><div style={{ aspectRatio: "1" }}><PhotoTile src={T(5)} favorite status="synced" /></div><Label>Fav · Synced</Label></div>
+        <div><div style={{ aspectRatio: "1" }}><PhotoTile src={T(7)} status="offloaded" /></div><Label>Offloaded</Label></div>
+        <div><div style={{ aspectRatio: "1" }}><PhotoTile src={T(9)} status="syncing" /></div><Label>Syncing</Label></div>
+      </div>
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--gray-1)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", padding: "10px 14px" }}>
+          <StatusGlyph state="local" /><StatusGlyph state="synced" /><StatusGlyph state="syncing" /><StatusGlyph state="offloaded" /><StatusGlyph state="error" />
+        </div>
+        <div style={{ flex: 1, background: "var(--gray-1)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", padding: "8px 14px" }}>
+          <MetadataRow label="File" value="IMG_4021.RAF" mono={false} />
+          <MetadataRow label="Camera" value="FUJIFILM X-T5 · 35MM F/1.4" />
+          <MetadataRow label="Exposure" value="ƒ/1.8 · 1/250S · ISO 400" />
+          <MetadataRow label="Size" value="26.1 MP · 6240×4160 · 54.2 MB" />
+          <MetadataRow label="Backup" value="ENCRYPTED · PCLOUD · 2H AGO" tone="var(--accent-green)" />
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Card />);
+</script>
+</body></html>

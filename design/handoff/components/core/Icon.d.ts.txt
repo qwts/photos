@@ -1,0 +1,15 @@
+/**
+ * Lucide icon glyph. Requires the lucide UMD script (CDN) on the page.
+ */
+export interface IconProps {
+  /** Lucide icon name, kebab-case (e.g. "cloud-upload", "lock") */
+  name: string;
+  /** Pixel size. Default 16 */
+  size?: number;
+  /** Default 1.75 */
+  strokeWidth?: number;
+  /** Default currentColor */
+  color?: string;
+  style?: React.CSSProperties;
+}
+export declare function Icon(props: IconProps): JSX.Element;

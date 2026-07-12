@@ -18,6 +18,8 @@ export default tseslint.config(
       // main checkout breaks local gates on unrelated work (prettier already ignores
       // .claude/ via .prettierignore).
       '.claude/**',
+      // Vendored design handoff (reference material, not source) — #173.
+      'design/handoff/**',
     ],
   },
   js.configs.recommended,

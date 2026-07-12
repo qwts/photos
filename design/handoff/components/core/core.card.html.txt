@@ -1,0 +1,72 @@
+<!-- @dsCard group="Components" viewport="700x340" subtitle="Button, IconButton, Badge, Tooltip" name="Core" -->
+<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<script src="../../ds-loader.js" data-root="../.."></script>
+</head>
+<body style="margin:0;background:var(--gray-0);font-family:var(--font-ui);">
+<div id="root"></div>
+<script type="text/babel">
+const DS = window.DS || {};
+const { Button, IconButton, Badge, Tooltip, TitleBar } = DS;
+function Row({ label, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0" }}>
+      <span style={{ width: 92, flex: "none", font: "var(--type-meta)", letterSpacing: "0.04em", color: "var(--text-faint)", textTransform: "uppercase" }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+function Card() {
+  return (
+    <div style={{ padding: "10px 18px" }}>
+      <Row label="Button">
+        <Button variant="primary" icon="download">Import</Button>
+        <Button variant="secondary">Cancel</Button>
+        <Button variant="ghost" icon="share">Export</Button>
+        <Button variant="danger">Delete</Button>
+        <Button variant="primary" disabled>Disabled</Button>
+      </Row>
+      <Row label="Sizes">
+        <Button size="sm" variant="secondary">Small</Button>
+        <Button size="md" variant="secondary">Medium</Button>
+        <Button size="lg" variant="secondary" icon="cloud-upload">Large</Button>
+      </Row>
+      <Row label="IconButton">
+        <IconButton icon="info" title="Inspector" />
+        <IconButton icon="star" title="Favorite" />
+        <IconButton icon="funnel" title="Filter" active />
+        <IconButton icon="trash-2" title="Delete" />
+        <IconButton icon="settings-2" title="Settings" disabled />
+      </Row>
+      <Row label="Badge">
+        <Badge tone="green" icon="lock">Encrypted</Badge>
+        <Badge tone="amber" icon="cloud">Offloaded</Badge>
+        <Badge tone="cyan">124 selected</Badge>
+        <Badge tone="red" icon="triangle-alert">Sync failed</Badge>
+        <Badge>RAW</Badge>
+      </Row>
+      <Row label="Tooltip">
+        <Tooltip label="Back up now" side="bottom"><IconButton icon="cloud-upload" /></Tooltip>
+        <span style={{ fontSize: 12, color: "var(--text-faint)" }}>← hover</span>
+      </Row>
+      <Row label="TitleBar">
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ width: 340, border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", overflow: "hidden" }}>
+            <TitleBar platform="mac" />
+          </div>
+          <div style={{ width: 340, border: "1px solid var(--border-1)", borderRadius: "var(--radius-2)", overflow: "hidden" }}>
+            <TitleBar platform="win" />
+          </div>
+        </div>
+      </Row>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Card />);
+</script>
+</body></html>

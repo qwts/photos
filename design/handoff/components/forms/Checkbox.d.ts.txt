@@ -1,0 +1,12 @@
+/**
+ * Checkbox for lists and export options; supports indeterminate.
+ */
+export interface CheckboxProps {
+  checked?: boolean;
+  indeterminate?: boolean;
+  onChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  label?: string;
+  style?: React.CSSProperties;
+}
+export declare function Checkbox(props: CheckboxProps): JSX.Element;
