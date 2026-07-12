@@ -108,6 +108,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Storybook interaction tests (#56): static build served over http,
+      # test-runner drives it with Playwright chromium. Kept in this job (not
+      # the Electron E2E job) — it needs a browser, not a display server.
+      - name: Install Playwright browsers (interaction tests)
+        run: npx playwright install --with-deps chromium
+
+      - name: Storybook interaction tests
+        run: npm run test:stories:ci
+
   # E2E is its own job so it runs in parallel with the lint/unit/build gates above, and so
   # the change filter can skip it wholesale on PRs that cannot affect it. test:e2e builds
   # the app once via the Playwright global-setup, then runs the specs across workers
