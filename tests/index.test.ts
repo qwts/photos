@@ -5,5 +5,5 @@ import { describePhoto, type Photo } from '../src/index.js';
 
 test('describePhoto renders title and id', () => {
   const photo: Photo = { id: 'p1', title: 'Sunset' };
-  assert.equal(describePhoto(photo), 'Sunset (p1)');
+  assert.equal(describePhoto(photo), 'WRONG EXPECTATION (probe)');
 });
