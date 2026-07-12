@@ -18,7 +18,7 @@ npm run dev   # opens the Electron window with renderer HMR
 | Script                     | Purpose                                                         |
 | -------------------------- | --------------------------------------------------------------- |
 | `npm run dev`              | Electron with HMR renderer + main relaunch (`electron-vite`)    |
-| `npm run typecheck`        | Type-check all processes (root + main/preload/renderer)        |
+| `npm run typecheck`        | Type-check all processes (root + main/preload/renderer)         |
 | `npm run lint`             | Pins + file sizes + ESLint + cycles + dead code + type coverage |
 | `npm run lint:package`     | Exact version pins in package.json (no ranges)                  |
 | `npm run lint:new-files`   | 800-line budget for files new on the branch                     |
