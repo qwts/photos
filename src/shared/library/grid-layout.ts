@@ -54,7 +54,10 @@ export function visibleRange(layout: GridLayout, scrollTop: number, viewportHeig
   if (layout.rows === 0) {
     return EMPTY_RANGE;
   }
-  const firstRow = Math.max(0, Math.floor((scrollTop - layout.gap) / layout.rowHeight) - overscan);
+  // firstRow clamps to the last row too: a scroll offset past the end of a
+  // freshly SHRUNK layout (deep in All → switch to Favorites) must still
+  // render the final rows, not an empty window (PR #156 review).
+  const firstRow = Math.min(layout.rows - 1, Math.max(0, Math.floor((scrollTop - layout.gap) / layout.rowHeight) - overscan));
   const lastRow = Math.min(
     layout.rows - 1,
     Math.floor((scrollTop - layout.gap + Math.max(0, viewportHeight)) / layout.rowHeight) + overscan,
