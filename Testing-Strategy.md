@@ -31,7 +31,13 @@
 
 Unit tests run against compiled JS: `tsconfig.test.json` emits unit-testable
 sources (`src/shared/` + `tests/`, `jsx: react-jsx` ready for future `.tsx`)
-to `.test-dist/`, then `node --test` runs the output — no loader magic. E2E
+to `.test-dist/`, then `node --test` runs the output — no loader magic.
+**The unit runtime is Electron's own Node** (`ELECTRON_RUN_AS_NODE=1 electron
+--test`, #72): native modules in `node_modules` carry the Electron ABI
+(`postinstall` = `electron-builder install-app-deps`), so one ABI serves the
+unit lane and the app — plain `node` cannot load the drivers. Electron's
+major is capped by driver-prebuild availability (ADR-0006 prebuilt-only;
+Dependabot ignore records the removal condition). E2E
 builds the app once in `tests/e2e/global-setup.ts` (concurrent builds would
 clobber each other's output).
 
