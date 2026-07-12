@@ -45,6 +45,11 @@ const VOCABULARY = [
   // Empty-state glyph the design's LibraryGrid.jsx uses beyond the readme
   // list (#76).
   'image-off',
+  // Toolbar glyphs the design's Toolbar.jsx uses beyond the readme list
+  // (#79): zoom-scale hints and the RAW chip.
+  'grid-2x2',
+  'grid-3x3',
+  'image',
 ] as const;
 
 describe('Icon', () => {

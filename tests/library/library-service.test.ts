@@ -167,11 +167,14 @@ describe('library IPC contract', () => {
     assert.equal(events.pending.at(-1), before + 1);
   });
 
-  test('stats reports live photo count and bytes for the StatusBar', async () => {
+  test('stats reports live photo count, bytes, and pending for the chrome', async () => {
     const { service } = seededService();
     const client = rendererClient(service);
     const stats = await client.stats({});
     assert.equal(stats.photos, 19);
     assert.equal(stats.bytes, 19 * 8_400_000);
+    // Fresh inserts mark the ledger dirty; two rows were settled by the
+    // seed (offloaded + synced), so 18 of 20 remain pending (#79).
+    assert.equal(stats.pending, 18);
   });
 });

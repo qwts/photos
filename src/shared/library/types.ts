@@ -76,4 +76,6 @@ export type SourceCounts = Readonly<Record<SourceFilter, number>>;
 export interface LibraryStats {
   readonly photos: number;
   readonly bytes: number;
+  /** Dirty ledger rows — drives the backup button/status (#79). */
+  readonly pending: number;
 }

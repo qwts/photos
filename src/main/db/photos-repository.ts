@@ -190,7 +190,7 @@ export class PhotosRepository {
       this.db,
       'SELECT count(*) AS n, sum(bytes) AS b FROM photos p WHERE p.deleted_at IS NULL',
     )[0];
-    return { photos: row?.n ?? 0, bytes: row?.b ?? 0 };
+    return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount() };
   }
 
   /** pendingCount source: dirty ledger rows (design §backup dirtiness). */
