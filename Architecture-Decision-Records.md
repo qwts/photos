@@ -9,6 +9,7 @@ decision gets a new ADR that links back to the one it replaces.
 | ADR                                                                | Title                       | Status   |
 | ------------------------------------------------------------------ | --------------------------- | -------- |
 | [ADR-0001](ADR-0001-Automation-Check-Governance)                    | Automation Check Governance | Accepted |
+| [ADR-0002](ADR-0002-Versioning-Policy)                              | Versioning Policy           | Accepted |
 
 ## Template
 
