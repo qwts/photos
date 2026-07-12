@@ -25,6 +25,7 @@ const toggleMaximizeWindow = createInvoker(channels.windowToggleMaximize, invoke
 const closeWindow = createInvoker(channels.windowClose, invokeTransport);
 
 const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
+const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
 
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
@@ -35,6 +36,7 @@ const overlook: OverlookApi = {
     toggleFavorite: createInvoker(channels.libraryToggleFavorite, invokeTransport),
     counts: createInvoker(channels.libraryCounts, invokeTransport),
     stats: async () => libraryStats({}),
+    albums: async () => libraryAlbums({}),
     onChanged: createSubscriber(events.libraryChanged, subscribeTransport),
     onPendingCountChanged: createSubscriber(events.pendingCountChanged, subscribeTransport),
   }),

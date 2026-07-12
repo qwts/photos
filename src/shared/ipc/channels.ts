@@ -105,6 +105,11 @@ export const channels = {
       deleted: z.number(),
     }),
   ),
+  libraryAlbums: defineChannel(
+    'library:albums',
+    z.object({}),
+    z.object({ albums: z.array(z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() })).readonly() }),
+  ),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),

@@ -3,6 +3,7 @@ import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
 import type {
+  AlbumSummary,
   LibraryStats,
   PageCursor,
   PageRequest,
@@ -191,6 +192,16 @@ export class PhotosRepository {
       'SELECT count(*) AS n, sum(bytes) AS b FROM photos p WHERE p.deleted_at IS NULL',
     )[0];
     return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount() };
+  }
+
+  /** Sidebar albums list (#80): names + live membership counts. */
+  albums(): AlbumSummary[] {
+    return queryAll<{ id: string; name: string; n: number }>(
+      this.db,
+      `SELECT a.id, a.name, count(ap.photo_id) AS n
+       FROM albums a LEFT JOIN album_photos ap ON ap.album_id = a.id
+       GROUP BY a.id ORDER BY a.position`,
+    ).map((row) => ({ id: row.id, name: row.name, count: row.n }));
   }
 
   /** pendingCount source: dirty ledger rows (design §backup dirtiness). */

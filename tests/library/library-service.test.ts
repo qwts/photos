@@ -20,6 +20,7 @@ import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 
 function seededService(): {
   service: LibraryService;
+  db: ReturnType<typeof openLibraryDatabase>;
   events: { changed: string[][]; pending: number[] };
 } {
   const db = openLibraryDatabase({
@@ -72,7 +73,7 @@ function seededService(): {
     libraryChanged: (ids) => events.changed.push([...ids]),
     pendingCountChanged: (count) => events.pending.push(count),
   });
-  return { service, events };
+  return { service, db, events };
 }
 
 // A "renderer": invokers over a transport that calls the wrapped handlers,
@@ -165,6 +166,18 @@ describe('library IPC contract', () => {
     assert.equal(result.pendingCount, before + 1);
     assert.deepEqual(events.changed.at(-1), ['01J8LIB004']);
     assert.equal(events.pending.at(-1), before + 1);
+  });
+
+  test('albums lists names with live membership counts (#80)', () => {
+    const { service, db } = seededService();
+    run(db, `INSERT INTO albums (id, name, created_at, position) VALUES ('AL1', 'Travel', '2026-07-01T00:00:00Z', 0)`);
+    run(db, `INSERT INTO album_photos (album_id, photo_id, position) VALUES ('AL1', '01J8LIB000', 0)`);
+    run(db, `INSERT INTO album_photos (album_id, photo_id, position) VALUES ('AL1', '01J8LIB001', 1)`);
+    run(db, `INSERT INTO albums (id, name, created_at, position) VALUES ('AL2', 'Empty', '2026-07-01T00:00:00Z', 1)`);
+    assert.deepEqual(service.albums(), [
+      { id: 'AL1', name: 'Travel', count: 2 },
+      { id: 'AL2', name: 'Empty', count: 0 },
+    ]);
   });
 
   test('stats reports live photo count, bytes, and pending for the chrome', async () => {

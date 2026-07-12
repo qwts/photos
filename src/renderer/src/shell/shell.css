@@ -74,13 +74,106 @@
   display: flex;
 }
 
-.ovl-shell__sidebar {
+.ovl-sidebar {
   flex: none;
   width: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
   border-right: 1px solid var(--border-1);
-  background: var(--surface-panel);
-  padding: var(--space-4);
+  background: var(--gray-1);
+  padding: var(--space-3);
   overflow: auto;
+}
+
+.ovl-sidebar__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px; /* the mock's own row inset */
+  margin-top: 14px; /* the mock's own section rhythm */
+  margin-bottom: var(--space-1);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ovl-siderow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 28px; /* the mock's own row height */
+  padding: 0 10px;
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  color: var(--text-muted);
+}
+
+.ovl-siderow:disabled {
+  cursor: default;
+}
+
+.ovl-siderow:hover:not(:disabled):not(.ovl-siderow--active) {
+  background: var(--gray-2);
+}
+
+.ovl-siderow--active {
+  background: var(--gray-3);
+  color: var(--text-body);
+}
+
+.ovl-siderow__label {
+  flex: 1;
+  font-size: var(--text-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ovl-siderow__count {
+  color: var(--text-faint);
+}
+
+.ovl-sidebar__spacer {
+  flex: 1;
+}
+
+.ovl-sidebar__card {
+  background: var(--gray-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* the mock's own card gap */
+}
+
+.ovl-sidebar__card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ovl-sidebar__card-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-body);
+  flex: 1;
+}
+
+.ovl-sidebar__gear {
+  display: flex;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.ovl-sidebar__storage {
+  color: var(--text-faint);
 }
 
 .ovl-shell__content {
@@ -110,28 +203,4 @@
   padding: 0 var(--space-4);
   border-top: 1px solid var(--border-1);
   background: var(--gray-0);
-}
-
-.ovl-shell__source-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-1);
-  color: var(--text-muted);
-  font-size: var(--text-md);
-  cursor: pointer;
-  border: none;
-  background: none;
-  width: 100%;
-  text-align: left;
-}
-
-.ovl-shell__source-row:hover {
-  background: var(--gray-3);
-}
-
-.ovl-shell__source-row--active {
-  background: var(--gray-3);
-  color: var(--text-body);
 }

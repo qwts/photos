@@ -128,6 +128,23 @@ test('boots a seeded temp profile deterministically', async () => {
     await expect(backup).toBeEnabled();
     await backup.click();
     await expect(page.getByText('BACKUP LANDS WITH M08')).toBeVisible();
+
+    // #80: albums list with live membership counts (12 photos / 4 albums,
+    // every 4th joins one) — display-only until M10; the backup card shows
+    // the encrypted badge, the inert progress slot, and the storage line.
+    await expect(page.getByRole('button', { name: 'Travel 2026 3' })).toBeDisabled();
+    await expect(page.getByTestId('backup-card')).toContainText('Library encrypted');
+    await expect(page.getByTestId('backup-card')).toContainText('0 / 4');
+    await expect(page.getByTestId('backup-card')).toContainText('LOCAL');
+
+    // #80 exit criteria: counts live-update on favorite toggle (targeted
+    // library:changed push → sidebar refresh).
+    await page.evaluate(async () => {
+      // type-coverage:ignore-next-line
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      await overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' });
+    });
+    await expect(page.getByRole('button', { name: 'Favorites 3' })).toBeVisible();
   } finally {
     await app.close();
   }

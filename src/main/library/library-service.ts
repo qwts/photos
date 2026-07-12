@@ -1,7 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { PhotosRepository } from '../db/photos-repository.js';
-import type { LibraryStats, PageRequest, PageResult, PhotoRecord, SourceCounts } from '../../shared/library/types.js';
+import type { AlbumSummary, LibraryStats, PageRequest, PageResult, PhotoRecord, SourceCounts } from '../../shared/library/types.js';
 
 // The renderer's typed window into the library (#71) — the contract M04
 // builds against. Owns pendingCount (design §backup dirtiness) and emits
@@ -44,6 +44,10 @@ export class LibraryService {
 
   stats(): LibraryStats {
     return this.repo.stats();
+  }
+
+  albums(): AlbumSummary[] {
+    return this.repo.albums();
   }
 
   pendingCount(): number {
