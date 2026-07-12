@@ -167,6 +167,12 @@ function getFullService(): FullService {
         if (photo === undefined) {
           return null;
         }
+        if (photo.syncState === 'offloaded') {
+          // The ledger, not the filesystem, owns availability: an offloaded
+          // original may still exist locally mid-eviction, but it must
+          // already render as remote-only (M08 restores it explicitly).
+          return null;
+        }
         try {
           const stream = parts.blobStore.getStream(photo.contentHash, parts.keyStore.resolver(), photoId);
           return { bytes: await buffer(stream), contentHash: photo.contentHash, fileKind: photo.fileKind };
