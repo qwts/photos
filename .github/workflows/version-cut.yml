@@ -114,9 +114,11 @@ jobs:
             echo "$version already tagged."
             # Recovery path (PR #178 review): a tag whose release dispatch
             # failed — or predated release.yml — would otherwise be stranded.
+            # Dispatch from main (which contains release.yml — a stranded tag
+            # by definition does not; PR #181 review), tag passed as input.
             if ! gh release view "$version" >/dev/null 2>&1; then
               echo "$version has no release — dispatching."
-              gh workflow run release.yml --ref "$version" \
+              gh workflow run release.yml --ref main -f tag="$version" \
                 || echo "::notice::release.yml not dispatchable — $version still has no release."
             fi
             exit 0
@@ -127,6 +129,7 @@ jobs:
           git push origin "$version"
           echo "Tagged $version."
           # Tag pushes from GITHUB_TOKEN fire no workflows — dispatch the
-          # release directly. Survives release.yml not existing yet (#172).
-          gh workflow run release.yml --ref "$version" \
+          # release directly, from main so the ref contains release.yml
+          # (PR #181 review), with the tag as input pinning what gets built.
+          gh workflow run release.yml --ref main -f tag="$version" \
             || echo "::notice::release.yml not dispatchable yet (#172) — tag $version created without a release run."

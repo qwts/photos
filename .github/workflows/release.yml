@@ -1,10 +1,12 @@
 # Dev releases (#172): v* tag → unsigned builds → GitHub pre-release.
 #
-# Normally dispatched by version-cut.yml right after it tags (GITHUB_TOKEN tag
-# pushes fire no workflows); the on:push:tags trigger still covers tags pushed
-# by humans. Builds reuse the Package workflow via workflow_call so the matrix
-# lives in one place. Pre-release (not release) while builds are unsigned —
-# signed/notarized promotion is #128.
+# Normally dispatched by version-cut.yml from main with the tag as an input —
+# GITHUB_TOKEN tag pushes fire no workflows, and dispatching by tag ref only
+# works when the tag already contains this file (PR #181 review), which a
+# stranded tag by definition does not. The on:push:tags trigger still covers
+# tags pushed by humans. Builds check out the TAG's tree regardless of the
+# dispatching ref, and reuse the Package matrix via workflow_call. Pre-release
+# (not release) while builds are unsigned — signed/notarized promotion is #128.
 name: Release
 
 on:
@@ -12,18 +14,25 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to build and release'
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   build:
     name: Build packages
     uses: ./.github/workflows/package.yml
+    with:
+      ref: ${{ inputs.tag || github.ref_name }}
 
   publish:
     name: Publish pre-release
@@ -31,16 +40,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
       - name: Guard tag shape
         run: |
-          case "$GITHUB_REF_NAME" in
+          case "$TAG" in
             v[0-9]*) ;;
-            *) echo "::error::Release runs only on v* tags (got $GITHUB_REF_NAME)."; exit 1;;
+            *) echo "::error::Release runs only on v* tags (got $TAG)."; exit 1;;
           esac
+
+      - name: Checkout the tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - name: Download build artifacts
         uses: actions/download-artifact@v8
@@ -54,7 +67,7 @@ jobs:
 
       - name: Extract release notes from CHANGELOG
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           awk -v ver="$version" '
             $0 ~ "^## " ver "$" { grab = 1; next }
             grab && /^## / { exit }
@@ -68,13 +81,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME exists — replacing assets."
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG exists — replacing assets."
+            gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$GITHUB_REF_NAME" dist/* \
+            gh release create "$TAG" dist/* \
               --prerelease \
-              --title "Overlook $GITHUB_REF_NAME (unsigned dev build)" \
+              --title "Overlook $TAG (unsigned dev build)" \
               --notes-file notes.md \
               --repo "$GITHUB_REPOSITORY"
           fi
