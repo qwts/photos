@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import './shell.css';
 import type { SourceCounts, SourceFilter } from '../../../shared/library/types.js';
 import { ZOOM_MAX, ZOOM_MIN } from '../../../shared/library/app-state.js';
+import { Segmented } from '../components/Segmented';
 import { Slider } from '../components/Slider';
 import { TitleBar } from '../components/TitleBar';
 import { LibraryGridView } from '../grid/LibraryGridView';
@@ -61,16 +62,29 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
         <span className="mono-data" style={{ color: 'var(--text-faint)' }}>
           Toolbar — #79
         </span>
-        <div style={{ marginLeft: 'auto' }} className="titlebar-no-drag">
-          <Slider
-            label="Zoom"
-            value={state.zoom}
-            min={ZOOM_MIN}
-            max={ZOOM_MAX}
-            step={8}
-            width={140}
-            onChange={(zoom) => {
-              dispatch({ type: 'zoom/set', zoom });
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }} className="titlebar-no-drag">
+          {state.view === 'grid' ? (
+            <Slider
+              label="Zoom"
+              value={state.zoom}
+              min={ZOOM_MIN}
+              max={ZOOM_MAX}
+              step={8}
+              width={140}
+              onChange={(zoom) => {
+                dispatch({ type: 'zoom/set', zoom });
+              }}
+            />
+          ) : null}
+          <Segmented
+            label="View"
+            options={[
+              { value: 'grid', label: 'Grid', icon: 'layout-grid', iconOnly: true },
+              { value: 'list', label: 'List', icon: 'list', iconOnly: true },
+            ]}
+            value={state.view}
+            onChange={(view) => {
+              dispatch({ type: 'view/set', view });
             }}
           />
         </div>

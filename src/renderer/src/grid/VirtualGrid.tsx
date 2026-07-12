@@ -6,6 +6,7 @@ import type { PhotoRecord } from '../../../shared/library/types.js';
 import {
   anchorIndex,
   computeLayout,
+  computeListLayout,
   needsMore,
   scrollTopForAnchor,
   tilePosition,
@@ -14,6 +15,9 @@ import {
 import { createFrameMonitor } from './frame-monitor';
 
 const GRID_GAP = 4; // must equal --grid-gap (spacing tokens)
+const LIST_ROW_HEIGHT = 52; // mock ListRow height
+const LIST_GAP = 2; // mock list column gap
+const LIST_PADDING = 8; // --space-3, the mock's list padding
 const OVERSCAN_ROWS = 2;
 const PREFETCH_ROWS = 6;
 /** Scroll idle window after which the frame monitor detaches. */
@@ -24,6 +28,8 @@ export interface VirtualGridProps {
   /** Total photos in the active source — sizes the scroll plane. */
   readonly total: number;
   readonly zoom: number;
+  /** 'grid' (default) or the dense single-column 'list' mode (#77). */
+  readonly mode?: 'grid' | 'list' | undefined;
   /** Ask the data layer for the next cursor page (idempotent under spam). */
   readonly onNeedMore: () => void;
   /** Tile renderer — #74 ships a placeholder; #76 swaps in PhotoTile. */
@@ -33,12 +39,18 @@ export interface VirtualGridProps {
 // Windowed rendering engine (#74): absolute-positioned tiles over an exact
 // scroll plane from grid-layout math. Only the visible window (+overscan)
 // mounts; scroll and resize drive state through rAF-throttled handlers.
-export function VirtualGrid({ photos, total, zoom, onNeedMore, renderTile }: VirtualGridProps): ReactElement {
+export function VirtualGrid({ photos, total, zoom, mode = 'grid', onNeedMore, renderTile }: VirtualGridProps): ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);
 
-  const layout = useMemo(() => computeLayout({ viewportWidth: viewport.width, zoom, gap: GRID_GAP, total }), [viewport.width, zoom, total]);
+  const layout = useMemo(
+    () =>
+      mode === 'list'
+        ? computeListLayout({ viewportWidth: viewport.width, rowHeight: LIST_ROW_HEIGHT, gap: LIST_GAP, padding: LIST_PADDING, total })
+        : computeLayout({ viewportWidth: viewport.width, zoom, gap: GRID_GAP, total }),
+    [viewport.width, zoom, mode, total],
+  );
 
   // Viewport tracking: ResizeObserver keeps the math honest on window and
   // inspector-panel resizes.
@@ -124,7 +136,7 @@ export function VirtualGrid({ photos, total, zoom, onNeedMore, renderTile }: Vir
         key={index}
         className="ovl-grid__cell"
         data-index={index}
-        style={{ transform: `translate(${left}px, ${top}px)`, width: layout.tileSize, height: layout.tileSize }}
+        style={{ transform: `translate(${left}px, ${top}px)`, width: layout.cellWidth, height: layout.tileSize }}
       >
         {photo !== undefined && renderTile !== undefined ? (
           renderTile(photo, layout.tileSize)
