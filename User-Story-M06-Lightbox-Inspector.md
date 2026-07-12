@@ -15,6 +15,13 @@ Lane A. Full-window single-photo viewing with decrypt-to-view delivery (memory-o
 | [#95](https://github.com/qwts/photos/issues/95) | Lightbox mutations: favorite/delete dirty the backup ledger | #92 |
 | [#96](https://github.com/qwts/photos/issues/96) | E2E: grid → lightbox → inspector acceptance flow | #93, #94, #95 |
 
+## Acceptance coverage
+
+| Flow | Status | Coverage |
+| --- | --- | --- |
+| Full-res delivery: memory-only decrypt over `overlook-full://`, `no-store` (no disk-cache plaintext), RAW preview-marked (`X-Overlook-Preview: 1`), bounded LRU budget, `?prefetch=1` neighbor warm, rapid-paging cancellation | ✅ #91 (PR #179) | `tests/e2e/fullres.spec.ts` (incl. whole-profile plaintext scan) + `tests/fullres/full-service.test.ts` — ledger id `m06-full-res-delivery` |
+| Lightbox / keyboard / inspector / mutations flows | ⏳ deferred to #96 | ledger id `m04-lightbox-open` (deferred, issue #96) |
+
 ## Definition of done
 
 See the epic issue [#41](https://github.com/qwts/photos/issues/41) — the epic body is canonical; this page is the planning index entry.
