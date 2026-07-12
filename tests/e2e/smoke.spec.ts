@@ -24,7 +24,9 @@ test('opens a window rendering the React shell', async () => {
   });
   try {
     const page = await app.firstWindow();
-    await expect(page.getByText('Overlook — shell placeholder')).toBeVisible();
+    // An empty library renders the mock's empty state (#76).
+    await expect(page.getByTestId('empty-state')).toBeVisible();
+    await expect(page.getByText('Nothing matches')).toBeVisible();
     await expect(page).toHaveTitle('Overlook');
 
     // Composed chrome (#73): sidebar sources, statusbar, toolbar region all

@@ -51,6 +51,10 @@ test('boots a seeded temp profile deterministically', async () => {
     await expect(page.getByTestId('statusbar-left')).toHaveText('12 PHOTOS');
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
 
+    // #76: cells are real PhotoTiles whose <img> decodes through the
+    // protocol (the seed thumb is a genuine 1x1 JPEG).
+    await expect(page.locator('.ovl-tile__img').first()).toHaveJSProperty('naturalWidth', 1);
+
     // Source switching refetches the loaded page (PR #154 review): the seed
     // marks every 9th photo favorite, so 12 photos yield 2 favorites.
     await page.getByRole('button', { name: 'Favorites 2' }).click();
