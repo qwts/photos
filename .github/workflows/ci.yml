@@ -22,6 +22,34 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Path filter for the E2E job — the long pole. Skip it on PRs that cannot change app
+  # behavior (docs-only, unit-test-only); re-run it whenever the app, the E2E harness,
+  # build scripts, dependencies, the toolchain, or this workflow change. On push to main
+  # E2E always runs (main must stay green regardless of the diff).
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            e2e:
+              - 'src/**'
+              - 'tests/e2e/**'
+              - 'scripts/**'
+              - 'playwright.config.ts'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig*.json'
+              - '.nvmrc'
+              - '.github/workflows/ci.yml'
+
   ci:
     name: CI
     runs-on: ubuntu-latest
@@ -75,3 +103,182 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # E2E is its own job so it runs in parallel with the lint/unit/build gates above, and so
+  # the change filter can skip it wholesale on PRs that cannot affect it. test:e2e builds
+  # the app once via the Playwright global-setup, then runs the specs across workers
+  # (see playwright.config.ts).
+  e2e:
+    name: E2E
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.e2e == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright E2E tests
+        run: npm run test:e2e
+
+      # The HTML report is a self-contained clickable app (per-test steps, and screenshots /
+      # videos / time-travel traces on failure). Upload it even when the E2E step fails —
+      # that is exactly when it matters. View: download, unzip, `npx playwright show-report <dir>`.
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  # Stable required check for the E2E path. It always runs and reports a definitive verdict, so a
+  # path-filtered skip never leaves a required check stuck "Expected". Require THIS job ("E2E gate")
+  # in the branch ruleset — not "E2E", which is legitimately skipped on non-E2E PRs.
+  e2e-gate:
+    name: E2E gate
+    needs: [changes, e2e]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify E2E result
+        run: |
+          changes='${{ needs.changes.result }}'
+          e2e='${{ needs.e2e.result }}'
+          echo "Detect changes: $changes | E2E job: $e2e"
+          # A skip is only trustworthy when change detection itself succeeded and decided E2E
+          # wasn't needed. If the changes job failed or was cancelled, the E2E skip is an
+          # artifact of that failure, not an intentional opt-out — fail so it can't slip through.
+          if [ "$changes" != 'success' ]; then
+            echo "Change detection did not succeed ($changes); refusing to accept an E2E skip." >&2
+            exit 1
+          fi
+          # With change detection healthy: a skipped E2E job (filter opted out) is a pass, as is
+          # success; anything else (failure, cancelled) fails the gate.
+          if [ "$e2e" = 'success' ] || [ "$e2e" = 'skipped' ]; then
+            exit 0
+          fi
+          exit 1
+
+  # Publishes the Playwright HTML report to GitHub Pages at a stable per-PR URL:
+  #   https://qwts.github.io/photos/reports/pr-<number>/
+  # Each run replaces that PR's report (bounded growth); the artifact above keeps 14 days of
+  # history. Publishes ONLY when the E2E job fails — the browsable report exists to debug red
+  # runs (traces/screenshots/videos), and green runs deploying to Pages on every push was pure
+  # deploy-race noise. Green-run reports remain available as the workflow artifact.
+  e2e-report:
+    name: Publish E2E report
+    needs: e2e
+    # PR-only (the stable URL is per-PR).
+    if: ${{ !cancelled() && needs.e2e.result == 'failure' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      # actions: write lets the verify step rerun GitHub's managed "pages build and deployment"
+      # workflow when it flakes ("Deployment failed, try again later"), instead of leaving a red
+      # run for a human to retry.
+      actions: write
+    # All e2e-report runs push to the same gh-pages branch, so serialize them across the whole
+    # workflow (not per PR) to avoid non-fast-forward push races between concurrent PRs.
+    concurrency:
+      group: e2e-report-gh-pages
+      cancel-in-progress: false
+    steps:
+      - name: Download Playwright report
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: playwright-report
+          path: playwright-report
+
+      # Concurrency ordering within a group is not guaranteed, so an older run finishing late
+      # could overwrite the stable per-PR URL with stale results. Only deploy when this run's
+      # commit is still the PR's current head.
+      - name: Check this run is for the PR's current head
+        id: freshness
+        if: ${{ steps.download.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq .head.sha)
+          if [ "$current" = "${{ github.event.pull_request.head.sha }}" ]; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping deploy: this run is for ${{ github.event.pull_request.head.sha }} but the PR head is now $current."
+          fi
+
+      - name: Deploy report to GitHub Pages
+        if: ${{ steps.download.outcome == 'success' && steps.freshness.outputs.fresh == 'true' }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright-report
+          destination_dir: reports/pr-${{ github.event.pull_request.number }}
+          commit_message: 'E2E report for PR #${{ github.event.pull_request.number }} (run ${{ github.run_id }})'
+
+      # The peaceiris step only pushes to gh-pages; GitHub's managed "pages build and deployment"
+      # workflow then publishes the branch, and it occasionally flakes server-side ("Deployment
+      # failed, try again later"). Verify the latest Pages build is `built` and includes the
+      # commit we just pushed; on a failed managed run, rerun it once (which also turns that red
+      # run green) and keep polling. Exhausting the poll emits a WARNING, not a failure — the
+      # report commit is already on gh-pages and a lagging Pages publish is GitHub's infra, not
+      # this PR's code; a red X here just trains people to ignore the job.
+      - name: Verify Pages picked up the deploy (self-heal once)
+        id: verify
+        if: ${{ steps.download.outcome == 'success' && steps.freshness.outputs.fresh == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          ours=$(gh api "repos/$REPO/branches/gh-pages" --jq .commit.sha)
+          echo "Pushed gh-pages commit: $ours"
+          healed=false
+          for i in $(seq 1 30); do
+            status=$(gh api "repos/$REPO/pages/builds/latest" --jq .status || echo unknown)
+            built=$(gh api "repos/$REPO/pages/builds/latest" --jq .commit || echo "")
+            if [ "$status" = "built" ] && [ -n "$built" ]; then
+              # Success if the built commit is ours or a descendant of ours (another PR may have
+              # deployed after us; the branch history still contains our report directory).
+              relation=$(gh api "repos/$REPO/compare/$ours...$built" --jq .status 2>/dev/null || echo unrelated)
+              if [ "$built" = "$ours" ] || [ "$relation" = "ahead" ] || [ "$relation" = "identical" ]; then
+                echo "Pages build $built is live and includes our deploy."
+                exit 0
+              fi
+            fi
+            if [ "$healed" = "false" ]; then
+              failed_run=$(gh api "repos/$REPO/actions/runs?per_page=10" \
+                --jq "[.workflow_runs[] | select(.name == \"pages build and deployment\" and .conclusion == \"failure\" and .head_sha == \"$ours\")][0].id // empty")
+              if [ -n "$failed_run" ]; then
+                echo "Managed Pages deployment $failed_run failed; rerunning it once."
+                gh run rerun "$failed_run" --failed --repo "$REPO" && healed=true
+              fi
+            fi
+            sleep 10
+          done
+          echo "::warning title=Pages deploy unconfirmed::gh-pages has the report commit but the managed Pages build never confirmed within 5m (last status: $status). The report URL may lag; no action needed on this PR."
+          exit 0
+
+      - name: Link report in run summary
+        if: ${{ steps.verify.outcome == 'success' }}
+        run: |
+          {
+            echo "### Playwright E2E report"
+            echo ""
+            echo "https://qwts.github.io/photos/reports/pr-${{ github.event.pull_request.number }}/"
+            echo ""
+            echo "_Traces, screenshots, and videos are attached to failed tests._"
+          } >> "$GITHUB_STEP_SUMMARY"

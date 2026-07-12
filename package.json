@@ -22,13 +22,18 @@
     "test:unit:run": "node --test '.test-dist/tests/**/*.test.js'",
     "test": "npm run typecheck && npm run test:compile && npm run test:unit:run",
     "test:cov": "npm run typecheck && npm run test:compile && c8 npm run test:unit:run",
-    "coverage:summary": "node scripts/report-coverage-summary.mjs"
+    "coverage:summary": "node scripts/report-coverage-summary.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.61.1",
     "@types/node": "24.13.3",
     "c8": "11.0.0",
     "eslint": "10.7.0",
+    "http-server": "14.1.1",
     "husky": "9.1.7",
     "knip": "6.26.0",
     "lint-staged": "17.0.8",

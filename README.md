@@ -31,6 +31,7 @@ npm ci
 | `npm run coverage:summary` | Render c8 totals vs. floor (CI step summary)                    |
 | `npm run build`            | Compile `src/` to `dist/` (`tsconfig.build.json`)               |
 | `npm run ci`               | Full local gate suite — mirrors the CI workflow                 |
+| `npm run test:e2e`         | Playwright E2E (builds app via global-setup)                    |
 
 ## Testing
 

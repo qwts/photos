@@ -3,4 +3,6 @@ dist/
 .test-dist/
 coverage/
 .claude/
+playwright-report/
+test-results/
 package-lock.json
