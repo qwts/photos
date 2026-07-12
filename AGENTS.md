@@ -90,9 +90,13 @@ possible, enforced as executable checks._
   pass. See the wiki [Testing Strategy](https://github.com/qwts/photos/wiki/Testing-Strategy)
   and [ADR-0001](https://github.com/qwts/photos/wiki/ADR-0001-Automation-Check-Governance).
 - Dependencies use **exact pins**; Dependabot is the only actor that bumps
-  versions. TypeScript stays **below 6.1.0** (typescript-eslint's peer cap) and
-  `@types/node` tracks the `.nvmrc` runtime major (both enforced as Dependabot
-  ignores — see `.github/dependabot.yml` for the removal conditions).
+  versions. A set of **toolchain caps** holds back majors that would break the
+  build: TypeScript stays **below 6.1.0** (typescript-eslint's peer cap),
+  `@types/node` tracks the `.nvmrc` runtime major, Electron stays on the
+  prebuilt-ABI major, and Vite / `@vitejs/plugin-react` / React are held until
+  `electron-vite` supports Vite 8 and React 19 is migrated deliberately. Each is
+  a Dependabot ignore; `.github/dependabot.yml` is the source of truth for the
+  exact bounds and removal conditions.
 - Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only
   PRs may skip it. 0.x semantics (minor = behavior-changing, patch = fixes):
   wiki [ADR-0002 Versioning Policy](https://github.com/qwts/photos/wiki/ADR-0002-Versioning-Policy).
