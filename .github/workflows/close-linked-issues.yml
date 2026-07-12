@@ -1,7 +1,11 @@
 name: Close linked issues
 
+# pull_request_target, not pull_request: fork-PR pull_request runs get a read-only
+# GITHUB_TOKEN regardless of the permissions block, so gh issue close would fail.
+# Safe here: the default checkout is the trusted BASE ref (main), so the script that
+# runs is main's copy — PR head code is never executed; the PR body is only parsed.
 on:
-  pull_request:
+  pull_request_target:
     types:
       - closed
     branches:
