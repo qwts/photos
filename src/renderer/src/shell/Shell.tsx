@@ -36,10 +36,25 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     const recentSince = new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
     void window.overlook.library.counts({ recentSince }).then(setCounts);
     void window.overlook.library.stats().then(setStats);
-    void window.overlook.library.page({ source: 'all', limit: 100 }).then(({ photos }) => {
-      dispatch({ type: 'photos/loaded', photos, append: false });
-    });
   }, [dispatch]);
+
+  // The loaded page follows the active source (PR #154 review); a stale
+  // response from a superseded source switch is dropped, not dispatched.
+  // Cursor paging beyond the first page is #74's data windowing.
+  useEffect(() => {
+    let stale = false;
+    const recentSince = new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
+    void window.overlook.library
+      .page({ source: state.source, limit: 100, ...(state.source === 'recent' ? { recentSince } : {}) })
+      .then(({ photos }) => {
+        if (!stale) {
+          dispatch({ type: 'photos/loaded', photos, append: false });
+        }
+      });
+    return () => {
+      stale = true;
+    };
+  }, [state.source, dispatch]);
 
   return (
     <div className="ovl-shell">
