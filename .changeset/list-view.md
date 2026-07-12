@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 List view: the dense 52px-row alternative, virtualized through the same

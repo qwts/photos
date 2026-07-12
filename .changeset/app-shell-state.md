@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 App state store and composition shell: a pure reducer holds the mock's app

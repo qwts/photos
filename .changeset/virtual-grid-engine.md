@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 Virtualized grid engine for the 200K target: exact row/column math as a pure

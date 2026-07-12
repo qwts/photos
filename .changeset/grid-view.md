@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 The grid becomes real: virtualized cells render PhotoTiles fed by the page
