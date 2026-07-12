@@ -1,0 +1,68 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+import { Icon, ICON_NAMES } from '../../src/renderer/src/components/Icon.js';
+
+// The DS readme §ICONOGRAPHY vocabulary, verbatim — the component must cover
+// exactly this set.
+const VOCABULARY = [
+  'layout-grid',
+  'list',
+  'search',
+  'funnel',
+  'album',
+  'star',
+  'trash-2',
+  'download',
+  'share',
+  'info',
+  'settings-2',
+  'lock',
+  'shield-check',
+  'key-round',
+  'cloud',
+  'cloud-upload',
+  'cloud-download',
+  'cloud-check',
+  'cloud-alert',
+  'refresh-cw',
+  'hard-drive',
+  'database',
+  'camera',
+  'map-pin',
+  'aperture',
+] as const;
+
+describe('Icon', () => {
+  test('vocabulary matches the design system exactly', () => {
+    assert.deepEqual([...ICON_NAMES].sort(), [...VOCABULARY].sort());
+  });
+
+  test('renders every glyph at every DS size with stroke 1.75', () => {
+    for (const name of ICON_NAMES) {
+      for (const size of [14, 16, 20] as const) {
+        const svg = renderToStaticMarkup(createElement(Icon, { name, size }));
+        assert.match(svg, /^<svg/, `${name}@${size} renders an svg`);
+        assert.ok(svg.includes(`width="${size}"`), `${name}@${size} width`);
+        assert.ok(svg.includes('stroke-width="1.75"'), `${name}@${size} stroke`);
+        assert.ok(svg.includes('aria-hidden="true"'), `${name}@${size} aria-hidden`);
+      }
+    }
+  });
+
+  test('off-vocabulary names are a type error', () => {
+    // @ts-expect-error 'sparkles' is not in the DS vocabulary — if this stops
+    // erroring, the IconName union has leaked.
+    const props: Parameters<typeof Icon>[0] = { name: 'sparkles' };
+    assert.ok(props);
+  });
+
+  test('defaults: size 16, currentColor', () => {
+    const svg = renderToStaticMarkup(createElement(Icon, { name: 'aperture' }));
+    assert.ok(svg.includes('width="16"'));
+    assert.ok(svg.includes('stroke="currentColor"'));
+  });
+});
