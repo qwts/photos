@@ -4,8 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
+// GitHub's closing-keyword syntax allows an optional colon after the keyword ("Closes: #10").
 const CLOSING_REFERENCE_RE =
-  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b\s+(?<references>(?:(?:[a-z0-9_.-]+\/[a-z0-9_.-]+)?#\d+)(?:\s*(?:,|and)\s*(?:(?:[a-z0-9_.-]+\/[a-z0-9_.-]+)?#\d+))*)/giu;
+  /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b:?\s+(?<references>(?:(?:[a-z0-9_.-]+\/[a-z0-9_.-]+)?#\d+)(?:\s*(?:,|and)\s*(?:(?:[a-z0-9_.-]+\/[a-z0-9_.-]+)?#\d+))*)/giu;
 const ISSUE_REFERENCE_RE = /(?:(?<owner>[a-z0-9_.-]+)\/(?<repo>[a-z0-9_.-]+))?#(?<number>\d+)/giu;
 
 // Must match the `branches:`/`base.ref` filter in .github/workflows/close-linked-issues.yml.
