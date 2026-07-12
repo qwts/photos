@@ -42,6 +42,7 @@ export class ThumbnailPool {
   private readonly workers = new Set<Worker>();
   private readonly idle: Worker[] = [];
   private readonly current = new Map<Worker, CurrentJob>();
+  private readonly lastError = new Map<Worker, Error>();
   private readonly queue: Job[] = [];
   private nextJobId = 1;
   private closed = false;
@@ -73,6 +74,11 @@ export class ThumbnailPool {
 
   async close(): Promise<void> {
     this.closed = true;
+    // Jobs still queued would otherwise never settle (nothing pumps after
+    // close) — reject them before tearing the workers down.
+    for (const job of this.queue.splice(0)) {
+      job.reject(new Error('thumbnail pool is closed'));
+    }
     await Promise.all([...this.workers].map(async (worker) => worker.terminate()));
   }
 
@@ -113,6 +119,12 @@ export class ThumbnailPool {
     worker.on('message', (response: ThumbJobResponse) => {
       this.onMessage(worker, response);
     });
+    // An unhandled 'error' event is rethrown on the main process (e.g. sharp
+    // failing at module init). Consume it here; the 'exit' that follows does
+    // the recovery, carrying this error as the rejection's cause.
+    worker.on('error', (error: unknown) => {
+      this.lastError.set(worker, error instanceof Error ? error : new Error(String(error)));
+    });
     worker.on('exit', (code: number) => {
       this.onExit(worker, code);
     });
@@ -149,10 +161,12 @@ export class ThumbnailPool {
     if (idleAt !== -1) {
       this.idle.splice(idleAt, 1);
     }
+    const cause = this.lastError.get(worker);
+    this.lastError.delete(worker);
     const entry = this.current.get(worker);
     if (entry !== undefined) {
       this.current.delete(worker);
-      entry.job.reject(new Error(`thumbnail worker exited with code ${String(code)}`));
+      entry.job.reject(new Error(`thumbnail worker exited with code ${String(code)}${cause === undefined ? '' : `: ${cause.message}`}`));
     }
     if (!this.closed) {
       this.pump();

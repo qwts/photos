@@ -87,6 +87,27 @@ describe('thumbnail pipeline (#86)', () => {
     await crashy.close();
   });
 
+  test('a worker error at module init surfaces as the job rejection, not a process crash', async () => {
+    // Uncaught worker 'error' events rethrow on main unless consumed (PR
+    // #182 review): the pool must swallow the event and carry its message
+    // into the exit rejection.
+    const throwy = new ThumbnailPool({ workerUrl: new URL('../../../tests/fixtures/import/throw-worker.js', import.meta.url), size: 1 });
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    await assert.rejects(throwy.generate(jpeg), /boom at module init/u);
+    await throwy.close();
+  });
+
+  test('close() settles a queued backlog instead of hanging (PR #182 review)', async () => {
+    const hangy = new ThumbnailPool({ workerUrl: new URL('../../../tests/fixtures/import/hang-worker.js', import.meta.url), size: 1 });
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    // Handlers attach BEFORE close(): the drain rejects synchronously.
+    const dispatched = assert.rejects(hangy.generate(jpeg), /exited with code/u, 'terminate() rejects the in-flight job');
+    const queued = assert.rejects(hangy.generate(jpeg), /pool is closed/u, 'the queued job is drained, not orphaned');
+    await hangy.close();
+    await queued;
+    await dispatched;
+  });
+
   test('EXIT CRITERIA: fixture set through the service — encrypted thumbs + one placeholder, no plaintext', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'overlook-thumbgen-'));
     const store = new BlobStore({ dataDir });
