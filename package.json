@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
     "format": "prettier --write \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
     "format:check": "prettier --check \"**/*.{ts,json,md,css,yml,yaml}\" \".prettierrc.json\"",
     "lint": "npm run lint:package && npm run lint:new-files && eslint . && npm run lint:cycles && npm run lint:dead && npm run lint:types",
@@ -28,6 +30,7 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "devDependencies": {
+    "@changesets/cli": "2.31.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.61.1",
     "@types/node": "24.13.3",
