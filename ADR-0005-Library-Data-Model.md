@@ -86,3 +86,10 @@ ratchet culture.
   M08's engine consumes it rather than inventing its own bookkeeping.
 - FTS5 and SQLCipher must coexist in the chosen driver build — verified as
   part of ADR-0006's native-module policy before M03 begins.
+
+## Amendments
+
+- **2026-07-12 (#69):** `photos.deleted_at TEXT NULL` added to schema v1 —
+  the design's "Recently deleted" sidebar source needs a deletion marker the
+  original draft omitted; counts-by-source treats `deleted_at IS NOT NULL`
+  as the deleted set. Soft-delete/restore semantics arrive with M10.
