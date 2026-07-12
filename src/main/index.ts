@@ -9,7 +9,7 @@ import { KeyStore } from './crypto/keystore.js';
 import { openLibraryDatabase } from './db/database.js';
 import { registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
-import { seedLibrary } from './library/seed.js';
+import { seedLibrary, seedSynthetic } from './library/seed.js';
 import type { SafeStorageLike } from './crypto/keystore.js';
 
 // Test/dev harness hooks (#72): OVERLOOK_USER_DATA isolates profiles (E2E
@@ -137,6 +137,16 @@ void app.whenReady().then(async () => {
     if (libraryParts !== undefined) {
       await libraryParts.blobStore.init();
       await seedLibrary(libraryParts.db, libraryParts.blobStore, libraryParts.keyStore.currentKey(), seedCount);
+    }
+  }
+  // Metadata-only rows sharing one blob — the 200K grid perf baseline (#74).
+  // Like seedLibrary, a non-empty library is left untouched (re-runs on the
+  // same profile must not duplicate content hashes).
+  const syntheticCount = Number(process.env['OVERLOOK_SEED_SYNTHETIC'] ?? '0');
+  if (Number.isInteger(syntheticCount) && syntheticCount > 0) {
+    const service = getLibraryService();
+    if (libraryParts !== undefined && service.stats().photos === 0) {
+      seedSynthetic(libraryParts.db, libraryParts.keyStore.currentKey().id, 'synthetic', syntheticCount);
     }
   }
   createWindow();

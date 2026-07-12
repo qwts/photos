@@ -4,8 +4,10 @@ import type { ReactElement } from 'react';
 import './shell.css';
 import type { SourceCounts, SourceFilter } from '../../../shared/library/types.js';
 import { TitleBar } from '../components/TitleBar';
+import { VirtualGrid } from '../grid/VirtualGrid';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
+import { useLibraryPhotos, RECENT_WINDOW_MS } from '../state/use-library-photos';
 
 const SOURCES: readonly { key: SourceFilter; label: string }[] = [
   { key: 'all', label: 'All Photos' },
@@ -14,8 +16,6 @@ const SOURCES: readonly { key: SourceFilter; label: string }[] = [
   { key: 'offloaded', label: 'Offloaded' },
   { key: 'deleted', label: 'Recently deleted' },
 ];
-
-const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 function formatCount(value: number): string {
   return value.toLocaleString('en-US');
@@ -31,6 +31,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
   const [stats, setStats] = useState<{ photos: number; bytes: number } | null>(null);
+  const { loadMore } = useLibraryPhotos();
 
   useEffect(() => {
     const recentSince = new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
@@ -38,23 +39,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     void window.overlook.library.stats().then(setStats);
   }, [dispatch]);
 
-  // The loaded page follows the active source (PR #154 review); a stale
-  // response from a superseded source switch is dropped, not dispatched.
-  // Cursor paging beyond the first page is #74's data windowing.
-  useEffect(() => {
-    let stale = false;
-    const recentSince = new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
-    void window.overlook.library
-      .page({ source: state.source, limit: 100, ...(state.source === 'recent' ? { recentSince } : {}) })
-      .then(({ photos }) => {
-        if (!stale) {
-          dispatch({ type: 'photos/loaded', photos, append: false });
-        }
-      });
-    return () => {
-      stale = true;
-    };
-  }, [state.source, dispatch]);
+  const total = counts === null ? state.photos.length : counts[state.source];
 
   return (
     <div className="ovl-shell">
@@ -97,12 +82,16 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           ))}
         </nav>
         <main className="ovl-shell__content" data-testid="content-region">
-          <div style={{ padding: 'var(--space-7)' }}>
-            <p style={{ margin: 0 }}>Overlook — shell placeholder</p>
-            <p className="mono-data" style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>
-              {formatCount(state.photos.length)} loaded · grid lands with #76
-            </p>
-          </div>
+          {total > 0 ? (
+            <VirtualGrid photos={state.photos} total={total} zoom={state.zoom} onNeedMore={loadMore} />
+          ) : (
+            <div style={{ padding: 'var(--space-7)' }}>
+              <p style={{ margin: 0 }}>Overlook — shell placeholder</p>
+              <p className="mono-data" style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>
+                Empty library · the mock empty state lands with #76
+              </p>
+            </div>
+          )}
         </main>
         {state.inspectorOpen ? (
           <aside className="ovl-shell__inspector" aria-label="Inspector">

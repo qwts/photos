@@ -110,6 +110,9 @@ export async function seedLibrary(db: BetterSqlite3.Database, blobStore: BlobSto
 /** Metadata-only synthetic rows sharing one blob — the 200K perf variant. */
 export function seedSynthetic(db: BetterSqlite3.Database, keyId: number, contentHashPrefix: string, count: number): number {
   const repo = new PhotosRepository(db);
+  // Standalone runs (OVERLOOK_SEED_SYNTHETIC) start from a fresh profile
+  // where nothing has inserted the key row yet (photos.key_id FK).
+  run(db, `INSERT OR IGNORE INTO keys (id, wrapped_key, created_at) VALUES (?, 'seed-managed', ?)`, keyId, '2026-07-01T00:00:00.000Z');
   db.transaction(() => {
     for (let index = 0; index < count; index += 1) {
       const n = String(index).padStart(7, '0');
