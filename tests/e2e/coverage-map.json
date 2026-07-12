@@ -71,6 +71,14 @@
       "coverage": [{ "type": "deferred", "issue": 96 }]
     },
     {
+      "id": "m05-import-dialog",
+      "wiki": "User-Story-M05-Import-pipeline",
+      "coverage": [
+        { "type": "storybook", "path": "src/renderer/src/import/ImportDialog.stories.tsx" },
+        { "type": "deferred", "issue": 90 }
+      ]
+    },
+    {
       "id": "m06-full-res-delivery",
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [

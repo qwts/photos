@@ -25,9 +25,14 @@ const FILTERS: readonly { key: keyof ChipFilters; icon: 'star' | 'image' | 'clou
 // The 48px command strip (#79) per the design's Toolbar.jsx: wordmark,
 // debounced search, funnel + chip row, view segmented, zoom (hidden in list
 // via visibility so layout holds), backup state from pendingCount pushes,
-// and the primary Import entry point. Backup/Import actions land with
-// M08/M05 — until then they surface their stub toasts.
-export function Toolbar(): ReactElement {
+// and the primary Import entry point (#88 dialog via onImport). Backup
+// lands with M08 — until then it surfaces its stub toast.
+export interface ToolbarProps {
+  /** Opens the ImportDialog (#88); wired by the shell. */
+  readonly onImport?: (() => void) | undefined;
+}
+
+export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -106,7 +111,7 @@ export function Toolbar(): ReactElement {
           icon="download"
           size="md"
           onClick={() => {
-            dispatch({ type: 'toast/shown', toast: { title: 'IMPORT LANDS WITH M05', tone: 'neutral' } });
+            onImport?.();
           }}
         >
           Import
