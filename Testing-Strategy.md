@@ -115,6 +115,20 @@ config). electron-builder's `npmRebuild` stays on and native modules must land
 in `dependencies` so the rebuild mechanism engages when better-sqlite3/sharp
 arrive (M03, ADR-0006's prebuilt-only policy). Signing/notarization is M11.
 
+### Perf baselines (manual, #74)
+
+Recorded baselines live next to the lane that produces them; re-record when
+the machinery they measure changes.
+
+| Baseline | How | Result (2026-07-12, Apple Silicon dev machine) |
+| --- | --- | --- |
+| 200K keyset page | unit lane prints `[baseline] 200K keyset page` | 0.4 ms |
+| 200K grid scroll | `npm run seed:perf` boots a 200,000-row synthetic profile; the grid's frame monitor exposes `globalThis.__overlookFrameStats` while scrolling | 557 frames observed, 0 dropped (>25 ms), worst 9.4 ms; 36 cells mounted |
+
+The E2E lane keeps a fast 2,000-row variant of the same path
+(`tests/e2e/grid.spec.ts`) so windowing + cursor paging stay covered per-PR;
+the 200K run is manual because seeding takes ~17 s.
+
 ## Policy: coverage travels with the change
 
 1. **Prefer the cheapest lane that proves the behavior.** Unit for logic; DOM
