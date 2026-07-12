@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import './shell.css';
 import type { SourceCounts, SourceFilter } from '../../../shared/library/types.js';
+import { formatCount } from '../../../shared/library/format.js';
 import { ZOOM_MAX, ZOOM_MIN } from '../../../shared/library/app-state.js';
 import { Segmented } from '../components/Segmented';
 import { Slider } from '../components/Slider';
@@ -19,10 +20,6 @@ const SOURCES: readonly { key: SourceFilter; label: string }[] = [
   { key: 'offloaded', label: 'Offloaded' },
   { key: 'deleted', label: 'Recently deleted' },
 ];
-
-function formatCount(value: number): string {
-  return value.toLocaleString('en-US');
-}
 
 // Composition shell (#73): fixed chrome per README §1. The toolbar, grid,
 // sidebar internals, and status bar semantics land with #74–#81 — this keeps
