@@ -31,14 +31,14 @@ why not.
 | Exact dependency pins        | `lint:package` (`scripts/check-package-pins.mjs`)              | Dependabot is the only actor that bumps versions; every bump is a reviewable diff. Ranges and tags fail. |
 | File-size budget (new files) | `lint:new-files` (`scripts/check-new-file-size.mjs`)           | New/staged/untracked files stay under 800 physical lines.                 |
 | File-size budget (growth)    | ESLint `max-lines` **error** (800, skips blanks/comments)      | **Existing** files cannot grow past the budget — no legacy exemptions.    |
-| Correctness lint             | `eslint .` — typescript-eslint recommended-type-checked, type-aware via `projectService` | Unsafe TS, floating promises, unused code. Prettier owns style; ESLint owns correctness. |
-| Circular imports             | `lint:cycles` (`madge --circular`)                              | Zero import cycles in `src/`.                                            |
+| Correctness lint             | `eslint .` — typescript-eslint recommended-type-checked, type-aware via `projectService`; renderer adds react-hooks + `@eslint-react`; `no-restricted-imports` enforces the process-boundary matrix (CLAUDE.md §Architecture) | Unsafe TS, floating promises, unused code, hook misuse, cross-process imports. Prettier owns style; ESLint owns correctness. |
+| Circular imports             | `lint:cycles` (`madge --circular --extensions ts,tsx`)          | Zero import cycles in `src/`.                                            |
 | Dead code                    | `lint:dead` (`knip`)                                            | No unused files, exports, or dependencies.                               |
-| Type coverage                | `lint:types` (`type-coverage --at-least 99.8 --strict`)         | `any` regressions.                                                       |
+| Type coverage                | `lint:types` (`type-coverage --at-least 99.8 --strict`, run per TS project: root, main, preload, renderer) | `any` regressions in every process.                                      |
 | Formatting                   | `format:check` (Prettier)                                       | No formatting churn in review.                                           |
 | Unit tests + coverage floor  | `test:cov` (node:test + c8; floors **lines 90 / branches 80**)  | Behavior regressions; floors ratchet upward only.                        |
-| Build                        | `build` (`tsc -p tsconfig.build.json`)                          | The app compiles and emits.                                              |
-| E2E                          | `test:e2e` (Playwright; path-filtered CI job)                   | The served surface works end to end.                                     |
+| Build                        | `build` (`electron-vite build` → `out/` main/preload/renderer bundles) | The app compiles and bundles.                                            |
+| E2E                          | `test:e2e` (Playwright `_electron` drives the built app; path-filtered CI job under xvfb) | The real app launches, renders, and its typed IPC works end to end.      |
 | `E2E gate`                   | Always-reporting CI job                                         | Required-check stability: passes on success or a legitimate filter skip; fails if change detection broke. |
 | CodeQL                       | Default setup: `javascript-typescript` + `actions` configs      | Security findings block above threshold (ruleset code-scanning rule).    |
 | CODEOWNERS                   | `.github/CODEOWNERS` → repo owner                               | Governance files stay owner-reviewed once the ruleset requires it.        |

@@ -19,20 +19,52 @@
 
 | #   | Lane          | Command                                | Scope                                                        | Status                              |
 | --- | ------------- | -------------------------------------- | ------------------------------------------------------------ | ----------------------------------- |
-| 1   | Static        | `npm run lint` (pins → new-file size → eslint → cycles → dead code → type coverage), `typecheck`, `format:check` | Pins, size budgets, correctness, cycles, dead code, types, style | Active |
+| 1   | Static        | `npm run lint` (pins → new-file size → eslint → cycles → dead code → type coverage), `typecheck`, `format:check` | Pins, size budgets, correctness (incl. react-hooks + @eslint-react for the renderer and the process-boundary import matrix), ts+tsx cycles, dead code, types (all four TS projects), style (ts/tsx/html included) | Active |
 | 2   | Unit          | `npm test` — compile then `node --test` on `.test-dist/tests/**/*.test.js` | Pure logic, no DOM                                           | Active                              |
 | 3   | Coverage      | `npm run test:cov` — c8 floors in `.c8rc.json` (**lines 90 / branches 80**) | Ratchet over the unit lane                                   | Active                              |
 | 4   | DOM           | `test:dom` (happy-dom registrator, `tests/dom/`)             | Rendering/controllers against a real DOM                     | **Documented, not built** — add with the first UI code |
 | 5   | Story         | Storybook `play` interaction tests                           | Component-level UI behavior                                  | **Deferred** — issue #11, blocked on UI code |
-| 6a  | E2E smoke     | `npm run test:e2e` — `tests/e2e/smoke.spec.ts`               | The served surface loads and renders                         | Active (fixture page until the app has a real surface) |
+| 6a  | E2E smoke     | `npm run test:e2e` — Playwright `_electron` launches the built app (`tests/e2e/smoke.spec.ts`) | The real Electron app launches, renders the React root, exposes only the typed bridge, IPC round-trips | Active (#52 — replaced the http-server fixture, which stayed green regardless of app health) |
 | 6b  | Acceptance    | Playwright specs per canonical flow + a coverage-map ledger  | End-to-end user flows                                        | **Deferred** until user-facing surfaces exist |
 
 ### Compile-then-run model
 
-Unit tests run against compiled JS: `tsconfig.test.json` emits `src/` +
-`tests/` to `.test-dist/`, then `node --test` runs the output — no loader
-magic. E2E builds the app once in `tests/e2e/global-setup.ts` (concurrent
-builds would clobber each other's `dist/`).
+Unit tests run against compiled JS: `tsconfig.test.json` emits unit-testable
+sources (`src/shared/` + `tests/`, `jsx: react-jsx` ready for future `.tsx`)
+to `.test-dist/`, then `node --test` runs the output — no loader magic. E2E
+builds the app once in `tests/e2e/global-setup.ts` (concurrent builds would
+clobber each other's output).
+
+### Electron multi-process gate coverage (#51)
+
+The Electron layout (`src/main` / `src/preload` / `src/renderer` /
+`src/shared`, ADR-0003) is fully inside the static gates: per-process strict
+tsconfigs (`npm run typecheck` runs all four projects), type-aware ESLint with
+react-hooks + `@eslint-react` on the renderer, `no-restricted-imports`
+enforcing the process-boundary matrix (CLAUDE.md §Architecture), madge over
+`ts,tsx`, knip via its electron-vite plugin, per-project `type-coverage`.
+
+**Unit-lane c8 scope:** `src/shared/` (all pure logic) is floored; `src/main`,
+`src/preload`, and the placeholder renderer component are excluded from the
+unit-lane floor — they are Electron process wiring the unit lane cannot
+execute, exercised instead by the E2E lane (Playwright-Electron from #52).
+Floor values are unchanged (ratchet intact). Renderer components join the
+floors via the DOM lane when the first real UI lands (M02); until then any
+renderer logic beyond wiring belongs in `src/shared`.
+
+### Playwright-Electron caveats (#52)
+
+- `_electron` is marked **experimental** by Playwright — pin-bumps of
+  `@playwright/test` (Dependabot) can move it; a red E2E lane after a
+  Playwright bump should suspect the API first.
+- Each test launches its own app instance from `out/` (hermetic, ~1s cost);
+  global-setup builds once. `electron.launch({ args: ['.'] })` resolves the
+  Electron binary from `node_modules` and the entry from `package.json#main`.
+- On CI (ubuntu) Electron needs OS libraries (`npx playwright install-deps`)
+  and a display server — the E2E step runs under `xvfb-run`. No browser
+  download: Electron carries its own Chromium.
+- The `webServer`/`baseURL` fixture mechanism is gone; there is no port to
+  collide on, so parallel workers stay safe.
 
 ## What runs when & where
 
@@ -64,7 +96,18 @@ On every PR to `main` and push to `main` (post-merge signal):
    `https://qwts.github.io/photos/reports/pr-<number>/`, with freshness check,
    serialized gh-pages pushes, and a Pages verify/self-heal step.
 
-There is no scheduled/nightly run — all automation is PR-triggered.
+There is no scheduled/nightly run — all automation is PR-triggered, with one
+manual exception:
+
+### Packaging lane (manual, #53)
+
+`npm run package` (electron-builder, unsigned: mac dmg+zip, win nsis) is
+deliberately **not** in the PR gate — it is the slow lane. The **Package**
+workflow (`workflow_dispatch`) builds unsigned mac + win artifacts on demand;
+run it when packaging risk changes (Electron bumps, native modules, builder
+config). electron-builder's `npmRebuild` stays on and native modules must land
+in `dependencies` so the rebuild mechanism engages when better-sqlite3/sharp
+arrive (M03, ADR-0006's prebuilt-only policy). Signing/notarization is M11.
 
 ## Policy: coverage travels with the change
 
