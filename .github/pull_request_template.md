@@ -17,6 +17,14 @@
 
 - [ ] Changeset included, or not needed (say why)
 
+## Acceptance coverage
+
+<!-- UI-touching PRs (src/renderer .ts/.tsx/.css) must update tests/e2e/coverage-map.json — add or -->
+<!-- update the flow's entry (playwright-e2e / storybook / unit-dom, or manual with a reason / -->
+<!-- deferred with an issue). No user-facing impact? Say `no-acceptance-impact` here instead. -->
+
+- [ ] Coverage map updated, or `no-acceptance-impact` (say why)
+
 ## Testing
 
 <!-- List the exact commands you ran locally, for example: `npm run ci`. -->

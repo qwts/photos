@@ -80,6 +80,14 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      # Acceptance-coverage gates (#82): the map validator (every spec mapped,
+      # every path exists) + the diff gate (renderer changes must account for
+      # their acceptance impact; PR body/labels are read live via gh).
+      - name: Acceptance coverage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run check:acceptance-coverage
+
       # NODE_OPTIONS adds a second node:test reporter that turns failures into GitHub annotations
       # (file/line-anchored ::error in the run summary) — without it a red test step shows only a
       # blank "Error:" in the UI. CI-only by construction: the flags live here, not in package.json,
