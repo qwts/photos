@@ -47,6 +47,11 @@ test('boots a seeded temp profile deterministically', async () => {
     await expect(page.getByRole('button', { name: 'All Photos 12' })).toBeVisible();
     await expect(page.getByText('12 loaded · grid lands with #76')).toBeVisible();
     await expect(page.getByTestId('statusbar-left')).toHaveText('12 PHOTOS');
+
+    // Source switching refetches the loaded page (PR #154 review): the seed
+    // marks every 9th photo favorite, so 12 photos yield 2 favorites.
+    await page.getByRole('button', { name: 'Favorites 2' }).click();
+    await expect(page.getByText('2 loaded · grid lands with #76')).toBeVisible();
   } finally {
     await app.close();
   }
