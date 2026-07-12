@@ -59,6 +59,17 @@ describe('grid layout math', () => {
     assert.ok(range.lastIndex < range.firstIndex);
   });
 
+  test('scroll offset past a shrunken layout still renders the final rows (PR #156 review)', () => {
+    // Deep in All Photos (200K), then the source switches to a 3-photo set:
+    // the stale scrollTop is far beyond the new plane.
+    const big = computeLayout({ viewportWidth: 1000, zoom: 160, gap: GAP, total: 200_000 });
+    const small = computeLayout({ viewportWidth: 1000, zoom: 160, gap: GAP, total: 3 });
+    const staleScrollTop = 30_000 * big.rowHeight;
+    const range = visibleRange(small, staleScrollTop, 800, 2);
+    assert.ok(range.firstIndex <= range.lastIndex, 'window must not collapse');
+    assert.equal(range.lastIndex, 2, 'the final photos render');
+  });
+
   test('tile positions tile the plane exactly: no overlap, gap-separated', () => {
     const layout = computeLayout({ viewportWidth: 1000, zoom: 160, gap: GAP, total: 100 });
     const first = tilePosition(layout, 0);
