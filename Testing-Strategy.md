@@ -139,10 +139,19 @@ the 200K run is manual because seeding takes ~17 s.
 3. **Never lower a floor to pass.** c8 thresholds, type-coverage, and the
    file-size budget are ratchets: raise them as coverage improves, never lower
    them to merge.
-4. When user-facing surfaces exist, adopt image-trail's **coverage-map ledger**
-   (acceptance flows each declare automated / manual-with-reason /
-   deferred-with-issue coverage) — tracked as a future issue; see
-   [ADR-0001](ADR-0001-Automation-Check-Governance).
+4. **The acceptance coverage-map ledger is ACTIVE** (#82, per
+   [ADR-0001](ADR-0001-Automation-Check-Governance)): every user-facing flow
+   declares its coverage in `tests/e2e/coverage-map.json` — automated
+   (`playwright-e2e` / `storybook` / `unit-dom` with paths), `manual` (with a
+   reason), or `deferred` (with an issue). Two gates enforce it inside
+   `npm run ci` and the CI job (`npm run check:acceptance-coverage`):
+   `check-e2e-coverage-map.mjs` validates shape, path existence, and that
+   every Playwright spec is mapped (deleting a mapped spec fails);
+   `check-acceptance-coverage-diff.mjs` requires renderer `.ts/.tsx/.css`
+   changes to touch the map — or carry a `no-acceptance-impact` token in the
+   PR body/label when a change genuinely has no flow impact. The PR template
+   carries the acceptance checkbox; the coverage-summary reporter renders the
+   map distribution on each run. Each epic seeds its own entries.
 
 ## Command quick reference
 
