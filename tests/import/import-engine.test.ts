@@ -168,8 +168,11 @@ describe('import engine (#87)', () => {
     });
     const bad = addSource(broken, 'bad.jpg', other);
     const badSummary = await broken.engine().importFiles([bad], 'move', '/card');
-    assert.equal(badSummary.failed, 1);
+    // The row committed before verification, so the photo IS imported; the
+    // journal stays so cleanup retries on resume — and the source survives.
+    assert.equal(badSummary.imported, 1);
     assert.equal(broken.sources.has(bad.path), true, 'unverified source must NEVER be deleted');
+    assert.notEqual(broken.journalRaw(), null, 'unfinished cleanup keeps the journal');
   });
 
   test('a per-file failure is isolated; the batch continues', async () => {
@@ -287,6 +290,31 @@ describe('import engine (#87)', () => {
       assert.equal(world.rows.size, 2);
       assert.equal(world.insertCalls(), 2, 'each file inserted exactly once across runs');
       assert.equal(world.journalRaw(), null);
+    });
+
+    test('a post-commit thumbnail failure stays imported and retries on resume', async () => {
+      // The row is committed when thumbs blow up (PR #183 review): the file
+      // must surface in photoIds (library:changed fires), keep its journal,
+      // and finish its remaining stages on the next resume.
+      const world = harness();
+      addSource(world, 'a.jpg', jpeg);
+      let healthy = false;
+      const deps = {
+        ...world.deps,
+        generateThumbs: () =>
+          healthy ? Promise.resolve({ generated: true, width: 1, height: 1 }) : Promise.reject(new Error('sharp exploded')),
+      };
+      const first = await new ImportEngine(deps).importFiles([{ path: '/card/a.jpg', fileName: 'a.jpg', kind: 'jpeg' }], 'copy', '/card');
+      assert.deepEqual({ imported: first.imported, failed: first.failed }, { imported: 1, failed: 0 });
+      assert.equal(first.photoIds.length, 1, 'committed photo announces itself');
+      assert.notEqual(world.journalRaw(), null, 'unfinished stages keep the journal');
+      assert.equal(world.insertCalls(), 1);
+
+      healthy = true;
+      const resumed = await new ImportEngine(deps).resume();
+      assert.equal(resumed?.imported, 1);
+      assert.equal(world.journalRaw(), null, 'retry completed and cleared the journal');
+      assert.equal(world.insertCalls(), 1, 'never re-inserted');
     });
 
     test('resume with no journal is a no-op', async () => {
