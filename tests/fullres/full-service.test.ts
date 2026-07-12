@@ -20,6 +20,13 @@ function original(bytes: Buffer, fileKind: FileKind, hash = 'h'): LoadedOriginal
   return { bytes, contentHash: hash, fileKind };
 }
 
+/** Deterministic junk — undecodable as any image format. Deliberately NOT
+ * crypto randomness: CodeQL taint-tracks randomBytes into the RAF header
+ * arithmetic and misreads format parsing as biased crypto. */
+function junkBytes(length: number): Buffer {
+  return Buffer.from(Array.from({ length }, (_, index) => (index * 131 + 7) % 256));
+}
+
 /** A minimal RAF container: magic header + documented offsets to `jpeg`. */
 function rafContaining(jpeg: Buffer): Buffer {
   const header = Buffer.alloc(100);
@@ -81,7 +88,7 @@ describe('FullService (#91)', () => {
 
   test('a RAW with no viewable payload is a placeholder (null), never a throw', async () => {
     const service = new FullService({
-      loadOriginal: () => Promise.resolve(original(randomBytes(64), 'raw')),
+      loadOriginal: () => Promise.resolve(original(junkBytes(64), 'raw')),
     });
     assert.equal(await service.getFull('cr2'), null);
   });
@@ -89,9 +96,9 @@ describe('FullService (#91)', () => {
   test('mime follows the record kind; unknown kinds are placeholders', async () => {
     const kinds: LoadedOriginal[] = [
       original(sampleJpeg(0), 'jpeg'),
-      original(randomBytes(8), 'png'),
-      original(randomBytes(8), 'heic'),
-      original(randomBytes(8), 'other'),
+      original(junkBytes(8), 'png'),
+      original(junkBytes(8), 'heic'),
+      original(junkBytes(8), 'other'),
     ];
     const service = new FullService({
       loadOriginal: (photoId) => Promise.resolve(kinds[Number(photoId)] ?? null),
