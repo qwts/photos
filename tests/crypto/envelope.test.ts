@@ -200,6 +200,10 @@ describe('envelope failure modes', () => {
     await assert.rejects(decrypt(Buffer.concat([header, prefix, ciphertext])), /final chunk declares 2 chunks but 1 arrived/);
   });
 
+  test('a chunk size beyond the decrypt limit is refused at encrypt time', () => {
+    assert.throws(() => createEncryptStream(KEY_1, CONTEXT, { chunkSize: 9 * 1024 * 1024 }), /exceeds the decryptable maximum/);
+  });
+
   test('non-positive chunk size is refused', () => {
     assert.throws(() => createEncryptStream(KEY_1, CONTEXT, { chunkSize: 0 }), /chunkSize must be positive/);
   });

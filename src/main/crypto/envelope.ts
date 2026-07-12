@@ -94,6 +94,9 @@ export function createEncryptStream(key: EnvelopeKey, context: EnvelopeContext, 
   if (chunkSize <= 0) {
     throw new EnvelopeError('chunkSize must be positive');
   }
+  if (chunkSize > MAX_CHUNK_LENGTH) {
+    throw new EnvelopeError(`chunkSize ${String(chunkSize)} exceeds the decryptable maximum of ${String(MAX_CHUNK_LENGTH)}`);
+  }
   const noncePrefix = randomBytes(8);
   let pending: Buffer[] = [];
   let pendingLength = 0;
