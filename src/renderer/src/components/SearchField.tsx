@@ -11,6 +11,8 @@ export interface SearchFieldProps {
   /** Mono shortcut hint, hidden while focused (and while text is present). */
   readonly shortcut?: string;
   readonly width?: number;
+  /** Durable accessible name — the placeholder is not one. */
+  readonly label?: string;
 }
 
 // components/forms/SearchField.jsx + the clear affordance from #60's scope:
@@ -21,6 +23,7 @@ export function SearchField({
   placeholder = 'Search photos, places, cameras…',
   shortcut = '⌘K',
   width = 280,
+  label = 'Search',
 }: SearchFieldProps): ReactElement {
   const [focus, setFocus] = useState(false);
   return (
@@ -30,6 +33,7 @@ export function SearchField({
         className="ovl-search__input"
         type="text"
         role="searchbox"
+        aria-label={label}
         value={value}
         onChange={(event) => {
           onChange(event.target.value);

@@ -81,6 +81,18 @@
   border-color: var(--accent-cyan);
 }
 
+.ovl-chip__main {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .ovl-chip__remove {
   display: inline-flex;
   margin-right: -4px;
