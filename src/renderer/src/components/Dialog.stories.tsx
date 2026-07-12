@@ -68,7 +68,12 @@ export const EscapeCloses: Story = {
   render: (args) => <ImportShell onClose={args.onClose} />,
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole('dialog')).toBeInTheDocument();
+    const dialog = canvas.getByRole('dialog');
+    // Initial focus proves the effects (incl. the key listener) mounted —
+    // pressing Escape earlier races the listener on slow runners.
+    await waitFor(async () => {
+      await expect(dialog).toHaveFocus();
+    });
     await userEvent.keyboard('{Escape}');
     await waitFor(async () => {
       await expect(canvas.queryByRole('dialog')).not.toBeInTheDocument();
@@ -83,6 +88,9 @@ export const FocusStaysTrapped: Story = {
     const canvas = within(canvasElement);
     const dialog = canvas.getByRole('dialog');
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
+    await waitFor(async () => {
+      await expect(dialog).toHaveFocus();
+    });
     // Tab far past the focusable count — focus must always stay inside.
     for (let i = 0; i < 6; i += 1) {
       await userEvent.tab();
