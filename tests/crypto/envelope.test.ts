@@ -234,7 +234,7 @@ describe('streaming behavior', () => {
       }
     });
     const devnull = new Writable({
-      write(_chunk, _encoding, callback): void {
+      write(_chunk: unknown, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
         callback();
       },
     });

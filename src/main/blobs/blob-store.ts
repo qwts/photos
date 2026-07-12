@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
-import { mkdir, open, readdir, rename, rm } from 'node:fs/promises';
+import { link, mkdir, open, readdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -36,6 +36,26 @@ const HASH_PATTERN = /^[0-9a-f]{64}$/;
 function assertHash(hash: string): void {
   if (!HASH_PATTERN.test(hash)) {
     throw new BlobStoreError('content hash must be 64 lowercase hex characters');
+  }
+}
+
+function isErrno(error: unknown, code: string): boolean {
+  // type-coverage:ignore-next-line -- narrowing the fs error shape
+  return error instanceof Error && (error as NodeJS.ErrnoException).code === code;
+}
+
+/** Reads the key id out of an existing envelope header (magic|ver|keyId). */
+async function readEnvelopeKeyId(path: string): Promise<number> {
+  const handle = await open(path, 'r');
+  try {
+    const header = Buffer.alloc(9);
+    await handle.read(header, 0, 9, 0);
+    if (header.subarray(0, 4).toString('ascii') !== 'OVLK') {
+      throw new BlobStoreError(`existing blob at ${path} is not an Overlook envelope`);
+    }
+    return header.readUInt32BE(5);
+  } finally {
+    await handle.close();
   }
 }
 
@@ -111,7 +131,21 @@ export class BlobStore {
       const contentHash = hasher.digest('hex');
       const finalPath = destination(contentHash);
       await mkdir(dirname(finalPath), { recursive: true });
-      await rename(stagePath, finalPath);
+      // Atomic no-replace publish: link() fails with EEXIST instead of
+      // clobbering. A collision means these bytes are already stored under
+      // an envelope whose AAD binds the ORIGINAL photo id — replacing it
+      // would orphan that row's decrypts (PR #150 review). Keep the existing
+      // envelope and report its true key id.
+      try {
+        await link(stagePath, finalPath);
+      } catch (error) {
+        if (isErrno(error, 'EEXIST')) {
+          await rm(stagePath, { force: true });
+          return { contentHash, keyId: await readEnvelopeKeyId(finalPath), bytes: plainBytes };
+        }
+        throw error;
+      }
+      await rm(stagePath, { force: true });
       // Durability point 2: the directory entry.
       await fsyncDir(dirname(finalPath));
       return { contentHash, keyId: key.id, bytes: plainBytes };
@@ -158,7 +192,9 @@ export class BlobStore {
     const hasher = createHash('sha256');
     try {
       const stream = this.getStream(contentHash, resolveKey, photoId);
+      // type-coverage:ignore-next-line -- Readable yields untyped chunks
       for await (const chunk of stream) {
+        // type-coverage:ignore-next-line -- Readable yields untyped chunks
         hasher.update(chunk as Buffer);
       }
     } catch {

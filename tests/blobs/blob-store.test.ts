@@ -106,7 +106,7 @@ describe('BlobStore', () => {
     const good = await store.putOriginal(Readable.from([randomBytes(256)]), KEY, 'photo-7');
     const orphans = await store.scanOrphans(new Set([good.contentHash]));
     assert.equal(orphans.staged.length, 1);
-    assert.match(orphans.staged[0]!, /stage-deadbeef/);
+    assert.ok(orphans.staged[0]?.includes('stage-deadbeef'));
     assert.deepEqual(orphans.unknown, []);
     // The completed blob is intact despite the leftover staging file.
     assert.equal(await store.verifyOriginal(good.contentHash, RESOLVE, 'photo-7'), true);
@@ -121,6 +121,25 @@ describe('BlobStore', () => {
       orphans.unknown.map((path) => path.split('/').pop()),
       [stray.contentHash],
     );
+  });
+
+  test('re-importing identical bytes never replaces the existing envelope', async () => {
+    const { store, dataDir } = await freshStore();
+    const plaintext = randomBytes(4096);
+    const first = await store.putOriginal(Readable.from([plaintext]), KEY, 'photo-original');
+
+    const otherKey: EnvelopeKey = { id: 2, key: randomBytes(32) };
+    const resolveBoth: KeyResolver = (id) => (id === 1 ? KEY.key : id === 2 ? otherKey.key : undefined);
+    const second = await store.putOriginal(Readable.from([plaintext]), otherKey, 'photo-duplicate');
+
+    // Same address, existing envelope kept: its key id is reported and the
+    // ORIGINAL photo context still decrypts.
+    assert.equal(second.contentHash, first.contentHash);
+    assert.equal(second.keyId, 1);
+    const back = await buffer(store.getStream(first.contentHash, resolveBoth, 'photo-original'));
+    assert.deepEqual(back, plaintext);
+    // No staging leftovers from the deduped put.
+    assert.deepEqual(readdirSync(join(dataDir, 'tmp')), []);
   });
 
   test('delete removes originals and thumbs; getStream then fails cleanly', async () => {
