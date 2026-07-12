@@ -16,6 +16,13 @@ const WORKER_URL = new URL('../../src/main/import/thumbnail-worker.js', import.m
 const CRASH_WORKER_URL = new URL('../../../tests/fixtures/import/crash-worker.js', import.meta.url);
 const FIXTURES = join(import.meta.dirname, '../../../tests/fixtures/exif');
 
+/** Deterministic junk — undecodable as any image format. Deliberately NOT
+ * crypto randomness: CodeQL taint-tracks randomBytes into the RAF header
+ * arithmetic and misreads format parsing as biased crypto. */
+function junkBytes(length: number): Buffer {
+  return Buffer.from(Array.from({ length }, (_, index) => (index * 131 + 7) % 256));
+}
+
 const pool = new ThumbnailPool({ workerUrl: WORKER_URL, size: 2 });
 after(async () => {
   await pool.close();
@@ -44,7 +51,7 @@ describe('thumbnail pipeline (#86)', () => {
   });
 
   test('EXIT CRITERIA: undecodable bytes yield the placeholder marker (null), not a failure', async () => {
-    assert.equal(await pool.generate(randomBytes(256)), null);
+    assert.equal(await pool.generate(junkBytes(256)), null);
     // A corrupt "JPEG" (SOI then garbage) is the same placeholder, and the
     // worker survives to serve the next real job.
     assert.equal(await pool.generate(readFileSync(join(FIXTURES, 'corrupt.jpg'))), null);
