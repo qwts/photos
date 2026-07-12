@@ -6,16 +6,8 @@ import type { ThumbService } from './thumb-service.js';
 // overlook-thumb:// (#75): decrypted thumbs straight into <img> tags —
 // memory-only, no plaintext files. Content-addressed blobs make responses
 // immutable, so the renderer's HTTP cache short-circuits repeat requests.
-
-/** MUST run before app ready (Electron requirement for privileged schemes). */
-export function registerThumbSchemePrivileges(): void {
-  protocol.registerSchemesAsPrivileged([
-    {
-      scheme: THUMB_SCHEME,
-      privileges: { standard: true, stream: true, supportFetchAPI: true },
-    },
-  ]);
-}
+// Scheme privileges register in main/protocol-privileges.ts (Electron allows
+// exactly one registerSchemesAsPrivileged call).
 
 /** Call once after app ready; the service is created lazily like the library. */
 export function registerThumbProtocol(getService: () => ThumbService): void {

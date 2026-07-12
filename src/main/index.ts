@@ -9,11 +9,14 @@ import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { KeyStore } from './crypto/keystore.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
+import { registerFullProtocol } from './fullres/full-protocol.js';
+import { FullService } from './fullres/full-service.js';
 import { ImportService } from './import/import-service.js';
 import { registerImportHandlers, registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
-import { registerThumbProtocol, registerThumbSchemePrivileges } from './thumbs/thumb-protocol.js';
+import { registerSchemePrivileges } from './protocol-privileges.js';
+import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 import type { SafeStorageLike } from './crypto/keystore.js';
 
@@ -28,8 +31,8 @@ if (userDataOverride !== undefined && userDataOverride !== '') {
   app.setPath('userData', userDataOverride);
 }
 
-// Privileged-scheme registration must precede app ready (#75).
-registerThumbSchemePrivileges();
+// Privileged-scheme registration must precede app ready (#75, #91).
+registerSchemePrivileges();
 
 function devInsecureKeystore(): SafeStorageLike {
   const pad = 0x5f;
@@ -145,6 +148,41 @@ function getThumbService(): ThumbService {
   return thumbService;
 }
 
+let fullService: FullService | undefined;
+
+function getFullService(): FullService {
+  if (fullService === undefined) {
+    getLibraryService();
+    const parts = libraryParts;
+    if (parts === undefined) {
+      throw new Error('library bootstrap failed; full-res service unavailable');
+    }
+    const repo = new PhotosRepository(parts.db);
+    // Configurable decrypted-buffer budget (#91); the FullService default
+    // (256 MiB) applies when the env override is absent or not a number.
+    const budgetMb = Number(process.env['OVERLOOK_FULL_CACHE_MB'] ?? '');
+    fullService = new FullService({
+      loadOriginal: async (photoId) => {
+        const photo = repo.get(photoId);
+        if (photo === undefined) {
+          return null;
+        }
+        try {
+          const stream = parts.blobStore.getStream(photo.contentHash, parts.keyStore.resolver(), photoId);
+          return { bytes: await buffer(stream), contentHash: photo.contentHash, fileKind: photo.fileKind };
+        } catch (error) {
+          if (error instanceof BlobStoreError) {
+            return null; // Offloaded or missing original — placeholder.
+          }
+          throw error;
+        }
+      },
+      maxCacheBytes: Number.isFinite(budgetMb) && budgetMb > 0 ? budgetMb * 1024 * 1024 : undefined,
+    });
+  }
+  return fullService;
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -192,6 +230,7 @@ void app.whenReady().then(async () => {
   registerIpcHandlers();
   registerLibraryHandlers(getLibraryService);
   registerThumbProtocol(getThumbService);
+  registerFullProtocol(getFullService);
   registerImportHandlers(getImportService);
   const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {

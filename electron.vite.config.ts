@@ -11,10 +11,10 @@ const DEV_CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self' ws:",
+  "connect-src 'self' ws: overlook-full:",
   "worker-src 'self' blob:",
-  // Mirror production's thumb-protocol allowance (#75).
-  "img-src 'self' overlook-thumb:",
+  // Mirror production's protocol allowances (#75 thumbs, #91 full-res).
+  "img-src 'self' overlook-thumb: overlook-full:",
 ].join('; ');
 
 function relaxCspForDev(): Plugin {
