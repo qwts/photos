@@ -1,7 +1,7 @@
 {
   "all": true,
   "include": ["src/**"],
-  "exclude": ["tests/**", "**/*.test.ts"],
+  "exclude": ["tests/**", "**/*.test.ts", "src/main/**", "src/preload/**", "src/renderer/**"],
   "excludeAfterRemap": true,
   "reporter": ["text", "lcov", "json-summary"],
   "reports-dir": "coverage",
