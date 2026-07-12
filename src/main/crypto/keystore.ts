@@ -97,8 +97,9 @@ export class KeyStore {
     }
     mkdirSync(options.dataDir, { recursive: true });
     const masterPath = join(options.dataDir, MASTER_FILE);
+    const isFirstRun = !existsSync(masterPath);
     let masterKey: Buffer;
-    if (existsSync(masterPath)) {
+    if (!isFirstRun) {
       let decoded: string;
       try {
         decoded = options.safeStorage.decryptString(readFileSync(masterPath));
@@ -123,11 +124,20 @@ export class KeyStore {
       records = [];
     }
 
+    // An existing master key with no library keys means the keys file was
+    // lost or emptied. Regenerating KEY #1 here would mint DIFFERENT bytes
+    // under an id existing envelopes already reference — refuse instead
+    // (PR #148 review).
+    if (!isFirstRun && records.length === 0) {
+      throw new KeyCustodyError(
+        'the master key exists but no library keys were found; refusing to regenerate KEY #1 over an existing store (keys.json lost or corrupted)',
+      );
+    }
     const store = new KeyStore(options, masterKey, records, new Map());
     for (const record of records) {
       store.keys.set(record.id, unwrapKey(masterKey, record.id, record.wrappedKey));
     }
-    if (store.records.length === 0) {
+    if (isFirstRun) {
       store.createKey();
     }
     return store;

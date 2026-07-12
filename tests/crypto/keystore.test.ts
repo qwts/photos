@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -134,6 +134,22 @@ describe('KeyStore failure paths', () => {
     file.keys[0] = { ...file.keys[0], wrappedKey: wrapped.toString('base64') };
     writeFileSync(keysPath, JSON.stringify(file));
     assert.throws(() => KeyStore.open({ safeStorage, dataDir }), /failed authentication/);
+  });
+
+  test('an existing master key with missing keys.json refuses to mint a new KEY #1', () => {
+    const dataDir = tempDir();
+    const safeStorage = fakeSafeStorage(0x5a);
+    KeyStore.open({ safeStorage, dataDir });
+    rmSync(join(dataDir, 'keys.json'));
+    assert.throws(() => KeyStore.open({ safeStorage, dataDir }), /refusing to regenerate KEY #1/);
+  });
+
+  test('an existing master key with an emptied keys list refuses likewise', () => {
+    const dataDir = tempDir();
+    const safeStorage = fakeSafeStorage(0x5a);
+    KeyStore.open({ safeStorage, dataDir });
+    writeFileSync(join(dataDir, 'keys.json'), JSON.stringify({ version: 1, keys: [] }));
+    assert.throws(() => KeyStore.open({ safeStorage, dataDir }), /refusing to regenerate KEY #1/);
   });
 
   test('a truncated wrapped key is reported as malformed', () => {
