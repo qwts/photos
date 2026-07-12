@@ -1,0 +1,33 @@
+/* Renderer styling entry (#54). The five token files under ./tokens/ are the
+   single source of truth, ported verbatim from
+   design_handoff_overlook_desktop_app/tokens/ — no component may introduce
+   magic values for color, type, spacing, radii, elevation, or motion; always
+   reference a token (see CLAUDE.md §Design tokens). */
+@import './tokens/fonts.css';
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/elevation.css';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-window);
+  color: var(--text-body);
+  font: var(--type-body);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* Machine data (EXIF, counts, sync states, filenames-in-metadata): always
+   uppercase, tracked mono — the design's hard rule. */
+.mono-data {
+  font: var(--type-meta);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+}

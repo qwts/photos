@@ -1,15 +1,16 @@
 import type { ReactElement } from 'react';
 
 import './app.css';
+import { TokenSpecimen } from './TokenSpecimen';
 
-// Shell placeholder — the design-system components and real app chrome arrive
-// with M02+. The drag region is the frameless-window contract from #50; the
-// styled TitleBar replaces it in M02.
+// Shell placeholder — real app chrome arrives with the M02 components. The
+// drag region is the frameless-window contract from #50; the token specimen
+// keeps the styling foundation verifiable until Storybook (#56).
 export function App(): ReactElement {
   return (
     <>
       <div className="titlebar-drag-region" />
-      <p>Overlook — shell placeholder</p>
+      <TokenSpecimen />
     </>
   );
 }

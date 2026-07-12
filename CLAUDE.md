@@ -23,6 +23,14 @@ Electron process layout (ADR-0003), enforced with `no-restricted-imports` in
 All renderer↔main traffic goes through the zod-validated channel/event
 registry in `src/shared/ipc/channels.ts` (#49) — never raw `ipcRenderer`.
 
+## Design tokens
+
+`src/renderer/src/styles/tokens/*.css` (ported verbatim from
+`design_handoff_overlook_desktop_app/tokens/`) is the single styling source of
+truth. **No magic values** in renderer styles — color, type, spacing, radii,
+elevation, and motion always reference a token (`var(--…)`). Machine data
+(EXIF, counts, sync states) renders with the `.mono-data` utility.
+
 ## Before "done"
 
 ```sh
