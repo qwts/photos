@@ -3,5 +3,5 @@
   "entry": ["tests/**/*.test.ts", "tests/e2e/**/*.spec.ts", "scripts/*.mjs"],
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.mjs"],
   "ignoreExportsUsedInFile": true,
-  "ignoreDependencies": ["node-test-github-reporter", "http-server"]
+  "ignoreDependencies": ["node-test-github-reporter"]
 }
