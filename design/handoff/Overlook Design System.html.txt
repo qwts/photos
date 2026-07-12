@@ -83,7 +83,6 @@
 
 <script>
 const CARDS = [
-  { group:"Foundations", name:"Design tokens", src:"Design Tokens.dc.html", sub:"All tokens on one board", full:true },
   { group:"Foundations", name:"Neutrals", src:"guidelines/colors-neutrals.html", sub:"Cool near-black ramp", w:700, h:150 },
   { group:"Foundations", name:"Accents & status hues", src:"guidelines/colors-accents.html", sub:"Cyan / amber / green / red", w:700, h:170 },
   { group:"Foundations", name:"Accent tints", src:"guidelines/colors-tints.html", sub:"-dim fills for chips/badges", w:700, h:170 },
