@@ -6,6 +6,7 @@ import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/l
 import { TitleBar } from '../components/TitleBar';
 import { Toast } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
+import { ImportDialog, type ImportDialogSource } from '../import/ImportDialog';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
@@ -24,6 +25,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   useGlobalKeys();
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
+  const [importSource, setImportSource] = useState<ImportDialogSource | null>(null);
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
 
@@ -74,7 +76,39 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           void window.overlook.closeWindow();
         }}
       />
-      <Toolbar />
+      <Toolbar
+        onImport={() => {
+          // #88: first available source, scanned for the options card. No
+          // source → the design's toast copy.
+          void window.overlook.import
+            .listSources()
+            .then(async ({ sources }) => {
+              const source = sources[0];
+              if (source === undefined) {
+                dispatch({ type: 'toast/shown', toast: { title: 'NO IMPORT SOURCE FOUND', tone: 'neutral' } });
+                return;
+              }
+              const summary = await window.overlook.import.scanSource({ path: source.path });
+              setImportSource({ path: source.path, label: source.label, ...summary });
+            })
+            .catch(() => {
+              dispatch({ type: 'toast/shown', toast: { title: 'IMPORT SOURCE SCAN FAILED', tone: 'amber' } });
+            });
+        }}
+      />
+      {importSource !== null ? (
+        <ImportDialog
+          open
+          source={importSource}
+          onClose={() => {
+            setImportSource(null);
+          }}
+          onDone={() => {
+            // "Show in library" jumps to Recent imports (#88).
+            dispatch({ type: 'source/set', source: 'recent' });
+          }}
+        />
+      ) : null}
       <div className="ovl-shell__body">
         <Sidebar counts={counts} stats={stats} albums={albums} />
         <main className="ovl-shell__content" data-testid="content-region">

@@ -1,0 +1,179 @@
+import { useEffect, useState, type ReactElement } from 'react';
+
+import { Button } from '../components/Button';
+import { Checkbox } from '../components/Checkbox';
+import { Dialog } from '../components/Dialog';
+import { Icon } from '../components/Icon';
+import { ProgressBar } from '../components/ProgressBar';
+import { Segmented } from '../components/Segmented';
+import { Switch } from '../components/Switch';
+import { formatBytes, formatCount } from '../../../shared/library/format.js';
+
+import './import.css';
+
+// ImportDialog (#88): the design's 420px import flow over the real engine.
+// options → running (two aggregate bars from the engine's streams) → done.
+// The host mounts a fresh instance per source, so state needs no reset.
+// Copy is design-verbatim (README §5 + Content voice): the Move warning, the
+// locked thumbnails checkbox, the always-on encrypt switch.
+
+export interface ImportDialogSource {
+  readonly path: string;
+  readonly label: string;
+  /** From import.scanSource — the card's mono line + button count. */
+  readonly newCount: number;
+  readonly newBytes: number;
+  readonly newRaw: number;
+  readonly newJpg: number;
+}
+
+export interface ImportDialogProps {
+  readonly open: boolean;
+  readonly source: ImportDialogSource;
+  readonly onClose: () => void;
+  /** "Show in library" — the shell jumps to Recent imports (E6.7). */
+  readonly onDone: () => void;
+}
+
+type Phase = 'options' | 'running' | 'done';
+
+interface Bar {
+  readonly done: number;
+  readonly total: number;
+}
+
+export function ImportDialog({ open, source, onClose, onDone }: ImportDialogProps): ReactElement | null {
+  const [phase, setPhase] = useState<Phase>('options');
+  const [mode, setMode] = useState<'copy' | 'move'>('copy');
+  const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: source.newCount });
+  const [thumbBar, setThumbBar] = useState<Bar>({ done: 0, total: source.newCount });
+  const [imported, setImported] = useState(0);
+
+  useEffect(() => {
+    if (phase !== 'running') {
+      return;
+    }
+    const offCopy = window.overlook.import.onCopyProgress((payload) => {
+      setCopyBar(payload);
+    });
+    const offThumb = window.overlook.import.onThumbProgress((payload) => {
+      setThumbBar(payload);
+    });
+    return () => {
+      offCopy();
+      offThumb();
+    };
+  }, [phase]);
+
+  if (!open) {
+    return null;
+  }
+
+  const start = (): void => {
+    setPhase('running');
+    void window.overlook.import
+      .run({ path: source.path, mode })
+      .then((summary) => {
+        setImported(summary.imported);
+        setPhase('done');
+      })
+      .catch(() => {
+        setPhase('done'); // engine reports per-file failures in counts
+      });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      title="Import from SD card"
+      icon="download"
+      width={420}
+      onClose={onClose}
+      footer={
+        phase === 'options' ? (
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button variant="primary" icon="download" onClick={start}>
+              Import {formatCount(source.newCount)} photos
+            </Button>
+          </>
+        ) : phase === 'done' ? (
+          <Button
+            variant="primary"
+            onClick={() => {
+              onClose();
+              onDone();
+            }}
+          >
+            Show in library
+          </Button>
+        ) : null
+      }
+    >
+      {phase === 'options' ? (
+        <div className="ovl-import__options">
+          <div className="ovl-import__card">
+            <Icon name="hard-drive" size={16} />
+            <div className="ovl-import__cardText">
+              <div className="ovl-import__cardTitle">{source.label}</div>
+              <div className="ovl-import__cardMeta mono-data">
+                {formatCount(source.newCount)} NEW · {formatBytes(source.newBytes)} · {formatCount(source.newRaw)} RAW /{' '}
+                {formatCount(source.newJpg)} JPG
+              </div>
+            </div>
+          </div>
+          <Checkbox checked label="Generate thumbnails on import" />
+          <div className="ovl-import__row">
+            <span>On import</span>
+            <Segmented
+              label="On import"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'copy', label: 'Copy' },
+                { value: 'move', label: 'Move' },
+              ]}
+            />
+          </div>
+          {mode === 'move' ? (
+            <div className="ovl-import__warning mono-data" role="alert">
+              <Icon name="triangle-alert" size={12} />
+              Originals will be deleted from the card after import.
+            </div>
+          ) : null}
+          <div className="ovl-import__row">
+            <Switch checked disabled label="Encrypt originals (always on)" />
+            <span className="ovl-import__lock">
+              <Icon name="lock" size={13} />
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="ovl-import__running">
+          <ProgressBar
+            label="Copying & encrypting"
+            tone="green"
+            value={copyBar.done}
+            max={Math.max(copyBar.total, 1)}
+            detail={`${formatCount(copyBar.done)} / ${formatCount(copyBar.total)}`}
+          />
+          <ProgressBar
+            label="Generating thumbnails"
+            tone="cyan"
+            value={thumbBar.done}
+            max={Math.max(thumbBar.total, 1)}
+            detail={`${formatCount(thumbBar.done)} / ${formatCount(thumbBar.total)}`}
+          />
+          {phase === 'done' ? (
+            <div className="ovl-import__done">
+              <Icon name="shield-check" size={15} />
+              All {formatCount(imported)} photos imported and encrypted.
+            </div>
+          ) : null}
+        </div>
+      )}
+    </Dialog>
+  );
+}
