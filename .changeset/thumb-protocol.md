@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 Thumbnail delivery: the `overlook-thumb://` protocol streams decrypts from

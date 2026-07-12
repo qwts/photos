@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 Toolbar: the full 48px command strip per the mock — cyan-aperture wordmark,

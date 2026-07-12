@@ -1,5 +1,5 @@
 ---
-'overlook-photos': minor
+'photos': minor
 ---
 
 Selection model completed per the mock: selection now survives filter and
