@@ -23,7 +23,7 @@
 | 2   | Unit          | `npm test` — compile then `node --test` on `.test-dist/tests/**/*.test.js` | Pure logic, no DOM                                           | Active                              |
 | 3   | Coverage      | `npm run test:cov` — c8 floors in `.c8rc.json` (**lines 90 / branches 80**) | Ratchet over the unit lane                                   | Active                              |
 | 4   | DOM           | `test:dom` (happy-dom registrator, `tests/dom/`)             | Rendering/controllers against a real DOM                     | **Documented, not built** — add with the first UI code |
-| 5   | Story         | Storybook `play` interaction tests                           | Component-level UI behavior                                  | **Deferred** — issue #11, blocked on UI code |
+| 5   | Story         | `npm run test:stories:ci` — static Storybook build + test-runner (`play` assertions, chromium) | Component-level UI behavior on the real token canvas        | Active (#56 — token + Icon stories are the first content) |
 | 6a  | E2E smoke     | `npm run test:e2e` — Playwright `_electron` launches the built app (`tests/e2e/smoke.spec.ts`) | The real Electron app launches, renders the React root, exposes only the typed bridge, IPC round-trips | Active (#52 — replaced the http-server fixture, which stayed green regardless of app health) |
 | 6b  | Acceptance    | Playwright specs per canonical flow + a coverage-map ledger  | End-to-end user flows                                        | **Deferred** until user-facing surfaces exist |
 
@@ -84,7 +84,7 @@ On every PR to `main` and push to `main` (post-merge signal):
 
 1. `lint` (full chain) → `format:check` → `test:cov` (with
    `node-test-github-reporter` annotations) → coverage summary + lcov artifact →
-   `build`
+   `build` → Storybook interaction tests (`test:stories:ci`, chromium)
 2. **E2E job** (parallel, own runner): path-filtered by `dorny/paths-filter` —
    docs-only PRs skip it; always runs on main pushes. Chromium via Playwright,
    `test:e2e`, HTML report artifact (14-day retention).

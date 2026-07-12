@@ -39,6 +39,7 @@ why not.
 | Unit tests + coverage floor  | `test:cov` (node:test + c8; floors **lines 90 / branches 80**)  | Behavior regressions; floors ratchet upward only.                        |
 | Build                        | `build` (`electron-vite build` → `out/` main/preload/renderer bundles) | The app compiles and bundles.                                            |
 | E2E                          | `test:e2e` (Playwright `_electron` drives the built app; path-filtered CI job under xvfb) | The real app launches, renders, and its typed IPC works end to end.      |
+| Storybook interaction tests  | `test:stories:ci` (static build + test-runner `play` assertions, chromium, in the core CI job) | Component-level UI behavior regressions.                                  |
 | `E2E gate`                   | Always-reporting CI job                                         | Required-check stability: passes on success or a legitimate filter skip; fails if change detection broke. |
 | CodeQL                       | Default setup: `javascript-typescript` + `actions` configs      | Security findings block above threshold (ruleset code-scanning rule).    |
 | CODEOWNERS                   | `.github/CODEOWNERS` → repo owner                               | Governance files stay owner-reviewed once the ruleset requires it.        |
