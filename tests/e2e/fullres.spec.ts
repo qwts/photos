@@ -80,6 +80,12 @@ test('full-res delivery: memory-only, preview-marked RAW, bounded rapid paging',
     const missing = await page.evaluate<number>(`fetch('overlook-full://library/01J8DOESNOTEXIST').then((res) => res.status)`);
     expect(missing).toBe(404);
 
+    // Offloaded rows are remote-only by ledger truth even when the blob
+    // still exists locally (seed photo 0004 is marked offloaded): the
+    // placeholder contract holds until M08 restores explicitly.
+    const offloaded = await page.evaluate<number>(`fetch('overlook-full://library/01J8SEEDPHOTO0004').then((res) => res.status)`);
+    expect(offloaded).toBe(404);
+
     // Neighbor prefetch answers immediately with no body.
     const prefetch = await page.evaluate<{ status: number; size: number }>(
       `fetch('overlook-full://library/01J8SEEDPHOTO0002?prefetch=1').then(async (res) => ({ status: res.status, size: (await res.arrayBuffer()).byteLength }))`,

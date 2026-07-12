@@ -22,7 +22,7 @@ export class ByteLru<V extends ByteSized> {
   /** Insertion order doubles as recency order (Map preserves it). */
   private readonly cache = new Map<string, V>();
   private cacheBytes = 0;
-  private readonly inFlight = new Map<string, Promise<V | null>>();
+  private readonly inFlight = new Map<string, { readonly promise: Promise<V | null>; readonly signals: (AbortSignal | undefined)[] }>();
   private active = 0;
   private peak = 0;
   private readonly queue: (() => void)[] = [];
@@ -36,7 +36,9 @@ export class ByteLru<V extends ByteSized> {
    * Resolves the cached value, joining an identical in-flight load when one
    * exists, otherwise loading under the concurrency cap. Returns null when
    * the loader does (never cached — absence must stay observable) or when
-   * `signal` aborts before the load starts.
+   * EVERY request joined to the load has aborted before it starts — one
+   * still-interested waiter keeps a queued load alive (rapid prev/next can
+   * land back on an id whose first requester already paged away).
    */
   async get(key: string, load: () => Promise<V | null>, signal?: AbortSignal): Promise<V | null> {
     const cached = this.cache.get(key);
@@ -48,12 +50,14 @@ export class ByteLru<V extends ByteSized> {
     }
     const pending = this.inFlight.get(key);
     if (pending !== undefined) {
-      return pending;
+      pending.signals.push(signal);
+      return pending.promise;
     }
-    const job = this.runJob(key, load, signal);
-    this.inFlight.set(key, job);
+    const signals: (AbortSignal | undefined)[] = [signal];
+    const promise = this.runJob(key, load, signals);
+    this.inFlight.set(key, { promise, signals });
     try {
-      return await job;
+      return await promise;
     } finally {
       this.inFlight.delete(key);
     }
@@ -69,10 +73,11 @@ export class ByteLru<V extends ByteSized> {
     return { cachedBytes: this.cacheBytes, peakConcurrent: this.peak };
   }
 
-  private async runJob(key: string, load: () => Promise<V | null>, signal?: AbortSignal): Promise<V | null> {
+  private async runJob(key: string, load: () => Promise<V | null>, signals: readonly (AbortSignal | undefined)[]): Promise<V | null> {
     await this.acquire();
     try {
-      if (signal?.aborted === true) {
+      // A waiter with no signal never aborts, so it keeps the load alive.
+      if (signals.every((signal) => signal?.aborted === true)) {
         return null;
       }
       const value = await load();

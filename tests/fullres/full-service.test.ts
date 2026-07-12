@@ -174,6 +174,37 @@ describe('FullService (#91)', () => {
     assert.equal(r3, null);
   });
 
+  test('a still-interested join keeps an aborted waiter’s queued decrypt alive', async () => {
+    // Rapid prev/next can land BACK on an id whose first requester already
+    // paged away: the joined request must not inherit that abort (PR #179
+    // review) — one live waiter keeps the load going.
+    const releases: (() => void)[] = [];
+    let loads = 0;
+    const service = new FullService({
+      loadOriginal: async () => {
+        loads += 1;
+        await new Promise<void>((resolve) => {
+          releases.push(resolve);
+        });
+        return original(sampleJpeg(6), 'jpeg');
+      },
+      maxConcurrent: 1,
+    });
+    const controller = new AbortController();
+    const blocker = service.getFull('x'); // occupies the only decrypt slot
+    const abandoned = service.getFull('y', controller.signal); // queued
+    const joined = service.getFull('y'); // same id, no signal — still wanted
+    controller.abort(); // first requester pages away
+    await new Promise((resolve) => setImmediate(resolve)); // x's decrypt starts
+    releases[0]?.();
+    await new Promise((resolve) => setImmediate(resolve)); // slot frees; y starts
+    releases[1]?.();
+    const [, rAbandoned, rJoined] = await Promise.all([blocker, abandoned, joined]);
+    assert.notEqual(rJoined, null, 'the live waiter got the decrypt');
+    assert.deepEqual(rAbandoned, rJoined, 'joined callers share one resolution');
+    assert.equal(loads, 2, 'x and y each decrypted exactly once');
+  });
+
   test('prefetch warms the cache once per id and swallows results', async () => {
     let loads = 0;
     const service = new FullService({
