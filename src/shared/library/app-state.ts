@@ -23,7 +23,12 @@ export interface AppState {
   readonly importOpen: boolean;
   readonly exportOpen: boolean;
   readonly settingsOpen: boolean;
-  readonly toast: { readonly title: string; readonly tone: 'neutral' | 'green' | 'amber' | 'red' } | null;
+  readonly toast: {
+    readonly title: string;
+    readonly tone: 'neutral' | 'green' | 'amber' | 'red';
+    /** Serializable action marker — the shell maps it to a handler (#89). */
+    readonly action?: 'show-recent' | undefined;
+  } | null;
   readonly pendingCount: number;
   readonly lastBackupLabel: string;
 }

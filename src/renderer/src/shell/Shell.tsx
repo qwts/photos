@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import './shell.css';
+import { formatCount } from '../../../shared/library/format.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
 import { TitleBar } from '../components/TitleBar';
 import { Toast } from '../components/Toast';
@@ -14,7 +15,8 @@ import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 
-const TOAST_DISMISS_MS = 3200;
+// 4s per the design's ToastHost (#89 exit criteria).
+const TOAST_DISMISS_MS = 4000;
 
 // Composition shell (#73): fixed chrome per README §1. The toolbar, grid,
 // sidebar internals, and status bar semantics land with #74–#81 — this keeps
@@ -107,6 +109,13 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
             // "Show in library" jumps to Recent imports (#88).
             dispatch({ type: 'source/set', source: 'recent' });
           }}
+          onComplete={(imported) => {
+            // Green completion toast with exact counts + Show action (#89).
+            dispatch({
+              type: 'toast/shown',
+              toast: { title: `Imported ${formatCount(imported)} photos`, tone: 'green', action: 'show-recent' },
+            });
+          }}
         />
       ) : null}
       <div className="ovl-shell__body">
@@ -124,7 +133,24 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
       </div>
       {toast === null ? null : (
         <div className="ovl-shell__toast">
-          <Toast tone={toast.tone} title={toast.title} />
+          <Toast
+            tone={toast.tone}
+            title={toast.title}
+            action={
+              toast.action === 'show-recent' ? (
+                <button
+                  type="button"
+                  className="ovl-toast__action"
+                  onClick={() => {
+                    dispatch({ type: 'source/set', source: 'recent' });
+                    dispatch({ type: 'toast/dismissed' });
+                  }}
+                >
+                  Show
+                </button>
+              ) : undefined
+            }
+          />
         </div>
       )}
       <StatusBar stats={stats} />
