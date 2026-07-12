@@ -3,7 +3,6 @@ import type { ReactElement } from 'react';
 
 import './shell.css';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
-import { formatCount } from '../../../shared/library/format.js';
 import { TitleBar } from '../components/TitleBar';
 import { Toast } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
@@ -11,6 +10,7 @@ import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
 import { Sidebar } from './Sidebar';
+import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 
 const TOAST_DISMISS_MS = 3200;
@@ -93,14 +93,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           <Toast tone={toast.tone} title={toast.title} />
         </div>
       )}
-      <footer className="ovl-shell__statusbar">
-        <span className="mono-data" style={{ color: 'var(--text-muted)' }} data-testid="statusbar-left">
-          {stats === null ? '—' : `${formatCount(stats.photos)} PHOTOS`}
-        </span>
-        <span className="mono-data" style={{ color: 'var(--text-faint)' }}>
-          AES-256
-        </span>
-      </footer>
+      <StatusBar stats={stats} />
     </div>
   );
 }

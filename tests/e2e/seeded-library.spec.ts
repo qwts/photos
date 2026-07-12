@@ -48,7 +48,9 @@ test('boots a seeded temp profile deterministically', async () => {
     // sidebar count and statusbar total live; #74: the grid engine renders
     // one cell per seeded photo (all 12 fit one window).
     await expect(page.getByRole('button', { name: 'All Photos 12' })).toBeVisible();
-    await expect(page.getByTestId('statusbar-left')).toHaveText('12 PHOTOS');
+    await expect(page.getByTestId('statusbar-left')).toContainText('12 PHOTOS ·');
+    // #81: 4 dirty ledger rows -> the amber encrypting state.
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 4 → PCLOUD');
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
 
     // #76: cells are real PhotoTiles whose <img> decodes through the
