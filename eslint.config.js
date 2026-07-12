@@ -19,9 +19,7 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: {
-          allowDefaultProject: ['eslint.config.js'],
-        },
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -38,6 +36,24 @@ export default tseslint.config(
           varsIgnorePattern: '^_',
         },
       ],
+    },
+  },
+  {
+    // node:test's test()/describe() return promises that the runner itself awaits;
+    // requiring `void`/`await` on every top-level registration is pure noise.
+    files: ['tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+    },
+  },
+  {
+    // Plain-JS Node scripts (and this config file) are outside the TS project;
+    // type-aware rules can't apply. no-undef is off for Node globals (console),
+    // matching image-trail — TS owns undefined-identifier checking for source.
+    files: ['**/*.mjs', 'eslint.config.js'],
+    extends: [tseslint.configs.disableTypeChecked],
+    rules: {
+      'no-undef': 'off',
     },
   },
 );
