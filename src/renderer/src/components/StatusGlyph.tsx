@@ -17,7 +17,7 @@ export const SYNC_STATES: Record<SyncState, { icon: IconName; color: string; lab
 export interface StatusGlyphProps {
   readonly state: SyncState;
   /** Capsule diameter; the glyph renders at 60% of it (20 → 12). */
-  readonly size?: 20 | 22;
+  readonly size?: 18 | 20 | 22;
   readonly title?: string;
 }
 
