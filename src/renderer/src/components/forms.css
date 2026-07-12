@@ -1,0 +1,135 @@
+/* Toolbar-facing form controls (#60) — components/forms/{SearchField,Chip,
+   Segmented}.jsx. */
+.ovl-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: var(--gray-2);
+  border-radius: var(--radius-1);
+  border: 1px solid var(--border-1);
+  transition: border-color var(--duration-fast) var(--ease-out);
+  color: var(--text-faint);
+}
+
+.ovl-search:focus-within {
+  border-color: var(--accent-cyan);
+  color: var(--text-body);
+}
+
+.ovl-search__input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-body);
+  font-size: var(--text-md);
+  font-family: var(--font-ui);
+}
+
+.ovl-search__hint {
+  font: var(--type-meta);
+  color: var(--text-faint);
+  letter-spacing: var(--tracking-mono);
+  border: 1px solid var(--border-1);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.ovl-search__clear {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.ovl-search__clear:hover {
+  color: var(--text-body);
+}
+
+.ovl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--gray-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border-1);
+  font-size: var(--text-sm);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-medium);
+  transition: background var(--duration-fast) var(--ease-out);
+  user-select: none;
+}
+
+.ovl-chip:hover {
+  background: var(--gray-3);
+}
+
+.ovl-chip--selected,
+.ovl-chip--selected:hover {
+  background: var(--accent-cyan-dim);
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+.ovl-chip__remove {
+  display: inline-flex;
+  margin-right: -4px;
+  opacity: 0.7;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ovl-chip__remove:hover {
+  opacity: 1;
+}
+
+.ovl-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--control-h-md);
+  padding: 2px;
+  background: var(--gray-2);
+  border-radius: var(--radius-1);
+  border: 1px solid var(--border-1);
+  box-sizing: border-box;
+}
+
+.ovl-segmented__option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: 0 10px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-medium);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-segmented__option--icon-only {
+  padding: 0 8px;
+}
+
+.ovl-segmented__option--on {
+  background: var(--gray-4);
+  color: var(--text-body);
+}
