@@ -52,7 +52,7 @@ function samplePhoto(overrides: Partial<PhotoInsert> = {}): PhotoInsert {
 
 function openSeeded(path = tempDbPath()): { db: Database.Database; repo: PhotosRepository } {
   const db = openLibraryDatabase({ path, dbKey: DB_KEY });
-  run(db, `INSERT INTO keys (id, created_at, status) VALUES (1, ?, 'active')`, new Date().toISOString());
+  run(db, `INSERT INTO keys (id, wrapped_key, created_at) VALUES (1, 'wrapped-test-key', ?)`, new Date().toISOString());
   return { db, repo: new PhotosRepository(db) };
 }
 
@@ -200,6 +200,23 @@ describe('PhotosRepository', () => {
     assert.equal(repo.toggleFavorite(photo.id), false);
     assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', photo.id)?.dirty, 1);
     assert.throws(() => repo.toggleFavorite('missing'), /does not exist/);
+    db.close();
+  });
+
+  test('FTS5 search index stays trigger-synced with photos', () => {
+    const { db, repo } = openSeeded();
+    const kyoto = samplePhoto({ place: 'Kyoto' });
+    repo.insert(kyoto);
+    repo.insert(samplePhoto({ place: 'Lisbon', camera: 'RICOH GR III' }));
+    const hits = (q: string): number =>
+      queryGet<{ n: number }>(db, 'SELECT count(*) AS n FROM photos_fts WHERE photos_fts MATCH ?', q)?.n ?? -1;
+    assert.equal(hits('Kyoto'), 1);
+    assert.equal(hits('RICOH'), 1);
+    run(db, 'UPDATE photos SET place = ? WHERE id = ?', 'Osaka', kyoto.id);
+    assert.equal(hits('Kyoto'), 0);
+    assert.equal(hits('Osaka'), 1);
+    run(db, 'DELETE FROM photos WHERE id = ?', kyoto.id);
+    assert.equal(hits('Osaka'), 0);
     db.close();
   });
 

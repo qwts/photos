@@ -18,10 +18,13 @@ const SCHEMA_V1: Migration = {
   name: 'schema-v1',
   up: (db) => {
     db.exec(`
+      -- ADR-0005 shape: wrapped key material lives here (wrapped by the
+      -- master key, #68); active = retired_at IS NULL.
       CREATE TABLE keys (
         id INTEGER PRIMARY KEY,
+        wrapped_key TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('active', 'retired'))
+        retired_at TEXT
       );
 
       CREATE TABLE photos (
@@ -77,6 +80,27 @@ const SCHEMA_V1: Migration = {
       );
 
       CREATE INDEX idx_ledger_status ON sync_ledger (status);
+
+      -- ADR-0005 search: external-content FTS5 over name/place/camera,
+      -- trigger-synced from day one (no backfill migration later).
+      CREATE VIRTUAL TABLE photos_fts USING fts5(
+        file_name, place, camera,
+        content='photos', content_rowid='rowid'
+      );
+      CREATE TRIGGER photos_fts_ai AFTER INSERT ON photos BEGIN
+        INSERT INTO photos_fts (rowid, file_name, place, camera)
+        VALUES (new.rowid, new.file_name, new.place, new.camera);
+      END;
+      CREATE TRIGGER photos_fts_ad AFTER DELETE ON photos BEGIN
+        INSERT INTO photos_fts (photos_fts, rowid, file_name, place, camera)
+        VALUES ('delete', old.rowid, old.file_name, old.place, old.camera);
+      END;
+      CREATE TRIGGER photos_fts_au AFTER UPDATE ON photos BEGIN
+        INSERT INTO photos_fts (photos_fts, rowid, file_name, place, camera)
+        VALUES ('delete', old.rowid, old.file_name, old.place, old.camera);
+        INSERT INTO photos_fts (rowid, file_name, place, camera)
+        VALUES (new.rowid, new.file_name, new.place, new.camera);
+      END;
     `);
   },
 };
