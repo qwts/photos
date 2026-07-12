@@ -11,6 +11,11 @@
     "noFallthroughCasesInSwitch": true,
     "noPropertyAccessFromIndexSignature": true,
     "noEmitOnError": true,
+    // Lets Node-side projects (tests, tooling) type-check imports of renderer
+    // .tsx modules that have no relative-import/DOM dependencies (e.g. the
+    // Icon vocabulary test); full renderer test support is the DOM lane
+    // (#135).
+    "jsx": "react-jsx",
     "types": ["node"],
     "skipLibCheck": true
   },
