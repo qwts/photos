@@ -1,8 +1,7 @@
 # photos
 
-A photo library app.
-
-> Project description placeholder — expanded as feature work lands.
+Overlook — a privacy-first desktop photo library app (Electron + React 18 + Vite;
+see the wiki [ADR-0003](https://github.com/qwts/photos/wiki/ADR-0003-Desktop-Stack)).
 
 ## Local development
 
@@ -11,13 +10,15 @@ Requires the Node version pinned in [`.nvmrc`](.nvmrc) (`nvm use` picks it up).
 ```sh
 nvm use
 npm ci
+npm run dev   # opens the Electron window with renderer HMR
 ```
 
 ### Scripts
 
 | Script                     | Purpose                                                         |
 | -------------------------- | --------------------------------------------------------------- |
-| `npm run typecheck`        | Type-check the codebase (`tsc --noEmit`)                        |
+| `npm run dev`              | Electron with HMR renderer + main relaunch (`electron-vite`)    |
+| `npm run typecheck`        | Type-check all processes (root + main/preload/renderer)        |
 | `npm run lint`             | Pins + file sizes + ESLint + cycles + dead code + type coverage |
 | `npm run lint:package`     | Exact version pins in package.json (no ranges)                  |
 | `npm run lint:new-files`   | 800-line budget for files new on the branch                     |
@@ -29,7 +30,7 @@ npm ci
 | `npm run test`             | Typecheck, compile tests, run `node --test`                     |
 | `npm run test:cov`         | `test` under c8 with the `.c8rc.json` coverage floor            |
 | `npm run coverage:summary` | Render c8 totals vs. floor (CI step summary)                    |
-| `npm run build`            | Compile `src/` to `dist/` (`tsconfig.build.json`)               |
+| `npm run build`            | Bundle main/preload/renderer to `out/` (`electron-vite build`)  |
 | `npm run ci`               | Full local gate suite — mirrors the CI workflow                 |
 | `npm run test:e2e`         | Playwright E2E (builds app via global-setup)                    |
 
