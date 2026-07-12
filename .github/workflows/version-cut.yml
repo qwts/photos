@@ -112,6 +112,13 @@ jobs:
           version="v$(node -p "require('./package.json').version")"
           if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
             echo "$version already tagged."
+            # Recovery path (PR #178 review): a tag whose release dispatch
+            # failed — or predated release.yml — would otherwise be stranded.
+            if ! gh release view "$version" >/dev/null 2>&1; then
+              echo "$version has no release — dispatching."
+              gh workflow run release.yml --ref "$version" \
+                || echo "::notice::release.yml not dispatchable — $version still has no release."
+            fi
             exit 0
           fi
           git config user.name 'github-actions[bot]'
