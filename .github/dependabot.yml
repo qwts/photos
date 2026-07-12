@@ -29,6 +29,11 @@ updates:
       # electron + the driver together (issue #72 records the pin-down from 43.1.0).
       - dependency-name: electron
         versions: ['>=43']
+      # vite is capped by electron-vite@5's peer range (^3–^7); vite 8 fails
+      # `npm ci` outright (ERESOLVE, see PR #153). Remove once electron-vite
+      # ships a release whose peer range admits vite 8, and bump both together.
+      - dependency-name: vite
+        versions: ['>=8']
 
   # Keep the pinned action versions in .github/workflows current the same way.
   - package-ecosystem: github-actions
