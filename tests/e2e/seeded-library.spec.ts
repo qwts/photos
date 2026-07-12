@@ -23,7 +23,9 @@ test('boots a seeded temp profile deterministically', async () => {
   });
   try {
     const page = await app.firstWindow();
-    await page.waitForSelector('#root p');
+    // With photos present the shell renders the grid engine (#74), not the
+    // empty-state placeholder.
+    await page.getByTestId('virtual-grid').waitFor();
 
     const result = await page.evaluate(async () => {
       const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
@@ -43,15 +45,16 @@ test('boots a seeded temp profile deterministically', async () => {
     expect(result.counts.offloaded).toBeGreaterThan(0);
 
     // #73 exit criteria: the composed shell surfaces the seeded library —
-    // sidebar count, loaded-page readout, and statusbar total all live.
+    // sidebar count and statusbar total live; #74: the grid engine renders
+    // one cell per seeded photo (all 12 fit one window).
     await expect(page.getByRole('button', { name: 'All Photos 12' })).toBeVisible();
-    await expect(page.getByText('12 loaded · grid lands with #76')).toBeVisible();
     await expect(page.getByTestId('statusbar-left')).toHaveText('12 PHOTOS');
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
 
     // Source switching refetches the loaded page (PR #154 review): the seed
     // marks every 9th photo favorite, so 12 photos yield 2 favorites.
     await page.getByRole('button', { name: 'Favorites 2' }).click();
-    await expect(page.getByText('2 loaded · grid lands with #76')).toBeVisible();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(2);
   } finally {
     await app.close();
   }

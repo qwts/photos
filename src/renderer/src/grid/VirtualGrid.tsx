@@ -1,0 +1,145 @@
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
+
+import './grid.css';
+import type { PhotoRecord } from '../../../shared/library/types.js';
+import {
+  anchorIndex,
+  computeLayout,
+  needsMore,
+  scrollTopForAnchor,
+  tilePosition,
+  visibleRange,
+} from '../../../shared/library/grid-layout.js';
+import { createFrameMonitor } from './frame-monitor';
+
+const GRID_GAP = 4; // must equal --grid-gap (spacing tokens)
+const OVERSCAN_ROWS = 2;
+const PREFETCH_ROWS = 6;
+/** Scroll idle window after which the frame monitor detaches. */
+const SCROLL_IDLE_MS = 200;
+
+export interface VirtualGridProps {
+  readonly photos: readonly PhotoRecord[];
+  /** Total photos in the active source — sizes the scroll plane. */
+  readonly total: number;
+  readonly zoom: number;
+  /** Ask the data layer for the next cursor page (idempotent under spam). */
+  readonly onNeedMore: () => void;
+  /** Tile renderer — #74 ships a placeholder; #76 swaps in PhotoTile. */
+  readonly renderTile?: ((photo: PhotoRecord, size: number) => ReactNode) | undefined;
+}
+
+// Windowed rendering engine (#74): absolute-positioned tiles over an exact
+// scroll plane from grid-layout math. Only the visible window (+overscan)
+// mounts; scroll and resize drive state through rAF-throttled handlers.
+export function VirtualGrid({ photos, total, zoom, onNeedMore, renderTile }: VirtualGridProps): ReactElement {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const [scrollTop, setScrollTop] = useState(0);
+
+  const layout = useMemo(() => computeLayout({ viewportWidth: viewport.width, zoom, gap: GRID_GAP, total }), [viewport.width, zoom, total]);
+
+  // Viewport tracking: ResizeObserver keeps the math honest on window and
+  // inspector-panel resizes.
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (node === null) {
+      return;
+    }
+    const measure = (): void => {
+      setViewport({ width: node.clientWidth, height: node.clientHeight });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  // Zoom anchor restoration: before the layout for a new zoom paints, move
+  // the scroll position so the previous top-left photo stays visible.
+  const prevLayoutRef = useRef(layout);
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    const prev = prevLayoutRef.current;
+    prevLayoutRef.current = layout;
+    if (node === null || prev === layout || prev.tileSize === layout.tileSize) {
+      return;
+    }
+    const anchor = anchorIndex(prev, node.scrollTop);
+    if (anchor !== null) {
+      const restored = scrollTopForAnchor(layout, anchor);
+      node.scrollTop = restored;
+      setScrollTop(restored);
+    }
+  }, [layout]);
+
+  // rAF-throttled scroll → state, with the frame monitor attached only while
+  // scrolling (M11 budget instrumentation).
+  const monitorRef = useRef(createFrameMonitor());
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const frameRef = useRef(0);
+  const onScroll = useCallback(() => {
+    const node = containerRef.current;
+    if (node === null) {
+      return;
+    }
+    monitorRef.current.start();
+    clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      monitorRef.current.stop();
+    }, SCROLL_IDLE_MS);
+    cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => {
+      setScrollTop(node.scrollTop);
+    });
+  }, []);
+  useEffect(() => {
+    const monitor = monitorRef.current;
+    return () => {
+      cancelAnimationFrame(frameRef.current);
+      clearTimeout(idleTimerRef.current);
+      monitor.stop();
+    };
+  }, []);
+
+  const range = visibleRange(layout, scrollTop, viewport.height, OVERSCAN_ROWS);
+
+  // Data windowing: request the next cursor page as the window nears the
+  // loaded frontier. The parent guards in-flight/stale requests.
+  useEffect(() => {
+    if (needsMore(layout, range, photos.length, PREFETCH_ROWS)) {
+      onNeedMore();
+    }
+  }, [layout, range, photos.length, onNeedMore]);
+
+  const tiles: ReactNode[] = [];
+  for (let index = range.firstIndex; index <= range.lastIndex; index += 1) {
+    const photo = photos[index];
+    const { left, top } = tilePosition(layout, index);
+    tiles.push(
+      <div
+        key={index}
+        className="ovl-grid__cell"
+        data-index={index}
+        style={{ transform: `translate(${left}px, ${top}px)`, width: layout.tileSize, height: layout.tileSize }}
+      >
+        {photo !== undefined && renderTile !== undefined ? (
+          renderTile(photo, layout.tileSize)
+        ) : (
+          <div className={`ovl-grid__placeholder${photo === undefined ? ' ovl-grid__placeholder--loading' : ''}`} />
+        )}
+      </div>,
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="ovl-grid" data-testid="virtual-grid" onScroll={onScroll}>
+      <div className="ovl-grid__plane" style={{ height: layout.totalHeight }}>
+        {tiles}
+      </div>
+    </div>
+  );
+}
