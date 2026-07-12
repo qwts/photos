@@ -1,0 +1,106 @@
+/* Feedback + media primitives (#62) — ProgressBar, StatusGlyph, MetadataRow.
+   The syncing spin lives here as real keyframes (the mock injected a style
+   tag). */
+.ovl-progress {
+  font-family: var(--font-ui);
+}
+
+.ovl-progress__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+  gap: var(--space-3);
+}
+
+.ovl-progress__label {
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.ovl-progress__detail {
+  font: var(--type-meta);
+  color: var(--text-faint);
+  letter-spacing: var(--tracking-mono);
+  white-space: nowrap;
+}
+
+.ovl-progress__track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--gray-3);
+  overflow: hidden;
+}
+
+.ovl-progress__fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.ovl-progress__fill--cyan {
+  background: var(--accent-cyan);
+}
+
+.ovl-progress__fill--amber {
+  background: var(--accent-amber);
+}
+
+.ovl-progress__fill--green {
+  background: var(--accent-green);
+}
+
+/* Glyph capsule over photos: 70% dark + blur per the DS transparency rule. */
+.ovl-status-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex: none;
+  background: oklch(0.12 0.005 250 / 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.ovl-status-glyph--syncing svg {
+  animation: ovl-spin 1.2s linear infinite;
+}
+
+@keyframes ovl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ovl-metadata-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: 3px 0;
+}
+
+.ovl-metadata-row__label {
+  width: 88px;
+  flex: none;
+  font: var(--type-meta);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ovl-metadata-row__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-body);
+}
+
+.ovl-metadata-row__value--sans {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+}
