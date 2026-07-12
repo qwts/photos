@@ -41,6 +41,12 @@ test('boots a seeded temp profile deterministically', async () => {
     }
     expect(result.counts.all).toBe(12);
     expect(result.counts.offloaded).toBeGreaterThan(0);
+
+    // #73 exit criteria: the composed shell surfaces the seeded library —
+    // sidebar count, loaded-page readout, and statusbar total all live.
+    await expect(page.getByRole('button', { name: 'All Photos 12' })).toBeVisible();
+    await expect(page.getByText('12 loaded · grid lands with #76')).toBeVisible();
+    await expect(page.getByTestId('statusbar-left')).toHaveText('12 PHOTOS');
   } finally {
     await app.close();
   }

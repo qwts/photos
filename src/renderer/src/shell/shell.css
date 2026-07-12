@@ -1,0 +1,86 @@
+/* Fixed chrome composition (#73) per README §1: TitleBar → Toolbar →
+   (Sidebar | content | Inspector?) → StatusBar, all dims from tokens. The
+   regions are structural placeholders their feature issues fill in
+   (#74–#81). */
+.ovl-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ovl-shell__toolbar {
+  flex: none;
+  height: var(--toolbar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-1);
+  background: var(--gray-0);
+}
+
+.ovl-shell__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.ovl-shell__sidebar {
+  flex: none;
+  width: var(--sidebar-w);
+  border-right: 1px solid var(--border-1);
+  background: var(--surface-panel);
+  padding: var(--space-4);
+  overflow: auto;
+}
+
+.ovl-shell__content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  background: var(--surface-window);
+}
+
+.ovl-shell__inspector {
+  flex: none;
+  width: var(--inspector-w);
+  border-left: 1px solid var(--border-1);
+  background: var(--surface-panel);
+  padding: var(--space-5);
+  overflow: auto;
+}
+
+.ovl-shell__statusbar {
+  flex: none;
+  height: var(--statusbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  border-top: 1px solid var(--border-1);
+  background: var(--gray-0);
+}
+
+.ovl-shell__source-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.ovl-shell__source-row:hover {
+  background: var(--gray-3);
+}
+
+.ovl-shell__source-row--active {
+  background: var(--gray-3);
+  color: var(--text-body);
+}

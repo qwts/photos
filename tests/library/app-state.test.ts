@@ -1,0 +1,107 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  appReducer,
+  initialAppState,
+  ZOOM_DEFAULT,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  type AppAction,
+  type AppState,
+} from '../../src/shared/library/app-state.js';
+
+function apply(state: AppState, ...actions: AppAction[]): AppState {
+  return actions.reduce(appReducer, state);
+}
+
+describe('app state reducer', () => {
+  test('zoom clamps to the design range', () => {
+    assert.equal(initialAppState.zoom, ZOOM_DEFAULT);
+    assert.equal(apply(initialAppState, { type: 'zoom/set', zoom: 10 }).zoom, ZOOM_MIN);
+    assert.equal(apply(initialAppState, { type: 'zoom/set', zoom: 9999 }).zoom, ZOOM_MAX);
+    assert.equal(apply(initialAppState, { type: 'zoom/set', zoom: 200 }).zoom, 200);
+  });
+
+  test('selection toggles, selects all, clears', () => {
+    let state = apply(initialAppState, { type: 'selection/toggled', photoId: 'a' }, { type: 'selection/toggled', photoId: 'b' });
+    assert.deepEqual([...state.selection].sort(), ['a', 'b']);
+    state = apply(state, { type: 'selection/toggled', photoId: 'a' });
+    assert.deepEqual([...state.selection], ['b']);
+    state = apply(state, { type: 'selection/all', photoIds: ['x', 'y', 'z'] });
+    assert.equal(state.selection.size, 3);
+    state = apply(state, { type: 'selection/cleared' });
+    assert.equal(state.selection.size, 0);
+  });
+
+  test('source and chip changes reset the selection (visible set changed)', () => {
+    const selected = apply(initialAppState, { type: 'selection/all', photoIds: ['a', 'b'] });
+    assert.equal(apply(selected, { type: 'source/set', source: 'favorites' }).selection.size, 0);
+    const chipped = apply(selected, { type: 'chip/toggled', chip: 'raw' });
+    assert.equal(chipped.selection.size, 0);
+    assert.equal(chipped.chips.raw, true);
+    assert.equal(apply(chipped, { type: 'chip/toggled', chip: 'raw' }).chips.raw, false);
+  });
+
+  test('escape exits the lightbox when open, otherwise clears selection', () => {
+    const withBoth = apply(initialAppState, { type: 'selection/all', photoIds: ['a'] }, { type: 'lightbox/opened', photoId: 'a' });
+    const afterFirst = apply(withBoth, { type: 'escape' });
+    assert.equal(afterFirst.lightboxId, null);
+    assert.equal(afterFirst.selection.size, 1, 'selection survives the lightbox exit');
+    const afterSecond = apply(afterFirst, { type: 'escape' });
+    assert.equal(afterSecond.selection.size, 0);
+  });
+
+  test('dialog flags set independently', () => {
+    const state = apply(
+      initialAppState,
+      { type: 'dialog/set', dialog: 'import', open: true },
+      { type: 'dialog/set', dialog: 'settings', open: true },
+      { type: 'dialog/set', dialog: 'import', open: false },
+    );
+    assert.deepEqual(
+      { importOpen: state.importOpen, exportOpen: state.exportOpen, settingsOpen: state.settingsOpen },
+      { importOpen: false, exportOpen: false, settingsOpen: true },
+    );
+  });
+
+  test('photo pages replace or append', () => {
+    const a = { id: 'a' } as AppState['photos'][number];
+    const b = { id: 'b' } as AppState['photos'][number];
+    const loaded = apply(initialAppState, { type: 'photos/loaded', photos: [a], append: false });
+    assert.equal(loaded.photos.length, 1);
+    const appended = apply(loaded, { type: 'photos/loaded', photos: [b], append: true });
+    assert.deepEqual(
+      appended.photos.map((photo) => photo.id),
+      ['a', 'b'],
+    );
+    const replaced = apply(appended, { type: 'photos/loaded', photos: [b], append: false });
+    assert.deepEqual(
+      replaced.photos.map((photo) => photo.id),
+      ['b'],
+    );
+  });
+
+  test('pendingCount and backup label track IPC pushes', () => {
+    const state = apply(initialAppState, { type: 'pendingCount/set', count: 42 }, { type: 'backupLabel/set', label: 'JUST NOW' });
+    assert.equal(state.pendingCount, 42);
+    assert.equal(state.lastBackupLabel, 'JUST NOW');
+  });
+
+  test('query, view, explicit lightbox close, and toast lifecycle', () => {
+    let state = apply(
+      initialAppState,
+      { type: 'query/set', query: 'kyoto' },
+      { type: 'view/set', view: 'list' },
+      { type: 'lightbox/opened', photoId: 'a' },
+      { type: 'lightbox/closed' },
+      { type: 'toast/shown', toast: { title: 'EXPORTED', tone: 'green' } },
+    );
+    assert.equal(state.query, 'kyoto');
+    assert.equal(state.view, 'list');
+    assert.equal(state.lightboxId, null);
+    assert.equal(state.toast?.title, 'EXPORTED');
+    state = apply(state, { type: 'toast/dismissed' });
+    assert.equal(state.toast, null);
+  });
+});

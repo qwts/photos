@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import './app.css';
-import { TitleBar } from './components/TitleBar';
-import { TokenSpecimen } from './TokenSpecimen';
+import { AppStateProvider } from './state/app-state-context';
+import { Shell } from './shell/Shell';
 
-// Shell: real TitleBar chrome (#58) over the token specimen placeholder —
-// the remaining app chrome (Toolbar, Sidebar, StatusBar) arrives with M04+.
+// App root (#73): platform lookup + state provider around the composed
+// shell. The token specimen moved to Storybook-only duty with this change.
 export function App(): ReactElement {
   // Until the platform round-trip resolves, render the mac variant: it draws
   // no controls, so a wrong first frame on win/linux flashes nothing broken.
@@ -16,22 +16,8 @@ export function App(): ReactElement {
   }, []);
 
   return (
-    <div className="app-shell">
-      <TitleBar
-        platform={platform}
-        onMinimize={() => {
-          void window.overlook.minimizeWindow();
-        }}
-        onToggleMaximize={() => {
-          void window.overlook.toggleMaximizeWindow();
-        }}
-        onClose={() => {
-          void window.overlook.closeWindow();
-        }}
-      />
-      <main className="app-shell__content">
-        <TokenSpecimen />
-      </main>
-    </div>
+    <AppStateProvider>
+      <Shell platform={platform} />
+    </AppStateProvider>
   );
 }
