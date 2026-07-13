@@ -21,7 +21,7 @@ import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
 import { BackupEngine } from './backup/backup-engine.js';
-import { MockProvider } from './backup/mock-provider.js';
+import { FaultInjectingProvider, MockProvider } from './backup/mock-provider.js';
 import { OffloadService } from './backup/offload.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createEncryptStream } from './crypto/envelope.js';
@@ -325,7 +325,15 @@ function getBackupEngine(): BackupEngine {
     // Until M09's settings surface exists, defaults apply: unlimited
     // bandwidth, no Wi-Fi gate, manual backups only. Electron cannot tell
     // interface types portably — 'unknown' is the recorded heuristic.
-    const provider = new MockProvider({ rootDir: path.join(app.getPath('userData'), 'library', 'mock-remote') });
+    const baseProvider = new MockProvider({ rootDir: path.join(app.getPath('userData'), 'library', 'mock-remote') });
+    // Harness hook (#110, OVERLOOK_* family): arm a provider fault for the
+    // E2E error-path flows (e.g. OVERLOOK_BACKUP_FAULT=put).
+    const faultyProvider = new FaultInjectingProvider(baseProvider);
+    const fault = process.env['OVERLOOK_BACKUP_FAULT'];
+    if (fault === 'put' || fault === 'verify-mismatch' || fault === 'auth-expired' || fault === 'transient-get') {
+      faultyProvider.arm(fault);
+    }
+    const provider = faultyProvider;
     backupEngine = new BackupEngine({
       provider,
       ledger,
