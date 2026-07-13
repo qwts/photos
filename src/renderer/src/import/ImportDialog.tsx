@@ -72,6 +72,18 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
   const [sd, setSd] = useState<SdState>({ status: 'scanning' });
   const [folder, setFolder] = useState<FolderState>({ status: 'empty' });
   const [drop, setDrop] = useState<DropState>({ status: 'scanning' });
+  // A drop can land while the dialog is already open (toolbar-opened, or a
+  // second drop): re-select the Dropped segment so the footer imports what
+  // the user just dropped (PR #249 review). During-render adjustment, per
+  // the repo's set-state-in-effect stance.
+  const [seenDropped, setSeenDropped] = useState(dropped);
+  if (dropped !== seenDropped) {
+    setSeenDropped(dropped);
+    if (dropped !== null) {
+      setSource('drop');
+      setDrop({ status: 'scanning' });
+    }
+  }
 
   // "On import" is the SAME setting as Settings → Storage & Backup (#114):
   // the dialog opens with the stored preference and a change here persists

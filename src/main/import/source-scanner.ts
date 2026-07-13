@@ -156,8 +156,17 @@ async function scanCandidates(
     if (signal?.aborted === true) {
       break; // cancel promptly — no more hashing I/O (PR #186 review)
     }
-    const { size } = await stat(candidate.path);
-    const contentHash = await hashFile(candidate.path);
+    // One unreadable/vanished file must not sink the batch — skip it and
+    // keep scanning the rest (PR #249 review; matches the directory walk's
+    // skip-unreadable stance).
+    let size: number;
+    let contentHash: string;
+    try {
+      size = (await stat(candidate.path)).size;
+      contentHash = await hashFile(candidate.path);
+    } catch {
+      continue;
+    }
     const isNew = !deps.hasContentHash(contentHash);
     if (isNew) {
       newCount += 1;

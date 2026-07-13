@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { run } from '../../src/main/db/sql.js';
-import { listVolumes, scanSource, folderSource, type VolumeListerDeps } from '../../src/main/import/source-scanner.js';
+import { listVolumes, scanFiles, scanSource, folderSource, type VolumeListerDeps } from '../../src/main/import/source-scanner.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import { classifyMediaFile } from '../../src/shared/library/media-files.js';
 
@@ -142,6 +142,24 @@ describe('source scan (#84)', () => {
     });
     const rescan = await scanSource(dir, { hasContentHash: (hash) => repo.hasContentHash(hash) });
     assert.equal(rescan.summary.newCount, scan.summary.newCount - 1);
+  });
+});
+
+describe('dropped-file scan (#237)', () => {
+  test('explicit paths: allowlist filter, NEW dedupe, and per-file skip of vanished paths', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'overlook-scanfiles-'));
+    writeFileSync(join(dir, 'a.jpg'), randomBytes(64));
+    writeFileSync(join(dir, 'b.raf'), randomBytes(64));
+    writeFileSync(join(dir, 'notes.txt'), 'not media');
+    const { summary, files } = await scanFiles([join(dir, 'a.jpg'), join(dir, 'b.raf'), join(dir, 'notes.txt'), join(dir, 'gone.jpg')], {
+      hasContentHash: () => false,
+    });
+    // notes.txt fails the allowlist; gone.jpg vanished — neither sinks the
+    // batch (PR #249 review), and the two real photos scan through.
+    assert.equal(summary.newCount, 2);
+    assert.equal(summary.newRaw, 1);
+    assert.equal(summary.newJpg, 1);
+    assert.deepEqual(files.map((file) => file.fileName).sort(), ['a.jpg', 'b.raf']);
   });
 });
 
