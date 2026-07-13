@@ -46,9 +46,8 @@ export interface SidebarProps {
 
 // The 216px navigation rail (#80) per the design's Sidebar.jsx. Albums are
 // display-only until M10's CRUD (the + affordance is inert); the backup card
-// shows the encrypted badge, the M09 settings entry (stub toast), an inert
-// ProgressBar slot while photos are pending (live in M08), and the mono
-// storage line (cloud share joins in M08).
+// shows the encrypted badge, the settings gear (opens the M09 dialog), a
+// live aggregate bar while a backup runs (#108), and the mono storage line.
 export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -101,7 +100,7 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
             className="ovl-sidebar__gear"
             aria-label="Settings"
             onClick={() => {
-              dispatch({ type: 'toast/shown', toast: { title: 'SETTINGS LANDS WITH M09', tone: 'neutral' } });
+              dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
             }}
           >
             <Icon name="settings-2" size={13} color="var(--text-faint)" />

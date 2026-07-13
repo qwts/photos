@@ -9,6 +9,7 @@ import { Toast } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ExportDialog } from '../export/ExportDialog';
+import { SettingsDialog } from '../settings/SettingsDialog';
 import { ImportDialog, type ImportDialogSource } from '../import/ImportDialog';
 import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
@@ -187,6 +188,14 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           photoIds={state.lightboxId !== null ? [state.lightboxId] : [...state.selection]}
           onClose={() => {
             dispatch({ type: 'dialog/set', dialog: 'export', open: false });
+          }}
+        />
+      ) : null}
+      {state.settingsOpen ? (
+        <SettingsDialog
+          open
+          onClose={() => {
+            dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
           }}
         />
       ) : null}

@@ -40,6 +40,17 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     // And get() agrees — main's store is the single truth.
     const after = await page.evaluate<{ settings: { sortOrder: string } }>(`window.overlook.settings.get()`);
     expect(after.settings.sortOrder).toBe('name');
+
+    // #112: the sidebar gear opens the dialog, Storage & Backup is the
+    // default-open section, and Esc closes it.
+    await page.getByRole('button', { name: 'Settings' }).click();
+    const dialog = page.getByTestId('settings-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Storage & Backup' })).toHaveAttribute('aria-current', 'true');
+    await page.getByRole('button', { name: 'General' }).click();
+    await expect(page.getByTestId('settings-pane')).toContainText('General settings land here next.');
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
   } finally {
     await app.close();
   }
