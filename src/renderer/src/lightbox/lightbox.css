@@ -1,0 +1,101 @@
+/* Lightbox (#92) — README §3: overlay above the shell, protect-gradient
+ * strips (never solid bars), 200ms ease-out chrome fades. */
+
+.ovl-lightbox {
+  position: absolute;
+  inset: 0;
+  /* Above the shell (toast layer 10), below modal dialogs (scrim 200). */
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gray-0);
+}
+
+.ovl-lightbox__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.ovl-lightbox__preview {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  color: var(--text-faint);
+  font: var(--type-meta);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+/* Shared chrome fade: hidden by default, 200ms ease-out both ways. */
+.ovl-lightbox__chrome {
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out);
+  pointer-events: none;
+}
+
+.ovl-lightbox__chrome--on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ovl-lightbox__top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--space-1) * 1.5);
+  padding: calc(var(--space-2) + var(--space-1) / 2) var(--space-3);
+  background: linear-gradient(to bottom, oklch(0.1 0.005 250 / 0.75), transparent);
+}
+
+.ovl-lightbox__title {
+  flex: 1;
+  text-align: center;
+  padding-top: var(--space-1);
+  font: var(--type-meta);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.ovl-lightbox__nav {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 calc(var(--space-2) + var(--space-1) / 2);
+  background: none;
+}
+
+/* Arrows stay clickable when chrome is on; the row itself never blocks. */
+.ovl-lightbox__nav.ovl-lightbox__chrome--on {
+  pointer-events: none;
+}
+
+.ovl-lightbox__nav.ovl-lightbox__chrome--on > * {
+  pointer-events: auto;
+}
+
+.ovl-lightbox__strip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 46px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: calc(var(--space-2) + var(--space-1) / 2);
+  background: var(--protect-grad);
+}
+
+.ovl-lightbox__strip .mono-data {
+  font: var(--type-meta);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}

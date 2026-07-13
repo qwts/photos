@@ -54,6 +54,11 @@ const VOCABULARY = [
   // (#80): All Photos row and the albums + affordance.
   'images',
   'plus',
+  // Lightbox glyphs the design's Lightbox.jsx uses beyond the readme list
+  // (#92): back control and the side navigation arrows.
+  'arrow-left',
+  'chevron-left',
+  'chevron-right',
 ] as const;
 
 describe('Icon', () => {
