@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed (awaiting owner ratification — issue
-[#102](https://github.com/qwts/photos/issues/102))
+Accepted (2026-07-13, at M08 start per the standing goal-run authorization;
+the owner may veto or amend on issue
+[#102](https://github.com/qwts/photos/issues/102) — the M08 engine builds
+against these sections)
 
 ## Context
 
