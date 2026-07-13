@@ -1,5 +1,64 @@
 # photos
 
+## 0.3.0
+
+### Minor Changes
+
+- 0f1fb01: Export engine (#97): selected photos become real files in a chosen folder —
+  streaming decrypt straight to the destination with original filenames
+  (collisions get a recorded numbered suffix), free-space preflight before any
+  bytes move, ordered n/total progress events, and cancellation that finishes
+  the file in flight and keeps completed files. New `export:*` IPC surface
+  (pick-destination via the OS folder picker, run, cancel, progress). v1 ships
+  no encrypted-export format — the dialog's decrypt-off switch will simply
+  disable Export (recorded on #97).
+- ff70239: ImportDialog (#88): the design's 420px import flow over the real engine —
+  options (scanned source card with mono counts, Copy/Move with the verbatim
+  Move warning, always-on encrypt switch, exact "Import N photos" count),
+  running (two live ProgressBars fed by the engine's copy and thumbnail
+  streams), done ("Show in library" jumps to Recent imports). The toolbar's
+  Import button now opens it against the first available source.
+- 372a47a: Import flow closed out (#90): the full path is proven end-to-end in CI —
+  fixture card in (via the `OVERLOOK_IMPORT_SOURCE` harness seam), encrypted
+  library out, with no plaintext fixture bytes anywhere in the profile and
+  Move sources emptied only after per-file verification. The running dialog
+  gains a real Cancel (`import:cancel`): the engine finishes the file in
+  flight, keeps everything completed, finalizes the remainder as cancelled
+  (sources untouched), and reports exact counts.
+- e24a33d: Inspector (#94): the 280px right-docked truth panel — header with thumb,
+  name, date · place and StatusGlyph; Encrypted/RAW-JPG/Favorite badges;
+  grouped Capture/File/Backup MetadataRows with interpunct-joined mono values.
+  Missing EXIF rows are omitted (never fabricated), the backup row states only
+  what the ledger knows, and the cipher row reads the photo's real key id. In
+  the lightbox the overlay yields the right rail so the panel docks beside the
+  photo; in the grid it reflects a single selection.
+- 028a728: Lightbox keyboard (#93): ←/→ step the visible filtered sequence with
+  wraparound via a pure reducer action shared with the on-screen arrows,
+  neighbor prefetch now fires on every lightbox change (keys or clicks),
+  i/I toggles the Inspector, and Esc keeps its dual semantics — all without
+  clicking to focus.
+- 58bc8a4: Lightbox mutations (#95): the favorite toggle is proven end-to-end — ledger
+  dirties (pendingCount), StatusBar flips amber with exact counts, and the
+  grid tile's star appears via targeted change pushes with no reload. The
+  delete control is explicitly labeled as the M10 soft-delete seam.
+- 1c676a9: Lightbox (#92): full-window image-first view over the decrypt-to-view
+  delivery layer — aspect-fit photo via `overlook-full://`, PREVIEW badge on
+  RAW records, top bar (back/favorite/export/inspector/delete), side arrows
+  with wraparound and neighbor prefetch, EXIF strip on the protect-gradient,
+  and chrome that fades in on mousemove and auto-hides after 2.2s idle.
+- 74c80e4: Import completion toast (#89): a clean import shows the green "Imported N
+  photos" toast (exact counts) with a Show action that jumps to Recent imports;
+  toasts now auto-dismiss at 4s per the design's ToastHost. The toast action is
+  a serializable marker in the shared reducer, mapped to its handler by the
+  shell.
+
+### Patch Changes
+
+- 351aff8: Lightbox chrome can now actually auto-hide while the pointer rests on it:
+  Chromium re-dispatches a synthetic mousemove when the fade's pointer-events
+  flip changes hit-testing under a stationary cursor, which re-woke the chrome
+  in a loop. Stationary events are now ignored; only real movement wakes.
+
 ## 0.2.0
 
 ### Minor Changes
