@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -42,15 +43,20 @@ test('select 3 → pill Export → run → 3 byte-faithful decrypted files on di
     await expect(page.getByText('3 photos exported and decrypted.')).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Done' }).click();
 
-    // On disk: 3 files, each a decodable JPEG that decrypted byte-faithfully
-    // (seed originals are real JPEGs — SOI marker suffices as "openable"
-    // plus exact size checks against the seeded records).
+    // On disk: 3 files, PROVEN byte-faithful — each exported file's sha256
+    // and size must equal the library row's content hash (the plaintext
+    // digest) and byte count (PR #199 review).
+    const rows = await page.evaluate<{ fileName: string; contentHash: string; bytes: number }[]>(
+      `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => ({ fileName: p.fileName, contentHash: p.contentHash, bytes: p.bytes })))`,
+    );
     const files = readdirSync(destination).sort();
     expect(files).toEqual(['IMG_4028.JPG', 'IMG_4035.JPG', 'IMG_4042.JPG']);
     for (const name of files) {
       const bytes = readFileSync(join(destination, name));
-      expect(bytes[0]).toBe(0xff);
-      expect(bytes[1]).toBe(0xd8);
+      const row = rows.find((candidate) => candidate.fileName === name);
+      expect(row, `library row for ${name}`).toBeDefined();
+      expect(bytes.length).toBe(row?.bytes);
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(row?.contentHash);
     }
   } finally {
     await app.close();
@@ -88,6 +94,7 @@ test('full circle: import a real RAF, lightbox-export as JPEG from its preview',
     const bytes = readFileSync(join(destination, 'sample.jpg'));
     expect(bytes[0]).toBe(0xff);
     expect(bytes[1]).toBe(0xd8);
+    expect(bytes.length).toBeGreaterThan(100); // a real re-encode (the fixture preview is 1×1), not a stub or empty file
   } finally {
     await app.close();
   }
