@@ -115,7 +115,12 @@ test('sidebar: source switching refilters; counts live-update on mutation', asyn
     await expect(grid.locator('.ovl-grid__cell')).toHaveCount(2);
     await page.getByRole('button', { name: 'All Photos 12' }).click();
     await expect(grid.locator('.ovl-grid__cell')).toHaveCount(12);
-    await expect(page.getByRole('button', { name: 'Travel 2026 3' })).toBeDisabled();
+    // Albums went live with #117: a seed album filters the grid like a
+    // source and hands back to All Photos cleanly.
+    await page.getByRole('button', { name: 'Travel 2026 3' }).click();
+    await expect(grid.locator('.ovl-grid__cell')).toHaveCount(3);
+    await page.getByRole('button', { name: 'All Photos 12' }).click();
+    await expect(grid.locator('.ovl-grid__cell')).toHaveCount(12);
 
     await page.evaluate(async () => {
       // type-coverage:ignore-next-line

@@ -20,7 +20,9 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
   const dispatch = useAppDispatch();
   const { loadMore, exhausted } = useLibraryPhotos();
 
-  const filtersActive = state.query !== '' || Object.values(state.chips).some(Boolean);
+  // An active album narrows like query/chips do (#117): the sidebar count
+  // sized for the source no longer applies — track the loaded set instead.
+  const filtersActive = state.query !== '' || state.album !== null || Object.values(state.chips).some(Boolean);
   const total = filtersActive || knownTotal === null ? (exhausted ? state.photos.length : state.photos.length + 1) : knownTotal;
 
   if (total === 0) {
