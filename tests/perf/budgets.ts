@@ -10,9 +10,9 @@ export const BUDGETS = {
   coldStartMs: 5_000,
   /** Median keyset page of 500 over IPC. */
   page500Ms: 250,
-  /** Median sidebar counts over IPC — five count queries, the offloaded/
-   * localOnly subqueries dominate at 200K; #124 owns tightening this. */
-  countsMs: 1_000,
+  /** Median sidebar counts over IPC — one FILTER-clause pass over the
+   * ledger join (#124 tightened this from 1000: 689ms → 378ms measured). */
+  countsMs: 500,
   /** Median substring search page over IPC. */
   searchMs: 600,
   /** Dropped-frame share during sustained scroll, any zoom. Zoom 96 is
