@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
-import { link, mkdir, open, readdir, rm } from 'node:fs/promises';
+import { link, mkdir, open, readdir, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -111,9 +111,18 @@ export class BlobStore {
     return [...hashes];
   }
 
-  /** Staging leftovers — a crash mid-put strands ciphertext in tmp/. */
-  async listStaged(): Promise<string[]> {
-    return (await readdir(this.tmpDir, { withFileTypes: true })).filter((entry) => entry.isFile()).map((entry) => entry.name);
+  /** Staging entries with ages — a crash mid-put strands ciphertext in
+   * tmp/, but LIVE puts stage here too; callers must age-gate (#125: the
+   * startup repair once reaped the seeder's in-flight stage file). */
+  async listStaged(): Promise<{ name: string; ageMs: number }[]> {
+    const entries = (await readdir(this.tmpDir, { withFileTypes: true })).filter((entry) => entry.isFile());
+    const now = Date.now();
+    const out: { name: string; ageMs: number }[] = [];
+    for (const entry of entries) {
+      const info = await stat(join(this.tmpDir, entry.name));
+      out.push({ name: entry.name, ageMs: now - info.mtimeMs });
+    }
+    return out;
   }
 
   async removeStaged(name: string): Promise<void> {
