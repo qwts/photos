@@ -1,0 +1,82 @@
+/* ExportDialog (#99) — design ExportDialog.jsx.txt, tokens only. */
+
+.ovl-export__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ovl-export__card {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-2) + var(--space-1) / 2);
+  background: var(--gray-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  padding: calc(var(--space-2) + var(--space-1) / 2) var(--space-3);
+  color: var(--text-muted);
+}
+
+.ovl-export__cardTitle {
+  font-size: var(--text-md);
+  color: var(--text-body);
+  font-weight: 500;
+}
+
+.ovl-export__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+.ovl-export__decrypt {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ovl-export__decryptTitle {
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+.ovl-export__decryptHint {
+  font: var(--type-meta);
+  color: var(--text-faint);
+  margin-top: calc(var(--space-1) / 2);
+  max-width: 260px;
+}
+
+.ovl-export__warning {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.5);
+  color: var(--accent-amber);
+  font: var(--type-meta);
+}
+
+.ovl-export__running {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-3) + var(--space-1) / 2);
+  padding: var(--space-1) 0;
+}
+
+.ovl-export__done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent-green);
+  font-size: var(--text-md);
+}
+
+.ovl-export__failed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--accent-amber);
+  font-size: var(--text-md);
+}

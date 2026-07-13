@@ -59,6 +59,10 @@ const VOCABULARY = [
   'arrow-left',
   'chevron-left',
   'chevron-right',
+  // ExportDialog glyphs the design's ExportDialog.jsx uses beyond the readme
+  // list (#99): the folder picker and the done check.
+  'folder',
+  'circle-check',
 ] as const;
 
 describe('Icon', () => {
