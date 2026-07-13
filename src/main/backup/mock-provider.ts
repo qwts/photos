@@ -22,7 +22,18 @@ export interface MockProviderOptions {
 const DEFAULT_TOTAL = 10 * 1024 * 1024 * 1024;
 
 function assertSafeRelative(path: string): void {
-  if (path.startsWith('/') || path.split('/').includes('..') || path === '') {
+  // Remote paths are OUR vocabulary: forward-slash relative segments only.
+  // Backslashes and drive letters would re-split under Windows node:path
+  // (PR #200 review), so they are rejected outright, as are traversal and
+  // empty segments.
+  const segments = path.split('/');
+  if (
+    path === '' ||
+    path.startsWith('/') ||
+    path.includes('\\') ||
+    path.includes(':') ||
+    segments.some((segment) => segment === '' || segment === '..')
+  ) {
     throw new ProviderError(`unsafe remote path: ${path}`, 'corrupt');
   }
 }
@@ -63,10 +74,15 @@ export class MockProvider implements StorageProvider {
     this.assertAuth();
     const target = this.resolve(path);
     const { usedBytes } = await this.quota();
+    // Replacements free their old bytes — quota compares FINAL usage
+    // (PR #200 review), so an in-quota overwrite is never rejected.
+    const existing = await stat(target)
+      .then((info) => info.size)
+      .catch(() => 0);
     await mkdir(dirname(target), { recursive: true });
     await pipeline(bytes, createWriteStream(target));
     const written = (await stat(target)).size;
-    if (usedBytes + written > this.totalBytes) {
+    if (usedBytes - existing + written > this.totalBytes) {
       await rm(target, { force: true });
       throw new ProviderError('quota exceeded', 'quota');
     }
@@ -110,8 +126,11 @@ export class MockProvider implements StorageProvider {
   }
 
   async quota(): Promise<ProviderQuota> {
+    // No catch: a disconnected provider fails this data call with kind=auth
+    // like every other (PR #200 review); an empty/missing root lists as [].
+    this.assertAuth();
     let usedBytes = 0;
-    for (const entry of await this.list('.').catch(() => [] as RemoteEntry[])) {
+    for (const entry of await this.list('.')) {
       usedBytes += entry.bytes;
     }
     return { usedBytes, totalBytes: this.totalBytes };
