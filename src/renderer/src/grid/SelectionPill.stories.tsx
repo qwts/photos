@@ -21,13 +21,14 @@ type Story = StoryObj<typeof SelectionPill>;
 const onClear = fn();
 
 // #78 exit criteria: counts render with thousands separators; the bulk
-// actions are visible-but-disabled entry points; clear-× works.
+// actions are entry points — Export is live (#100), the rest disabled
+// until their epics; clear-× works.
 export const ThousandsSeparatorAndClear: Story = {
   args: { count: 12_345, onClear },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(await canvas.findByText('12,345 SELECTED')).toBeInTheDocument();
-    await expect(canvas.getByRole('button', { name: /Export/ })).toBeDisabled();
+    await expect(canvas.getByRole('button', { name: /Export/ })).toBeEnabled();
     await expect(canvas.getByRole('button', { name: /Add to album/ })).toBeDisabled();
     await expect(canvas.getByRole('button', { name: /Delete/ })).toBeDisabled();
     await userEvent.click(canvas.getByRole('button', { name: 'Clear selection' }));

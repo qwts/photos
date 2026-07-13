@@ -8,6 +8,7 @@ import { TitleBar } from '../components/TitleBar';
 import { Toast } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
 import { fullUrl } from '../../../shared/library/full-url.js';
+import { ExportDialog } from '../export/ExportDialog';
 import { ImportDialog, type ImportDialogSource } from '../import/ImportDialog';
 import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
@@ -141,6 +142,17 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           }}
         />
       ) : null}
+      {state.exportOpen ? (
+        <ExportDialog
+          open
+          // The focused photo wins (lightbox entry, count=1); otherwise the
+          // selection set (#100). Selection is preserved through the flow.
+          photoIds={state.lightboxId !== null ? [state.lightboxId] : [...state.selection]}
+          onClose={() => {
+            dispatch({ type: 'dialog/set', dialog: 'export', open: false });
+          }}
+        />
+      ) : null}
       {(() => {
         // Lightbox (#92): overlay above the shell, driven by reducer state.
         // Arrows and keys (#93) share the reducer's lightbox/stepped
@@ -172,7 +184,8 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
               dispatch({ type: 'inspector/toggled' });
             }}
             onExport={() => {
-              dispatch({ type: 'toast/shown', toast: { title: 'EXPORT LANDS WITH M07', tone: 'neutral' } });
+              // Lightbox entry point (#100): count=1, the focused photo.
+              dispatch({ type: 'dialog/set', dialog: 'export', open: true });
             }}
           />
         );
