@@ -1,5 +1,39 @@
 # photos
 
+## 0.5.0
+
+### Minor Changes
+
+- 61d8168: Backup engine (#105, ADR-0007): the ledger's dirty set flows to the provider
+  as a resumable queue — ciphertext uploads byte-for-byte (encrypt-once), an
+  encrypted manifest generation seals per batch (N=2 retained), transient
+  failures retry with exponential backoff while auth/quota stop the run, the
+  bandwidth throttle rests proportionally between items, the Wi-Fi-only gate
+  skips metered networks ('unknown' proceeds as the recorded heuristic), and
+  auto-backup-on-import subscribes to the import events. New `backup:run`
+  channel and `backup:progress` events for #108's UI.
+- 2201afa: Verify-after-upload (#106, ADR-0007): "backed up" is never a lie — the
+  engine hashes the local ciphertext and compares sha256+size against the
+  provider's checksum before a row may go synced; mismatches go `error` and
+  stay dirty (re-queued next run), with every verify result appended to the
+  backup audit log. Status changes push targeted library updates so tiles
+  flip to the cloud-alert glyph live, and failed runs raise the red toast
+  with a Retry action via the new `backup:completed` event.
+- b3e3dac: Storage-provider seam (#103, ADR-0007): the typed interface the whole backup
+  epic builds against (put/getStream/list/delete/quota/verify + auth state,
+  typed ProviderError kinds), a filesystem-backed mock provider with quota and
+  connection simulation, a fault-injection wrapper producing every engine
+  error path (upload failure, verify mismatch, auth expiry, transient
+  download), and a provider registry whose connection states feed the
+  settings card. Live pCloud arrives as #109 against the same contract suite.
+- c3df7ff: Sync-ledger status machine (#104): the ledger vocabulary gains `error`
+  (migration v2 rebuilds the table), transitions are machine-validated
+  (illegal ones throw), every library edit dirties through ONE choke-point,
+  verified completion clears dirty and stamps `last_backup_at`, and the
+  status bar's backed-up label now reads the real stamp ("JUST NOW" /
+  "2H AGO", "NEVER" before the first backup). Inspector renders the error
+  state ("SYNC FAILED — WILL RETRY").
+
 ## 0.4.0
 
 ### Minor Changes
