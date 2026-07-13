@@ -16,7 +16,12 @@ const RELAY_PAGE = `<!doctype html>
 <body style="font-family: system-ui; display: grid; place-items: center; min-height: 80vh">
 <p id="m">Connecting to Overlook…</p>
 <script>
-  fetch('/capture?' + (location.hash.slice(1) || location.search.slice(1)))
+  // The fragment holds the access token — scrub it from the address bar and
+  // history BEFORE anything else, so closing the tab leaves no credential
+  // behind (Codex P1); only main gets custody.
+  const params = location.hash.slice(1) || location.search.slice(1);
+  history.replaceState(null, '', '/callback');
+  fetch('/capture?' + params)
     .then((r) => {
       document.getElementById('m').textContent = r.ok
         ? 'Connected — you can close this tab and return to Overlook.'
@@ -101,8 +106,14 @@ export function startLoopbackCapture(options: LoopbackCaptureOptions): LoopbackC
         settle({ ok: true, value });
       } catch (error) {
         response.writeHead(400).end();
-        const message = error instanceof Error ? redactTokens(error.message) : 'pCloud authorization failed.';
-        settle({ ok: false, error: error instanceof PCloudOAuthError ? error : new PCloudOAuthError(message) });
+        // Only a caller who knows the state nonce may settle the flow —
+        // anything else is unauthenticated local noise that must not be able
+        // to kill a pending sign-in (Codex P2). The genuine browser always
+        // carries the nonce, on provider errors too (RFC 6749 §4.2.2.1).
+        if (url.searchParams.get('state') === options.state) {
+          const message = error instanceof Error ? redactTokens(error.message) : 'pCloud authorization failed.';
+          settle({ ok: false, error: error instanceof PCloudOAuthError ? error : new PCloudOAuthError(message) });
+        }
       }
       return;
     }
