@@ -654,7 +654,16 @@ function getExportFacade(): ExportFacade {
 }
 
 function createWindow(): void {
+  // Dev runs use the raw Electron binary whose stock icon would sit in the
+  // dock/taskbar; point it at the product icon (#236). Packaged builds get
+  // their icon from the bundle resources (electron-builder), and build/ is
+  // not shipped, so this is dev-only by construction.
+  const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
+  if (devIcon !== undefined && process.platform === 'darwin') {
+    app.dock?.setIcon(devIcon);
+  }
   const win = new BrowserWindow({
+    ...(devIcon !== undefined && process.platform !== 'darwin' ? { icon: devIcon } : {}),
     width: 1280,
     height: 800,
     minWidth: 960,

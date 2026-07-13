@@ -13,6 +13,8 @@ import { Slider } from '../components/Slider';
 import { Tooltip } from '../components/Tooltip';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 
+import overlookIcon from '../assets/overlook-icon-64.png';
+
 const QUERY_DEBOUNCE_MS = 250;
 
 const FILTERS: readonly { key: keyof ChipFilters; icon: 'star' | 'image' | 'cloud' | 'hard-drive'; label: string }[] = [
@@ -58,7 +60,7 @@ export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
     <div className="ovl-toolbar titlebar-no-drag">
       <div className="ovl-toolbar__row">
         <div className="ovl-toolbar__wordmark">
-          <Icon name="aperture" size={18} color="var(--accent-cyan)" />
+          <img className="ovl-toolbar__mark" src={overlookIcon} alt="" width={20} height={20} />
           <span className="ovl-toolbar__brand">OVERLOOK</span>
         </div>
         <SearchField value={draft} onChange={onSearch} width={300} label="Search library" />
