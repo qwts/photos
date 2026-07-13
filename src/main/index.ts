@@ -20,7 +20,7 @@ import { ImportService } from './import/import-service.js';
 import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
-import { BackupEngine } from './backup/backup-engine.js';
+import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { FaultInjectingProvider, MockProvider } from './backup/mock-provider.js';
 import { OffloadService } from './backup/offload.js';
 import { SyncLedger } from './backup/sync-ledger.js';
@@ -227,7 +227,8 @@ function getImportService(): ImportService {
       .resume()
       .then((summary) => {
         if (summary !== null && summary.imported > 0) {
-          getBackupEngine().maybeAutoRun();
+          getBackupEngine();
+          autoBackupTrigger?.();
         }
       })
       .catch((error: unknown) => {
@@ -320,6 +321,8 @@ let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
 /** The registered provider instance — the connection card reads its quota. */
 let backupProvider: FaultInjectingProvider | undefined;
+/** Auto-backup entry point (imports + resume) — set by getBackupEngine. */
+let autoBackupTrigger: (() => void) | undefined;
 
 function getBackupEngine(): BackupEngine {
   if (backupEngine === undefined) {
@@ -423,17 +426,28 @@ function getBackupEngine(): BackupEngine {
         void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
       },
     });
-    // Completion events drive the red toast + retry (#106); #108 adds the
-    // card. Wrap run() so every trigger reports.
+    // Completion events drive the toasts (#106) and the card's bar clear
+    // (#108). `auto` rides along so the renderer keeps automatic successes
+    // QUIET — an auto-backup's green toast was racing (and replacing) the
+    // import-complete toast (#116); failures stay loud for every trigger.
     const engine = backupEngine;
     const originalRun = engine.run.bind(engine);
-    engine.run = (signal?: AbortSignal) =>
-      originalRun(signal).then((result) => {
-        if (result.skipped === null) {
-          emitCompleted({ uploaded: result.uploaded, failed: result.failed, manifestUploaded: result.manifestUploaded });
-        }
-        return result;
-      });
+    const runAndReport = async (auto: boolean, signal?: AbortSignal): Promise<BackupRunResult> => {
+      const result = await originalRun(signal);
+      if (result.skipped === null) {
+        emitCompleted({ uploaded: result.uploaded, failed: result.failed, manifestUploaded: result.manifestUploaded, auto });
+      }
+      return result;
+    };
+    engine.run = (signal?: AbortSignal) => runAndReport(false, signal);
+    // The auto-backup trigger (#105/#111): same single-flight run, marked
+    // auto for the quiet-success rule above.
+    autoBackupTrigger = () => {
+      const current = getSettingsStore().get();
+      if (current.autoBackupOnImport && current.providerId !== null) {
+        void runAndReport(true).catch(() => undefined);
+      }
+    };
   }
   return backupEngine;
 }
@@ -568,7 +582,8 @@ void app.whenReady().then(async () => {
   registerThumbProtocol(getThumbService);
   registerFullProtocol(getFullService);
   registerImportHandlers(getImportService, () => {
-    getBackupEngine().maybeAutoRun();
+    getBackupEngine();
+    autoBackupTrigger?.();
   });
   registerExportHandlers(getExportFacade);
   registerSettingsHandlers(() => getSettingsStore());

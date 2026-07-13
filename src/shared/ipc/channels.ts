@@ -237,12 +237,15 @@ export const events = {
   // Export progress (#97): n/total over the batch.
   exportProgress: defineEvent('export:progress', z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() })),
   // Backup completion (#106): drives the red toast + retry on failures.
+  // `auto` keeps automatic successes quiet (#116) — an auto-backup's green
+  // toast must never replace the import-complete toast; failures stay loud.
   backupCompleted: defineEvent(
     'backup:completed',
     z.object({
       uploaded: z.number().int().nonnegative(),
       failed: z.number().int().nonnegative(),
       manifestUploaded: z.boolean(),
+      auto: z.boolean(),
     }),
   ),
   // Settings changes (#111) push the full snapshot — consumers (dialog,
