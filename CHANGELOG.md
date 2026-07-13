@@ -1,5 +1,24 @@
 # photos
 
+## 0.6.0
+
+### Minor Changes
+
+- 7d0437f: Backup UI (#108): every design surface goes live off engine events — the
+  toolbar backup button triggers the run with the mock's amber/green toast
+  pair, the StatusBar's amber "ENCRYPTING n" counts down live and flips to
+  "ALL BACKED UP · JUST NOW" off the real stamp, per-photo glyphs ride the
+  targeted pushes, and the sidebar card shows the aggregate progress bar plus
+  the real LOCAL · PCLOUD storage split.
+- 4a4f67d: Offload + rehydrate (#107, ADR-0007): verified-synced originals evict
+  locally (thumbnails stay — the library browses offline) with a shared-hash
+  guard, flipping tiles to the offloaded state via targeted pushes; touching
+  an offloaded photo in the lightbox downloads it back through an atomic
+  staged restore that decrypt-and-rehash verifies before publishing — a bad
+  download never becomes local truth and failures surface as a red toast.
+  Library stats gain the local/cloud byte split, and `backup:offload` /
+  `backup:rehydrate` channels expose the flows.
+
 ## 0.5.0
 
 ### Minor Changes
