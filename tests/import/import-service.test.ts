@@ -67,3 +67,29 @@ describe('import service serialization (#87)', () => {
     assert.equal(calls, 2);
   });
 });
+
+describe('import service fixture source is injector-gated (#129 F1)', () => {
+  const engine = { importFiles: () => Promise.resolve(null), resume: () => Promise.resolve(null) } as unknown as ImportEngine;
+
+  test('no injector surfaces no fixture folder (packaged/default posture)', async () => {
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, engine);
+    const sources = await service.listSources();
+    assert.ok(!sources.some((s) => s.path === '/tmp/overlook-fixture'), 'default resolver yields undefined — env cannot inject a source');
+  });
+
+  test('injector returning a path surfaces it as the first source', async () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'overlook-fixture-'));
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, engine, () => fixture);
+    const sources = await service.listSources();
+    assert.equal(sources[0]?.path, fixture, 'the gated injector, when it returns a path, wins first slot');
+  });
+
+  test('injector returning empty string is ignored', async () => {
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, engine, () => '');
+    const sources = await service.listSources();
+    assert.ok(
+      sources.every((s) => s.path !== ''),
+      'empty string is not a source',
+    );
+  });
+});
