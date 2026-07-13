@@ -88,14 +88,14 @@ describe('openLibraryDatabase', () => {
 });
 
 describe('migrations', () => {
-  test('migration 001 applies cleanly twice (second run is a no-op)', () => {
+  test('migrations apply cleanly twice (second run is a no-op)', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     // openLibraryDatabase already migrated once.
     assert.equal(migrate(db, MIGRATIONS), 0);
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1],
+      [1, 2],
     );
     db.close();
   });
@@ -104,18 +104,18 @@ describe('migrations', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 4, name: 'four', up: () => order.push(4) },
       { version: 3, name: 'three', up: () => order.push(3) },
-      { version: 2, name: 'two', up: () => order.push(2) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [2, 3]);
+    assert.deepEqual(order, [3, 4]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 2,
+      version: 3,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -124,7 +124,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 1);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 2);
     db.close();
   });
 });

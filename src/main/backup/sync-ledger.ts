@@ -1,0 +1,75 @@
+import { queryAll, run } from '../db/sql.js';
+import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
+import type { SyncStatus } from '../../shared/library/types.js';
+
+// Sync-ledger bookkeeping (#104): the dirtiness the whole backup UX rides
+// on. ONE choke-point dirties (every library edit routes here), the status
+// machine validates transitions (illegal ones throw — a bug, not a state),
+// and completed backups clear dirty + stamp last_backup_at.
+
+const TRANSITIONS: Record<SyncStatus, readonly SyncStatus[]> = {
+  local: ['syncing'],
+  syncing: ['synced', 'error', 'local'],
+  synced: ['syncing', 'offloaded'],
+  offloaded: ['synced'],
+  error: ['syncing'],
+};
+
+export class LedgerTransitionError extends Error {
+  override readonly name = 'LedgerTransitionError';
+}
+
+export function assertTransition(from: SyncStatus, to: SyncStatus): void {
+  if (!TRANSITIONS[from].includes(to)) {
+    throw new LedgerTransitionError(`illegal ledger transition ${from} → ${to}`);
+  }
+}
+
+/** THE dirty choke-point: every library edit (favorite, album change,
+ * import metadata) marks its photo here — never inline SQL at call sites. */
+export function markDirty(db: BetterSqlite3.Database, photoId: string): void {
+  run(db, 'UPDATE sync_ledger SET dirty = 1 WHERE photo_id = ?', photoId);
+}
+
+export class SyncLedger {
+  constructor(private readonly db: BetterSqlite3.Database) {}
+
+  status(photoId: string): SyncStatus | undefined {
+    return queryAll<{ status: SyncStatus }>(this.db, 'SELECT status FROM sync_ledger WHERE photo_id = @id', { id: photoId })[0]?.status;
+  }
+
+  /** Machine-validated transition; the engine (#105) drives these. */
+  setStatus(photoId: string, to: SyncStatus): void {
+    const from = this.status(photoId);
+    if (from === undefined) {
+      throw new LedgerTransitionError(`no ledger row for ${photoId}`);
+    }
+    assertTransition(from, to);
+    run(this.db, 'UPDATE sync_ledger SET status = ? WHERE photo_id = ?', to, photoId);
+  }
+
+  markDirty(photoId: string): void {
+    markDirty(this.db, photoId);
+  }
+
+  /** Completed, VERIFIED backup: syncing → synced, dirty clears, stamp set
+   * (feeds "ALL BACKED UP · 2H AGO" / "JUST NOW"). */
+  markBackedUp(photoId: string, at: string): void {
+    this.setStatus(photoId, 'synced');
+    run(this.db, 'UPDATE sync_ledger SET dirty = 0, last_backup_at = ? WHERE photo_id = ?', at, photoId);
+  }
+
+  /** Upload/verify failure: syncing → error; the row STAYS dirty. */
+  markError(photoId: string): void {
+    this.setStatus(photoId, 'error');
+  }
+
+  pendingCount(): number {
+    return queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM sync_ledger WHERE dirty = 1')[0]?.n ?? 0;
+  }
+
+  /** Latest stamp across the library — null before the first backup. */
+  lastBackupAt(): string | null {
+    return queryAll<{ at: string | null }>(this.db, 'SELECT max(last_backup_at) AS at FROM sync_ledger')[0]?.at ?? null;
+  }
+}

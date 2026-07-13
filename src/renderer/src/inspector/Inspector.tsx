@@ -21,6 +21,7 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
   synced: 'ENCRYPTED · PCLOUD',
   syncing: 'ENCRYPTING → PCLOUD…',
   offloaded: 'OFFLOADED — ORIGINAL IN PCLOUD',
+  error: 'SYNC FAILED — WILL RETRY',
 };
 
 const STATUS_TONE: Record<SyncStatus, string> = {
@@ -28,6 +29,7 @@ const STATUS_TONE: Record<SyncStatus, string> = {
   synced: 'var(--accent-green)',
   syncing: 'var(--accent-amber)',
   offloaded: 'var(--accent-amber)',
+  error: 'var(--accent-red)',
 };
 
 function Section({ title, children }: { readonly title: string; readonly children: ReactElement | (ReactElement | null)[] }): ReactElement {
