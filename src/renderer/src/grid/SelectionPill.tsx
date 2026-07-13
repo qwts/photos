@@ -8,18 +8,20 @@ import { IconButton } from '../components/IconButton';
 export interface SelectionPillProps {
   readonly count: number;
   readonly onClear: () => void;
+  /** Opens the ExportDialog with the selection set (#100). */
+  readonly onExport?: (() => void) | undefined;
 }
 
-// Floating selection pill (#78) — the mock's bottom-center bar. The bulk
-// actions are stubbed until their epics land (Export → M07, Add to album →
-// M10, Delete → M07's trash flow); they render disabled with the epic named
-// in the tooltip so the entry points are already in place.
-export function SelectionPill({ count, onClear }: SelectionPillProps): ReactElement {
+// Floating selection pill (#78) — the mock's bottom-center bar. Export is
+// live (#100); the remaining bulk actions render disabled with their epic
+// named in the tooltip until they land (Add to album → M10, Delete → M10's
+// soft-delete).
+export function SelectionPill({ count, onClear, onExport }: SelectionPillProps): ReactElement {
   return (
     <div className="ovl-pill-anchor">
       <div className="ovl-pill" data-testid="selection-pill">
         <span className="ovl-pill__count mono-data">{formatCount(count)} SELECTED</span>
-        <Button size="sm" variant="secondary" icon="share" disabled title="Export lands with M07">
+        <Button size="sm" variant="secondary" icon="share" onClick={onExport}>
           Export
         </Button>
         <Button size="sm" variant="secondary" icon="album" disabled title="Albums land with M10">

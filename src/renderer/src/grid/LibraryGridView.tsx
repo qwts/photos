@@ -70,6 +70,9 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
           onClear={() => {
             dispatch({ type: 'selection/cleared' });
           }}
+          onExport={() => {
+            dispatch({ type: 'dialog/set', dialog: 'export', open: true });
+          }}
         />
       ) : null}
     </>

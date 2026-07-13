@@ -222,6 +222,16 @@
           "issue": 100
         }
       ]
+    },
+    {
+      "id": "m07-export-entry-points",
+      "wiki": "User-Story-M07-Export",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/export-entry.spec.ts"
+        }
+      ]
     }
   ]
 }
