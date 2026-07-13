@@ -132,6 +132,10 @@ export function seedSynthetic(db: BetterSqlite3.Database, keyId: number, content
         keyId,
       });
     }
+    // The scale profile simulates a SETTLED, backed-up library (#123):
+    // born-dirty synthetic rows have no uploadable blobs, so they poison
+    // pending counts and doom any backup run with 200K guaranteed failures.
+    run(db, `UPDATE sync_ledger SET status = 'synced', dirty = 0 WHERE photo_id LIKE '01J8SYNTH%'`);
   })();
   return count;
 }

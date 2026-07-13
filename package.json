@@ -32,6 +32,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
+    "test:perf": "playwright test --config playwright.perf.config.ts",
     "storybook": "storybook dev -p 6006",
     "build:storybook": "storybook build",
     "test:stories": "test-storybook",

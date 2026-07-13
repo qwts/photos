@@ -19,5 +19,5 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["src/shared/**/*.ts", "tests/**/*.ts", "playwright.config.ts", "electron.vite.config.ts"]
+  "include": ["src/shared/**/*.ts", "tests/**/*.ts", "playwright.config.ts", "playwright.perf.config.ts", "electron.vite.config.ts"]
 }
