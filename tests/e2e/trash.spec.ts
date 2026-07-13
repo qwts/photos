@@ -90,6 +90,9 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
 // #121 exit criteria: purge removes all three copies under the mock
 // provider — destructive confirm with exact counts and "Delete" language.
 test('purge: confirm ceremony removes DB row, local blob, and remote copy', async () => {
+  // A full backup precedes the purge — under parallel-suite load 30s is
+  // too tight (the earlier backup-spec CI flake was this same class).
+  test.setTimeout(60_000);
   const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-purge-'));
   const app = await electron.launch({
     args: ['.'],
