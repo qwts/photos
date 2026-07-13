@@ -270,6 +270,20 @@
           "path": "tests/settings/settings-store.test.ts"
         }
       ]
+    },
+    {
+      "id": "m09-settings-dialog-shell",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        }
+      ]
     }
   ]
 }

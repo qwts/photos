@@ -1,0 +1,51 @@
+/* SettingsDialog (#112) — design SettingsDialog.jsx.txt, tokens only. */
+
+.ovl-settings {
+  display: flex;
+  gap: calc(var(--space-4) - var(--space-1));
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+}
+
+.ovl-settings__nav {
+  width: 160px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+}
+
+.ovl-settings__navrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 30px;
+  padding: 0 calc(var(--space-2) + var(--space-1) / 2);
+  border: none;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-md);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ovl-settings__navrow:hover {
+  background: var(--gray-2);
+}
+
+.ovl-settings__navrow--active {
+  background: var(--gray-3);
+  color: var(--text-body);
+}
+
+.ovl-settings__pane {
+  flex: 1;
+  min-width: 0;
+}
+
+.ovl-settings__placeholder {
+  padding: var(--space-3) 0;
+  font-size: var(--text-md);
+  color: var(--text-faint);
+}

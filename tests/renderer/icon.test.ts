@@ -63,6 +63,9 @@ const VOCABULARY = [
   // list (#99): the folder picker and the done check.
   'folder',
   'circle-check',
+  // SettingsDialog nav glyph the design's SettingsDialog.jsx uses beyond the
+  // readme list (#112): the General section row.
+  'sliders-horizontal',
 ] as const;
 
 describe('Icon', () => {
