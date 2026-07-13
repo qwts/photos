@@ -1,6 +1,6 @@
 const { Icon } = window.DS;
 
-function StatusBar({ count, pendingCount = 0, lastBackupLabel = "2H AGO" }) {
+function StatusBar({ count, pendingCount = 0, lastBackupLabel = "2H AGO", connected = true }) {
   const syncing = pendingCount > 0;
   return (
     <div style={{
@@ -11,7 +11,11 @@ function StatusBar({ count, pendingCount = 0, lastBackupLabel = "2H AGO" }) {
     }}>
       <span>{count.toLocaleString()} PHOTOS · 1.2 TB</span>
       <span style={{ flex: 1 }} />
-      {syncing ? (
+      {!connected ? (
+        <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-faint)" }}>
+          <Icon name="cloud-off" size={12} strokeWidth={2} /> PCLOUD NOT CONNECTED
+        </span>
+      ) : syncing ? (
         <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--accent-amber)" }}>
           <Icon name="refresh-cw" size={11} strokeWidth={2} style={{ animation: "overlook-spin 1.2s linear infinite" }} />
           ENCRYPTING {pendingCount} → PCLOUD

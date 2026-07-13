@@ -28,8 +28,7 @@ function Field({ label, hint, children }) {
   );
 }
 
-function StorageBackupPane() {
-  const [connected, setConnected] = React.useState(true);
+function StorageBackupPane({ connected = true, setConnected }) {
   const [autoBackup, setAutoBackup] = React.useState(true);
   const [wifiOnly, setWifiOnly] = React.useState(true);
   const [bandwidth, setBandwidth] = React.useState(80);
@@ -56,24 +55,27 @@ function StorageBackupPane() {
             <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>Link a pCloud account to store encrypted originals off-device.</div>
           )}
         </div>
-        <Button variant={connected ? "secondary" : "primary"} onClick={() => setConnected((v) => !v)}>
+        <Button variant={connected ? "secondary" : "primary"} onClick={() => setConnected && setConnected((v) => !v)}>
           {connected ? "Disconnect" : "Connect pCloud"}
         </Button>
       </div>
 
-      <Field label="Back up new imports automatically" hint="Encrypts and uploads originals to pCloud after import.">
-        <Switch checked={autoBackup} onChange={setAutoBackup} disabled={!connected} />
-      </Field>
+      {connected ? (
+        <React.Fragment>
+          <Field label="Back up new imports automatically" hint="Encrypts and uploads originals to pCloud after import.">
+            <Switch checked={autoBackup} onChange={setAutoBackup} disabled={!connected} />
+          </Field>
+          <Field label="Wi-Fi only" hint="Pause uploads on cellular or metered connections.">
+            <Switch checked={wifiOnly} onChange={setWifiOnly} disabled={!connected} />
+          </Field>
+          <Field label="Upload bandwidth limit" hint={bandwidth >= 100 ? "Unlimited" : bandwidth + "% of available upload"}>
+            <Slider value={bandwidth} min={10} max={100} step={5} onChange={setBandwidth} width={130} />
+          </Field>
+        </React.Fragment>
+      ) : null}
+
       <Field label="On import, from card or drive" hint="Move frees space immediately; copy keeps the source untouched.">
         <Segmented value={onImport} onChange={setOnImport} options={[{ value: "copy", label: "Copy" }, { value: "move", label: "Move" }]} />
-      </Field>
-      <Field label="Wi-Fi only" hint="Pause uploads on cellular or metered connections.">
-        <Switch checked={wifiOnly} onChange={setWifiOnly} disabled={!connected} />
-      </Field>
-      <Field label="Upload bandwidth limit" hint={bandwidth >= 100 ? "Unlimited" : bandwidth + "% of available upload"}>
-        <div style={{ opacity: connected ? 1 : 0.45, pointerEvents: connected ? "auto" : "none" }}>
-          <Slider value={bandwidth} min={10} max={100} step={5} onChange={setBandwidth} width={130} />
-        </div>
       </Field>
       <Field label="Encrypt originals" hint="Client-side encryption before any upload. Cannot be disabled.">
         <Switch checked disabled />
@@ -100,12 +102,26 @@ function GeneralPane() {
   );
 }
 
-function PrivacyPane() {
+function PrivacyPane({ onKeyAction }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <Field label="End-to-end encryption" hint="Originals and thumbnails are encrypted on this device before leaving it.">
         <Badge tone="green">Always on</Badge>
       </Field>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid var(--border-1)" }}>
+        <div>
+          <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>Recovery key</div>
+          <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>Back up your library key to unlock photos on another device. Store it safely — it can't be reset.</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 6 }}>
+            <Icon name="fingerprint" size={13} color="var(--text-faint)" />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", color: "var(--text-muted)", letterSpacing: "var(--tracking-mono)" }}>9F2C·4A81·D0E7·5B3A</span>
+          </div>
+        </div>
+        <div style={{ flex: "none", display: "flex", gap: 8 }}>
+          <Button variant="secondary" icon="download" onClick={() => onKeyAction && onKeyAction("backup")}>Back up…</Button>
+          <Button variant="ghost" icon="upload" onClick={() => onKeyAction && onKeyAction("import")}>Import…</Button>
+        </div>
+      </div>
       <Field label="Face grouping" hint="Runs entirely on-device; no photo data leaves your library.">
         <Switch checked disabled />
       </Field>
@@ -116,7 +132,7 @@ function PrivacyPane() {
   );
 }
 
-function SettingsDialog({ open, onClose }) {
+function SettingsDialog({ open, onClose, onKeyAction, connected = true, setConnected }) {
   const [pane, setPane] = React.useState("storage");
   if (!open) return null;
   const PANES = {
@@ -134,7 +150,7 @@ function SettingsDialog({ open, onClose }) {
           ))}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <Active />
+          <Active onKeyAction={onKeyAction} connected={connected} setConnected={setConnected} />
         </div>
       </div>
     </Dialog>

@@ -1,52 +1,123 @@
 const { Dialog, Button, Checkbox, Switch, Segmented, ProgressBar, Icon } = window.DS;
 
-function ImportDialog({ open, onClose, onDone }) {
+// Toggle to preview the no-card-mounted state.
+const SD_CARD = { mounted: true, label: "SONY 128GB · A7 IV", count: 1204, detail: "1,204 NEW · 38.2 GB · 812 RAW / 392 JPG" };
+
+function SourceRow({ icon, title, detail, accent }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--gray-2)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "10px 12px" }}>
+      <Icon name={icon} size={16} color={accent || "var(--text-muted)"} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</div>
+        <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>{detail}</div>
+      </div>
+    </div>
+  );
+}
+
+function ImportDialog({ open, onClose, onDone, dropped }) {
   const [phase, setPhase] = React.useState("options"); // options | running | done
   const [progress, setProgress] = React.useState(0);
   const [mode, setMode] = React.useState("copy"); // copy | move
-  const delAfter = mode === "move";
-  React.useEffect(() => { if (open) { setPhase("options"); setProgress(0); } }, [open]);
+  const [source, setSource] = React.useState("sd"); // sd | folder | drop
+  const [folder, setFolder] = React.useState(null); // { name, count, detail }
+  const [folderHover, setFolderHover] = React.useState(false);
+
+  React.useEffect(() => { if (open) { setPhase("options"); setProgress(0); setSource(dropped ? "drop" : (SD_CARD.mounted ? "sd" : "folder")); setFolder(null); } }, [open, dropped]);
   React.useEffect(() => {
     if (phase !== "running") return;
     const iv = setInterval(() => {
       setProgress((p) => {
-        if (p >= 1204) { clearInterval(iv); setPhase("done"); return 1204; }
-        return Math.min(1204, p + 67);
+        if (p >= total) { clearInterval(iv); setPhase("done"); return total; }
+        return Math.min(total, p + Math.ceil(total / 18));
       });
     }, 120);
     return () => clearInterval(iv);
   }, [phase]);
   if (!open) return null;
+
+  const usingSd = source === "sd";
+  const usingDrop = source === "drop";
+  const available = usingDrop ? true : usingSd ? SD_CARD.mounted : !!folder;
+  const total = usingDrop ? (dropped ? dropped.count : 0) : usingSd ? SD_CARD.count : (folder ? folder.count : 0);
+  const moveAllowed = usingSd; // never delete a user's own files
+  const importMode = moveAllowed ? mode : "copy";
+
+  const chooseFolder = () => setFolder({ name: "~/Pictures/Lightroom Exports", count: 486, detail: "486 photos · 12.4 GB · 486 JPG" });
+
   return (
-    <Dialog title="Import from SD card" icon="download" width={420} onClose={onClose}
+    <Dialog title="Import photos" icon="download" width={440} onClose={onClose}
       footer={phase === "options" ? (
         <React.Fragment>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" icon="download" onClick={() => setPhase("running")}>Import 1,204 photos</Button>
+          <Button variant="primary" icon="download" disabled={!available} onClick={() => setPhase("running")}>
+            {available ? `Import ${total.toLocaleString()} photos` : "Import"}
+          </Button>
         </React.Fragment>
       ) : phase === "done" ? (
         <Button variant="primary" onClick={() => { onClose(); onDone && onDone(); }}>Show in library</Button>
       ) : null}>
       {phase === "options" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--gray-2)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "10px 12px" }}>
-            <Icon name="hard-drive" size={16} color="var(--text-muted)" />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)", fontWeight: 500 }}>SONY 128GB · A7 IV</div>
-              <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>1,204 NEW · 38.2 GB · 812 RAW / 392 JPG</div>
-            </div>
+          <div>
+            <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "var(--tracking-mono)", marginBottom: 6 }}>Import from</div>
+            <Segmented value={source} onChange={setSource} options={[
+              ...(dropped ? [{ value: "drop", icon: "image", label: "Dropped" }] : []),
+              { value: "sd", icon: "hard-drive", label: "SD card" },
+              { value: "folder", icon: "folder", label: "Local folder" }]} />
           </div>
+
+          {usingDrop ? (
+            <SourceRow icon="image" accent="var(--accent-cyan)" title={dropped.count.toLocaleString() + " photo" + (dropped.count === 1 ? "" : "s") + " ready to import"} detail={dropped.detail} />
+          ) : usingSd ? (
+            SD_CARD.mounted ? (
+              <SourceRow icon="hard-drive" title={SD_CARD.label} detail={SD_CARD.detail} />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, border: "1px dashed var(--border-2)", borderRadius: "var(--radius-2)", padding: "20px 12px", textAlign: "center" }}>
+                <Icon name="hard-drive" size={20} color="var(--text-faint)" />
+                <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>No SD card detected</div>
+                <div style={{ font: "var(--type-meta)", color: "var(--text-faint)" }}>Insert a card, or switch to <span style={{ color: "var(--accent-cyan)", cursor: "pointer" }} onClick={() => setSource("folder")}>Local folder</span>.</div>
+              </div>
+            )
+          ) : (
+            folder ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--gray-2)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "10px 12px" }}>
+                <Icon name="folder" size={16} color="var(--accent-cyan)" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", color: "var(--text-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{folder.name}</div>
+                  <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>{folder.detail}</div>
+                </div>
+                <div onClick={() => setFolder(null)} style={{ display: "flex", cursor: "pointer", color: "var(--text-faint)" }}><Icon name="x" size={14} /></div>
+              </div>
+            ) : (
+              <div onClick={chooseFolder} onMouseEnter={() => setFolderHover(true)} onMouseLeave={() => setFolderHover(false)}
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer", textAlign: "center",
+                  border: `1px dashed ${folderHover ? "var(--accent-cyan)" : "var(--border-2)"}`, borderRadius: "var(--radius-2)",
+                  background: folderHover ? "var(--gray-2)" : "transparent", padding: "20px 12px",
+                  transition: "border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out)" }}>
+                <Icon name="folder-open" size={20} color={folderHover ? "var(--accent-cyan)" : "var(--text-faint)"} />
+                <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>Choose a folder to import</div>
+                <div style={{ font: "var(--type-meta)", color: "var(--text-faint)" }}>Scans for photos, including subfolders</div>
+              </div>
+            )
+          )}
+
           <Checkbox checked label="Generate thumbnails on import" />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", opacity: moveAllowed ? 1 : 0.45 }}>
             <span style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>On import</span>
-            <Segmented value={mode} onChange={setMode} options={[
+            <Segmented value={importMode} onChange={moveAllowed ? setMode : () => {}} options={[
               { value: "copy", label: "Copy" },
               { value: "move", label: "Move" }]} />
           </div>
-          {mode === "move" ? (
+          {usingSd && mode === "move" ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-faint)", font: "var(--type-meta)" }}>
               <Icon name="alert-triangle" size={12} />
               Originals will be deleted from the card after import.
+            </div>
+          ) : !moveAllowed ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-faint)", font: "var(--type-meta)" }}>
+              <Icon name="info" size={12} />
+              Imported files are copied — source files are left untouched.
             </div>
           ) : null}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -56,11 +127,11 @@ function ImportDialog({ open, onClose, onDone }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "4px 0" }}>
-          <ProgressBar label="Copying & encrypting" detail={Math.min(progress + 180, 1204) + " / 1,204"} value={Math.min(progress + 180, 1204)} max={1204} tone="green" />
-          <ProgressBar label="Generating thumbnails" detail={progress + " / 1,204"} value={progress} max={1204} />
+          <ProgressBar label={importMode === "move" ? "Moving & encrypting" : "Copying & encrypting"} detail={Math.min(progress + Math.ceil(total * 0.15), total) + " / " + total.toLocaleString()} value={Math.min(progress + Math.ceil(total * 0.15), total)} max={total} tone="green" />
+          <ProgressBar label="Generating thumbnails" detail={progress + " / " + total.toLocaleString()} value={progress} max={total} />
           {phase === "done" ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent-green)", fontSize: "var(--text-md)" }}>
-              <Icon name="shield-check" size={15} /> All 1,204 photos imported and encrypted.
+              <Icon name="shield-check" size={15} /> All {total.toLocaleString()} photos imported and encrypted.
             </div>
           ) : null}
         </div>

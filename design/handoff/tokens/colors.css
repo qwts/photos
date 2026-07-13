@@ -12,16 +12,27 @@
   --white-2: oklch(0.74 0.008 250);  /* secondary text */
   --white-3: oklch(0.55 0.01 250);   /* faint text, disabled */
 
-  /* ---- Accents — shared L/C, hue varies ---- */
-  --accent-cyan: oklch(0.74 0.125 215);   /* selection, focus, primary action */
-  --accent-amber: oklch(0.74 0.125 75);   /* cloud / offloaded / sync states */
-  --accent-green: oklch(0.74 0.125 155);  /* encrypted / verified / success */
-  --accent-red: oklch(0.62 0.19 25);      /* destructive */
+  /* ---- Accents ---- */
+  /* Primary brand accent — the app-icon blue-violet "iris". Used for selection, focus,
+     primary action, active nav. --accent-cyan is kept as a legacy alias so every
+     existing reference adopts the new brand hue at once. */
+  --accent-iris: oklch(0.70 0.16 278);     /* primary action, selection, focus */
+  --accent-cyan: var(--accent-iris);       /* legacy alias → resolves to iris */
+  --accent-cyan-bright: oklch(0.80 0.13 218); /* true cyan — gradient bright end */
+  --accent-violet: oklch(0.62 0.20 305);   /* violet — gradient deep end */
+  --accent-amber: oklch(0.74 0.125 75);    /* cloud / offloaded / sync states */
+  --accent-green: oklch(0.74 0.125 155);   /* encrypted / verified / success */
+  --accent-red: oklch(0.62 0.19 25);       /* destructive */
 
-  --accent-cyan-dim: oklch(0.74 0.125 215 / 0.16);
+  --accent-iris-dim: oklch(0.70 0.16 278 / 0.16);
+  --accent-cyan-dim: var(--accent-iris-dim);
   --accent-amber-dim: oklch(0.74 0.125 75 / 0.16);
   --accent-green-dim: oklch(0.74 0.125 155 / 0.16);
   --accent-red-dim: oklch(0.62 0.19 25 / 0.16);
+
+  /* Brand gradient — cyan → iris → violet, matching the app icon's hexagon ring. */
+  --brand-gradient: linear-gradient(135deg, var(--accent-cyan-bright) 0%, var(--accent-iris) 52%, var(--accent-violet) 100%);
+  --brand-gradient-soft: linear-gradient(135deg, oklch(0.80 0.13 218 / 0.18) 0%, oklch(0.62 0.20 305 / 0.18) 100%); /* @kind color */
 
   /* ---- Hairlines & overlays ---- */
   --border-1: oklch(1 0 0 / 0.08);   /* default hairline */

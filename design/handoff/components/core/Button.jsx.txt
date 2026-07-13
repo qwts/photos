@@ -9,7 +9,7 @@ export function Button({ variant = "secondary", size = "md", icon, disabled = fa
   const [press, setPress] = React.useState(false);
   const variants = {
     primary: {
-      background: press ? "oklch(0.68 0.125 215)" : hover ? "oklch(0.78 0.125 215)" : "var(--accent-cyan)",
+      background: press ? "oklch(0.63 0.16 278)" : hover ? "oklch(0.76 0.15 278)" : "var(--accent-iris)",
       color: "var(--text-on-accent)", border: "1px solid transparent",
     },
     secondary: {

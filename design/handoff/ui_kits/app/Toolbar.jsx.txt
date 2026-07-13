@@ -1,6 +1,6 @@
 const { Icon, IconButton, Button, SearchField, Segmented, Slider, Chip, Tooltip } = window.DS;
 
-function Toolbar({ q, setQ, zoom, setZoom, view, setView, filters, toggleFilter, filterOpen, setFilterOpen, onImport, onBackup, pendingCount = 0 }) {
+function Toolbar({ q, setQ, zoom, setZoom, view, setView, filters, toggleFilter, filterOpen, setFilterOpen, onImport, onBackup, pendingCount = 0, connected = true }) {
   const FILTERS = [
     { key: "favorites", icon: "star", label: "Favorites" },
     { key: "raw", icon: "image", label: "RAW" },
@@ -11,8 +11,8 @@ function Toolbar({ q, setQ, zoom, setZoom, view, setView, filters, toggleFilter,
     <div style={{ flex: "none", background: "var(--gray-1)", borderBottom: "1px solid var(--border-1)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", height: "var(--toolbar-h)", padding: "0 var(--space-4)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, width: "calc(var(--sidebar-w) - 24px)", flex: "none" }}>
-          <Icon name="aperture" size={18} color="var(--accent-cyan)" />
-          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.14em", color: "var(--text-body)" }}>OVERLOOK</span>
+          <img src="../../assets/overlook-icon.png" alt="Overlook" width="20" height="20" style={{ display: "block", borderRadius: 5 }} />
+          <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.14em", background: "var(--brand-gradient)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>OVERLOOK</span>
         </div>
         <SearchField value={q} onChange={setQ} width={300} />
         <IconButton icon="funnel" title="Filters" active={filterOpen || Object.values(filters).some(Boolean)} onClick={() => setFilterOpen(!filterOpen)} />
@@ -25,9 +25,11 @@ function Toolbar({ q, setQ, zoom, setZoom, view, setView, filters, toggleFilter,
           <Slider value={zoom} min={96} max={320} onChange={setZoom} width={110} />
           <Icon name="grid-2x2" size={15} color="var(--text-faint)" />
         </div>
-        <Tooltip label={pendingCount > 0 ? "Back up now" : "All photos backed up"} side="bottom">
-          <IconButton icon="cloud-upload" onClick={onBackup} disabled={pendingCount === 0} />
-        </Tooltip>
+        {connected ? (
+          <Tooltip label={pendingCount > 0 ? "Back up now" : "All photos backed up"} side="bottom">
+            <IconButton icon="cloud-upload" onClick={onBackup} disabled={pendingCount === 0} />
+          </Tooltip>
+        ) : null}
         <Button variant="primary" icon="download" size="md" onClick={onImport}>Import</Button>
       </div>
       {filterOpen ? (

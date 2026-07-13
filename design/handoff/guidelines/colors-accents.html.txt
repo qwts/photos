@@ -1,12 +1,29 @@
-<!-- @dsCard group="Colors" viewport="700x170" subtitle="Shared lightness & chroma; hue carries meaning" name="Accents & status hues" -->
+<!-- @dsCard group="Colors" viewport="700x260" subtitle="Blue-violet brand accent + status hues, and the brand gradient" name="Accents & status hues" -->
 <!DOCTYPE html><html><head><link rel="stylesheet" href="../styles.css"></head>
 <body style="margin:0;background:var(--gray-0);font-family:var(--font-mono);">
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px;">
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px 16px 4px;">
   <div>
-    <div style="height:64px;border-radius:6px;background:var(--accent-cyan);"></div>
-    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-cyan</div>
-    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">selection · primary</div>
+    <div style="height:64px;border-radius:6px;background:var(--accent-iris);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-iris</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">primary · selection · focus</div>
   </div>
+  <div>
+    <div style="height:64px;border-radius:6px;background:var(--accent-cyan-bright);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-cyan-bright</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">gradient bright end</div>
+  </div>
+  <div>
+    <div style="height:64px;border-radius:6px;background:var(--accent-violet);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-violet</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">gradient deep end</div>
+  </div>
+  <div>
+    <div style="height:64px;border-radius:6px;background:var(--brand-gradient);"></div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">brand-gradient</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">wordmark · brand moments</div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 16px 16px;">
   <div>
     <div style="height:64px;border-radius:6px;background:var(--accent-amber);"></div>
     <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-amber</div>
@@ -21,6 +38,13 @@
     <div style="height:64px;border-radius:6px;background:var(--accent-red);"></div>
     <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">accent-red</div>
     <div style="font-size:10px;color:var(--white-3);margin-top:2px;">destructive · error</div>
+  </div>
+  <div>
+    <div style="height:64px;border-radius:6px;border:1px solid var(--border-1);display:flex;align-items:center;justify-content:center;">
+      <span style="font-size:11px;letter-spacing:0.14em;font-weight:600;background:var(--brand-gradient);-webkit-background-clip:text;background-clip:text;color:transparent;">OVERLOOK</span>
+    </div>
+    <div style="font-size:10px;letter-spacing:0.04em;color:var(--white-2);text-transform:uppercase;margin-top:8px;">on dark</div>
+    <div style="font-size:10px;color:var(--white-3);margin-top:2px;">gradient wordmark</div>
   </div>
 </div>
 </body></html>
