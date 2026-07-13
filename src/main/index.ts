@@ -318,6 +318,8 @@ function getSettingsStore(): SettingsStore {
 
 let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
+/** The registered provider instance — the connection card reads its quota. */
+let backupProvider: FaultInjectingProvider | undefined;
 
 function getBackupEngine(): BackupEngine {
   if (backupEngine === undefined) {
@@ -352,6 +354,7 @@ function getBackupEngine(): BackupEngine {
       faultyProvider.arm(fault);
     }
     const provider = faultyProvider;
+    backupProvider = provider;
     backupEngine = new BackupEngine({
       provider,
       ledger,
@@ -376,7 +379,9 @@ function getBackupEngine(): BackupEngine {
         return {
           throttlePercent: throttlePercentOf(current),
           wifiOnly: current.wifiOnly,
-          autoBackupOnImport: current.autoBackupOnImport,
+          // Disconnected (#114) means no automatic uploads — the switch is
+          // disabled in the dialog for the same reason.
+          autoBackupOnImport: current.autoBackupOnImport && current.providerId !== null,
         };
       },
       network: () => 'unknown',
@@ -585,6 +590,21 @@ void app.whenReady().then(async () => {
       run: async () => getBackupEngine().run(),
       offload: async (photoIds) => offload.offload(photoIds),
       rehydrate: async (photoId) => offload.rehydrate(photoId),
+      // Connection card truth (#114): connected = the user's providerId
+      // setting; quota comes live from the provider. A data-call failure
+      // (e.g. simulated auth expiry) reports as disconnected, not a crash.
+      providerStatus: async () => {
+        const providerId = getSettingsStore().get().providerId;
+        if (providerId === null || backupProvider === undefined) {
+          return { provider: 'mock' as const, connected: false, account: null, usedBytes: 0, totalBytes: 0 };
+        }
+        try {
+          const quota = await backupProvider.quota();
+          return { provider: providerId, connected: true, account: null, usedBytes: quota.usedBytes, totalBytes: quota.totalBytes };
+        } catch {
+          return { provider: providerId, connected: false, account: null, usedBytes: 0, totalBytes: 0 };
+        }
+      },
     };
   });
   const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');

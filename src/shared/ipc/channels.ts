@@ -178,6 +178,21 @@ export const channels = {
     }),
   ),
   backupRehydrate: defineChannel('backup:rehydrate', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
+  // Provider connection card (#114): the registered provider, whether the
+  // user is connected to it (settings.providerId), and its live quota.
+  backupProviderStatus: defineChannel(
+    'backup:provider-status',
+    z.object({}),
+    z.object({
+      provider: z.enum(['mock', 'pcloud']),
+      connected: z.boolean(),
+      /** Account label when the provider knows one (pCloud email); the mock
+       * has no account and reports null. */
+      account: z.string().nullable(),
+      usedBytes: z.number().nonnegative(),
+      totalBytes: z.number().nonnegative(),
+    }),
+  ),
   // Settings store (#111): typed get + validated partial patch. The locked
   // key (thumbnailsOnImport) is a literal, so a patch flipping it rejects
   // at this boundary.

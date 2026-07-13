@@ -49,6 +49,19 @@ interface Bar {
 export function ImportDialog({ open, source, onClose, onDone, onComplete }: ImportDialogProps): ReactElement | null {
   const [phase, setPhase] = useState<Phase>('options');
   const [mode, setMode] = useState<'copy' | 'move'>('copy');
+
+  // "On import" is the SAME setting as Settings → Storage & Backup (#114):
+  // the dialog opens with the stored preference and a change here persists
+  // back — the host mounts a fresh instance per invocation.
+  useEffect(() => {
+    void window.overlook.settings.get().then(({ settings }) => {
+      setMode(settings.importMode);
+    });
+  }, []);
+  const chooseMode = (importMode: 'copy' | 'move'): void => {
+    setMode(importMode);
+    void window.overlook.settings.set({ patch: { importMode } }).catch(() => undefined);
+  };
   const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: source.newCount });
   const [thumbBar, setThumbBar] = useState<Bar>({ done: 0, total: source.newCount });
   const [imported, setImported] = useState(0);
@@ -173,7 +186,7 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
             <Segmented
               label="On import"
               value={mode}
-              onChange={setMode}
+              onChange={chooseMode}
               options={[
                 { value: 'copy', label: 'Copy' },
                 { value: 'move', label: 'Move' },

@@ -107,6 +107,13 @@ export interface BackupFacade {
   run(): Promise<{ uploaded: number; failed: number; skipped: 'wifi' | null }>;
   offload(photoIds: readonly string[]): Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
   rehydrate(photoId: string): Promise<void>;
+  providerStatus(): Promise<{
+    provider: 'mock' | 'pcloud';
+    connected: boolean;
+    account: string | null;
+    usedBytes: number;
+    totalBytes: number;
+  }>;
 }
 
 export function registerBackupHandlers(getFacade: () => BackupFacade): void {
@@ -121,6 +128,9 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
       await getFacade().rehydrate(photoId);
       return { ok: true };
     })(request),
+  );
+  ipcMain.handle(channels.backupProviderStatus.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupProviderStatus, async () => getFacade().providerStatus())(request),
   );
 }
 
