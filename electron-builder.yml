@@ -1,5 +1,10 @@
-# Unsigned dev packaging (#53). Signing/notarization arrives with M11 —
-# until then mac builds carry no identity and win builds are unsigned nsis.
+# Packaging config (#53, #128). Signed-capable but env-gated: `npm run
+# package` forces unsigned builds via the `-c.mac.identity=null` CLI override
+# (electron-builder coerces the string to null and skips signing);
+# `npm run package:signed` uses this file as-is, signing with
+# CSC_LINK/CSC_KEY_PASSWORD and notarizing via notarytool with
+# APPLE_API_KEY (path to .p8) / APPLE_API_KEY_ID / APPLE_API_ISSUER.
+# Windows signing stays out until a cert exists (#128).
 appId: com.qwts.overlook
 productName: Overlook
 directories:
@@ -18,7 +23,12 @@ mac:
   target:
     - dmg
     - zip
-  identity: null
+  # Notarization requires the hardened runtime; entitlements come from
+  # electron-builder's default Electron template (allow-jit etc.).
+  hardenedRuntime: true
+  # Runs only after a successful signing pass, and skips with a warning when
+  # the APPLE_API_* env vars are absent — so unsigned builds are unaffected.
+  notarize: true
 win:
   icon: build/icon.ico
   target:

@@ -6,7 +6,9 @@
 # stranded tag by definition does not. The on:push:tags trigger still covers
 # tags pushed by humans. Builds check out the TAG's tree regardless of the
 # dispatching ref, and reuse the Package matrix via workflow_call. Pre-release
-# (not release) while builds are unsigned — signed/notarized promotion is #128.
+# (not release) while builds are unsigned; once the signing secrets exist
+# (#128) the mac build is signed + notarized and the tag publishes as a full
+# release instead.
 name: Release
 
 on:
@@ -33,6 +35,8 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       ref: ${{ inputs.tag || github.ref_name }}
+    # Signing/notarization secrets (#128); absent secrets = unsigned build.
+    secrets: inherit
 
   publish:
     name: Publish pre-release
@@ -77,17 +81,25 @@ jobs:
             echo "_No CHANGELOG section found for $version._" > notes.md
           fi
 
-      - name: Create pre-release
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+          # Mirrors the gate in package.yml: with the cert secret the mac
+          # build was signed + notarized, so the tag publishes as a full
+          # release; without it, the historical unsigned pre-release (#128).
+          SIGNED: ${{ secrets.CSC_LINK != '' }}
         run: |
+          if [ "$SIGNED" = "true" ]; then
+            flags=(--title "Overlook $TAG")
+          else
+            flags=(--prerelease --title "Overlook $TAG (unsigned dev build)")
+          fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $TAG exists — replacing assets."
             gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$TAG" dist/* \
-              --prerelease \
-              --title "Overlook $TAG (unsigned dev build)" \
+              "${flags[@]}" \
               --notes-file notes.md \
               --repo "$GITHUB_REPOSITORY"
           fi
