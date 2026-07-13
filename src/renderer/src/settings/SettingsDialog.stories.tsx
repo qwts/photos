@@ -122,7 +122,11 @@ export const PrivacySection: Story = {
     await waitFor(() => expect(body.getByTestId('recovery-key-row')).toHaveTextContent('9F2C·4A81·D0E7·5B3A'));
     await userEvent.click(body.getByRole('button', { name: 'Back up…' }));
     await expect(body.getByRole('dialog', { name: 'Back up encryption key' })).toBeVisible();
-    await userEvent.click(body.getByRole('button', { name: 'Cancel' }));
+    // Stacked modals (PR #250 review): Escape closes ONLY the top dialog —
+    // Settings stays open underneath.
+    await userEvent.keyboard('{Escape}');
+    await expect(body.queryByRole('dialog', { name: 'Back up encryption key' })).not.toBeInTheDocument();
+    await expect(body.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     await userEvent.click(body.getByRole('button', { name: 'Import…' }));
     await expect(body.getByRole('dialog', { name: 'Import encryption key' })).toBeVisible();
     await userEvent.click(body.getByRole('button', { name: 'Cancel' }));
