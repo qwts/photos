@@ -213,6 +213,17 @@ export class PhotosRepository {
     ).map((row) => ({ id: row.id, name: row.name, count: row.n }));
   }
 
+  /** The backup queue's input (#105): dirty, not-deleted photos. */
+  dirtyPhotos(): readonly { id: string; contentHash: string; bytes: number; fileName: string; keyId: number }[] {
+    return queryAll<{ id: string; contentHash: string; bytes: number; fileName: string; keyId: number }>(
+      this.db,
+      `SELECT p.id, p.content_hash AS contentHash, p.bytes, p.file_name AS fileName, p.key_id AS keyId
+         FROM photos p JOIN sync_ledger l ON l.photo_id = p.id
+        WHERE l.dirty = 1 AND p.deleted_at IS NULL
+        ORDER BY p.imported_at, p.id`,
+    );
+  }
+
   /** pendingCount source: dirty ledger rows (design §backup dirtiness). */
   pendingCount(): number {
     return queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM sync_ledger WHERE dirty = 1')[0]?.n ?? 0;

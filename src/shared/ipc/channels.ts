@@ -154,6 +154,16 @@ export const channels = {
     }),
   ),
   exportCancel: defineChannel('export:cancel', z.object({}), z.object({})),
+  // Backup engine (#105): the toolbar's manual trigger.
+  backupRun: defineChannel(
+    'backup:run',
+    z.object({}),
+    z.object({
+      uploaded: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      skipped: z.enum(['wifi']).nullable(),
+    }),
+  ),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
@@ -185,6 +195,11 @@ export const events = {
   ),
   // Export progress (#97): n/total over the batch.
   exportProgress: defineEvent('export:progress', z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() })),
+  // Backup progress (#105): per-item + aggregate for the sidebar card.
+  backupProgress: defineEvent(
+    'backup:progress',
+    z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative(), photoId: z.string().nullable() }),
+  ),
 } as const;
 
 export type PingRequest = z.output<typeof channels.ping.request>;

@@ -83,6 +83,16 @@ export function registerExportHandlers(getFacade: () => ExportFacade): void {
   );
 }
 
+export interface BackupFacade {
+  run(): Promise<{ uploaded: number; failed: number; skipped: 'wifi' | null }>;
+}
+
+export function registerBackupHandlers(getFacade: () => BackupFacade): void {
+  ipcMain.handle(channels.backupRun.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupRun, async () => getFacade().run())(request),
+  );
+}
+
 export function registerIpcHandlers(): void {
   const ping = wrapHandler(channels.ping, ({ message }) => ({ echoed: message }));
   ipcMain.handle(channels.ping.name, (_event, request: unknown) => ping(request));
