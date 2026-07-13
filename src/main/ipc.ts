@@ -138,6 +138,31 @@ export function registerImportHandlers(
   );
 }
 
+export interface KeysFacade {
+  fingerprint(): string;
+  exportKey(password: string): Promise<string | null>;
+  pickFile(): Promise<string | null>;
+  importKey(
+    path: string,
+    password: string,
+  ): Promise<{ installed: boolean; fingerprint: string | null; reason: 'invalid' | 'wrong-password' | 'mismatch' | 'no-library' | null }>;
+}
+
+export function registerKeysHandlers(getFacade: () => KeysFacade): void {
+  ipcMain.handle(channels.keysStatus.name, (_event, request: unknown) =>
+    wrapHandler(channels.keysStatus, () => ({ fingerprint: getFacade().fingerprint() }))(request),
+  );
+  ipcMain.handle(channels.keysExport.name, (_event, request: unknown) =>
+    wrapHandler(channels.keysExport, async ({ password }) => ({ path: await getFacade().exportKey(password) }))(request),
+  );
+  ipcMain.handle(channels.keysPickFile.name, (_event, request: unknown) =>
+    wrapHandler(channels.keysPickFile, async () => ({ path: await getFacade().pickFile() }))(request),
+  );
+  ipcMain.handle(channels.keysImport.name, (_event, request: unknown) =>
+    wrapHandler(channels.keysImport, async ({ path, password }) => getFacade().importKey(path, password))(request),
+  );
+}
+
 export interface ExportFacade {
   run(
     photoIds: readonly string[],

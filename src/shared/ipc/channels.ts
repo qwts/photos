@@ -208,6 +208,27 @@ export const channels = {
   ),
   // Cancel semantics (#88): finish the file in flight, keep completed.
   importCancel: defineChannel('import:cancel', z.object({}), z.object({})),
+  // Recovery key (#240, ADR-0008): fingerprint + password-encrypted
+  // backup/import of the library master key.
+  keysStatus: defineChannel('keys:status', z.object({}), z.object({ fingerprint: z.string() })),
+  keysExport: defineChannel(
+    'keys:export',
+    // Main-side floor (security review P3-1): the dialog's strength gate is
+    // renderer-side courtesy; the store never seals under a trivial secret.
+    z.object({ password: z.string().min(8).max(1024) }),
+    // null path = the user cancelled the save dialog.
+    z.object({ path: z.string().nullable() }),
+  ),
+  keysPickFile: defineChannel('keys:pick-file', z.object({}), z.object({ path: z.string().nullable() })),
+  keysImport: defineChannel(
+    'keys:import',
+    z.object({ path: z.string(), password: z.string().min(1).max(1024) }),
+    z.object({
+      installed: z.boolean(),
+      fingerprint: z.string().nullable(),
+      reason: z.enum(['invalid', 'wrong-password', 'mismatch', 'no-library']).nullable(),
+    }),
+  ),
   // Export engine (#97): decrypt-on-export to a chosen folder.
   exportPickDestination: defineChannel('export:pick-destination', z.object({}), z.object({ path: z.string().nullable() })),
   exportRun: defineChannel(

@@ -1,4 +1,4 @@
-import { access, appendFile, readFile, statfs, unlink } from 'node:fs/promises';
+import { access, appendFile, readFile, rename, stat, statfs, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
@@ -27,6 +27,14 @@ import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createEncryptStream } from './crypto/envelope.js';
+import {
+  RECOVERY_FILE_LENGTH,
+  fingerprintOf,
+  installRecoveredMaster,
+  openRecoveryKey,
+  RecoveryError,
+  sealRecoveryKey,
+} from './crypto/recovery.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
 import { transcodeToJpeg } from './export/transcode.js';
 import {
@@ -35,6 +43,7 @@ import {
   registerExportHandlers,
   registerImportHandlers,
   registerIpcHandlers,
+  registerKeysHandlers,
   registerLibraryHandlers,
   registerPurgeHandlers,
   registerSettingsHandlers,
@@ -736,6 +745,79 @@ void app.whenReady().then(async () => {
     },
   );
   registerExportHandlers(getExportFacade);
+  // Recovery key (#240): export needs the opened keystore; IMPORT must work
+  // even when the library cannot bootstrap — the restore scenario is
+  // exactly the one where KeyStore.open fails on the copied dir.
+  registerKeysHandlers(() => ({
+    fingerprint: () => {
+      getLibraryService();
+      const keyStore = libraryParts?.keyStore;
+      if (keyStore === undefined) {
+        throw new Error('library bootstrap failed; no key to fingerprint');
+      }
+      return fingerprintOf(keyStore.masterKeyBytes());
+    },
+    exportKey: async (password) => {
+      getLibraryService();
+      const keyStore = libraryParts?.keyStore;
+      if (keyStore === undefined) {
+        throw new Error('library bootstrap failed; no key to export');
+      }
+      // Harness hook (#240, OVERLOOK_* family): fixed destination instead
+      // of the save dialog, mirroring the export/import seams.
+      const fixture = harnessEnv('OVERLOOK_KEY_EXPORT_DESTINATION');
+      const destination =
+        fixture !== undefined && fixture !== ''
+          ? fixture
+          : await dialog.showSaveDialog({ defaultPath: 'overlook-recovery.key' }).then((r) => (r.canceled ? null : (r.filePath ?? null)));
+      if (destination === null) {
+        return null;
+      }
+      // Tiny file, atomic publish: temp + rename (the save dialog already
+      // confirmed any overwrite).
+      const temp = `${destination}.tmp`;
+      await writeFile(temp, sealRecoveryKey(keyStore.masterKeyBytes(), password));
+      await rename(temp, destination);
+      return destination;
+    },
+    pickFile: async () => {
+      const fixture = harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE');
+      if (fixture !== undefined && fixture !== '') {
+        return fixture;
+      }
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Overlook recovery key', extensions: ['key'] }],
+      });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    importKey: async (importPath, password) => {
+      let data: Buffer;
+      try {
+        // Exact-size gate BEFORE buffering (security review P2-1): the
+        // renderer supplies the path; never allocate an arbitrary file.
+        const stats = await stat(importPath);
+        if (!stats.isFile() || stats.size !== RECOVERY_FILE_LENGTH) {
+          return { installed: false, fingerprint: null, reason: 'invalid' as const };
+        }
+        data = await readFile(importPath);
+      } catch {
+        return { installed: false, fingerprint: null, reason: 'invalid' as const };
+      }
+      try {
+        const master = openRecoveryKey(data, password);
+        const dataDir = path.join(app.getPath('userData'), 'library');
+        const result = installRecoveredMaster(dataDir, pickSafeStorage(), master);
+        if (result === 'mismatch' || result === 'no-library') {
+          return { installed: false, fingerprint: null, reason: result };
+        }
+        return { installed: true, fingerprint: fingerprintOf(master), reason: null };
+      } catch (error) {
+        const reason = error instanceof RecoveryError ? error.reason : ('invalid' as const);
+        return { installed: false, fingerprint: null, reason };
+      }
+    },
+  }));
   registerPurgeHandlers(() => ({
     purge: async (photoIds) => getPurgeService().purge(photoIds),
   }));

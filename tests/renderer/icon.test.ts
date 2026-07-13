@@ -77,6 +77,13 @@ const VOCABULARY = [
   // use beyond the readme list (#237): the folder dropzone + drop overlay.
   'folder-open',
   'image-down',
+  // Recovery-key glyphs the design's KeyDialog.jsx/SettingsDialog.jsx use
+  // beyond the readme list (#240).
+  'eye',
+  'eye-off',
+  'file-key',
+  'fingerprint',
+  'upload',
 ] as const;
 
 describe('Icon', () => {

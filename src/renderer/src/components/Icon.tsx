@@ -15,6 +15,10 @@ import {
   CloudUpload,
   Database,
   Download,
+  Eye,
+  EyeOff,
+  FileKey,
+  Fingerprint,
   Folder,
   Funnel,
   FolderOpen,
@@ -45,6 +49,7 @@ import {
   Star,
   Trash2,
   TriangleAlert,
+  Upload,
   X,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
@@ -70,6 +75,10 @@ export const ICON_NAMES = [
   'cloud-upload',
   'database',
   'download',
+  'eye',
+  'eye-off',
+  'file-key',
+  'fingerprint',
   'folder-open',
   'funnel',
   'grid-2x2',
@@ -99,6 +108,7 @@ export const ICON_NAMES = [
   'star',
   'trash-2',
   'triangle-alert',
+  'upload',
   'x',
 ] as const;
 
@@ -122,6 +132,10 @@ const ICONS = {
   'cloud-upload': CloudUpload,
   database: Database,
   download: Download,
+  eye: Eye,
+  'eye-off': EyeOff,
+  'file-key': FileKey,
+  fingerprint: Fingerprint,
   folder: Folder,
   'folder-open': FolderOpen,
   funnel: Funnel,
@@ -152,6 +166,7 @@ const ICONS = {
   star: Star,
   'trash-2': Trash2,
   'triangle-alert': TriangleAlert,
+  upload: Upload,
   x: X,
 } satisfies Record<IconName, typeof Album>;
 

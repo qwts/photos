@@ -48,6 +48,12 @@ export interface OverlookApi {
     readonly cancel: (request: Req<typeof channels.exportCancel>) => Promise<Res<typeof channels.exportCancel>>;
     readonly onProgress: (listener: (payload: z.output<typeof events.exportProgress.payload>) => void) => () => void;
   };
+  readonly keys: {
+    readonly status: () => Promise<Res<typeof channels.keysStatus>>;
+    readonly export: (request: Req<typeof channels.keysExport>) => Promise<Res<typeof channels.keysExport>>;
+    readonly pickFile: () => Promise<Res<typeof channels.keysPickFile>>;
+    readonly import: (request: Req<typeof channels.keysImport>) => Promise<Res<typeof channels.keysImport>>;
+  };
   readonly settings: {
     readonly get: () => Promise<Res<typeof channels.settingsGet>>;
     readonly set: (request: Req<typeof channels.settingsSet>) => Promise<Res<typeof channels.settingsSet>>;

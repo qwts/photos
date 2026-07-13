@@ -32,7 +32,7 @@ interface StoredKeyRecord extends KeyDisplay {
   readonly wrappedKey: string;
 }
 
-interface KeysFile {
+export interface KeysFile {
   readonly version: 1;
   readonly keys: readonly StoredKeyRecord[];
 }
@@ -48,6 +48,26 @@ function wrapKey(masterKey: Buffer, keyId: number, keyBytes: Buffer): string {
   cipher.setAAD(aad);
   const ciphertext = Buffer.concat([cipher.update(keyBytes), cipher.final()]);
   return Buffer.concat([nonce, cipher.getAuthTag(), ciphertext]).toString('base64');
+}
+
+/** Recovery import (#240) validates a candidate master against stored key
+ * rows without opening the whole store. */
+export function unwrapStoredKey(masterKey: Buffer, keyId: number, wrapped: string): Buffer {
+  return unwrapKey(masterKey, keyId, wrapped);
+}
+
+/** Reads keys.json for out-of-store consumers (#240); null when absent or
+ * unparseable. */
+export function readKeysFile(dataDir: string): KeysFile | null {
+  const keysPath = join(dataDir, KEYS_FILE);
+  if (!existsSync(keysPath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(keysPath, 'utf8')) as KeysFile;
+  } catch {
+    return null;
+  }
 }
 
 function unwrapKey(masterKey: Buffer, keyId: number, wrapped: string): Buffer {
@@ -193,5 +213,11 @@ export class KeyStore {
   /** Metadata for the Inspector's "KEY #N" row and future key management. */
   listKeys(): readonly KeyDisplay[] {
     return this.records.map(({ id, createdAt, status }) => ({ id, createdAt, status }));
+  }
+
+  /** Recovery backup material (#240): a copy of the master key for sealing
+   * into the password-encrypted recovery file. Handle and drop promptly. */
+  masterKeyBytes(): Buffer {
+    return Buffer.from(this.masterKey);
   }
 }
