@@ -149,7 +149,11 @@ export function Lightbox({
         <IconButton icon="star" label="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
         <IconButton icon="share" label="Export" onClick={onExport} />
         <IconButton icon="info" label="Inspector (I)" active={inspectorOpen} onClick={onToggleInspector} />
-        <IconButton icon="trash-2" label="Delete" onClick={onDelete} />
+        {photo.deletedAt === null ? (
+          // Already-deleted rows offer no Delete (PR #218 review) — the
+          // trash pill's Restore is their action; purge is #121.
+          <IconButton icon="trash-2" label="Delete" onClick={onDelete} />
+        ) : null}
       </div>
       <div className={`ovl-lightbox__nav ovl-lightbox__chrome${chromeClass}`}>
         <IconButton icon="chevron-left" size="lg" label="Previous (←)" onClick={onPrev} />

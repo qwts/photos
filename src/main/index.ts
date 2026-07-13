@@ -324,6 +324,8 @@ let offloadService: OffloadService | undefined;
 let backupProvider: FaultInjectingProvider | undefined;
 /** Auto-backup entry point (imports + resume) — set by getBackupEngine. */
 let autoBackupTrigger: (() => void) | undefined;
+/** Manifest-debt push after deletes (#120/PR #218) — quiet, auto-marked. */
+let manifestSyncTrigger: (() => void) | undefined;
 
 function getBackupEngine(): BackupEngine {
   if (backupEngine === undefined) {
@@ -446,6 +448,18 @@ function getBackupEngine(): BackupEngine {
     autoBackupTrigger = () => {
       const current = getSettingsStore().get();
       if (current.autoBackupOnImport && current.providerId !== null) {
+        void runAndReport(true).catch(() => undefined);
+      }
+    };
+    // Not gated on autoBackupOnImport: this is manifest CORRECTNESS, not a
+    // convenience upload. Push immediately only when the debt is PURE
+    // (pending 0 — the toolbar is disabled, so nothing else would settle
+    // it); with dirty rows the user's next backup carries the manifest,
+    // and we never upload blobs they didn't ask for. Disconnected keeps
+    // the debt for the next run.
+    manifestSyncTrigger = () => {
+      engine.oweManifest();
+      if (getSettingsStore().get().providerId !== null && repo.pendingCount() === 0) {
         void runAndReport(true).catch(() => undefined);
       }
     };
@@ -579,7 +593,14 @@ function createWindow(): void {
 
 void app.whenReady().then(async () => {
   registerIpcHandlers();
-  registerLibraryHandlers(getLibraryService);
+  registerLibraryHandlers(getLibraryService, () => {
+    // Soft delete of a synced row leaves pendingCount at 0 with a STALE
+    // remote manifest — a restore-from-backup would resurrect the photo
+    // (PR #218 review). Owe the generation and push it quietly now; if
+    // disconnected/offline the debt persists into the next run.
+    getBackupEngine();
+    manifestSyncTrigger?.();
+  });
   registerAlbumHandlers(getLibraryService, ulid);
   registerThumbProtocol(getThumbService);
   registerFullProtocol(getFullService);

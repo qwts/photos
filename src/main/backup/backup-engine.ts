@@ -97,6 +97,14 @@ export class BackupEngine {
     }
   }
 
+  /** The remote is owed a fresh manifest generation even with nothing
+   * dirty (#120): soft-deleting an already-SYNCED photo changes
+   * manifestRows() without touching pendingCount, and a restore-from-backup
+   * against the stale manifest would resurrect the deleted photo. */
+  oweManifest(): void {
+    this.manifestOwed = true;
+  }
+
   private async execute(signal?: AbortSignal): Promise<BackupRunResult> {
     const settings = this.deps.settings();
     if (settings.wifiOnly && this.deps.network() === 'other') {

@@ -53,6 +53,14 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
     await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' })).toHaveCount(0);
 
+    // The in-trash lightbox offers no Delete either (PR #218 review) —
+    // an already-deleted row's action is Restore, purge is #121.
+    await page.locator('.ovl-grid__cell').first().click();
+    await expect(page.getByTestId('lightbox')).toBeVisible();
+    await expect(page.getByTestId('lightbox').getByRole('button', { name: 'Delete' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('lightbox')).not.toBeVisible();
+
     // Restore both: favorite came back intact, trash empties.
     await page.getByRole('button', { name: 'Restore' }).click();
     await expect(page.getByRole('status')).toContainText('Restored 2 photos');

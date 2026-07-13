@@ -233,6 +233,23 @@ describe('backup engine (#105)', () => {
     assert.equal((await w.provider.list('manifest')).length, 1);
   });
 
+  test('oweManifest(): a clean-world run still uploads a fresh generation (PR #218 review)', async () => {
+    const w = await world(1);
+    await w.engine.run();
+    assert.equal((await w.provider.list('manifest')).length, 1);
+
+    // Nothing dirty, nothing owed: a run uploads no new generation.
+    await w.engine.run();
+    assert.equal((await w.provider.list('manifest')).length, 1);
+
+    // A soft delete of a synced row changes manifestRows() with pending 0 —
+    // the owed generation must land or a backup restore resurrects it.
+    w.engine.oweManifest();
+    const settle = await w.engine.run();
+    assert.equal(settle.manifestUploaded, true);
+    assert.equal((await w.provider.list('manifest')).length, 2, 'a new generation landed');
+  });
+
   test('auto-backup-on-import runs only when the setting says so', async () => {
     const off = await world(1);
     off.engine.maybeAutoRun();
