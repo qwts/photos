@@ -101,14 +101,23 @@ export function Lightbox({
   // Rehydrate on touch (#107): an offloaded photo downloads back on open;
   // failure surfaces as offloaded + red toast from the host — never a
   // half-restored record. The changed push flips syncState and the img
-  // re-keys to retry the (previously 404) full-res URL.
+  // re-keys to retry the (previously 404) full-res URL. Refs keep this to
+  // ONE request per photo — parent rerenders change the inline callback's
+  // identity and refreshes can rerender before syncState lands (PR #205
+  // review).
   const offloaded = photo.syncState === 'offloaded';
+  const rehydrateErrorRef = useRef(onRehydrateError);
   useEffect(() => {
-    if (!offloaded) {
+    rehydrateErrorRef.current = onRehydrateError;
+  });
+  const rehydrateRequestedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!offloaded || rehydrateRequestedFor.current === photo.id) {
       return;
     }
-    void window.overlook.backup.rehydrate({ photoId: photo.id }).catch(() => onRehydrateError?.());
-  }, [offloaded, photo.id, onRehydrateError]);
+    rehydrateRequestedFor.current = photo.id;
+    void window.overlook.backup.rehydrate({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
+  }, [offloaded, photo.id]);
 
   const taken = photo.takenAt ?? photo.importedAt;
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
