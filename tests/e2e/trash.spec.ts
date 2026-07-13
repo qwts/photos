@@ -45,7 +45,9 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
 
     // Trash shows both; the pill flips to Restore (no Delete/Export).
     await page.getByRole('button', { name: 'Recently deleted 2' }).click();
-    await expect(page.locator('.ovl-grid__cell')).toHaveCount(2);
+    // Wait for REAL tiles, not placeholder cells — ⌘A reads loaded photos
+    // (the #189 cold-start rule applies to source switches too).
+    await expect(page.locator('.ovl-tile__img')).toHaveCount(2);
     await page.keyboard.press('ControlOrMeta+a');
     await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
     await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
