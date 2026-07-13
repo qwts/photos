@@ -22,8 +22,11 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { loadMore, exhausted } = useLibraryPhotos();
-  // Purge ceremony (#121): the trash pill's Delete opens the confirm.
-  const [purgeConfirm, setPurgeConfirm] = useState(false);
+  // Purge ceremony (#121): the trash pill's Delete opens the confirm over
+  // a SNAPSHOT of the selection — global shortcuts (⌘A) stay live while
+  // the modal is open, and the destructive set must be exactly what the
+  // user confirmed (PR #220 review).
+  const [purgeIds, setPurgeIds] = useState<readonly string[] | null>(null);
 
   // An active album narrows like query/chips do (#117): the sidebar count
   // sized for the source no longer applies — track the loaded set instead.
@@ -94,7 +97,7 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
                   });
                 },
                 onPurge: () => {
-                  setPurgeConfirm(true);
+                  setPurgeIds([...state.selection]);
                 },
               }
             : {
@@ -125,15 +128,15 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
               })}
         />
       ) : null}
-      {purgeConfirm && state.selection.size > 0 ? (
+      {purgeIds !== null && purgeIds.length > 0 ? (
         <PurgeConfirm
-          count={state.selection.size}
+          count={purgeIds.length}
           onCancel={() => {
-            setPurgeConfirm(false);
+            setPurgeIds(null);
           }}
           onConfirm={() => {
-            const photoIds = [...state.selection];
-            setPurgeConfirm(false);
+            const photoIds = [...purgeIds];
+            setPurgeIds(null);
             void window.overlook.library.purge({ photoIds }).then(({ purged, remoteFailures }) => {
               dispatch({
                 type: 'toast/shown',
