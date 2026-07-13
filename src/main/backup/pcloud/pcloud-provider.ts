@@ -1,0 +1,251 @@
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
+
+import {
+  assertSafeRemotePath,
+  ProviderError,
+  type ProviderAuthState,
+  type ProviderQuota,
+  type RemoteEntry,
+  type StorageProvider,
+} from '../provider.js';
+import { redactTokens } from './oauth.js';
+import type { PCloudAuthRecord } from './token-store.js';
+
+// The live pCloud adapter (#255, ADR-0007): StorageProvider over pCloud's
+// HTTP API, so the backup engine works against real pCloud exactly as
+// against the mock. Blobs travel as-is (encrypt-once); everything lives
+// under the adapter-owned /Overlook/<library-id>/ prefix; API usage follows
+// the working image-trail integration (form-encoded POSTs, result-code
+// envelope). The fetch implementation is injected so node:test covers every
+// method and error mapping without network.
+
+/** pCloud wraps errors in a JSON envelope: `result` 0 = ok, anything else
+ * is a documented numeric code. The engine only understands ProviderError
+ * kinds, so the interesting codes map here; unknown ones read as transient
+ * (retry-then-surface beats misclassifying). */
+function kindForResult(result: number): ProviderError['kind'] {
+  if (result === 1000 || result === 2000 || result === 2003 || result === 2094 || result === 2095 || result === 4000) {
+    // Log-in required / failed, access denied, invalid or expired token,
+    // too many login tries — all mean "reconnect".
+    return 'auth';
+  }
+  if (result === 2008) {
+    return 'quota';
+  }
+  if (result === 2005 || result === 2009) {
+    // Directory / file does not exist.
+    return 'not-found';
+  }
+  return 'transient';
+}
+
+interface PCloudFileMeta {
+  readonly name: string;
+  readonly isfolder: boolean;
+  readonly size?: number;
+  readonly contents?: readonly PCloudFileMeta[];
+}
+
+export interface PCloudProviderOptions {
+  /** Late-bound custody read — the token can appear (connect) or vanish
+   * (disconnect) while the provider instance lives. */
+  readonly auth: () => PCloudAuthRecord | null;
+  /** Names this library's remote home: /Overlook/<libraryId>/… (ADR-0007). */
+  readonly libraryId: string;
+  /** Test seam; production uses global fetch. */
+  readonly fetchImpl?: typeof fetch;
+}
+
+export class PCloudProvider implements StorageProvider {
+  readonly id = 'pcloud';
+  readonly label = 'pCloud';
+  private readonly auth: () => PCloudAuthRecord | null;
+  private readonly root: string;
+  private readonly fetchImpl: typeof fetch;
+  /** createfolderifnotexists is one round-trip per ancestor — remember what
+   * exists so steady-state puts pay zero extra calls. */
+  private readonly knownFolders = new Set<string>();
+
+  constructor(options: PCloudProviderOptions) {
+    this.auth = options.auth;
+    this.root = `/Overlook/${options.libraryId}`;
+    this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+
+  authState(): Promise<ProviderAuthState> {
+    // Cheap truth: custody present. Expiry/revocation surfaces as kind=auth
+    // errors on data calls (#256 wires that to the settings card).
+    return Promise.resolve(this.auth() === null ? 'not-connected' : 'connected');
+  }
+
+  private record(): PCloudAuthRecord {
+    const record = this.auth();
+    if (record === null) {
+      throw new ProviderError('pCloud is not connected', 'auth');
+    }
+    return record;
+  }
+
+  private async api(method: string, params: Record<string, string>, form?: FormData): Promise<Record<string, unknown>> {
+    const record = this.record();
+    let body: FormData | URLSearchParams;
+    if (form === undefined) {
+      body = new URLSearchParams({ access_token: record.accessToken, ...params });
+    } else {
+      form.set('access_token', record.accessToken);
+      for (const [key, value] of Object.entries(params)) {
+        form.set(key, value);
+      }
+      body = form;
+    }
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`https://${record.apiHost}/${method}`, { method: 'POST', body });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'network failure';
+      throw new ProviderError(redactTokens(`pCloud ${method} failed: ${message}`), 'transient');
+    }
+    if (!response.ok) {
+      throw new ProviderError(`pCloud ${method} answered HTTP ${String(response.status)}`, 'transient');
+    }
+    const data = (await response.json()) as Record<string, unknown>;
+    const result = typeof data['result'] === 'number' ? data['result'] : Number.NaN;
+    if (result !== 0) {
+      const detail = typeof data['error'] === 'string' ? data['error'] : `result ${String(result)}`;
+      throw new ProviderError(redactTokens(`pCloud ${method} failed: ${detail}`), kindForResult(result));
+    }
+    return data;
+  }
+
+  /** Remote absolute path for a provider-relative one, validated first. */
+  private remotePath(path: string): string {
+    assertSafeRemotePath(path);
+    return `${this.root}/${path}`;
+  }
+
+  private async ensureFolder(remoteFolder: string): Promise<void> {
+    if (this.knownFolders.has(remoteFolder)) {
+      return;
+    }
+    // Ancestors first — createfolderifnotexists does not create parents.
+    const segments = remoteFolder.split('/').filter((segment) => segment !== '');
+    let current = '';
+    for (const segment of segments) {
+      current = `${current}/${segment}`;
+      if (this.knownFolders.has(current)) {
+        continue;
+      }
+      await this.api('createfolderifnotexists', { path: current });
+      this.knownFolders.add(current);
+    }
+  }
+
+  async put(path: string, bytes: Readable): Promise<{ bytes: number }> {
+    const remote = this.remotePath(path);
+    const lastSlash = remote.lastIndexOf('/');
+    const folder = remote.slice(0, lastSlash);
+    const filename = remote.slice(lastSlash + 1);
+    await this.ensureFolder(folder);
+    const payload = await buffer(bytes);
+    const form = new FormData();
+    // nopartial: pCloud must never publish a half-received file — the verify
+    // step would then fail the whole batch instead of retrying one blob.
+    form.set('nopartial', '1');
+    form.set('file', new Blob([new Uint8Array(payload)]), filename);
+    const data = await this.api('uploadfile', { path: folder, filename }, form);
+    const metadata = Array.isArray(data['metadata']) ? (data['metadata'] as PCloudFileMeta[]) : [];
+    const size = metadata[0]?.size;
+    if (typeof size !== 'number') {
+      throw new ProviderError('pCloud uploadfile returned no file metadata', 'transient');
+    }
+    return { bytes: size };
+  }
+
+  async getStream(path: string): Promise<Readable> {
+    const data = await this.api('getfilelink', { path: this.remotePath(path) });
+    const hosts = Array.isArray(data['hosts']) ? (data['hosts'] as string[]) : [];
+    const filePath = typeof data['path'] === 'string' ? data['path'] : null;
+    if (hosts[0] === undefined || filePath === null) {
+      throw new ProviderError('pCloud getfilelink returned no download host', 'transient');
+    }
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`https://${hosts[0]}${filePath}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'network failure';
+      throw new ProviderError(redactTokens(`pCloud download failed: ${message}`), 'transient');
+    }
+    if (!response.ok || response.body === null) {
+      throw new ProviderError(`pCloud download answered HTTP ${String(response.status)}`, 'transient');
+    }
+    return Readable.fromWeb(response.body);
+  }
+
+  async list(prefix: string): Promise<readonly RemoteEntry[]> {
+    let data: Record<string, unknown>;
+    try {
+      data = await this.api('listfolder', { path: this.remotePath(prefix), recursive: '1' });
+    } catch (error) {
+      if (error instanceof ProviderError && error.kind === 'not-found') {
+        // A prefix nobody wrote to yet lists as empty, like the mock.
+        return [];
+      }
+      throw error;
+    }
+    const entries: RemoteEntry[] = [];
+    const walk = (nodes: readonly PCloudFileMeta[], parent: string): void => {
+      for (const node of nodes) {
+        if (node.isfolder) {
+          walk(node.contents ?? [], `${parent}/${node.name}`);
+        } else if (typeof node.size === 'number') {
+          entries.push({ path: `${parent}/${node.name}`, bytes: node.size });
+        }
+      }
+    };
+    const metadata = data['metadata'] as PCloudFileMeta | undefined;
+    walk(metadata?.contents ?? [], prefix);
+    return entries;
+  }
+
+  async delete(path: string): Promise<void> {
+    try {
+      await this.api('deletefile', { path: this.remotePath(path) });
+    } catch (error) {
+      if (error instanceof ProviderError && error.kind === 'not-found') {
+        // Idempotent like the mock's rm --force.
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async quota(): Promise<ProviderQuota> {
+    const data = await this.api('userinfo', {});
+    const usedBytes = typeof data['usedquota'] === 'number' ? data['usedquota'] : 0;
+    const totalBytes = typeof data['quota'] === 'number' ? data['quota'] : 0;
+    return { usedBytes, totalBytes };
+  }
+
+  async verify(path: string): Promise<{ sha256: string; bytes: number }> {
+    const data = await this.api('checksumfile', { path: this.remotePath(path) });
+    const metadata = data['metadata'] as PCloudFileMeta | undefined;
+    const bytes = typeof metadata?.size === 'number' ? metadata.size : null;
+    const sha256 = typeof data['sha256'] === 'string' ? data['sha256'] : null;
+    if (sha256 !== null && bytes !== null) {
+      return { sha256, bytes };
+    }
+    // US region reports sha1/md5 only — re-download and hash per the
+    // interface contract (never skip verification).
+    const stream = await this.getStream(path);
+    const hash = createHash('sha256');
+    let counted = 0;
+    for await (const chunk of stream) {
+      const piece = chunk as Buffer;
+      hash.update(piece);
+      counted += piece.length;
+    }
+    return { sha256: hash.digest('hex'), bytes: counted };
+  }
+}

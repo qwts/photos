@@ -5,7 +5,14 @@ import { dirname, join, relative, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 
-import { ProviderError, type ProviderAuthState, type ProviderQuota, type RemoteEntry, type StorageProvider } from './provider.js';
+import {
+  assertSafeRemotePath,
+  ProviderError,
+  type ProviderAuthState,
+  type ProviderQuota,
+  type RemoteEntry,
+  type StorageProvider,
+} from './provider.js';
 
 // Filesystem-backed mock provider (#103): the CI/E2E target the whole M08
 // epic builds against. Remote paths map onto a local directory; quota and
@@ -20,23 +27,6 @@ export interface MockProviderOptions {
 }
 
 const DEFAULT_TOTAL = 10 * 1024 * 1024 * 1024;
-
-function assertSafeRelative(path: string): void {
-  // Remote paths are OUR vocabulary: forward-slash relative segments only.
-  // Backslashes and drive letters would re-split under Windows node:path
-  // (PR #200 review), so they are rejected outright, as are traversal and
-  // empty segments.
-  const segments = path.split('/');
-  if (
-    path === '' ||
-    path.startsWith('/') ||
-    path.includes('\\') ||
-    path.includes(':') ||
-    segments.some((segment) => segment === '' || segment === '..')
-  ) {
-    throw new ProviderError(`unsafe remote path: ${path}`, 'corrupt');
-  }
-}
 
 export class MockProvider implements StorageProvider {
   readonly id = 'mock';
@@ -60,7 +50,7 @@ export class MockProvider implements StorageProvider {
   }
 
   private resolve(path: string): string {
-    assertSafeRelative(path);
+    assertSafeRemotePath(path);
     return join(this.rootDir, ...path.split('/'));
   }
 
