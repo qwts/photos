@@ -10,11 +10,16 @@ files:
 # native modules must land in "dependencies" so npmRebuild picks them up
 # (ADR-0006's prebuilt-only policy — better-sqlite3/sharp arrive with M03).
 npmRebuild: true
+# App icons live in build/ (electron-builder's default buildResources dir),
+# regenerated from the design handoff via scripts/generate-app-icons.sh
+# (#236). Committed so CI needs no icon tooling.
 mac:
+  icon: build/icon.icns
   target:
     - dmg
     - zip
   identity: null
 win:
+  icon: build/icon.ico
   target:
     - nsis

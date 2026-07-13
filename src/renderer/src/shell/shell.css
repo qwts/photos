@@ -31,11 +31,18 @@
   flex: none;
 }
 
+.ovl-toolbar__mark {
+  display: block;
+}
+
 .ovl-toolbar__brand {
   font-size: var(--text-md);
   font-weight: 600;
   letter-spacing: 0.14em; /* the mock's own wordmark tracking */
-  color: var(--text-body);
+  background: var(--brand-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 .ovl-toolbar__spacer {
