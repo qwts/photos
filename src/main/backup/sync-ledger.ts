@@ -52,6 +52,13 @@ export class SyncLedger {
     markDirty(this.db, photoId);
   }
 
+  /** The consistency tool's escape hatch (#125): repair writes a status
+   * OUTSIDE the machine — repair exists precisely because a crash broke
+   * the machine's assumptions. Never used by normal flows. */
+  repairStatus(photoId: string, to: 'offloaded' | 'error'): void {
+    run(this.db, 'UPDATE sync_ledger SET status = ? WHERE photo_id = ?', to, photoId);
+  }
+
   /** Completed, VERIFIED backup: syncing → synced, dirty clears, stamp set
    * (feeds "ALL BACKED UP · 2H AGO" / "JUST NOW"). */
   markBackedUp(photoId: string, at: string): void {

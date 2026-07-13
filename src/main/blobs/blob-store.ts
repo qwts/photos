@@ -89,6 +89,37 @@ export class BlobStore {
     return join(this.blobsDir, contentHash.slice(0, 2), contentHash.slice(2, 4), contentHash);
   }
 
+  /** Consistency-scan surface (#125): every original hash on disk. */
+  async listOriginalHashes(): Promise<string[]> {
+    const hashes: string[] = [];
+    for (const entry of await readdir(this.blobsDir, { recursive: true, withFileTypes: true })) {
+      if (entry.isFile()) {
+        hashes.push(entry.name);
+      }
+    }
+    return hashes;
+  }
+
+  /** Original hashes that have at least one thumb on disk. */
+  async listThumbHashes(): Promise<string[]> {
+    const hashes = new Set<string>();
+    for (const entry of await readdir(this.thumbsDir, { recursive: true, withFileTypes: true })) {
+      if (entry.isFile()) {
+        hashes.add(entry.name.replace(/\.(thumb|mid)$/u, ''));
+      }
+    }
+    return [...hashes];
+  }
+
+  /** Staging leftovers — a crash mid-put strands ciphertext in tmp/. */
+  async listStaged(): Promise<string[]> {
+    return (await readdir(this.tmpDir, { withFileTypes: true })).filter((entry) => entry.isFile()).map((entry) => entry.name);
+  }
+
+  async removeStaged(name: string): Promise<void> {
+    await rm(join(this.tmpDir, name), { force: true });
+  }
+
   private thumbPath(contentHash: string, size: ThumbSize): string {
     return join(this.thumbsDir, contentHash.slice(0, 2), `${contentHash}.${size}`);
   }
