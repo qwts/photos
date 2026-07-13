@@ -113,8 +113,8 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     await page.getByRole('button', { name: 'Back up' }).click();
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
     const remoteBlobs = join(userData, 'library', 'mock-remote', 'blobs');
-    const photos = await page.evaluate<{ id: string; contentHash: string }[]>(
-      `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => ({ id: p.id, contentHash: p.contentHash })))`,
+    const photos = await page.evaluate<{ id: string; contentHash: string; fileName: string }[]>(
+      `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => ({ id: p.id, contentHash: p.contentHash, fileName: p.fileName })))`,
     );
     const remotePath = (hash: string): string => join(remoteBlobs, hash.slice(0, 2), hash);
     const target = photos.find((photo) => existsSync(remotePath(photo.contentHash)));
@@ -124,8 +124,13 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
 
     await page.evaluate(`window.overlook.library.delete({ photoIds: ['${target?.id ?? ''}'] })`);
     await page.getByRole('button', { name: 'Recently deleted 1' }).click();
+    // Gate ⌘A on the TRASH page having actually landed in state — a lone
+    // tile can also match a half-decoded previous source under load, and
+    // select-all reads state.photos (the "Delete 2 photos" screenshot).
     await expect(page.locator('.ovl-tile__img')).toHaveCount(1);
+    await expect(page.locator('.ovl-tile__img').first()).toHaveAttribute('alt', target?.fileName ?? '');
     await page.keyboard.press('ControlOrMeta+a');
+    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
 
     // The ceremony: red Delete in the pill → confirm dialog with the exact
     // count → the destructive button.
