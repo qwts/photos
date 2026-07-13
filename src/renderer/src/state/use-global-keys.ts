@@ -22,13 +22,20 @@ export function useGlobalKeys(): void {
         dispatch({ type: 'escape' });
         return;
       }
-      if (event.key === 'i' && !inField && !anyDialogOpen) {
+      if ((event.key === 'i' || event.key === 'I') && !inField && !anyDialogOpen) {
         dispatch({ type: 'inspector/toggled' });
+        return;
+      }
+      // Lightbox mode (#93): ←/→ step the visible sequence with wraparound.
+      // No click-to-focus needed — the listener lives on window.
+      if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && state.lightboxId !== null && !inField && !anyDialogOpen) {
+        event.preventDefault();
+        dispatch({ type: 'lightbox/stepped', delta: event.key === 'ArrowRight' ? 1 : -1 });
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [state.photos, state.importOpen, state.exportOpen, state.settingsOpen, dispatch]);
+  }, [state.photos, state.lightboxId, state.importOpen, state.exportOpen, state.settingsOpen, dispatch]);
 }

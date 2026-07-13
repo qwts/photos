@@ -62,6 +62,7 @@ export type AppAction =
   | { type: 'selection/all'; photoIds: readonly string[] }
   | { type: 'selection/cleared' }
   | { type: 'lightbox/opened'; photoId: string }
+  | { type: 'lightbox/stepped'; delta: 1 | -1 }
   | { type: 'lightbox/closed' }
   | { type: 'inspector/toggled' }
   | { type: 'dialog/set'; dialog: 'import' | 'export' | 'settings'; open: boolean }
@@ -115,6 +116,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, selection: new Set<string>() };
     case 'lightbox/opened':
       return { ...state, lightboxId: action.photoId };
+    case 'lightbox/stepped': {
+      // ←/→ step the VISIBLE (filtered) sequence with wraparound (#93);
+      // a closed lightbox or an empty page is a no-op.
+      if (state.lightboxId === null || state.photos.length === 0) {
+        return state;
+      }
+      const index = state.photos.findIndex((photo) => photo.id === state.lightboxId);
+      if (index === -1) {
+        return state;
+      }
+      const next = state.photos[(index + action.delta + state.photos.length) % state.photos.length];
+      return next === undefined ? state : { ...state, lightboxId: next.id };
+    }
     case 'lightbox/closed':
       return { ...state, lightboxId: null };
     case 'inspector/toggled':
