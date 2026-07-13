@@ -396,6 +396,36 @@
           "path": "tests/library/purge-service.test.ts"
         }
       ]
+    },
+    {
+      "id": "deferred-semantic-search-results",
+      "wiki": "User-Stories",
+      "coverage": [
+        {
+          "type": "deferred",
+          "issue": 224
+        }
+      ]
+    },
+    {
+      "id": "deferred-album-reorder",
+      "wiki": "User-Stories",
+      "coverage": [
+        {
+          "type": "deferred",
+          "issue": 225
+        }
+      ]
+    },
+    {
+      "id": "design-motion-hover-disabled-states",
+      "wiki": "Testing-Strategy",
+      "coverage": [
+        {
+          "type": "manual",
+          "reason": "Motion timings (120/200ms, easing) and hover fill progressions are visual-only rules with no cheap assertion surface; the disabled pattern (45% opacity + pointer-events) is exercised by component stories and every disabled-control play test, and copy/behavior rules are covered by the flow entries."
+        }
+      ]
     }
   ]
 }
