@@ -52,6 +52,21 @@ test('albums: inline create, live counts, album-as-source grid filter', async ()
     // Back to All Photos: the album deactivates and the full set returns.
     await page.getByRole('button', { name: /All Photos/u }).click();
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(3);
+
+    // #118: select → Add to album via the pill picker → exact-count toast
+    // → the album count bumps → the album source shows the addition.
+    await expect(page.locator('.ovl-tile__img')).toHaveCount(3);
+    await page.locator('.ovl-grid__cell').first().hover();
+    await page.locator('.ovl-tile__select').first().click();
+    await page.getByRole('button', { name: 'Add to album' }).click();
+    await page
+      .getByTestId('album-picker')
+      .getByRole('menuitem', { name: /Kyoto trip/u })
+      .click();
+    await expect(page.getByRole('status')).toContainText('Added 1 photo to Kyoto trip');
+    await expect(albumRow).toContainText('3');
+    await albumRow.click();
+    await expect(page.locator('.ovl-grid__cell')).toHaveCount(3);
   } finally {
     await app.close();
   }

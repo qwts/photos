@@ -103,6 +103,18 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
                     });
                   });
                 },
+                // Add to album (#118): exact counts in the mock's voice —
+                // "Added 12 photos to Big Sur". The sidebar count rides
+                // the change push.
+                onAddToAlbum: (album) => {
+                  const photoIds = [...state.selection];
+                  void window.overlook.albums.addPhotos({ albumId: album.id, photoIds }).then(({ added }) => {
+                    dispatch({
+                      type: 'toast/shown',
+                      toast: { title: `Added ${formatCount(added)} ${added === 1 ? 'photo' : 'photos'} to ${album.name}`, tone: 'green' },
+                    });
+                  });
+                },
               })}
         />
       ) : null}

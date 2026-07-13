@@ -1,9 +1,11 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 
 import './pill.css';
 import { formatCount } from '../../../shared/library/format.js';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
+import { AlbumPicker } from './AlbumPicker';
+import type { AlbumSummary } from '../../../shared/library/types.js';
 
 export interface SelectionPillProps {
   readonly count: number;
@@ -15,14 +17,28 @@ export interface SelectionPillProps {
   readonly onDelete?: (() => void) | undefined;
   /** Inside Recently deleted the pill flips to restore mode (#120). */
   readonly onRestore?: (() => void) | undefined;
+  /** Adds the selection to the picked album (#118). */
+  readonly onAddToAlbum?: ((album: AlbumSummary) => void) | undefined;
 }
 
 // Floating selection pill (#78) — the mock's bottom-center bar. Export
-// (#100) and Delete/Restore (#120) are live; Add to album lands with #118.
-export function SelectionPill({ count, onClear, onExport, onDelete, onRestore }: SelectionPillProps): ReactElement {
+// (#100), Delete/Restore (#120), and Add to album (#118) are live.
+export function SelectionPill({ count, onClear, onExport, onDelete, onRestore, onAddToAlbum }: SelectionPillProps): ReactElement {
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="ovl-pill-anchor">
       <div className="ovl-pill" data-testid="selection-pill">
+        {pickerOpen && onAddToAlbum !== undefined ? (
+          <AlbumPicker
+            onPick={(album) => {
+              setPickerOpen(false);
+              onAddToAlbum(album);
+            }}
+            onClose={() => {
+              setPickerOpen(false);
+            }}
+          />
+        ) : null}
         <span className="ovl-pill__count mono-data">{formatCount(count)} SELECTED</span>
         {onRestore !== undefined ? (
           // Trash mode: restoring is the headline action; the destructive
@@ -35,7 +51,14 @@ export function SelectionPill({ count, onClear, onExport, onDelete, onRestore }:
             <Button size="sm" variant="secondary" icon="share" onClick={onExport}>
               Export
             </Button>
-            <Button size="sm" variant="secondary" icon="album" disabled title="Add to album lands with #118">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="album"
+              onClick={() => {
+                setPickerOpen((open) => !open);
+              }}
+            >
               Add to album
             </Button>
             <Button size="sm" variant="danger" icon="trash-2" onClick={onDelete}>
