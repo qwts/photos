@@ -34,8 +34,8 @@ function kindForResult(result: number): ProviderError['kind'] {
   if (result === 2008) {
     return 'quota';
   }
-  if (result === 2005 || result === 2009) {
-    // Directory / file does not exist.
+  if (result === 2002 || result === 2005 || result === 2009) {
+    // Parent directory / directory / file does not exist.
     return 'not-found';
   }
   return 'transient';
@@ -88,16 +88,25 @@ export class PCloudProvider implements StorageProvider {
     return record;
   }
 
-  private async api(method: string, params: Record<string, string>, form?: FormData): Promise<Record<string, unknown>> {
+  private async api(
+    method: string,
+    params: Record<string, string>,
+    file?: { readonly filename: string; readonly payload: Buffer },
+  ): Promise<Record<string, unknown>> {
     const record = this.record();
     let body: FormData | URLSearchParams;
-    if (form === undefined) {
+    if (file === undefined) {
       body = new URLSearchParams({ access_token: record.accessToken, ...params });
     } else {
+      // pCloud's upload protocol reads POST parameters that precede the file
+      // part (Codex P1 on PR #259) — the form is built here, params first,
+      // file strictly last.
+      const form = new FormData();
       form.set('access_token', record.accessToken);
       for (const [key, value] of Object.entries(params)) {
         form.set(key, value);
       }
+      form.set('file', new Blob([new Uint8Array(file.payload)]), file.filename);
       body = form;
     }
     let response: Response;
@@ -149,12 +158,9 @@ export class PCloudProvider implements StorageProvider {
     const filename = remote.slice(lastSlash + 1);
     await this.ensureFolder(folder);
     const payload = await buffer(bytes);
-    const form = new FormData();
     // nopartial: pCloud must never publish a half-received file — the verify
     // step would then fail the whole batch instead of retrying one blob.
-    form.set('nopartial', '1');
-    form.set('file', new Blob([new Uint8Array(payload)]), filename);
-    const data = await this.api('uploadfile', { path: folder, filename }, form);
+    const data = await this.api('uploadfile', { path: folder, filename, nopartial: '1' }, { filename, payload });
     const metadata = Array.isArray(data['metadata']) ? (data['metadata'] as PCloudFileMeta[]) : [];
     const size = metadata[0]?.size;
     if (typeof size !== 'number') {

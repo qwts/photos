@@ -17,6 +17,9 @@ const RECORD: PCloudAuthRecord = { accessToken: 'tok-1', apiHost: 'api.pcloud.co
 interface ApiCall {
   readonly method: string;
   readonly params: Map<string, string>;
+  /** Multipart entry names in wire order — pCloud reads params only when
+   * they PRECEDE the file part. */
+  readonly entryOrder: readonly string[];
 }
 
 type Script = Record<string, (params: Map<string, string>) => unknown>;
@@ -36,15 +39,17 @@ function world(script: Script, downloads: Record<string, string | number> = {}) 
     }
     const method = url.pathname.slice(1);
     const params = new Map<string, string>();
+    const entryOrder: string[] = [];
     const body = init?.body;
     if (body instanceof URLSearchParams || body instanceof FormData) {
       for (const [key, value] of body.entries()) {
+        entryOrder.push(key);
         if (typeof value === 'string') {
           params.set(key, value);
         }
       }
     }
-    calls.push({ method, params });
+    calls.push({ method, params, entryOrder });
     const handler = script[method];
     if (handler === undefined) {
       throw new Error(`unscripted pCloud method: ${method}`);
@@ -74,6 +79,10 @@ describe('pCloud provider adapter (#255)', () => {
     assert.equal(upload?.params.get('filename'), 'h1');
     assert.equal(upload?.params.get('access_token'), 'tok-1');
     assert.equal(upload?.params.get('nopartial'), '1');
+    // pCloud reads POST params only when they precede the file part
+    // (Codex P1 on PR #259): the file must be the LAST multipart entry.
+    assert.equal(upload?.entryOrder.at(-1), 'file');
+    assert.ok((upload?.entryOrder.indexOf('access_token') ?? -1) < (upload?.entryOrder.indexOf('file') ?? -1));
 
     // Second put in the same fan-out folder: the ancestor cache pays zero
     // extra createfolder round-trips.
@@ -117,6 +126,12 @@ describe('pCloud provider adapter (#255)', () => {
     );
     assert.equal(
       await kinds({ getfilelink: () => ({ result: 2009, error: 'File not found.' }) }, (p) => p.getStream('blobs/ab/h1')),
+      'not-found',
+    );
+    // 2002 = a component of the parent path does not exist — not-found, so
+    // delete stays idempotent and reads surface honestly (Codex P2).
+    assert.equal(
+      await kinds({ getfilelink: () => ({ result: 2002, error: 'No parent directory.' }) }, (p) => p.getStream('blobs/ab/h1')),
       'not-found',
     );
     assert.equal(
