@@ -28,7 +28,9 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     // Grid route: select tile 1 → pill Delete → toast + counts move.
     await page.locator('.ovl-grid__cell').nth(1).hover();
     await page.locator('.ovl-tile__select').nth(1).click();
-    await page.getByRole('button', { name: 'Delete' }).click();
+    // Scoped to the pill: the "Recently deleted" sidebar row also matches
+    // a bare 'Delete' name query.
+    await page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' }).click();
     await expect(page.getByRole('status')).toContainText('Moved 1 photo to Recently deleted');
     await expect(page.getByRole('button', { name: 'Recently deleted 1' })).toBeVisible();
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(2);
