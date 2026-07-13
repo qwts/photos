@@ -2,15 +2,14 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { randomBytes } from 'node:crypto';
-import { createWriteStream, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { access, statfs } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
-import { ExportEngine, ExportPreflightError, type ExportEngineDeps } from '../../src/main/export/export-engine.js';
+import { ExportEngine, ExportPreflightError, writeFileCleanly, type ExportEngineDeps } from '../../src/main/export/export-engine.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import type { PhotoRecord } from '../../src/shared/library/types.js';
@@ -45,7 +44,7 @@ async function seededWorld(count: number) {
     repo: { get: (id) => rows.get(id) },
     blobs: store,
     resolveKey: () => key.key,
-    writeFile: async (filePath, plaintext) => pipeline(plaintext, createWriteStream(filePath, { flags: 'wx' })),
+    writeFile: writeFileCleanly,
     exists: async (filePath) =>
       access(filePath).then(
         () => true,
@@ -122,6 +121,33 @@ describe('export engine (#97)', () => {
     const deps: ExportEngineDeps = { ...world.deps, freeBytes: async () => Promise.resolve(10) };
     await assert.rejects(new ExportEngine(deps).exportPhotos([...world.rows.keys()], world.destination), ExportPreflightError);
     assert.equal(readdirSync(world.destination).length, 0);
+  });
+
+  test('a mid-write failure leaves NO partial file (PR #194 review)', async () => {
+    const world = await seededWorld(2);
+    let call = 0;
+    const deps: ExportEngineDeps = {
+      ...world.deps,
+      // First file's decrypt stream dies mid-flight: an errored Readable.
+      blobs: {
+        getStream: (contentHash, resolveKey, photoId) => {
+          call += 1;
+          if (call === 1) {
+            const dead = new Readable({
+              read() {
+                this.destroy(new Error('device error mid-decrypt'));
+              },
+            });
+            return dead;
+          }
+          return world.deps.blobs.getStream(contentHash, resolveKey, photoId);
+        },
+      },
+    };
+    const summary = await new ExportEngine(deps).exportPhotos([...world.rows.keys()], world.destination);
+    assert.deepEqual({ exported: summary.exported, failed: summary.failed }, { exported: 1, failed: 1 });
+    // The failed file was cleaned up — only the good one remains.
+    assert.deepEqual(readdirSync(world.destination), ['IMG_4022.JPG']);
   });
 
   test('a missing photo fails that entry; the batch continues', async () => {

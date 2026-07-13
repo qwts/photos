@@ -1,9 +1,6 @@
-import { createWriteStream } from 'node:fs';
 import { access, readFile, statfs, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
-
-import { pipeline } from 'node:stream/promises';
 
 import { app, BrowserWindow, dialog, safeStorage } from 'electron';
 
@@ -23,7 +20,7 @@ import { ImportService } from './import/import-service.js';
 import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
-import { ExportEngine } from './export/export-engine.js';
+import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
 import { registerExportHandlers, registerImportHandlers, registerIpcHandlers, registerLibraryHandlers, type ExportFacade } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
@@ -304,7 +301,7 @@ function getExportFacade(): ExportFacade {
       repo: { get: (id) => repo.get(id) },
       blobs: parts.blobStore,
       resolveKey: parts.keyStore.resolver(),
-      writeFile: async (filePath, plaintext) => pipeline(plaintext, createWriteStream(filePath, { flags: 'wx' })),
+      writeFile: writeFileCleanly,
       exists: async (filePath) =>
         access(filePath).then(
           () => true,
@@ -321,16 +318,27 @@ function getExportFacade(): ExportFacade {
         },
       },
     });
+    // One run at a time: overlapping export:run calls would clobber the
+    // cancel slot and race on destination filenames (PR #194 review).
     let controller: AbortController | null = null;
+    let turn: Promise<unknown> = Promise.resolve();
     exportFacade = {
-      run: async (photoIds, destination) => {
-        controller = new AbortController();
-        try {
-          const summary = await engine.exportPhotos(photoIds, destination, controller.signal);
-          return { exported: summary.exported, failed: summary.failed, cancelled: summary.cancelled };
-        } finally {
-          controller = null;
-        }
+      run: (photoIds, destination) => {
+        const task = async (): Promise<{ exported: number; failed: number; cancelled: number }> => {
+          controller = new AbortController();
+          try {
+            const summary = await engine.exportPhotos(photoIds, destination, controller.signal);
+            return { exported: summary.exported, failed: summary.failed, cancelled: summary.cancelled };
+          } finally {
+            controller = null;
+          }
+        };
+        const next = turn.then(task, task);
+        turn = next.then(
+          () => undefined,
+          () => undefined,
+        );
+        return next;
       },
       cancel: () => {
         controller?.abort();
