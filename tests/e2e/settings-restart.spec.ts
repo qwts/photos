@@ -25,8 +25,10 @@ test('settings persist across an app restart and re-render the UI', async () => 
   const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-settings-restart-'));
 
   // Run one: change sort, Wi-Fi, bandwidth, and disconnect the provider.
+  // Same try/finally as run two — a run-one failure must not orphan the
+  // app holding the temp profile (PR #215 review).
   const first = await launch(userData);
-  {
+  try {
     const page = await first.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
     await page.locator('.ovl-tile__img').first().waitFor();
@@ -36,8 +38,9 @@ test('settings persist across an app restart and re-render the UI', async () => 
     await page.evaluate(
       `window.overlook.settings.set({ patch: { sortOrder: 'size', wifiOnly: false, bandwidthLimit: 40, providerId: null } })`,
     );
+  } finally {
+    await first.close();
   }
-  await first.close();
 
   // Run two: the same profile reports AND renders the persisted values.
   const second = await launch(userData);
