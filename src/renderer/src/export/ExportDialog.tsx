@@ -38,6 +38,7 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
   const [bar, setBar] = useState<Bar>({ done: 0, total: photoIds.length });
   const [exported, setExported] = useState(0);
   const [failed, setFailed] = useState(0);
+  const [cancelled, setCancelled] = useState(0);
   const [previewTranscodes, setPreviewTranscodes] = useState(0);
   const [runError, setRunError] = useState(false);
 
@@ -67,6 +68,7 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
       .then((summary) => {
         setExported(summary.exported);
         setFailed(summary.failed);
+        setCancelled(summary.cancelled);
         setPreviewTranscodes(summary.previewTranscodes);
         setPhase('done');
       })
@@ -172,12 +174,16 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
             detail={`${formatCount(bar.done)} / ${formatCount(bar.total)}`}
           />
           {phase === 'done' ? (
-            runError || failed > 0 ? (
+            runError || failed > 0 || cancelled > 0 ? (
               <div className="ovl-export__failed" role="alert">
                 <Icon name="triangle-alert" size={15} />
                 {runError
                   ? 'Export failed — check the destination and try again.'
-                  : `${formatCount(exported)} exported · ${formatCount(failed)} failed.`}
+                  : `${[
+                      `${formatCount(exported)} exported`,
+                      ...(failed > 0 ? [`${formatCount(failed)} failed`] : []),
+                      ...(cancelled > 0 ? [`${formatCount(cancelled)} cancelled`] : []),
+                    ].join(' · ')}.`}
               </div>
             ) : (
               <div className="ovl-export__done">
