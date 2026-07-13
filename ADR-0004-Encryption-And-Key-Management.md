@@ -90,3 +90,45 @@ ADR-0006's native-module policy), keyed by a DB key wrapped by the master key.
   the cost of a small per-chunk overhead (16-byte tag per 4 MiB).
 - Lazy re-encryption after rotation is explicitly deferred; if it becomes a
   requirement, it arrives as a new ADR amending the rotation section.
+
+## Accepted deviations & review notes
+
+Appended after the M11 security review ([#129](https://github.com/qwts/photos/issues/129);
+full write-up: [Security Review M11](Security-Review-M11)). The review found the
+crypto, IPC, and plaintext-at-rest seams **sound and well-tested** against this
+ADR's threat model; the notes below record where the implementation's guarantee
+is weaker than the prose above, with the accepted position.
+
+- **Nonce uniqueness is probabilistic, not enforced (accepted for v0.x).** The
+  "nonce reuse impossible within a key's lifetime at our volumes" claim in the
+  *Blob encryption* section rests on a **64-bit random per-blob prefix**
+  (`envelope.ts` `nonceFor`), so uniqueness is a birthday bound (N²/2⁶⁵ under
+  one key), not an invariant: negligible (~2⁻²²) at a few million blobs/key,
+  ~1/130k by ~16M, 50% at 2³². Rotation resets the per-key population, which is
+  the practical mitigation. **Accepted** for single-user libraries at realistic
+  photo volumes; **not release-blocking**. Hardening (a persisted per-key blob
+  budget that forces rotation, or a monotonic counter as the nonce fixed field
+  for a deterministic-unique construction) is tracked in
+  [#229](https://github.com/qwts/photos/issues/229) and must land before
+  libraries can approach ~2³⁰ blobs/key. The prose above is left intact per the
+  append-only convention; this note is the correction of record.
+- **Counter overflow is loud, not silent.** `nonceFor` writes the 32-bit
+  counter with `writeUInt32BE`; a chunk index ≥ 2³² throws rather than wrapping
+  into a reused nonce. Unreachable per blob (2³² × 4 MiB ≈ 16 EB) but confirmed
+  fail-loud.
+- **No unverified-plaintext release.** Each whole chunk is buffered before
+  decrypt and pushed only after `decipher.final()` authenticates — the classic
+  streaming-GCM release-before-verify pitfall is avoided. Truncation, chunk
+  reorder/drop, cross-photo/cross-key substitution, and post-final extension all
+  fail closed (AAD binds photoId + keyId + chunkIndex + flags + totalChunks on
+  every chunk).
+- **Dev seams fail closed in packaged builds.** `OVERLOOK_INSECURE_KEYSTORE`
+  was already gated on `!app.isPackaged`. The M11 review (F1) extended the same
+  gate to the remaining harness env hooks (seed / synthetic-seed / fixture
+  import & export dirs / injected backup faults / profile override) via a single
+  `harnessEnv()` accessor, so a **packaged app is not steerable via env**. The
+  master key is persisted only through `safeStorage`; there is no plaintext key
+  fallback (custody refuses to run without an OS keychain).
+- **DB key is pinned to KEY #1** (`index.ts`) independent of blob-write-key
+  rotation — matches the "rotation only moves the blob write key" decision
+  above; noted so the rotation story stays honest. Not a finding.

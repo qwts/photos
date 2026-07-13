@@ -14,6 +14,7 @@ instructions or entrypoints (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, root
 
 - [Testing Strategy](Testing-Strategy) — test lanes, coverage floors, when each lane must grow
 - [Architecture Decision Records](Architecture-Decision-Records) — ADR index + template
+- [Security Review M11](Security-Review-M11) — crypto/IPC/plaintext audit (#129) + accepted deviations
 - [User Stories](User-Stories) — milestone / user-story planning home
 
 ## Maintenance Convention
