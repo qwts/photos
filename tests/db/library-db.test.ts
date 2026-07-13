@@ -95,7 +95,7 @@ describe('migrations', () => {
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1, 2],
+      [1, 2, 3],
     );
     db.close();
   });
@@ -104,18 +104,18 @@ describe('migrations', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 5, name: 'five', up: () => order.push(5) },
       { version: 4, name: 'four', up: () => order.push(4) },
-      { version: 3, name: 'three', up: () => order.push(3) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [3, 4]);
+    assert.deepEqual(order, [4, 5]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 3,
+      version: 4,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -124,7 +124,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 2);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 3);
     db.close();
   });
 });
@@ -209,6 +209,28 @@ describe('PhotosRepository', () => {
     }
     // Case-insensitive ascending — 'Charlie' sorts between bravo and delta.
     assert.deepEqual(seen, ['alpha.jpg', 'bravo.jpg', 'Charlie.jpg', 'delta.jpg', 'echo.jpg']);
+    db.close();
+  });
+
+  test('name/size orders ride their indexes, not a temp sort (PR #212 review)', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(samplePhoto());
+    const shapes = {
+      name: 'lower(p.file_name), p.id',
+      size: 'p.bytes DESC, p.id DESC',
+    };
+    for (const [order, orderBy] of Object.entries(shapes)) {
+      const plan = queryAll<{ detail: string }>(
+        db,
+        `EXPLAIN QUERY PLAN
+         SELECT p.*, l.status FROM photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id
+         WHERE p.deleted_at IS NULL ORDER BY ${orderBy} LIMIT 5`,
+      )
+        .map((row) => row.detail)
+        .join(' | ');
+      assert.ok(plan.includes(`idx_photos_${order}`), `${order} plan uses its index: ${plan}`);
+      assert.ok(!plan.includes('TEMP B-TREE'), `${order} plan avoids the temp sort: ${plan}`);
+    }
     db.close();
   });
 
