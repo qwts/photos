@@ -98,24 +98,28 @@ export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
           />
           <Icon name="grid-2x2" size={15} color="var(--text-faint)" />
         </div>
-        <Tooltip label={state.pendingCount > 0 ? 'Back up now' : 'All photos backed up'} side="bottom">
-          <IconButton
-            icon="cloud-upload"
-            label="Back up"
-            disabled={state.pendingCount === 0}
-            onClick={() => {
-              // Manual trigger (#108): amber start toast per the mock; the
-              // completion listener shows green/red endings. A disconnected
-              // provider blocks the run (#114) — say so instead.
-              dispatch({ type: 'toast/shown', toast: { title: 'BACKUP STARTED', tone: 'amber' } });
-              void window.overlook.backup.run({}).then(({ skipped }) => {
-                if (skipped === 'disconnected') {
-                  dispatch({ type: 'toast/shown', toast: { title: 'BACKUP OFF — NOT CONNECTED', tone: 'neutral' } });
-                }
-              });
-            }}
-          />
-        </Tooltip>
+        {state.providerConnected ? (
+          <Tooltip label={state.pendingCount > 0 ? 'Back up now' : 'All photos backed up'} side="bottom">
+            <IconButton
+              icon="cloud-upload"
+              label="Back up"
+              disabled={state.pendingCount === 0}
+              onClick={() => {
+                // Manual trigger (#108): amber start toast per the mock; the
+                // completion listener shows green/red endings. A disconnected
+                // provider blocks the run (#114) — say so instead.
+                dispatch({ type: 'toast/shown', toast: { title: 'BACKUP STARTED', tone: 'amber' } });
+                void window.overlook.backup.run({}).then(({ skipped }) => {
+                  if (skipped === 'disconnected') {
+                    dispatch({ type: 'toast/shown', toast: { title: 'BACKUP OFF — NOT CONNECTED', tone: 'neutral' } });
+                  }
+                });
+              }}
+            />
+          </Tooltip>
+        ) : // Disconnected hides the button entirely (#239) — a permanently
+        // disabled backup affordance would misstate why it can't run.
+        null}
         <Button
           variant="primary"
           icon="download"

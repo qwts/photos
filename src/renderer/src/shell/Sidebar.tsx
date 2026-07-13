@@ -232,7 +232,7 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
               <Icon name="settings-2" size={13} color="var(--text-faint)" />
             </button>
           </div>
-          {backupRun !== null && backupRun.done < backupRun.total ? (
+          {state.providerConnected && backupRun !== null && backupRun.done < backupRun.total ? (
             <ProgressBar
               label="Backing up"
               detail={`${formatCount(backupRun.done)} / ${formatCount(backupRun.total)}`}
@@ -244,8 +244,27 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
           <div className="ovl-sidebar__storage mono-data">
             {stats === null
               ? '—'
-              : `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} PCLOUD`}
+              : state.providerConnected
+                ? `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} PCLOUD`
+                : `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL`}
           </div>
+          {state.providerConnected ? null : (
+            // Disconnected (#239): say so and offer the path back — never a
+            // fabricated backup figure.
+            <button
+              type="button"
+              className="ovl-sidebar__connect"
+              data-testid="sidebar-connect"
+              onClick={() => {
+                dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
+              }}
+            >
+              <Icon name="cloud-off" size={12} color="var(--text-faint)" />
+              <span>
+                pCloud not connected — <span className="ovl-sidebar__connect-cta">Connect</span>
+              </span>
+            </button>
+          )}
         </div>
       )}
     </nav>

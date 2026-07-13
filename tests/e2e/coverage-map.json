@@ -436,6 +436,24 @@
           "path": "src/renderer/src/shell/Sidebar.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "m17-pcloud-disconnected-hides-backup-ui",
+      "wiki": "User-Story-M17-Disconnected-states",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/Sidebar.stories.tsx"
+        }
+      ]
     }
   ]
 }

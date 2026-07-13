@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 
+import { useEffect } from 'react';
+
 import { Sidebar } from './Sidebar';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
-import { AppStateProvider } from '../state/app-state-context';
+import { AppStateProvider, useAppDispatch } from '../state/app-state-context';
 
 // #238 exit criteria: the sidebar collapses to the 56px icon rail (labels
 // and counts move to right-side tooltips, headings become dividers, the
@@ -128,5 +130,40 @@ export const StartsCollapsedFromPersistedState: Story = {
     await expect(canvas.getByRole('button', { name: 'Expand sidebar' })).toBeVisible();
     await expect(canvas.queryByText('All Photos')).not.toBeInTheDocument();
     await expect(canvas.getByTestId('backup-shield')).toBeVisible();
+  },
+};
+
+// Story-only helper: flips the provider to disconnected the way Shell's
+// settings sync would (#239).
+function ForceDisconnected(): null {
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    dispatch({ type: 'providerConnected/set', connected: false });
+  }, [dispatch]);
+  return null;
+}
+
+export const Disconnected: Story = {
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      return Promise.resolve({});
+    },
+  ],
+  render: (args) => (
+    <>
+      <ForceDisconnected />
+      <Sidebar {...args} />
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // No fabricated backup state: the progress figure is gone, the storage
+    // line is local-only, and the Connect path is offered.
+    await waitFor(async () => {
+      await expect(canvas.getByTestId('sidebar-connect')).toBeVisible();
+    });
+    await expect(canvas.getByTestId('backup-card')).not.toHaveTextContent('PCLOUD');
+    await expect(canvas.getByText('Library encrypted')).toBeVisible();
   },
 };

@@ -67,27 +67,32 @@ export const StorageOpensByDefault: Story = {
   },
 };
 
-export const DisconnectDisablesEverything: Story = {
+export const DisconnectHidesBackupControls: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
     await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
 
-    // Disconnected-first per design: badge flips, quota gone, ALL backup
-    // controls disable — only the locked Encrypt switch stays (disabled too).
+    // Updated design (#239): the backup-specific controls HIDE instead of
+    // disabling — only the connection card, import Copy/Move (no provider
+    // needed), and the locked Encrypt switch remain.
     await waitFor(() => expect(body.getByText('Not connected')).toBeVisible());
     await expect(body.getByText('Link a provider to store encrypted originals off-device.')).toBeVisible();
-    for (const control of body.getAllByRole('switch')) {
-      await expect(control).toBeDisabled();
-    }
-    await expect(body.getByRole('radio', { name: 'Copy' })).toBeDisabled();
-    await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();
-    await expect(body.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeDisabled();
+    await expect(body.queryByText('Back up new imports automatically')).not.toBeInTheDocument();
+    await expect(body.queryByText('Wi-Fi only')).not.toBeInTheDocument();
+    await expect(body.queryByRole('slider', { name: 'Upload bandwidth limit' })).not.toBeInTheDocument();
+    await expect(body.getByRole('radio', { name: 'Copy' })).toBeEnabled();
+    await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
+    // The locked Encrypt switch is the one switch left, still disabled-on.
+    const switches = body.getAllByRole('switch');
+    await expect(switches).toHaveLength(1);
+    await expect(switches[0]).toBeDisabled();
 
-    // Reconnect: instant with the mock, quota returns.
+    // Reconnect: instant with the mock, quota and the knobs return.
     await userEvent.click(body.getByRole('button', { name: 'Connect Mock provider' }));
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
+    await expect(body.getByText('Back up new imports automatically')).toBeVisible();
   },
 };
 

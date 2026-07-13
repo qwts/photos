@@ -67,26 +67,45 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     const persisted = await page.evaluate<{ settings: { sortOrder: string } }>(`window.overlook.settings.get()`);
     expect(persisted.settings.sortOrder).toBe('size');
 
-    // #114: Storage & Backup opens by default with the connected mock card;
-    // Disconnect flips the badge, disables every backup control, and
+    // #114 (updated by #239): Storage & Backup opens by default with the
+    // connected mock card; Disconnect flips the badge, HIDES the backup
+    // knobs (import Copy/Move stays usable — it needs no provider), and
     // persists providerId null; the mock reconnects instantly.
     await page.getByRole('button', { name: 'Settings' }).click();
     const card = page.getByTestId('provider-card');
     await expect(card).toContainText('Connected');
     await page.getByRole('button', { name: 'Disconnect' }).click();
     await expect(card).toContainText('Not connected');
-    await expect(page.getByRole('radio', { name: 'Copy' })).toBeDisabled();
-    await expect(page.getByRole('switch').first()).toBeDisabled();
+    await expect(page.getByText('Back up new imports automatically')).toBeHidden();
+    await expect(page.getByText('Wi-Fi only')).toBeHidden();
+    await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeHidden();
+    await expect(page.getByRole('radio', { name: 'Copy' })).toBeEnabled();
     const provider = await page.evaluate<{ settings: { providerId: string | null } }>(`window.overlook.settings.get()`);
     expect(provider.settings.providerId).toBe(null);
-    // The slider is REALLY disabled (keyboard-inert), and a manual run is
-    // blocked outright while disconnected (PR #213 review).
-    await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeDisabled();
+    // A manual run stays blocked outright while disconnected (PR #213).
     const blocked = await page.evaluate<{ skipped: string | null }>(`window.overlook.backup.run({})`);
     expect(blocked.skipped).toBe('disconnected');
+
+    // #239: disconnect hides every pCloud surface in the shell — no
+    // misleading backed-up states anywhere.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Back up' })).toBeHidden();
+    await expect(page.getByTestId('sync-state')).toContainText('PCLOUD NOT CONNECTED');
+    await expect(page.getByTestId('backup-card')).not.toContainText('PCLOUD');
+    // The sidebar's Connect link is the path back — it opens Settings.
+    await page.getByTestId('sidebar-connect').click();
+    await expect(page.getByTestId('settings-dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Connect Mock provider' }).click();
     await expect(card).toContainText('Connected');
-    await expect(page.getByRole('radio', { name: 'Copy' })).toBeEnabled();
+    await expect(page.getByText('Back up new imports automatically')).toBeVisible();
+    // Reconnect restores the shell surfaces live, no restart.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Back up' })).toBeVisible();
+    await expect(page.getByTestId('sync-state')).not.toContainText('NOT CONNECTED');
+    await expect(page.getByTestId('sidebar-connect')).toBeHidden();
+    // The #115 Privacy block below expects the dialog open again.
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByTestId('settings-dialog')).toBeVisible();
 
     // #115: the Privacy pane — always-on badge, deferred face grouping
     // (disabled + off, never faked), diagnostics persists through the store.
