@@ -1,5 +1,11 @@
 # photos
 
+## 0.12.1
+
+### Patch Changes
+
+- 9f8f7dd: macOS builds are now signed with a Developer ID certificate and notarized by Apple; tagged releases publish as full releases instead of unsigned pre-releases (#128). Windows builds remain unsigned pending a certificate.
+
 ## 0.12.0
 
 ### Minor Changes
