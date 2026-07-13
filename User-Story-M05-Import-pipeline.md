@@ -17,6 +17,20 @@ Lane B. Real import from an SD card or folder: volume detection with new-vs-tota
 | [#89](https://github.com/qwts/photos/issues/89) | Recent-imports source + import completion toast | #87 |
 | [#90](https://github.com/qwts/photos/issues/90) | E2E: fixture SD-card import end-to-end | #88, #89, #76 |
 
+## Acceptance coverage
+
+| Flow | Status | Coverage |
+| --- | --- | --- |
+| Source discovery + scan (volumes, allowlist, SHA-256 dedupe, progressive counts) | ✅ #84 (PR #174) | `tests/import/source-scanner.test.ts` |
+| EXIF extraction (never-fabricate, RAF embedded preview, floating wall-clock takenAt) | ✅ #85 (PR #176) | `tests/import/exif.test.ts` |
+| Thumbnail worker pool (sharp WebP derivatives, metadata stripped, crash-safe, encrypted at rest) | ✅ #86 (PR #182) | `tests/import/thumbnail-pool.test.ts` |
+| Import engine (journal resume, per-file Move verify-then-delete, dual progress, serialization) | ✅ #87 (PR #183) | `tests/import/import-engine*.test.ts` (kill-test matrix + real-store integration w/ orphan scan) |
+| ImportDialog options/running/done, verbatim copy + Move warning | ✅ #88 (PR #184) | `ImportDialog.stories.tsx` play tests + `tests/e2e/import-flow.spec.ts` — ledger id `m05-import-dialog` |
+| Completion toast (exact counts, Show action, 4s dismiss) + Recent imports jump | ✅ #89 (PR #185) | `tests/library/app-state.test.ts` + `tests/e2e/import-flow.spec.ts` — ledger id `m05-recent-imports-toast` |
+| Full path in CI: fixture card in → encrypted library out (no-plaintext scan, Move source emptied post-verification, Cancel semantics) | ✅ #90 (PR #186) | `tests/e2e/import-flow.spec.ts` |
+
+Notable: the #90 E2E caught a real fresh-profile bug (photos.key_id FK row only written by the dev seed) — fixed in library bootstrap.
+
 ## Definition of done
 
 See the epic issue [#40](https://github.com/qwts/photos/issues/40) — the epic body is canonical; this page is the planning index entry.
