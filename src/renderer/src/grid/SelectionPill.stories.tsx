@@ -64,16 +64,17 @@ export const SingleSelection: Story = {
   args: { count: 1, onClear: fn() },
 };
 
-// Trash mode (#120): Restore is the headline; Delete/Export leave until
-// #121's purge ceremony.
+// Trash mode (#120/#121): Restore is the headline; the red Delete opens
+// the purge ceremony; Export leaves.
 export const TrashRestoreMode: Story = {
-  args: { count: 2, onClear: fn(), onRestore: fn() },
+  args: { count: 2, onClear: fn(), onRestore: fn(), onPurge: fn() },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.queryByRole('button', { name: /Delete/ })).toBeNull();
     await expect(canvas.queryByRole('button', { name: /Export/ })).toBeNull();
     await userEvent.click(canvas.getByRole('button', { name: /Restore/ }));
     await expect(args.onRestore).toHaveBeenCalledTimes(1);
+    await userEvent.click(canvas.getByRole('button', { name: /Delete/ }));
+    await expect(args.onPurge).toHaveBeenCalledTimes(1);
   },
 };
 
