@@ -354,6 +354,20 @@
           "path": "tests/db/library-db.test.ts"
         }
       ]
+    },
+    {
+      "id": "m10-soft-delete-restore",
+      "wiki": "User-Story-M10-Albums-organization-deletion",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/trash.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/db/soft-delete.test.ts"
+        }
+      ]
     }
   ]
 }

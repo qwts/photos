@@ -253,6 +253,13 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
                 toast: { title: 'RESTORE FAILED — STILL IN PCLOUD', tone: 'red', action: 'retry-backup' },
               });
             }}
+            onDelete={() => {
+              // Soft delete (#120): the change push drops the row from the
+              // visible set, which closes the lightbox in the reducer.
+              void window.overlook.library.delete({ photoIds: [current.id] }).then(() => {
+                dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Recently deleted', tone: 'neutral' } });
+              });
+            }}
           />
         );
       })()}

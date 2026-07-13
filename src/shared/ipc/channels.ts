@@ -129,6 +129,18 @@ export const channels = {
     z.object({}),
     z.object({ albums: z.array(z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() })).readonly() }),
   ),
+  // Soft delete + restore (#120): safe by default — rows move to Recently
+  // deleted and come back intact. Purge (the destructive path) is #121.
+  libraryDelete: defineChannel(
+    'library:delete',
+    z.object({ photoIds: z.array(z.string()).min(1) }),
+    z.object({ deleted: z.number().int().nonnegative() }),
+  ),
+  libraryRestore: defineChannel(
+    'library:restore',
+    z.object({ photoIds: z.array(z.string()).min(1) }),
+    z.object({ restored: z.number().int().nonnegative() }),
+  ),
   // Albums CRUD (#117): first-class library objects. Deleting an album
   // never deletes photos (Clear-vs-Delete rules); membership edits dirty
   // the ledger (manifest-relevant, ADR-0007).
