@@ -45,7 +45,7 @@ describe('storage provider contract (#103)', () => {
 
   test('unsafe remote paths are rejected outright', async () => {
     const { provider } = world();
-    for (const bad of ['/abs', 'a/../b', '']) {
+    for (const bad of ['/abs', 'a/../b', '', 'a//b', 'a\\..\\outside', 'C:/evil']) {
       await assert.rejects(
         provider.put(bad, Readable.from([PAYLOAD])),
         (error: unknown) => error instanceof ProviderError && error.kind === 'corrupt',
@@ -62,6 +62,12 @@ describe('storage provider contract (#103)', () => {
     assert.deepEqual(await provider.list('blobs'), []);
     const quota = await provider.quota();
     assert.deepEqual(quota, { usedBytes: 0, totalBytes: 10 });
+
+    // Replacements compare FINAL usage: an 8-byte object replaced by a
+    // 6-byte one fits a 10-byte quota even though 8 + 6 > 10.
+    await provider.put('blobs/aa/x', Readable.from([Buffer.alloc(8)]));
+    await provider.put('blobs/aa/x', Readable.from([Buffer.alloc(6)]));
+    assert.equal((await provider.quota()).usedBytes, 6);
   });
 
   test('disconnect: every data call fails with kind=auth; state feeds the registry', async () => {
@@ -72,6 +78,7 @@ describe('storage provider contract (#103)', () => {
       provider.put('blobs/aa/x', Readable.from([PAYLOAD])),
       (error: unknown) => error instanceof ProviderError && error.kind === 'auth',
     );
+    await assert.rejects(provider.quota(), (error: unknown) => error instanceof ProviderError && error.kind === 'auth');
 
     const registry = new ProviderRegistry();
     registry.register(provider);
