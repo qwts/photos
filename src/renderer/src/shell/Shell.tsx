@@ -57,7 +57,15 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     refresh();
     // Counts/stats live-update on library mutations (#80 exit criteria) —
     // targeted pushes, never refetch-the-world from the renderer's loops.
-    return window.overlook.library.onChanged(refresh);
+    // Pending pushes ALSO refresh: a completed backup moves pendingCount to
+    // 0 without a library:changed, and the "ALL BACKED UP · …" stamp must
+    // read the freshly written last_backup_at (PR #202 review).
+    const offChanged = window.overlook.library.onChanged(refresh);
+    const offPending = window.overlook.library.onPendingCountChanged(refresh);
+    return () => {
+      offChanged();
+      offPending();
+    };
   }, [dispatch]);
 
   // Neighbor prefetch (#91/#93): whenever the lightbox photo changes, warm
