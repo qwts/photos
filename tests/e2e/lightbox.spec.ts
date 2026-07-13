@@ -23,6 +23,9 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
     await page.getByTestId('virtual-grid').waitFor();
 
     // Open from the grid (photo 0 is the seed's RAW record → PREVIEW badge).
+    // Wait for a REAL PhotoTile (placeholder cells render first on a slow
+    // first page and have no open handler — PR #188 review).
+    await page.locator('.ovl-tile__img').first().waitFor();
     await page.locator('.ovl-grid__cell').first().click();
     const lightbox = page.getByTestId('lightbox');
     await expect(lightbox).toBeVisible();
