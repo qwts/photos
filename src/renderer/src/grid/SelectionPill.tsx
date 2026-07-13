@@ -25,15 +25,7 @@ export interface SelectionPillProps {
 
 // Floating selection pill (#78) — the mock's bottom-center bar. Export
 // (#100), Delete/Restore/purge (#120/#121), and Add to album (#118) live.
-export function SelectionPill({
-  count,
-  onClear,
-  onExport,
-  onDelete,
-  onRestore,
-  onAddToAlbum,
-  onPurge,
-}: SelectionPillProps): ReactElement {
+export function SelectionPill({ count, onClear, onExport, onDelete, onRestore, onAddToAlbum, onPurge }: SelectionPillProps): ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="ovl-pill-anchor">
