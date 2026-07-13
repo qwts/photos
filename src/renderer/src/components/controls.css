@@ -2,8 +2,8 @@
    Tokens only; the three literal colors the mock hardcodes are named here
    once (source: Button.jsx primary hover/press, danger hover foreground). */
 :root {
-  --btn-primary-hover: oklch(0.78 0.125 215);
-  --btn-primary-press: oklch(0.68 0.125 215);
+  --btn-primary-hover: oklch(0.76 0.15 278);
+  --btn-primary-press: oklch(0.63 0.16 278);
   --on-danger-strong: oklch(0.97 0.005 25);
 }
 
