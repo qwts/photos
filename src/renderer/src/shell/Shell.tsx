@@ -84,9 +84,11 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   // Backup completion (#106): failures surface as the red toast with a
   // Retry action; the pending/count refresh rides the existing pushes.
   useEffect(() => {
-    return window.overlook.backup.onCompleted(({ uploaded, failed, manifestUploaded }) => {
-      if (failed === 0 && manifestUploaded && uploaded > 0) {
-        // Green completion per the mock (#108).
+    return window.overlook.backup.onCompleted(({ uploaded, failed, manifestUploaded, auto }) => {
+      if (failed === 0 && manifestUploaded && uploaded > 0 && !auto) {
+        // Green completion per the mock (#108) — MANUAL runs only. An
+        // automatic success stays quiet (the status bar flips anyway):
+        // its toast was racing the import-complete toast (#116).
         dispatch({ type: 'toast/shown', toast: { title: 'BACKUP COMPLETE', tone: 'green' } });
       } else if (failed > 0) {
         dispatch({
