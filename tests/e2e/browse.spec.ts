@@ -24,6 +24,10 @@ async function launchSeeded(): Promise<{ app: ElectronApplication; page: Page }>
   });
   const page = await app.firstWindow();
   await page.getByTestId('virtual-grid').waitFor();
+  // Wait for a REAL tile: placeholder cells render before the first page
+  // lands, and keyboard flows (⌘A) read state.photos — acting earlier is
+  // the #189 cold-start flake.
+  await page.locator('.ovl-tile__img').first().waitFor();
   return { app, page };
 }
 
