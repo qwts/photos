@@ -94,6 +94,8 @@ test('edit re-dirties after a backup; offload → lightbox rehydrate round-trips
 // #110 fault injection: a forced upload error surfaces loudly — red retry
 // toast and the cloud-alert glyph on the tile.
 test('forced upload error: red retry toast + error glyph', async () => {
+  // Three retry rounds with real backoffs — 30s flaked on CI under Xvfb.
+  test.setTimeout(60_000);
   const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup3-'));
   const app = await electron.launch({
     args: ['.'],
