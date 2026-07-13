@@ -426,6 +426,16 @@
           "reason": "Motion timings (120/200ms, easing) and hover fill progressions are visual-only rules with no cheap assertion surface; the disabled pattern (45% opacity + pointer-events) is exercised by component stories and every disabled-control play test, and copy/behavior rules are covered by the flow entries."
         }
       ]
+    },
+    {
+      "id": "m16-sidebar-collapse-rail",
+      "wiki": "User-Story-M16-Collapsible-sidebar",
+      "coverage": [
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/Sidebar.stories.tsx"
+        }
+      ]
     }
   ]
 }

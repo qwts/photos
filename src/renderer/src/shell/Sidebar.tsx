@@ -5,6 +5,7 @@ import { formatBytes, formatCount } from '../../../shared/library/format.js';
 import type { AlbumSummary, LibraryStats, SourceCounts, SourceFilter } from '../../../shared/library/types.js';
 import { Icon, type IconName } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
+import { Tooltip } from '../components/Tooltip';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 
 const SOURCES: readonly { key: SourceFilter; icon: IconName; label: string }[] = [
@@ -15,26 +16,50 @@ const SOURCES: readonly { key: SourceFilter; icon: IconName; label: string }[] =
   { key: 'deleted', icon: 'trash-2', label: 'Recently deleted' },
 ];
 
+// Collapsed state persists across launches under the mock's own key (#238).
+const COLLAPSE_KEY = 'overlook.sidebarCollapsed';
+
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 interface SideRowProps {
   readonly icon: IconName;
   readonly label: string;
   readonly count: number | null;
   readonly active?: boolean;
   readonly onClick?: (() => void) | undefined;
+  readonly collapsed?: boolean;
 }
 
-function SideRow({ icon, label, count, active = false, onClick }: SideRowProps): ReactElement {
-  return (
+function SideRow({ icon, label, count, active = false, onClick, collapsed = false }: SideRowProps): ReactElement {
+  const hint = count === null ? label : `${label} · ${formatCount(count)}`;
+  const row = (
     <button
       type="button"
-      className={`ovl-siderow${active ? ' ovl-siderow--active' : ''}`}
+      className={`ovl-siderow${active ? ' ovl-siderow--active' : ''}${collapsed ? ' ovl-siderow--collapsed' : ''}`}
       onClick={onClick}
       disabled={onClick === undefined}
+      // Collapsed rows are icon-only; the hint is their accessible name.
+      aria-label={collapsed ? hint : undefined}
     >
       <Icon name={icon} size={14} color={active ? 'var(--accent-cyan)' : 'var(--text-faint)'} />
-      <span className="ovl-siderow__label">{label}</span>
-      {count === null ? null : <span className="ovl-siderow__count mono-data">{formatCount(count)}</span>}
+      {collapsed ? null : <span className="ovl-siderow__label">{label}</span>}
+      {collapsed || count === null ? null : <span className="ovl-siderow__count mono-data">{formatCount(count)}</span>}
     </button>
+  );
+  // The rail keeps every destination reachable: the hidden label (and count)
+  // move into a right-side tooltip, unclipped by the nav's own overflow.
+  return collapsed ? (
+    <Tooltip label={hint} side="right">
+      {row}
+    </Tooltip>
+  ) : (
+    row
   );
 }
 
@@ -51,6 +76,18 @@ export interface SidebarProps {
 export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  // Collapse to the 56px icon rail (#238): labels/counts move to tooltips,
+  // headings become dividers, the backup card becomes the shield button.
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggleCollapsed = (): void => {
+    const next = !collapsed;
+    try {
+      window.localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
+    } catch {
+      // Persistence is best-effort; the in-session toggle still works.
+    }
+    setCollapsed(next);
+  };
   // The card's aggregate bar rides backup:progress (#108); it hides again
   // when the run finishes (done === total).
   const [backupRun, setBackupRun] = useState<{ done: number; total: number } | null>(null);
@@ -72,8 +109,25 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
     };
   }, []);
   return (
-    <nav className="ovl-sidebar" aria-label="Library">
-      <div className="ovl-sidebar__heading mono-data">Library</div>
+    <nav className={`ovl-sidebar${collapsed ? ' ovl-sidebar--collapsed' : ''}`} aria-label="Library">
+      <div className="ovl-sidebar__toggle-row">
+        <Tooltip label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right">
+          <button
+            type="button"
+            className="ovl-sidebar__toggle"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            onClick={toggleCollapsed}
+          >
+            <Icon name={collapsed ? 'panel-left-open' : 'panel-left-close'} size={15} />
+          </button>
+        </Tooltip>
+      </div>
+      {collapsed ? (
+        <div className="ovl-sidebar__divider" role="presentation" />
+      ) : (
+        <div className="ovl-sidebar__heading mono-data">Library</div>
+      )}
       {SOURCES.map(({ key, icon, label }) => (
         <SideRow
           key={key}
@@ -81,25 +135,30 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
           label={label}
           count={counts === null ? null : counts[key]}
           active={state.album === null && state.source === key}
+          collapsed={collapsed}
           onClick={() => {
             dispatch({ type: 'source/set', source: key });
           }}
         />
       ))}
-      <div className="ovl-sidebar__heading mono-data">
-        <span>Albums</span>
-        <button
-          type="button"
-          className="ovl-sidebar__gear"
-          aria-label="New album"
-          onClick={() => {
-            setNamingAlbum(true);
-          }}
-        >
-          <Icon name="plus" size={13} color="var(--text-faint)" />
-        </button>
-      </div>
-      {namingAlbum ? (
+      {collapsed ? (
+        <div className="ovl-sidebar__divider" role="presentation" />
+      ) : (
+        <div className="ovl-sidebar__heading mono-data">
+          <span>Albums</span>
+          <button
+            type="button"
+            className="ovl-sidebar__gear"
+            aria-label="New album"
+            onClick={() => {
+              setNamingAlbum(true);
+            }}
+          >
+            <Icon name="plus" size={13} color="var(--text-faint)" />
+          </button>
+        </div>
+      )}
+      {namingAlbum && !collapsed ? (
         <input
           className="ovl-sidebar__albumname"
           aria-label="Album name"
@@ -131,42 +190,59 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
           label={album.name}
           count={album.count}
           active={state.album === album.id}
+          collapsed={collapsed}
           onClick={() => {
             dispatch({ type: 'album/set', albumId: album.id });
           }}
         />
       ))}
       <div className="ovl-sidebar__spacer" />
-      <div className="ovl-sidebar__card" data-testid="backup-card">
-        <div className="ovl-sidebar__card-head">
-          <Icon name="shield-check" size={14} color="var(--accent-green)" />
-          <span className="ovl-sidebar__card-title">Library encrypted</span>
+      {collapsed ? (
+        <Tooltip label={`Library encrypted${backupRun !== null && backupRun.done < backupRun.total ? ' · backing up' : ''}`} side="right">
           <button
             type="button"
-            className="ovl-sidebar__gear"
-            aria-label="Settings"
+            className="ovl-sidebar__shield"
+            data-testid="backup-shield"
+            aria-label="Library encrypted — open Settings"
             onClick={() => {
               dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
             }}
           >
-            <Icon name="settings-2" size={13} color="var(--text-faint)" />
+            <Icon name="shield-check" size={15} color="var(--accent-green)" />
           </button>
+        </Tooltip>
+      ) : (
+        <div className="ovl-sidebar__card" data-testid="backup-card">
+          <div className="ovl-sidebar__card-head">
+            <Icon name="shield-check" size={14} color="var(--accent-green)" />
+            <span className="ovl-sidebar__card-title">Library encrypted</span>
+            <button
+              type="button"
+              className="ovl-sidebar__gear"
+              aria-label="Settings"
+              onClick={() => {
+                dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
+              }}
+            >
+              <Icon name="settings-2" size={13} color="var(--text-faint)" />
+            </button>
+          </div>
+          {backupRun !== null && backupRun.done < backupRun.total ? (
+            <ProgressBar
+              label="Backing up"
+              detail={`${formatCount(backupRun.done)} / ${formatCount(backupRun.total)}`}
+              value={backupRun.done}
+              max={Math.max(backupRun.total, 1)}
+              tone="amber"
+            />
+          ) : null}
+          <div className="ovl-sidebar__storage mono-data">
+            {stats === null
+              ? '—'
+              : `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} PCLOUD`}
+          </div>
         </div>
-        {backupRun !== null && backupRun.done < backupRun.total ? (
-          <ProgressBar
-            label="Backing up"
-            detail={`${formatCount(backupRun.done)} / ${formatCount(backupRun.total)}`}
-            value={backupRun.done}
-            max={Math.max(backupRun.total, 1)}
-            tone="amber"
-          />
-        ) : null}
-        <div className="ovl-sidebar__storage mono-data">
-          {stats === null
-            ? '—'
-            : `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} PCLOUD`}
-        </div>
-      </div>
+      )}
     </nav>
   );
 }

@@ -1,43 +1,57 @@
-import { useState } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import { useRef, useState } from 'react';
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
 
 import './controls.css';
 
 export interface TooltipProps {
   readonly label: string;
-  readonly side?: 'top' | 'bottom';
+  readonly side?: 'top' | 'bottom' | 'left' | 'right';
   readonly children: ReactNode;
 }
+
+/** The mock's own bubble offset from the anchor. */
+const GAP = 6;
 
 // components/core/Tooltip.jsx — JS-driven (not CSS :hover) exactly like the
 // mock, which also keeps it drivable by the interaction tests' synthetic
 // events. Focus/blur mirror hover so keyboard users get the same hint (PR
 // #140 review); React's onFocus/onBlur bubble from the wrapped control.
 // 200ms fade via --duration-normal.
+//
+// The updated mock (#238) positions the bubble with `fixed` viewport coords
+// measured on show, so an overflow/scroll ancestor can never clip it — the
+// collapsed sidebar rail relies on that for its right-side tooltips — and
+// adds the left/right sides.
 export function Tooltip({ label, side = 'top', children }: TooltipProps): ReactElement {
-  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [coords, setCoords] = useState<CSSProperties | null>(null);
+  const show = (): void => {
+    const el = ref.current;
+    if (el === null) {
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    if (side === 'right') {
+      setCoords({ top: r.top + r.height / 2, left: r.right + GAP, transform: 'translateY(-50%)' });
+    } else if (side === 'left') {
+      setCoords({ top: r.top + r.height / 2, left: r.left - GAP, transform: 'translate(-100%, -50%)' });
+    } else if (side === 'bottom') {
+      setCoords({ top: r.bottom + GAP, left: r.left + r.width / 2, transform: 'translateX(-50%)' });
+    } else {
+      setCoords({ top: r.top - GAP, left: r.left + r.width / 2, transform: 'translate(-50%, -100%)' });
+    }
+  };
+  const hide = (): void => {
+    setCoords(null);
+  };
   return (
-    <span
-      className="ovl-tooltip"
-      onMouseEnter={() => {
-        setOpen(true);
-      }}
-      onMouseLeave={() => {
-        setOpen(false);
-      }}
-      onFocus={() => {
-        setOpen(true);
-      }}
-      onBlur={() => {
-        setOpen(false);
-      }}
-    >
+    <span ref={ref} className="ovl-tooltip" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
       {children}
-      {open ? (
-        <span role="tooltip" className={`ovl-tooltip__bubble${side === 'bottom' ? ' ovl-tooltip__bubble--bottom' : ''}`}>
+      {coords === null ? null : (
+        <span role="tooltip" className="ovl-tooltip__bubble" style={coords}>
           {label}
         </span>
-      ) : null}
+      )}
     </span>
   );
 }

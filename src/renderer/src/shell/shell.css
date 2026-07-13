@@ -90,6 +90,70 @@
   background: var(--gray-1);
   padding: var(--space-3);
   overflow: auto;
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+/* The 56px icon rail (#238) — the mock's own rail metrics throughout. */
+.ovl-sidebar--collapsed {
+  width: 56px;
+  padding: var(--space-3) 0;
+  align-items: center;
+}
+
+.ovl-sidebar__toggle-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2px; /* the mock's own toggle offset */
+}
+
+.ovl-sidebar--collapsed .ovl-sidebar__toggle-row {
+  justify-content: center;
+}
+
+.ovl-sidebar__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; /* the mock's own toggle hit target */
+  height: 26px;
+  border-radius: var(--radius-1);
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-faint);
+}
+
+.ovl-sidebar__toggle:hover {
+  background: var(--gray-2);
+  color: var(--text-body);
+}
+
+.ovl-sidebar__divider {
+  width: 24px; /* the mock's own divider metrics */
+  height: 1px;
+  flex: none;
+  background: var(--border-1);
+  margin: 12px auto 6px;
+}
+
+.ovl-siderow--collapsed {
+  width: 36px; /* the mock's own rail row square */
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+}
+
+.ovl-sidebar__shield {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; /* matches the rail rows */
+  height: 32px;
+  border-radius: var(--radius-1);
+  border: 1px solid var(--border-1);
+  background: var(--gray-2);
+  cursor: pointer;
+  padding: 0;
 }
 
 .ovl-sidebar__heading {
