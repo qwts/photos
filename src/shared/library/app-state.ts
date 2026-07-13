@@ -78,10 +78,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         return { ...state, photos: [...state.photos, ...action.photos] };
       }
       // Mock semantics (#78): selection survives filter/source changes only
-      // for still-visible items — intersect with each fresh first page.
+      // for still-visible items — intersect with each fresh first page. The
+      // lightbox follows the same rule (#92, PR #187 review): a photo that
+      // left the visible set closes it for real, never lingering to reopen.
       const visible = new Set(action.photos.map((photo) => photo.id));
       const selection = new Set([...state.selection].filter((id) => visible.has(id)));
-      return { ...state, photos: action.photos, selection };
+      const lightboxId = state.lightboxId !== null && visible.has(state.lightboxId) ? state.lightboxId : null;
+      return { ...state, photos: action.photos, selection, lightboxId };
     }
     case 'query/set':
       return { ...state, query: action.query };
