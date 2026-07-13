@@ -15,7 +15,7 @@ export interface AlbumPickerProps {
 // existing albums (live counts) + inline create, keyboard-first (Escape
 // closes; the create row works like the sidebar's, Enter commits).
 export function AlbumPicker({ onPick, onClose }: AlbumPickerProps): ReactElement {
-  const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
+  const [albums, setAlbums] = useState<readonly AlbumSummary[] | null>(null);
 
   useEffect(() => {
     void window.overlook.library.albums().then(({ albums: loaded }) => {
@@ -38,12 +38,13 @@ export function AlbumPicker({ onPick, onClose }: AlbumPickerProps): ReactElement
 
   // Keyboard flow (PR #219 review): the popover renders BEFORE its trigger
   // in DOM order, so focus must move INTO it on open — the first album row
-  // when any exist, else the create input. Once only: the albums load is
-  // async, and refocusing on later renders would steal the caret.
+  // when any exist, else the create input. Only after the async albums
+  // load settles (albums !== null), and once — refocusing later renders
+  // would steal the caret.
   const rootRef = useRef<HTMLDivElement>(null);
   const focusedOnce = useRef(false);
   useEffect(() => {
-    if (focusedOnce.current) {
+    if (albums === null || focusedOnce.current) {
       return;
     }
     const first = rootRef.current?.querySelector<HTMLElement>('[role="menuitem"], input');
@@ -55,7 +56,7 @@ export function AlbumPicker({ onPick, onClose }: AlbumPickerProps): ReactElement
 
   return (
     <div ref={rootRef} className="ovl-albumpicker" data-testid="album-picker" role="menu" aria-label="Add to album">
-      {albums.map((album) => (
+      {(albums ?? []).map((album) => (
         <button
           key={album.id}
           type="button"
