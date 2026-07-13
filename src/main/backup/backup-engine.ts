@@ -31,6 +31,9 @@ export interface BackupItemPhoto {
 export interface BackupRunResult {
   readonly uploaded: number;
   readonly failed: number;
+  /** False when blobs landed but the manifest generation did not — the
+   * next run retries it even with nothing dirty (PR #203 review). */
+  readonly manifestUploaded: boolean;
   /** 'wifi' when the gate skipped the run entirely. */
   readonly skipped: 'wifi' | null;
 }
@@ -66,6 +69,8 @@ function blobPath(contentHash: string): string {
 
 export class BackupEngine {
   private current: Promise<BackupRunResult> | null = null;
+  /** A failed manifest upload owes the remote a generation. */
+  private manifestOwed = false;
 
   constructor(private readonly deps: BackupEngineDeps) {}
 
@@ -91,7 +96,7 @@ export class BackupEngine {
     if (settings.wifiOnly && this.deps.network() === 'other') {
       // The Wi-Fi gate. 'unknown' (platform can't tell) deliberately does
       // NOT block — the unmetered heuristic recorded by ADR-0007/#105.
-      return { uploaded: 0, failed: 0, skipped: 'wifi' };
+      return { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi' };
     }
 
     const items = this.deps.dirtyPhotos();
@@ -106,7 +111,11 @@ export class BackupEngine {
       }
       const started = this.deps.now();
       try {
-        this.deps.ledger.setStatus(item.id, 'syncing');
+        // A row killed mid-upload resumes: it is already 'syncing' and the
+        // machine (rightly) rejects syncing → syncing (PR #203 review).
+        if (this.deps.ledger.status(item.id) !== 'syncing') {
+          this.deps.ledger.setStatus(item.id, 'syncing');
+        }
         await this.uploadWithRetry(blobPath(item.contentHash), () => this.deps.encryptedStream(item.contentHash), signal);
         // #106 inserts checksum verification here; until then upload
         // success completes the item.
@@ -125,12 +134,22 @@ export class BackupEngine {
       await this.throttle(settings, this.deps.now() - started);
     }
 
-    if (uploaded > 0) {
-      await this.uploadManifest().catch((error: unknown) => {
+    let manifestUploaded = true;
+    if (uploaded > 0 || this.manifestOwed) {
+      try {
+        await this.uploadManifest();
+        this.manifestOwed = false;
+      } catch (error) {
+        // Blobs landed and their rows are TRUTHFULLY synced — but the
+        // remote is owed a manifest generation. The debt survives in this
+        // engine and the result says so; the next run (manual or auto)
+        // retries even with nothing dirty (PR #203 review).
+        this.manifestOwed = true;
+        manifestUploaded = false;
         console.error(`[overlook] manifest upload failed: ${error instanceof Error ? error.message : String(error)}`);
-      });
+      }
     }
-    return { uploaded, failed, skipped: null };
+    return { uploaded, failed, manifestUploaded, skipped: null };
   }
 
   /** Politeness (#105): at p percent, rest (100-p)/p of each item's upload

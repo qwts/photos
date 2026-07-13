@@ -213,6 +213,16 @@ export class PhotosRepository {
     ).map((row) => ({ id: row.id, name: row.name, count: row.n }));
   }
 
+  /** Manifest rows (#105, ADR-0007): EVERY live photo — the remote must be
+   * re-importable without a local DB, not just describe the last batch. */
+  manifestRows(): readonly { id: string; contentHash: string; bytes: number; fileName: string; keyId: number }[] {
+    return queryAll<{ id: string; contentHash: string; bytes: number; fileName: string; keyId: number }>(
+      this.db,
+      `SELECT p.id, p.content_hash AS contentHash, p.bytes, p.file_name AS fileName, p.key_id AS keyId
+         FROM photos p WHERE p.deleted_at IS NULL ORDER BY p.imported_at, p.id`,
+    );
+  }
+
   /** The backup queue's input (#105): dirty, not-deleted photos. */
   dirtyPhotos(): readonly { id: string; contentHash: string; bytes: number; fileName: string; keyId: number }[] {
     return queryAll<{ id: string; contentHash: string; bytes: number; fileName: string; keyId: number }>(

@@ -333,7 +333,7 @@ function getBackupEngine(): BackupEngine {
         });
         return Buffer.concat(chunks);
       },
-      manifestRows: () => repo.dirtyPhotos(),
+      manifestRows: () => repo.manifestRows(),
       settings: () => ({ throttlePercent: null, wifiOnly: false, autoBackupOnImport: false }),
       network: () => 'unknown',
       events: {
