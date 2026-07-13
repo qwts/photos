@@ -220,10 +220,19 @@ function getImportService(): ImportService {
       engine,
     );
     // Crash-safety (#87): a journaled batch from an interrupted run
-    // completes before any new import starts.
-    void importService.resume().catch((error: unknown) => {
-      console.error('[overlook] import resume failed', error);
-    });
+    // completes before any new import starts. Recovered photos get the same
+    // auto-backup guarantee as IPC imports (#111) — the crash already cost
+    // the user once.
+    void importService
+      .resume()
+      .then((summary) => {
+        if (summary !== null && summary.imported > 0) {
+          getBackupEngine().maybeAutoRun();
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('[overlook] import resume failed', error);
+      });
   }
   return importService;
 }
