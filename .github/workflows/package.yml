@@ -58,8 +58,9 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ] && [ -n "$CSC_LINK" ]; then
             # electron-builder's notarytool integration wants APPLE_API_KEY as
             # a path to the .p8; the secret holds its base64-encoded contents.
-            # Without the notarize secrets electron-builder still signs and
-            # skips notarization with a warning.
+            # Without the notarize secrets electron-builder signs but skips
+            # notarization — the spctl gate below then fails the leg, so a
+            # signed-but-unnotarized artifact can never ship.
             if [ -n "$APPLE_API_KEY_B64" ]; then
               export APPLE_API_KEY="$RUNNER_TEMP/asc-api-key.p8"
               printf '%s' "$APPLE_API_KEY_B64" | base64 -d > "$APPLE_API_KEY"
