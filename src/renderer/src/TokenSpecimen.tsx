@@ -7,7 +7,7 @@ import type { CSSProperties, ReactElement } from 'react';
 // until then.
 
 const NEUTRALS = ['--gray-0', '--gray-1', '--gray-2', '--gray-3', '--gray-4'];
-const ACCENTS = ['--accent-cyan', '--accent-amber', '--accent-green', '--accent-red'];
+const ACCENTS = ['--accent-iris', '--accent-amber', '--accent-green', '--accent-red'];
 const TYPE_SIZES = ['--text-xs', '--text-sm', '--text-md', '--text-lg', '--text-xl', '--text-display'];
 
 const sectionStyle: CSSProperties = { marginTop: 'var(--space-7)' };
