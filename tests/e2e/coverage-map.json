@@ -284,6 +284,24 @@
           "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "m09-settings-general",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/db/library-db.test.ts"
+        }
+      ]
     }
   ]
 }

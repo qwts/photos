@@ -1,4 +1,4 @@
-import type { ChipFilters, PhotoRecord, SourceFilter } from './types.js';
+import type { ChipFilters, PhotoRecord, SortOrder, SourceFilter } from './types.js';
 
 // App state backbone (#73) — the mock's state shape as a pure reducer, kept
 // process-free so the unit lane floors it. The renderer provides it via
@@ -17,6 +17,8 @@ export interface AppState {
   readonly view: ViewMode;
   readonly source: SourceFilter;
   readonly chips: ChipFilters;
+  /** Mirrors the settings store's sortOrder (#113); the grid query reads it. */
+  readonly sortOrder: SortOrder;
   readonly selection: ReadonlySet<string>;
   readonly lightboxId: string | null;
   readonly inspectorOpen: boolean;
@@ -40,6 +42,7 @@ export const initialAppState: AppState = {
   view: 'grid',
   source: 'all',
   chips: {},
+  sortOrder: 'date',
   selection: new Set<string>(),
   lightboxId: null,
   inspectorOpen: false,
@@ -58,6 +61,7 @@ export type AppAction =
   | { type: 'view/set'; view: ViewMode }
   | { type: 'source/set'; source: SourceFilter }
   | { type: 'chip/toggled'; chip: keyof ChipFilters }
+  | { type: 'sortOrder/set'; order: SortOrder }
   | { type: 'selection/toggled'; photoId: string }
   | { type: 'selection/all'; photoIds: readonly string[] }
   | { type: 'selection/cleared' }
@@ -101,6 +105,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const next = { ...state.chips, [action.chip]: state.chips[action.chip] !== true };
       return { ...state, chips: next };
     }
+    case 'sortOrder/set':
+      // Fed by settings:changed pushes (#113) — the query hook refetches
+      // and the next photos/loaded intersects the selection as usual.
+      return { ...state, sortOrder: action.order };
     case 'selection/toggled': {
       const selection = new Set(state.selection);
       if (selection.has(action.photoId)) {

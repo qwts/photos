@@ -41,7 +41,7 @@ interface PhotoRow {
   key_id: number;
   deleted_at: string | null;
   sync_state: string | null;
-  sort_key: string;
+  sort_key: string | number;
 }
 
 function toRecord(row: PhotoRow): PhotoRecord {
@@ -73,11 +73,23 @@ function toRecord(row: PhotoRow): PhotoRecord {
   };
 }
 
-const SELECT = `
-  SELECT p.*, l.status AS sync_state, COALESCE(p.taken_at, p.imported_at) AS sort_key
+// The grid's sort orders (#113). Direction rides along so the keyset cursor
+// compares the right way: DESC pages with <, ASC with >.
+const ORDERINGS = {
+  date: { expr: 'COALESCE(p.taken_at, p.imported_at)', dir: 'DESC', cmp: '<' },
+  name: { expr: 'lower(p.file_name)', dir: 'ASC', cmp: '>' },
+  size: { expr: 'p.bytes', dir: 'DESC', cmp: '<' },
+} as const;
+
+function select(order: keyof typeof ORDERINGS): string {
+  return `
+  SELECT p.*, l.status AS sync_state, ${ORDERINGS[order].expr} AS sort_key
   FROM photos p
   LEFT JOIN sync_ledger l ON l.photo_id = p.id
 `;
+}
+
+const SELECT = select('date');
 
 function sourceWhere(source: PageRequest['source']): string {
   switch (source) {
@@ -143,12 +155,13 @@ export class PhotosRepository {
       );
     }
     const chipClause = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
-    const cursorClause = request.cursor === undefined ? '' : 'AND (COALESCE(p.taken_at, p.imported_at), p.id) < (@cursorKey, @cursorId)';
+    const ordering = ORDERINGS[request.order ?? 'date'];
+    const cursorClause = request.cursor === undefined ? '' : `AND (${ordering.expr}, p.id) ${ordering.cmp} (@cursorKey, @cursorId)`;
     const rows = queryAll<PhotoRow>(
       this.db,
-      `${SELECT}
+      `${select(request.order ?? 'date')}
        WHERE ${sourceWhere(request.source)} ${chipClause} ${cursorClause}
-       ORDER BY sort_key DESC, p.id DESC
+       ORDER BY sort_key ${ordering.dir}, p.id ${ordering.dir}
        LIMIT @limit`,
       {
         limit: request.limit,

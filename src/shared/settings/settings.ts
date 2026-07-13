@@ -65,3 +65,20 @@ export function recoverSettings(raw: unknown): AppSettings {
 export function throttlePercentOf(settings: AppSettings): number | null {
   return settings.bandwidthLimit >= 100 ? null : settings.bandwidthLimit;
 }
+
+// Explicit per-key merge: `undefined` in a patch means "unchanged", while
+// providerId's real `null` (disconnected) must win — so no spread, no ??
+// on the nullable key. The locked key stays literal.
+export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSettings {
+  return {
+    sortOrder: patch.sortOrder ?? current.sortOrder,
+    appearance: patch.appearance ?? current.appearance,
+    thumbnailsOnImport: true,
+    autoBackupOnImport: patch.autoBackupOnImport ?? current.autoBackupOnImport,
+    importMode: patch.importMode ?? current.importMode,
+    wifiOnly: patch.wifiOnly ?? current.wifiOnly,
+    bandwidthLimit: patch.bandwidthLimit ?? current.bandwidthLimit,
+    shareDiagnostics: patch.shareDiagnostics ?? current.shareDiagnostics,
+    providerId: patch.providerId !== undefined ? patch.providerId : current.providerId,
+  };
+}
