@@ -1,5 +1,16 @@
 # photos
 
+## 0.8.0
+
+### Minor Changes
+
+- f7ed6d5: Crash-safety audit (#125): a ConsistencyChecker detects DB↔blob↔ledger drift (orphan blobs/thumbs, staging leftovers, rows lying about a local original) and repairs what is safe — remote-verified missing blobs become `offloaded` (rehydratable), truly lost blobs become `error` (the red glyph is the honest prompt), orphans and staging strands are removed. A lightweight repair runs at library open. The kill-test matrix consolidates: per-stage import resume (existing), backup mid-upload/mid-verify resume (existing), plus new offload and purge crash-window tests and a deliberately-corrupted-store-repairs-to-consistency proof.
+
+### Patch Changes
+
+- 589e5d0: Coverage-map completeness sweep (#126): the design README's full screen/interaction inventory audits against the acceptance ledger — 30 automated entries, one manual-with-reason (visual motion/hover/disabled rules), and two deferred-with-issues for the not-yet-designed set (semantic search results #224, album reordering #225). Distribution recorded in the wiki Testing-Strategy.
+- d4498f0: Perf tuning to budget (#124): sidebar counts run as ONE FILTER-clause pass over the ledger join instead of five separate counts (689ms → 378ms at 200K; ratchet tightened to 500ms), with the offloaded predicate now join-based so page() and counts() still share one where-clause truth. Zoom-96 scroll drops stay within budget; the disk-cache lever is rejected on privacy grounds (decrypted thumbs never hit disk — ADR-0004, recorded).
+
 ## 0.7.1
 
 ### Patch Changes
