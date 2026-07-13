@@ -66,6 +66,10 @@ const VOCABULARY = [
   // SettingsDialog nav glyph the design's SettingsDialog.jsx uses beyond the
   // readme list (#112): the General section row.
   'sliders-horizontal',
+  // Sidebar rail toggle glyphs the updated design's Sidebar.jsx uses beyond
+  // the readme list (#238).
+  'panel-left-close',
+  'panel-left-open',
 ] as const;
 
 describe('Icon', () => {

@@ -189,12 +189,11 @@
   display: inline-flex;
 }
 
+/* Viewport-fixed so overflow ancestors can't clip it (#238) — top/left/
+ * transform arrive inline from the component's on-show measurement. */
 .ovl-tooltip__bubble {
-  position: absolute;
+  position: fixed;
   z-index: 100;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(100% + 6px);
   background: var(--gray-4);
   color: var(--text-body);
   border: 1px solid var(--border-2);
@@ -206,11 +205,6 @@
   box-shadow: var(--shadow-2);
   pointer-events: none;
   animation: ovl-tooltip-fade var(--duration-normal) var(--ease-out);
-}
-
-.ovl-tooltip__bubble--bottom {
-  bottom: auto;
-  top: calc(100% + 6px);
 }
 
 @keyframes ovl-tooltip-fade {
