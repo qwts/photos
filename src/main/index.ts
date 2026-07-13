@@ -21,10 +21,9 @@ import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
-import { FaultInjectingProvider, MockProvider } from './backup/mock-provider.js';
 import { OffloadService } from './backup/offload.js';
-import { createPCloudConnect } from './backup/pcloud/connect.js';
-import { PCloudTokenStore } from './backup/pcloud/token-store.js';
+import { ProviderRuntime } from './backup/provider-runtime.js';
+import type { StorageProvider } from './backup/provider.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
@@ -370,28 +369,25 @@ function getSettingsStore(): SettingsStore {
 
 let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
-/** The registered provider instance — the connection card reads its quota. */
-let backupProvider: FaultInjectingProvider | undefined;
+/** The active provider (a delegator over the registry, #256) — the
+ * connection card reads its quota. */
+let backupProvider: StorageProvider | undefined;
 
-let pcloudTokenStore: PCloudTokenStore | undefined;
+let providerRuntime: ProviderRuntime | undefined;
 
-function getPCloudTokenStore(): PCloudTokenStore {
-  pcloudTokenStore ??= new PCloudTokenStore({
-    safeStorage: pickSafeStorage(),
-    dataDir: path.join(app.getPath('userData'), 'library'),
-  });
-  return pcloudTokenStore;
-}
-
-let pcloudConnect: (() => Promise<{ ok: boolean; reason: string | null }>) | undefined;
-
-function getPCloudConnect(): () => Promise<{ ok: boolean; reason: string | null }> {
-  pcloudConnect ??= createPCloudConnect({
-    tokenStore: getPCloudTokenStore(),
+/** Provider selection + pCloud custody policy (#256) — logic lives in
+ * backup/provider-runtime.ts; only the Electron seams are wired here. */
+function getProviderRuntime(): ProviderRuntime {
+  providerRuntime ??= new ProviderRuntime({
+    dataDir: () => path.join(app.getPath('userData'), 'library'),
+    safeStorage: pickSafeStorage,
     openExternal: async (url) => shell.openExternal(url),
-    onConnected: () => getSettingsStore().set({ providerId: 'pcloud' }),
+    setProviderId: (id) => getSettingsStore().set({ providerId: id }),
+    providerId: () => getSettingsStore().get().providerId,
+    isPackaged: app.isPackaged,
+    harnessEnv,
   });
-  return pcloudConnect;
+  return providerRuntime;
 }
 /** Auto-backup entry point (imports + resume) — set by getBackupEngine. */
 let autoBackupTrigger: (() => void) | undefined;
@@ -430,17 +426,11 @@ function getBackupEngine(): BackupEngine {
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    // Electron cannot tell interface types portably — 'unknown' is the
-    // recorded heuristic (and it deliberately passes the Wi-Fi gate).
-    const baseProvider = new MockProvider({ rootDir: path.join(app.getPath('userData'), 'library', 'mock-remote') });
-    // Harness hook (#110, OVERLOOK_* family): arm a provider fault for the
-    // E2E error-path flows (e.g. OVERLOOK_BACKUP_FAULT=put).
-    const faultyProvider = new FaultInjectingProvider(baseProvider);
-    const fault = harnessEnv('OVERLOOK_BACKUP_FAULT');
-    if (fault === 'put' || fault === 'verify-mismatch' || fault === 'auth-expired' || fault === 'transient-get') {
-      faultyProvider.arm(fault);
-    }
-    const provider = faultyProvider;
+    // Provider selection + fault harness live in ProviderRuntime (#256).
+    const provider = getProviderRuntime().buildProvider({
+      mockRootDir: path.join(app.getPath('userData'), 'library', 'mock-remote'),
+      fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),
+    });
     backupProvider = provider;
     backupEngine = new BackupEngine({
       provider,
@@ -468,7 +458,7 @@ function getBackupEngine(): BackupEngine {
           wifiOnly: current.wifiOnly,
           // Disconnected (#114) means no automatic uploads — the switch is
           // disabled in the dialog for the same reason.
-          autoBackupOnImport: current.autoBackupOnImport && current.providerId !== null,
+          autoBackupOnImport: current.autoBackupOnImport && getProviderRuntime().activeId() !== null,
         };
       },
       network: () => 'unknown',
@@ -524,7 +514,7 @@ function getBackupEngine(): BackupEngine {
         deleteThumbs: async (hash) => parts.blobStore.deleteThumbs(hash),
       },
       provider,
-      connected: () => getSettingsStore().get().providerId !== null,
+      connected: () => getProviderRuntime().activeId() !== null,
       // Purging changes manifestRows() — same owed-generation rule (and
       // quiet push) as soft delete (PR #218 review).
       oweManifest: () => manifestSyncTrigger?.(),
@@ -584,7 +574,7 @@ function getBackupEngine(): BackupEngine {
     // auto for the quiet-success rule above.
     autoBackupTrigger = () => {
       const current = getSettingsStore().get();
-      if (current.autoBackupOnImport && current.providerId !== null) {
+      if (current.autoBackupOnImport && getProviderRuntime().activeId() !== null) {
         void runAndReport(true).catch(() => undefined);
       }
     };
@@ -596,7 +586,7 @@ function getBackupEngine(): BackupEngine {
     // the debt for the next run.
     manifestSyncTrigger = () => {
       engine.oweManifest();
-      if (getSettingsStore().get().providerId !== null && repo.pendingCount() === 0) {
+      if (getProviderRuntime().activeId() !== null && repo.pendingCount() === 0) {
         void runAndReport(true).catch(() => undefined);
       }
     };
@@ -863,7 +853,7 @@ void app.whenReady().then(async () => {
       // Disconnected blocks MANUAL runs too (PR #213 review) — the toolbar
       // and retry action must not upload to a provider the user detached.
       run: async () => {
-        if (getSettingsStore().get().providerId === null) {
+        if (getProviderRuntime().activeId() === null) {
           return { uploaded: 0, failed: 0, skipped: 'disconnected' as const };
         }
         return getBackupEngine().run();
@@ -874,9 +864,11 @@ void app.whenReady().then(async () => {
       // setting; quota comes live from the provider. A data-call failure
       // (e.g. simulated auth expiry) reports as disconnected, not a crash.
       providerStatus: async () => {
-        const providerId = getSettingsStore().get().providerId;
+        const providerId = getProviderRuntime().activeId();
         if (providerId === null || backupProvider === undefined) {
-          return { provider: 'mock' as const, connected: false, account: null, usedBytes: 0, totalBytes: 0 };
+          // Disconnected: the card still needs to know WHO Connect targets
+          // ("Connect pCloud" in packaged builds, the mock in dev).
+          return { provider: getProviderRuntime().defaultTarget(), connected: false, account: null, usedBytes: 0, totalBytes: 0 };
         }
         try {
           const quota = await backupProvider.quota();
@@ -890,7 +882,7 @@ void app.whenReady().then(async () => {
       // flow (registered by #256 — until then the mock path is the live one).
       connect: async () => {
         if (backupProvider?.id === 'pcloud') {
-          return getPCloudConnect()();
+          return getProviderRuntime().connect();
         }
         getSettingsStore().set({ providerId: 'mock' });
         return { ok: true, reason: null };
@@ -898,7 +890,7 @@ void app.whenReady().then(async () => {
       disconnect: () => {
         getSettingsStore().set({ providerId: null });
         // Detaching drops custody too — reconnecting is a fresh handshake.
-        getPCloudTokenStore().clear();
+        getProviderRuntime().tokenStore().clear();
         return Promise.resolve();
       },
     };
