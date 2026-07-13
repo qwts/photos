@@ -26,6 +26,8 @@ permissions:
 jobs:
   package:
     strategy:
+      # The OS legs are independent — let one finish even if the other fails.
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -63,7 +65,18 @@ jobs:
               printf '%s' "$APPLE_API_KEY_B64" | base64 -d > "$APPLE_API_KEY"
             fi
             npm run package:signed
+            # electron-builder only *warns* when it can't find an identity, so
+            # a broken cert would silently ship unsigned. Fail loudly instead:
+            # a valid signature and a Gatekeeper pass (notarization is checked
+            # online) are hard requirements of the signed path (#128).
+            app=$(find release -maxdepth 2 -name '*.app' | head -1)
+            codesign --verify --deep --strict --verbose=2 "$app"
+            spctl --assess --type execute --verbose=2 "$app"
           else
+            # The mac cert must not leak into the unsigned path: with these
+            # set, electron-builder would try to use CSC_LINK for Windows
+            # signing too (and fail on a mac-only .p12).
+            unset CSC_LINK CSC_KEY_PASSWORD
             npm run package
           fi
 
