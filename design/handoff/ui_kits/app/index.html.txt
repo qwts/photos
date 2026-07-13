@@ -30,9 +30,10 @@
 <script type="text/babel" src="ImportDialog.jsx"></script>
 <script type="text/babel" src="ExportDialog.jsx"></script>
 <script type="text/babel" src="SettingsDialog.jsx"></script>
+<script type="text/babel" src="KeyDialog.jsx"></script>
 <script type="text/babel" src="StatusBar.jsx"></script>
 <script type="text/babel">
-const { Toast, TitleBar } = window.DS;
+const { Toast, TitleBar, Icon } = window.DS;
 
 function App() {
   const [photos, setPhotos] = React.useState(window.OVERLOOK_PHOTOS);
@@ -46,7 +47,13 @@ function App() {
   const [lightboxId, setLightboxId] = React.useState(null);
   const [inspectorOpen, setInspectorOpen] = React.useState(false);
   const [importOpen, setImportOpen] = React.useState(false);
+  const [dropped, setDropped] = React.useState(null);
+  const [dragging, setDragging] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [keyMode, setKeyMode] = React.useState(null);
+  const [connected, setConnected] = React.useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => { try { return localStorage.getItem("overlook.sidebarCollapsed") === "1"; } catch (e) { return false; } });
+  const toggleSidebar = () => setSidebarCollapsed((v) => { const n = !v; try { localStorage.setItem("overlook.sidebarCollapsed", n ? "1" : "0"); } catch (e) {} return n; });
   const [exportOpen, setExportOpen] = React.useState(false);
   const [toast, setToast] = React.useState(null);
   const [pendingCount, setPendingCount] = React.useState(362);
@@ -76,8 +83,25 @@ function App() {
     setPendingCount((n) => n + 1);
   };
   const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 4000); };
+
+  const dragDepth = React.useRef(0);
+  const hasFiles = (e) => Array.from(e.dataTransfer && e.dataTransfer.types || []).includes("Files");
+  const onDragEnter = (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth.current += 1; setDragging(true); };
+  const onDragOver = (e) => { if (hasFiles(e)) e.preventDefault(); };
+  const onDragLeave = (e) => { if (!hasFiles(e)) return; dragDepth.current -= 1; if (dragDepth.current <= 0) { dragDepth.current = 0; setDragging(false); } };
+  const onDrop = (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth.current = 0; setDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) => /^image\//.test(f.type) || /\.(raf|arw|cr2|cr3|nef|dng|heic|jpe?g|png|tiff?)$/i.test(f.name));
+    if (!files.length) { showToast({ tone: "amber", title: "Nothing to import", detail: "Drop photo files (RAW, JPEG, PNG, HEIC…)" }); return; }
+    const bytes = files.reduce((s, f) => s + (f.size || 0), 0);
+    const gb = (bytes / 1e9);
+    setDropped({ count: files.length, detail: files.length + " file" + (files.length === 1 ? "" : "s") + (gb >= 0.05 ? " · " + gb.toFixed(1) + " GB" : "") });
+    setImportOpen(true);
+  };
   const runBackup = () => {
-    if (pendingCount === 0) return;
+    if (!connected || pendingCount === 0) return;
     const n = pendingCount;
     showToast({ tone: "amber", title: "Backup started", detail: `Encrypting ${n} changed photo${n === 1 ? "" : "s"} → pCloud` });
     setTimeout(() => {
@@ -107,20 +131,20 @@ function App() {
   });
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", fontFamily: "var(--font-ui)", color: "var(--text-body)" }}>
+    <div onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} style={{ height: "100%", display: "flex", flexDirection: "column", position: "relative", overflow: "hidden", fontFamily: "var(--font-ui)", color: "var(--text-body)" }}>
       <TitleBar platform="mac" />
       <Toolbar q={q} setQ={setQ} zoom={zoom} setZoom={setZoom} view={view} setView={setView}
         filters={filters} toggleFilter={toggleFilter} filterOpen={filterOpen} setFilterOpen={setFilterOpen}
         onImport={() => setImportOpen(true)}
-        onBackup={runBackup} pendingCount={pendingCount} />
+        onBackup={runBackup} pendingCount={pendingCount} connected={connected} />
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-        <Sidebar source={source} setSource={setSource} total={204318} onSettings={() => setSettingsOpen(true)} />
+        <Sidebar source={source} setSource={setSource} total={204318} onSettings={() => setSettingsOpen(true)} connected={connected} collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
         <LibraryGrid photos={visible} zoom={zoom} view={view} selected={selected} onToggle={toggle}
           onOpen={(id) => { setLightboxId(id); }} onClearSelection={() => setSelected(new Set())}
           onExport={() => setExportOpen(true)} />
         {inspectorOpen && !current ? <Inspector photo={visible[0]} /> : null}
       </div>
-      <StatusBar count={204318} pendingCount={pendingCount} lastBackupLabel={lastBackupLabel} />
+      <StatusBar count={204318} pendingCount={pendingCount} lastBackupLabel={lastBackupLabel} connected={connected} />
       {current ? (
         <div style={{ position: "absolute", inset: 0, zIndex: 50, display: "flex" }}>
           <Lightbox photo={current} onClose={() => setLightboxId(null)} onPrev={() => step(-1)} onNext={() => step(1)}
@@ -129,9 +153,19 @@ function App() {
           {inspectorOpen ? <Inspector photo={current} /> : null}
         </div>
       ) : null}
-      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)}
-        onDone={() => showToast({ tone: "green", title: "Import complete", detail: "1,204 photos encrypted · thumbnails ready" })} />
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ImportDialog open={importOpen} dropped={dropped} onClose={() => { setImportOpen(false); setDropped(null); }}
+        onDone={() => showToast({ tone: "green", title: "Import complete", detail: "Photos encrypted · thumbnails ready" })} />
+      {dragging ? (
+        <div style={{ position: "absolute", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", background: "color-mix(in srgb, var(--gray-0) 72%, transparent)", backdropFilter: "blur(2px)", pointerEvents: "none" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, border: "2px dashed var(--accent-cyan)", borderRadius: "var(--radius-3)", padding: "40px 64px", background: "var(--gray-1)" }}>
+            <Icon name="image-down" size={40} color="var(--accent-cyan)" />
+            <div style={{ fontSize: "var(--text-lg)", fontWeight: 600, color: "var(--text-body)" }}>Drop photos to import</div>
+            <div style={{ font: "var(--type-meta)", color: "var(--text-faint)" }}>Encrypted on this device · RAW, JPEG, PNG, HEIC</div>
+          </div>
+        </div>
+      ) : null}
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} onKeyAction={(m) => setKeyMode(m)} connected={connected} setConnected={setConnected} />
+      <KeyDialog open={keyMode != null} mode={keyMode} onClose={() => setKeyMode(null)} onToast={showToast} />
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} count={current ? 1 : Math.max(1, selected.size)} />
       {toast ? (
         <div style={{ position: "absolute", right: 16, bottom: 42, zIndex: 300 }}>

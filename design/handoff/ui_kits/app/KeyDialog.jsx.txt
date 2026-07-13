@@ -1,0 +1,254 @@
+const { Dialog, Button, Icon, Badge, ProgressBar, Checkbox } = window.DS;
+
+const KEY_FINGERPRINT = "9F2C·4A81·D0E7·5B3A";
+const KEY_FILE = "overlook-recovery.key";
+
+function PasswordField({ value, onChange, placeholder, autoFocus }) {
+  const [focus, setFocus] = React.useState(false);
+  const [reveal, setReveal] = React.useState(false);
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: "var(--space-3)",
+      height: "var(--control-h-md)", padding: "0 var(--space-3)",
+      background: "var(--gray-2)", borderRadius: "var(--radius-1)",
+      border: focus ? "1px solid var(--accent-cyan)" : "1px solid var(--border-1)",
+      transition: "border-color var(--duration-fast) var(--ease-out)",
+    }}>
+      <Icon name="lock" size={14} color={focus ? "var(--text-body)" : "var(--text-faint)"} />
+      <input
+        type={reveal ? "text" : "password"}
+        value={value}
+        autoFocus={autoFocus}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        placeholder={placeholder}
+        style={{
+          flex: 1, minWidth: 0, background: "none", border: "none", outline: "none",
+          color: "var(--text-body)", fontSize: "var(--text-md)", fontFamily: reveal ? "var(--font-mono)" : "var(--font-ui)",
+          letterSpacing: reveal ? "var(--tracking-mono)" : "0.18em",
+        }}
+      />
+      <div onClick={() => setReveal((v) => !v)} style={{ display: "flex", cursor: "pointer", color: "var(--text-faint)" }}>
+        <Icon name={reveal ? "eye-off" : "eye"} size={14} />
+      </div>
+    </div>
+  );
+}
+
+function strengthOf(pw) {
+  if (!pw) return { score: 0, label: "", tone: "neutral" };
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (pw.length >= 14) s++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+  if (/\d/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  if (s <= 2) return { score: s, label: "Weak", tone: "red" };
+  if (s === 3) return { score: s, label: "Fair", tone: "amber" };
+  if (s === 4) return { score: s, label: "Strong", tone: "green" };
+  return { score: 5, label: "Very strong", tone: "green" };
+}
+
+function Note({ tone, icon, children }) {
+  const color = tone === "amber" ? "var(--accent-amber)" : tone === "green" ? "var(--accent-green)" : "var(--text-muted)";
+  const fill = tone === "amber" ? "var(--accent-amber-dim)" : tone === "green" ? "var(--accent-green-dim)" : "var(--gray-2)";
+  return (
+    <div style={{ display: "flex", gap: 10, background: fill, border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "10px 12px" }}>
+      <Icon name={icon} size={15} color={color} style={{ flex: "none", marginTop: 1 }} />
+      <div style={{ font: "var(--type-meta)", color: "var(--text-muted)", lineHeight: 1.45 }}>{children}</div>
+    </div>
+  );
+}
+
+function FingerprintRow() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--border-1)", borderBottom: "1px solid var(--border-1)" }}>
+      <Icon name="fingerprint" size={16} color="var(--text-faint)" />
+      <div style={{ flex: 1 }}>
+        <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "var(--tracking-mono)" }}>Library key</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-md)", color: "var(--text-body)", letterSpacing: "var(--tracking-mono)", marginTop: 1 }}>{KEY_FINGERPRINT}</div>
+      </div>
+      <Badge tone="green">Active</Badge>
+    </div>
+  );
+}
+
+function Label({ children }) {
+  return <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "var(--tracking-mono)", marginBottom: 6 }}>{children}</div>;
+}
+
+function BackupBody({ pw, setPw, confirm, setConfirm, saved, ack, setAck }) {
+  const st = strengthOf(pw);
+  const mismatch = confirm.length > 0 && confirm !== pw;
+  if (saved) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--accent-green)", fontSize: "var(--text-md)" }}>
+          <Icon name="shield-check" size={16} /> Key backup saved.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--gray-2)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "10px 12px" }}>
+          <Icon name="file-key" size={16} color="var(--accent-cyan)" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-md)", color: "var(--text-body)" }}>{KEY_FILE}</div>
+            <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>AES-256 · password-protected · 2.1 KB</div>
+          </div>
+        </div>
+        <Note tone="amber" icon="alert-triangle">
+          Keep this file and its password apart, and store both offline. Overlook can't recover your photos without them.
+        </Note>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <Note tone="amber" icon="key-round">
+        This key decrypts every original in your library. Anyone with the file <b>and</b> the password can read your photos — choose a password you don't use anywhere else.
+      </Note>
+      <FingerprintRow />
+      <div>
+        <Label>Encrypt backup with password</Label>
+        <PasswordField value={pw} onChange={setPw} placeholder="New password" autoFocus />
+        {pw ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <div style={{ flex: 1, display: "flex", gap: 3 }}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} style={{
+                  flex: 1, height: 4, borderRadius: "var(--radius-full)",
+                  background: i < st.score ? `var(--accent-${st.tone})` : "var(--gray-3)",
+                  transition: "background var(--duration-fast) var(--ease-out)",
+                }} />
+              ))}
+            </div>
+            <span style={{ font: "var(--type-meta)", color: `var(--accent-${st.tone})`, minWidth: 74, textAlign: "right" }}>{st.label}</span>
+          </div>
+        ) : null}
+      </div>
+      <div>
+        <Label>Confirm password</Label>
+        <PasswordField value={confirm} onChange={setConfirm} placeholder="Re-enter password" />
+        {mismatch ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, color: "var(--accent-red)", font: "var(--type-meta)" }}>
+            <Icon name="x" size={12} /> Passwords don't match.
+          </div>
+        ) : null}
+      </div>
+      <Checkbox checked={ack} onChange={setAck} label="I understand this password cannot be reset or recovered." />
+    </div>
+  );
+}
+
+function ImportBody({ file, setFile, pw, setPw, phase }) {
+  const [hover, setHover] = React.useState(false);
+  if (phase === "done") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--accent-green)", fontSize: "var(--text-md)" }}>
+          <Icon name="shield-check" size={16} /> Key unlocked and installed.
+        </div>
+        <FingerprintRow />
+        <Note tone="green" icon="lock">
+          This device can now decrypt originals from pCloud. Encrypted photos will unlock as they sync.
+        </Note>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <Note tone="neutral" icon="info">
+        Import a recovery key to unlock a library backed up from another device. Your photos stay encrypted until the matching key is installed.
+      </Note>
+      <div>
+        <Label>Recovery key file</Label>
+        {file ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--gray-2)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-1)", padding: "10px 12px" }}>
+            <Icon name="file-key" size={16} color="var(--accent-cyan)" />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-md)", color: "var(--text-body)" }}>{file}</div>
+              <div style={{ font: "var(--type-meta)", color: "var(--text-faint)", marginTop: 2 }}>AES-256 · password-protected</div>
+            </div>
+            <div onClick={() => setFile(null)} style={{ display: "flex", cursor: "pointer", color: "var(--text-faint)" }}>
+              <Icon name="x" size={14} />
+            </div>
+          </div>
+        ) : (
+          <div
+            onClick={() => setFile(KEY_FILE)}
+            onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer",
+              border: `1px dashed ${hover ? "var(--accent-cyan)" : "var(--border-2)"}`, borderRadius: "var(--radius-2)",
+              background: hover ? "var(--gray-2)" : "transparent", padding: "20px 12px",
+              transition: "border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out)",
+            }}>
+            <Icon name="upload" size={20} color={hover ? "var(--accent-cyan)" : "var(--text-faint)"} />
+            <div style={{ fontSize: "var(--text-md)", color: "var(--text-body)" }}>Choose or drop a .key file</div>
+            <div style={{ font: "var(--type-meta)", color: "var(--text-faint)" }}>overlook-recovery.key</div>
+          </div>
+        )}
+      </div>
+      <div>
+        <Label>Password</Label>
+        <PasswordField value={pw} onChange={setPw} placeholder="Backup password" />
+      </div>
+    </div>
+  );
+}
+
+function KeyDialog({ open, mode, onClose, onToast }) {
+  const [pw, setPw] = React.useState("");
+  const [confirm, setConfirm] = React.useState("");
+  const [ack, setAck] = React.useState(false);
+  const [file, setFile] = React.useState(null);
+  const [phase, setPhase] = React.useState("form"); // form | done
+
+  React.useEffect(() => {
+    if (open) { setPw(""); setConfirm(""); setAck(false); setFile(null); setPhase("form"); }
+  }, [open, mode]);
+
+  if (!open) return null;
+  const isBackup = mode === "backup";
+  const st = strengthOf(pw);
+  const canBackup = pw && pw === confirm && st.score >= 3 && ack;
+  const canImport = file && pw.length > 0;
+
+  const doBackup = () => {
+    setPhase("done");
+    onToast && onToast({ tone: "green", title: "Key backup saved", detail: `${KEY_FILE} · encrypted with your password` });
+  };
+  const doImport = () => {
+    setPhase("done");
+    onToast && onToast({ tone: "green", title: "Key imported", detail: "This device can now decrypt your library" });
+  };
+
+  let footer;
+  if (phase === "done") {
+    footer = <Button variant="primary" onClick={onClose}>Done</Button>;
+  } else if (isBackup) {
+    footer = (
+      <React.Fragment>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="primary" icon="download" disabled={!canBackup} onClick={doBackup}>Export key backup</Button>
+      </React.Fragment>
+    );
+  } else {
+    footer = (
+      <React.Fragment>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="primary" icon="key-round" disabled={!canImport} onClick={doImport}>Unlock & import</Button>
+      </React.Fragment>
+    );
+  }
+
+  return (
+    <Dialog
+      title={isBackup ? "Back up encryption key" : "Import encryption key"}
+      icon={isBackup ? "shield-check" : "key-round"}
+      width={440} onClose={onClose} footer={footer}>
+      {isBackup
+        ? <BackupBody pw={pw} setPw={setPw} confirm={confirm} setConfirm={setConfirm} saved={phase === "done"} ack={ack} setAck={setAck} />
+        : <ImportBody file={file} setFile={setFile} pw={pw} setPw={setPw} phase={phase} />}
+    </Dialog>
+  );
+}
+window.KeyDialog = KeyDialog;

@@ -2,16 +2,30 @@ import React from "react";
 
 export function Tooltip({ label, side = "top", children }) {
   const [open, setOpen] = React.useState(false);
-  const pos = side === "bottom"
-    ? { top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)" }
-    : { bottom: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)" };
+  const [coords, setCoords] = React.useState({ top: 0, left: 0 });
+  const ref = React.useRef(null);
+
+  const show = () => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const gap = 6;
+    let c = {};
+    if (side === "right") c = { top: r.top + r.height / 2, left: r.right + gap, tx: "translateY(-50%)" };
+    else if (side === "left") c = { top: r.top + r.height / 2, left: r.left - gap, tx: "translate(-100%, -50%)" };
+    else if (side === "bottom") c = { top: r.bottom + gap, left: r.left + r.width / 2, tx: "translateX(-50%)" };
+    else c = { top: r.top - gap, left: r.left + r.width / 2, tx: "translate(-50%, -100%)" };
+    setCoords(c);
+    setOpen(true);
+  };
+
   return (
-    <span style={{ position: "relative", display: "inline-flex" }}
-      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <span ref={ref} style={{ position: "relative", display: "inline-flex" }}
+      onMouseEnter={show} onMouseLeave={() => setOpen(false)}>
       {children}
       {open ? (
         <span style={{
-          position: "absolute", zIndex: 100, ...pos,
+          position: "fixed", zIndex: 1000, top: coords.top, left: coords.left, transform: coords.tx,
           background: "var(--gray-4)", color: "var(--text-body)",
           border: "1px solid var(--border-2)", borderRadius: "var(--radius-1)",
           padding: "3px 8px", fontSize: "var(--text-sm)", fontFamily: "var(--font-ui)",
