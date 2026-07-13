@@ -330,6 +330,16 @@
           "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "m09-settings-restart-persistence",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings-restart.spec.ts"
+        }
+      ]
     }
   ]
 }
