@@ -27,7 +27,7 @@ export interface AppState {
     readonly title: string;
     readonly tone: 'neutral' | 'green' | 'amber' | 'red';
     /** Serializable action marker — the shell maps it to a handler (#89). */
-    readonly action?: 'show-recent' | undefined;
+    readonly action?: 'show-recent' | 'retry-backup' | undefined;
   } | null;
   readonly pendingCount: number;
   readonly lastBackupLabel: string;

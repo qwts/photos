@@ -68,6 +68,19 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     };
   }, [dispatch]);
 
+  // Backup completion (#106): failures surface as the red toast with a
+  // Retry action; the pending/count refresh rides the existing pushes.
+  useEffect(() => {
+    return window.overlook.backup.onCompleted(({ failed }) => {
+      if (failed > 0) {
+        dispatch({
+          type: 'toast/shown',
+          toast: { title: `BACKUP: ${formatCount(failed)} FAILED — WILL RETRY`, tone: 'red', action: 'retry-backup' },
+        });
+      }
+    });
+  }, [dispatch]);
+
   // Neighbor prefetch (#91/#93): whenever the lightbox photo changes, warm
   // both adjacent frames so ←/→ (clicks OR keys) never stall.
   const lightboxId = state.lightboxId;
@@ -238,6 +251,17 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
                   }}
                 >
                   Show
+                </button>
+              ) : toast.action === 'retry-backup' ? (
+                <button
+                  type="button"
+                  className="ovl-toast__action"
+                  onClick={() => {
+                    void window.overlook.backup.run({});
+                    dispatch({ type: 'toast/dismissed' });
+                  }}
+                >
+                  Retry
                 </button>
               ) : undefined
             }
