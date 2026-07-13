@@ -51,7 +51,7 @@ export interface ExportEngineDeps {
   readonly freeBytes: (dir: string) => Promise<number>;
   readonly joinPath: (dir: string, name: string) => string;
   /** sharp transcode seam (#98) — src/main/export/transcode.ts in prod. */
-  readonly transcodeJpeg: (bytes: Buffer) => Promise<TranscodeResult>;
+  readonly transcodeJpeg: (bytes: Buffer, fileKind: PhotoRecord['fileKind']) => Promise<TranscodeResult>;
   /** Buffers a decrypt stream (transcode needs whole files). */
   readonly bufferStream: (stream: Readable) => Promise<Buffer>;
   readonly events: { progress(done: number, total: number): void };
@@ -124,7 +124,7 @@ export class ExportEngine {
         let targetName = photo.fileName;
         let fromPreview = false;
         if (format === 'jpeg') {
-          const { jpeg, fromPreview: capped } = await this.deps.transcodeJpeg(await this.deps.bufferStream(stream));
+          const { jpeg, fromPreview: capped } = await this.deps.transcodeJpeg(await this.deps.bufferStream(stream), photo.fileKind);
           plaintext = Readable.from([jpeg]);
           targetName = reExtension(photo.fileName, '.jpg');
           fromPreview = capped;
