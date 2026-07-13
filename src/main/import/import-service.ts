@@ -33,6 +33,10 @@ export class ImportService {
     private readonly repo: PhotosRepository,
     private readonly events: ImportServiceEvents,
     private readonly engine: ImportEngine,
+    // Test/dev fixture source (#90 → #129 F1): the composition root supplies
+    // this ONLY in unpackaged builds (gated via harnessEnv). A packaged app
+    // gets no injector, so the fixture folder can never be surfaced by env.
+    private readonly fixtureSource: () => string | undefined = () => undefined,
   ) {}
 
   private async serialize<T>(task: () => Promise<T>): Promise<T> {
@@ -47,8 +51,9 @@ export class ImportService {
   async listSources(): Promise<ImportSource[]> {
     const sources = await listVolumes(defaultVolumeListerDeps());
     // Harness hook (#90, OVERLOOK_* family): surface a fixture folder as the
-    // first source — the mock-file-dialog seam the import E2E drives.
-    const fixture = process.env['OVERLOOK_IMPORT_SOURCE'];
+    // first source — the mock-file-dialog seam the import E2E drives. The
+    // injector is unpackaged-only (#129 F1); it returns undefined otherwise.
+    const fixture = this.fixtureSource();
     if (fixture !== undefined && fixture !== '') {
       return [folderSource(fixture), ...sources];
     }

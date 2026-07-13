@@ -55,7 +55,18 @@ import type { SafeStorageLike } from './crypto/keystore.js';
 // environments without a real keychain (CI Linux). The insecure keystore is
 // honored ONLY in unpackaged builds and logs loudly — real libraries never
 // touch it (ADR-0004 stance stands for production).
-const userDataOverride = process.env['OVERLOOK_USER_DATA'];
+//
+// Steering/fixture hooks (seeded rows, fixture import/export dirs, injected
+// backup faults, redirected profile) are honored ONLY in unpackaged builds
+// (#129 F1) — a packaged app must not be steerable via env, mirroring the
+// OVERLOOK_INSECURE_KEYSTORE gate. Read every such hook through harnessEnv so
+// the gate can't be forgotten at a call site. Genuine runtime tuning (e.g.
+// OVERLOOK_FULL_CACHE_MB, a cache budget) is not a harness hook and stays.
+function harnessEnv(name: string): string | undefined {
+  return app.isPackaged ? undefined : process.env[name];
+}
+
+const userDataOverride = harnessEnv('OVERLOOK_USER_DATA');
 if (userDataOverride !== undefined && userDataOverride !== '') {
   app.setPath('userData', userDataOverride);
 }
@@ -246,6 +257,7 @@ function getImportService(): ImportService {
         },
       },
       engine,
+      () => harnessEnv('OVERLOOK_IMPORT_SOURCE'),
     );
     // Crash-safety (#87): a journaled batch from an interrupted run
     // completes before any new import starts. Recovered photos get the same
@@ -392,7 +404,7 @@ function getBackupEngine(): BackupEngine {
     // Harness hook (#110, OVERLOOK_* family): arm a provider fault for the
     // E2E error-path flows (e.g. OVERLOOK_BACKUP_FAULT=put).
     const faultyProvider = new FaultInjectingProvider(baseProvider);
-    const fault = process.env['OVERLOOK_BACKUP_FAULT'];
+    const fault = harnessEnv('OVERLOOK_BACKUP_FAULT');
     if (fault === 'put' || fault === 'verify-mismatch' || fault === 'auth-expired' || fault === 'transient-get') {
       faultyProvider.arm(fault);
     }
@@ -629,7 +641,7 @@ function getExportFacade(): ExportFacade {
       pickDestination: async () => {
         // Harness hook (#101, OVERLOOK_* family): the mock-file-dialog seam
         // the export E2E drives — a fixed destination instead of the picker.
-        const fixture = process.env['OVERLOOK_EXPORT_DESTINATION'];
+        const fixture = harnessEnv('OVERLOOK_EXPORT_DESTINATION');
         if (fixture !== undefined && fixture !== '') {
           return fixture;
         }
@@ -748,7 +760,7 @@ void app.whenReady().then(async () => {
       },
     };
   });
-  const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
+  const seedCount = Number(harnessEnv('OVERLOOK_SEED') ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();
     if (libraryParts !== undefined) {
@@ -759,7 +771,7 @@ void app.whenReady().then(async () => {
   // Metadata-only rows sharing one blob — the 200K grid perf baseline (#74).
   // Like seedLibrary, a non-empty library is left untouched (re-runs on the
   // same profile must not duplicate content hashes).
-  const syntheticCount = Number(process.env['OVERLOOK_SEED_SYNTHETIC'] ?? '0');
+  const syntheticCount = Number(harnessEnv('OVERLOOK_SEED_SYNTHETIC') ?? '0');
   if (Number.isInteger(syntheticCount) && syntheticCount > 0) {
     const service = getLibraryService();
     if (libraryParts !== undefined && service.stats().photos === 0) {
