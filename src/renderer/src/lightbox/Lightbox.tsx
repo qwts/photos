@@ -107,7 +107,9 @@ export function Lightbox({
         <IconButton icon="star" label="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
         <IconButton icon="share" label="Export" onClick={onExport} />
         <IconButton icon="info" label="Inspector (I)" active={inspectorOpen} onClick={onToggleInspector} />
-        <IconButton icon="trash-2" label="Delete" disabled />
+        {/* Delete routes to M10's soft-delete flow (#110); the seam ships
+            disabled until then (#95 tracking note). */}
+        <IconButton icon="trash-2" label="Delete (soft-delete lands with M10)" disabled />
       </div>
       <div className={`ovl-lightbox__nav ovl-lightbox__chrome${chromeClass}`}>
         <IconButton icon="chevron-left" size="lg" label="Previous (←)" onClick={onPrev} />

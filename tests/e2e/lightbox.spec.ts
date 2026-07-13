@@ -64,3 +64,47 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
     await app.close();
   }
 });
+
+// #95 exit criteria: a lightbox favorite behaves like an edit anywhere —
+// the ledger dirties (pendingCount), the StatusBar flips amber, and the
+// grid tile's star appears, all via targeted pushes with no reload.
+test('lightbox favorite: tile star + pendingCount + StatusBar update without reload', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-fav-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '4',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+
+    // Seed 4 starts with exactly one dirty row (photo 0 is 'local', and
+    // local rows are born dirty) — the favorite must INCREMENT this.
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → PCLOUD');
+    // Photo 1 (IMG_4028.JPG) is not a favorite.
+    await expect(page.locator('.ovl-grid__cell').nth(1).locator('.ovl-tile__star')).toHaveCount(0);
+
+    // Favorite it from the lightbox.
+    await page.locator('.ovl-grid__cell').nth(1).click();
+    const lightbox = page.getByTestId('lightbox');
+    await expect(lightbox).toContainText('IMG_4028.JPG');
+    await lightbox.getByRole('button', { name: 'Favorite' }).click();
+
+    // Ledger dirties → the StatusBar count increments, exactly…
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → PCLOUD');
+    // …the lightbox star goes active…
+    await expect(lightbox.getByRole('button', { name: 'Favorite' })).toHaveClass(/ovl-icon-button--active/);
+
+    // …and back in the grid the tile star appeared — no reload happened.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.ovl-grid__cell').nth(1).locator('.ovl-tile__star')).toHaveCount(1);
+  } finally {
+    await app.close();
+  }
+});

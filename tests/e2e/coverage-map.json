@@ -198,6 +198,16 @@
           "path": "tests/e2e/lightbox.spec.ts"
         }
       ]
+    },
+    {
+      "id": "m06-lightbox-mutations",
+      "wiki": "User-Story-M06-Lightbox-Inspector",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/lightbox.spec.ts"
+        }
+      ]
     }
   ]
 }
