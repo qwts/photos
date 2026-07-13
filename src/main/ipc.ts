@@ -104,7 +104,7 @@ export function registerExportHandlers(getFacade: () => ExportFacade): void {
 }
 
 export interface BackupFacade {
-  run(): Promise<{ uploaded: number; failed: number; skipped: 'wifi' | null }>;
+  run(): Promise<{ uploaded: number; failed: number; skipped: 'wifi' | 'disconnected' | null }>;
   offload(photoIds: readonly string[]): Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
   rehydrate(photoId: string): Promise<void>;
   providerStatus(): Promise<{

@@ -294,7 +294,11 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
                   type="button"
                   className="ovl-toast__action"
                   onClick={() => {
-                    void window.overlook.backup.run({});
+                    void window.overlook.backup.run({}).then(({ skipped }) => {
+                      if (skipped === 'disconnected') {
+                        dispatch({ type: 'toast/shown', toast: { title: 'BACKUP OFF — NOT CONNECTED', tone: 'neutral' } });
+                      }
+                    });
                     dispatch({ type: 'toast/dismissed' });
                   }}
                 >

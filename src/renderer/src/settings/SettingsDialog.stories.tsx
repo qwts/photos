@@ -82,6 +82,7 @@ export const DisconnectDisablesEverything: Story = {
     }
     await expect(body.getByRole('radio', { name: 'Copy' })).toBeDisabled();
     await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();
+    await expect(body.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeDisabled();
 
     // Reconnect: instant with the mock, quota returns.
     await userEvent.click(body.getByRole('button', { name: 'Connect Mock provider' }));

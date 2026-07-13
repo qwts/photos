@@ -11,17 +11,20 @@ export interface SliderProps {
   readonly width?: number;
   /** Accessible name (e.g. "Zoom", "Upload bandwidth limit"). */
   readonly label: string;
+  /** Real disabled semantics — unreachable by Tab, inert to arrows (#114). */
+  readonly disabled?: boolean;
 }
 
 // components/forms/Slider.jsx — the fill gradient tracks the value; thumb
 // styling comes from inputs.css (not an injected style tag).
-export function Slider({ value, min = 0, max = 100, step = 1, onChange, width = 140, label }: SliderProps): ReactElement {
+export function Slider({ value, min = 0, max = 100, step = 1, onChange, width = 140, label, disabled = false }: SliderProps): ReactElement {
   const pct = ((value - min) / (max - min)) * 100;
   return (
     <input
       type="range"
       className="ovl-slider"
       aria-label={label}
+      disabled={disabled}
       value={value}
       min={min}
       max={max}

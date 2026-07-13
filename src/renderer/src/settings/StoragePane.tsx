@@ -123,6 +123,7 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
             max={100}
             step={5}
             width={130}
+            disabled={!connected}
             onChange={(bandwidthLimit) => {
               onPatch({ bandwidthLimit });
             }}
