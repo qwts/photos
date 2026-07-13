@@ -58,6 +58,27 @@ export function registerImportHandlers(getService: () => ImportService): void {
   );
 }
 
+export interface ExportFacade {
+  run(photoIds: readonly string[], destination: string): Promise<{ exported: number; failed: number; cancelled: number }>;
+  cancel(): void;
+  pickDestination(): Promise<string | null>;
+}
+
+export function registerExportHandlers(getFacade: () => ExportFacade): void {
+  ipcMain.handle(channels.exportRun.name, (_event, request: unknown) =>
+    wrapHandler(channels.exportRun, async ({ photoIds, destination }) => getFacade().run(photoIds, destination))(request),
+  );
+  ipcMain.handle(channels.exportCancel.name, (_event, request: unknown) =>
+    wrapHandler(channels.exportCancel, () => {
+      getFacade().cancel();
+      return {};
+    })(request),
+  );
+  ipcMain.handle(channels.exportPickDestination.name, (_event, request: unknown) =>
+    wrapHandler(channels.exportPickDestination, async () => ({ path: await getFacade().pickDestination() }))(request),
+  );
+}
+
 export function registerIpcHandlers(): void {
   const ping = wrapHandler(channels.ping, ({ message }) => ({ echoed: message }));
   ipcMain.handle(channels.ping.name, (_event, request: unknown) => ping(request));

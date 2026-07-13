@@ -1,8 +1,11 @@
-import { readFile, unlink } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { access, readFile, statfs, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
-import { app, BrowserWindow, safeStorage } from 'electron';
+import { pipeline } from 'node:stream/promises';
+
+import { app, BrowserWindow, dialog, safeStorage } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
@@ -20,7 +23,8 @@ import { ImportService } from './import/import-service.js';
 import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
-import { registerImportHandlers, registerIpcHandlers, registerLibraryHandlers } from './ipc.js';
+import { ExportEngine } from './export/export-engine.js';
+import { registerExportHandlers, registerImportHandlers, registerIpcHandlers, registerLibraryHandlers, type ExportFacade } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
@@ -283,6 +287,63 @@ function getFullService(): FullService {
   return fullService;
 }
 
+let exportFacade: ExportFacade | undefined;
+
+function getExportFacade(): ExportFacade {
+  if (exportFacade === undefined) {
+    getLibraryService();
+    const parts = libraryParts;
+    if (parts === undefined) {
+      throw new Error('library bootstrap failed; export unavailable');
+    }
+    const repo = new PhotosRepository(parts.db);
+    const emitProgress = createEmitter(events.exportProgress, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const engine = new ExportEngine({
+      repo: { get: (id) => repo.get(id) },
+      blobs: parts.blobStore,
+      resolveKey: parts.keyStore.resolver(),
+      writeFile: async (filePath, plaintext) => pipeline(plaintext, createWriteStream(filePath, { flags: 'wx' })),
+      exists: async (filePath) =>
+        access(filePath).then(
+          () => true,
+          () => false,
+        ),
+      freeBytes: async (dir) => {
+        const stats = await statfs(dir);
+        return stats.bavail * stats.bsize;
+      },
+      joinPath: (dir, name) => path.join(dir, name),
+      events: {
+        progress: (done, total) => {
+          emitProgress({ done, total });
+        },
+      },
+    });
+    let controller: AbortController | null = null;
+    exportFacade = {
+      run: async (photoIds, destination) => {
+        controller = new AbortController();
+        try {
+          const summary = await engine.exportPhotos(photoIds, destination, controller.signal);
+          return { exported: summary.exported, failed: summary.failed, cancelled: summary.cancelled };
+        } finally {
+          controller = null;
+        }
+      },
+      cancel: () => {
+        controller?.abort();
+      },
+      pickDestination: async () => {
+        const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+    };
+  }
+  return exportFacade;
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -332,6 +393,7 @@ void app.whenReady().then(async () => {
   registerThumbProtocol(getThumbService);
   registerFullProtocol(getFullService);
   registerImportHandlers(getImportService);
+  registerExportHandlers(getExportFacade);
   const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();
