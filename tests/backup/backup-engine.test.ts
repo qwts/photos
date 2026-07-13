@@ -75,7 +75,7 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
     dirtyPhotos: () => repo.dirtyPhotos(),
     encryptedStream: (hash) => store.getEncryptedStream(hash),
     sealManifest: (json) => Promise.resolve(Buffer.from(json)),
-    manifestRows: () => repo.dirtyPhotos(), // rows suffice for the contract
+    manifestRows: () => repo.manifestRows(),
     settings: () => settings,
     network: () => overrides?.network ?? 'wifi',
     events: { progress: (done, total) => progress.push([done, total]) },
@@ -94,7 +94,7 @@ describe('backup engine (#105)', () => {
     const w = await world(3);
     assert.equal(w.ledger.pendingCount(), 3);
     const result = await w.engine.run();
-    assert.deepEqual(result, { uploaded: 3, failed: 0, skipped: null });
+    assert.deepEqual(result, { uploaded: 3, failed: 0, manifestUploaded: true, skipped: null });
     assert.equal(w.ledger.pendingCount(), 0);
     assert.equal(w.ledger.status('P0'), 'synced');
     assert.notEqual(w.ledger.lastBackupAt(), null);
@@ -115,6 +115,11 @@ describe('backup engine (#105)', () => {
       manifests.map((entry) => entry.path),
       ['manifest/gen-1.ovlk'],
     );
+    // The manifest describes EVERY live photo, not the (now-clean) batch —
+    // restore without a local DB depends on it (PR #203 review, P1).
+    const sealed = await buffer(await w.provider.getStream('manifest/gen-1.ovlk'));
+    const manifest = JSON.parse(sealed.toString('utf8')) as { rows: { id: string }[] };
+    assert.equal(manifest.rows.length, 3);
     // Aggregate progress is ordered 0..3 over the batch.
     assert.deepEqual(w.progress[0], [0, 3]);
     assert.deepEqual(w.progress.at(-1), [3, 3]);
@@ -158,7 +163,7 @@ describe('backup engine (#105)', () => {
 
   test('EXIT CRITERIA: the Wi-Fi gate skips on metered; unknown interfaces proceed (recorded heuristic)', async () => {
     const gated = await world(1, { settings: { wifiOnly: true }, network: 'other' });
-    assert.deepEqual(await gated.engine.run(), { uploaded: 0, failed: 0, skipped: 'wifi' });
+    assert.deepEqual(await gated.engine.run(), { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi' });
     assert.equal(gated.ledger.pendingCount(), 1);
 
     const unknown = await world(1, { settings: { wifiOnly: true }, network: 'unknown' });
@@ -174,6 +179,38 @@ describe('backup engine (#105)', () => {
     const unlimited = await world(2);
     await unlimited.engine.run();
     assert.deepEqual(unlimited.sleeps, []);
+  });
+
+  test('a row killed mid-upload (already syncing, still dirty) RESUMES (PR #203 review)', async () => {
+    const w = await world(1);
+    w.ledger.setStatus('P0', 'syncing'); // the kill left it here
+    const result = await w.engine.run();
+    assert.deepEqual({ uploaded: result.uploaded, failed: result.failed }, { uploaded: 1, failed: 0 });
+    assert.equal(w.ledger.status('P0'), 'synced');
+  });
+
+  test('a failed manifest upload is owed and retried by the NEXT run (PR #203 review)', async () => {
+    const w = await world(1);
+    // Blobs succeed; the manifest list/put path fails transiently.
+    w.faulty.arm('transient-get'); // does not affect put/list
+    const originalList = w.deps.provider.list.bind(w.deps.provider);
+    let failLists = true;
+    (w.deps.provider as { list: typeof originalList }).list = (prefix) => {
+      if (failLists && prefix === 'manifest') {
+        failLists = false;
+        return Promise.reject(new Error('manifest listing exploded'));
+      }
+      return originalList(prefix);
+    };
+    const first = await w.engine.run();
+    assert.equal(first.uploaded, 1);
+    assert.equal(first.manifestUploaded, false, 'the run reports the owed manifest');
+    assert.equal(w.ledger.pendingCount(), 0, 'blob rows are truthfully synced');
+
+    // Nothing dirty — the next run still settles the debt.
+    const second = await w.engine.run();
+    assert.equal(second.manifestUploaded, true);
+    assert.equal((await w.provider.list('manifest')).length, 1);
   });
 
   test('auto-backup-on-import runs only when the setting says so', async () => {
