@@ -1,0 +1,190 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { randomBytes } from 'node:crypto';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
+
+import { BlobStore } from '../../src/main/blobs/blob-store.js';
+import { BackupEngine, type BackupEngineDeps, type BackupSettings, type NetworkKind } from '../../src/main/backup/backup-engine.js';
+import { FaultInjectingProvider, MockProvider } from '../../src/main/backup/mock-provider.js';
+import { SyncLedger } from '../../src/main/backup/sync-ledger.js';
+import { openLibraryDatabase } from '../../src/main/db/database.js';
+import { PhotosRepository } from '../../src/main/db/photos-repository.js';
+import { run } from '../../src/main/db/sql.js';
+import { sampleJpeg } from '../../src/main/library/seed.js';
+import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
+import type { PhotoInsert } from '../../src/shared/library/types.js';
+
+// #105 exit criteria against real components: mock-provider integration —
+// a full backup clears pendingCount, a killed/failed run resumes, and the
+// throttle / Wi-Fi / auto settings are respected (fault-injected).
+
+async function world(count: number, overrides?: { settings?: Partial<BackupSettings>; network?: NetworkKind }) {
+  const dataDir = mkdtempSync(join(tmpdir(), 'overlook-backup-'));
+  const db = openLibraryDatabase({ path: join(dataDir, 'library.db'), dbKey: randomBytes(32) });
+  run(db, `INSERT OR IGNORE INTO keys (id, wrapped_key, created_at) VALUES (1, 'test', '2026-07-13T00:00:00.000Z')`);
+  const repo = new PhotosRepository(db);
+  const store = new BlobStore({ dataDir });
+  await store.init();
+  const key: EnvelopeKey = { id: 1, key: randomBytes(32) };
+  for (let index = 0; index < count; index += 1) {
+    const bytes = sampleJpeg(index);
+    const ref = await store.putOriginal(Readable.from([bytes]), key, `P${String(index)}`);
+    repo.insert({
+      id: `P${String(index)}`,
+      fileName: `IMG_${String(index)}.JPG`,
+      fileKind: 'jpeg',
+      width: 1,
+      height: 1,
+      bytes: ref.bytes,
+      contentHash: ref.contentHash,
+      camera: null,
+      lens: null,
+      iso: null,
+      aperture: null,
+      shutter: null,
+      focalLength: null,
+      takenAt: null,
+      gpsLat: null,
+      gpsLon: null,
+      place: null,
+      importedAt: `2026-07-13T00:0${String(index % 10)}:00.000Z`,
+      importSource: 'test',
+      keyId: 1,
+    } satisfies PhotoInsert);
+  }
+  const provider = new MockProvider({ rootDir: mkdtempSync(join(tmpdir(), 'overlook-remote-')) });
+  const faulty = new FaultInjectingProvider(provider);
+  const ledger = new SyncLedger(db);
+  const sleeps: number[] = [];
+  const progress: [number, number][] = [];
+  let clock = 0;
+  const settings: BackupSettings = {
+    throttlePercent: null,
+    wifiOnly: false,
+    autoBackupOnImport: false,
+    ...overrides?.settings,
+  };
+  const deps: BackupEngineDeps = {
+    provider: faulty,
+    ledger,
+    dirtyPhotos: () => repo.dirtyPhotos(),
+    encryptedStream: (hash) => store.getEncryptedStream(hash),
+    sealManifest: (json) => Promise.resolve(Buffer.from(json)),
+    manifestRows: () => repo.dirtyPhotos(), // rows suffice for the contract
+    settings: () => settings,
+    network: () => overrides?.network ?? 'wifi',
+    events: { progress: (done, total) => progress.push([done, total]) },
+    now: () => (clock += 40),
+    sleep: (ms) => {
+      sleeps.push(ms);
+      return Promise.resolve();
+    },
+    pendingCountChanged: () => undefined,
+  };
+  return { deps, repo, ledger, store, provider, faulty, sleeps, progress, engine: new BackupEngine(deps) };
+}
+
+describe('backup engine (#105)', () => {
+  test('EXIT CRITERIA: a full backup clears pendingCount, uploads ciphertext as-is + a manifest', async () => {
+    const w = await world(3);
+    assert.equal(w.ledger.pendingCount(), 3);
+    const result = await w.engine.run();
+    assert.deepEqual(result, { uploaded: 3, failed: 0, skipped: null });
+    assert.equal(w.ledger.pendingCount(), 0);
+    assert.equal(w.ledger.status('P0'), 'synced');
+    assert.notEqual(w.ledger.lastBackupAt(), null);
+
+    // Remote blob bytes are the LOCAL CIPHERTEXT, byte-for-byte.
+    const [item] = w.repo.dirtyPhotos().length === 0 ? [{ contentHash: '' }] : [];
+    void item;
+    const rows = await w.provider.list('blobs');
+    assert.equal(rows.length, 3);
+    const first = rows[0];
+    const remote = await buffer(await w.provider.getStream(first?.path ?? ''));
+    const localHash = first?.path.split('/').at(-1) ?? '';
+    const local = await buffer(w.store.getEncryptedStream(localHash));
+    assert.deepEqual(remote, local);
+
+    const manifests = await w.provider.list('manifest');
+    assert.deepEqual(
+      manifests.map((entry) => entry.path),
+      ['manifest/gen-1.ovlk'],
+    );
+    // Aggregate progress is ordered 0..3 over the batch.
+    assert.deepEqual(w.progress[0], [0, 3]);
+    assert.deepEqual(w.progress.at(-1), [3, 3]);
+  });
+
+  test('manifest generations advance and prune past N=2', async () => {
+    const w = await world(1);
+    await w.engine.run();
+    w.ledger.markDirty('P0');
+    await w.engine.run();
+    w.ledger.markDirty('P0');
+    await w.engine.run();
+    const manifests = (await w.provider.list('manifest')).map((entry) => entry.path).sort();
+    assert.deepEqual(manifests, ['manifest/gen-2.ovlk', 'manifest/gen-3.ovlk']);
+  });
+
+  test('EXIT CRITERIA: transient failures retry with backoff, then error; the next run RESUMES', async () => {
+    const w = await world(2);
+    w.faulty.arm('put');
+    const first = await w.engine.run();
+    assert.deepEqual({ uploaded: first.uploaded, failed: first.failed }, { uploaded: 0, failed: 2 });
+    assert.equal(w.ledger.status('P0'), 'error');
+    assert.equal(w.ledger.pendingCount(), 2, 'errored rows stay dirty');
+    // Two items × two backoffs (500, 1000) before the third attempt fails.
+    assert.deepEqual(w.sleeps, [500, 1000, 500, 1000]);
+
+    w.faulty.disarm('put');
+    const second = await w.engine.run();
+    assert.deepEqual({ uploaded: second.uploaded, failed: second.failed }, { uploaded: 2, failed: 0 });
+    assert.equal(w.ledger.pendingCount(), 0, 'the dirty set is the resume state');
+  });
+
+  test('auth failure stops the run — retrying the rest cannot help', async () => {
+    const w = await world(3);
+    w.faulty.arm('auth-expired');
+    const result = await w.engine.run();
+    assert.deepEqual({ uploaded: result.uploaded, failed: result.failed }, { uploaded: 0, failed: 1 });
+    assert.equal(w.ledger.status('P0'), 'error');
+    assert.equal(w.ledger.status('P1'), 'local', 'the rest were never attempted');
+  });
+
+  test('EXIT CRITERIA: the Wi-Fi gate skips on metered; unknown interfaces proceed (recorded heuristic)', async () => {
+    const gated = await world(1, { settings: { wifiOnly: true }, network: 'other' });
+    assert.deepEqual(await gated.engine.run(), { uploaded: 0, failed: 0, skipped: 'wifi' });
+    assert.equal(gated.ledger.pendingCount(), 1);
+
+    const unknown = await world(1, { settings: { wifiOnly: true }, network: 'unknown' });
+    assert.equal((await unknown.engine.run()).uploaded, 1);
+  });
+
+  test('EXIT CRITERIA: throttle rests between items; unlimited never sleeps', async () => {
+    const throttled = await world(2, { settings: { throttlePercent: 50 } });
+    await throttled.engine.run();
+    const rests = throttled.sleeps.filter((ms) => ms > 0);
+    assert.equal(rests.length, 2, 'one rest per item at 50%');
+
+    const unlimited = await world(2);
+    await unlimited.engine.run();
+    assert.deepEqual(unlimited.sleeps, []);
+  });
+
+  test('auto-backup-on-import runs only when the setting says so', async () => {
+    const off = await world(1);
+    off.engine.maybeAutoRun();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(off.ledger.pendingCount(), 1);
+
+    const on = await world(1, { settings: { autoBackupOnImport: true } });
+    on.engine.maybeAutoRun();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(on.ledger.pendingCount(), 0);
+  });
+});

@@ -20,9 +20,20 @@ import { ImportService } from './import/import-service.js';
 import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
+import { BackupEngine } from './backup/backup-engine.js';
+import { MockProvider } from './backup/mock-provider.js';
+import { SyncLedger } from './backup/sync-ledger.js';
+import { createEncryptStream } from './crypto/envelope.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
 import { transcodeToJpeg } from './export/transcode.js';
-import { registerExportHandlers, registerImportHandlers, registerIpcHandlers, registerLibraryHandlers, type ExportFacade } from './ipc.js';
+import {
+  registerBackupHandlers,
+  registerExportHandlers,
+  registerImportHandlers,
+  registerIpcHandlers,
+  registerLibraryHandlers,
+  type ExportFacade,
+} from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
@@ -285,6 +296,61 @@ function getFullService(): FullService {
   return fullService;
 }
 
+let backupEngine: BackupEngine | undefined;
+
+function getBackupEngine(): BackupEngine {
+  if (backupEngine === undefined) {
+    getLibraryService();
+    const parts = libraryParts;
+    if (parts === undefined) {
+      throw new Error('library bootstrap failed; backup unavailable');
+    }
+    const repo = new PhotosRepository(parts.db);
+    const ledger = new SyncLedger(parts.db);
+    const emitProgress = createEmitter(events.backupProgress, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    // Until M09's settings surface exists, defaults apply: unlimited
+    // bandwidth, no Wi-Fi gate, manual backups only. Electron cannot tell
+    // interface types portably — 'unknown' is the recorded heuristic.
+    const provider = new MockProvider({ rootDir: path.join(app.getPath('userData'), 'library', 'mock-remote') });
+    backupEngine = new BackupEngine({
+      provider,
+      ledger,
+      dirtyPhotos: () => repo.dirtyPhotos(),
+      encryptedStream: (hash) => parts.blobStore.getEncryptedStream(hash),
+      sealManifest: async (json) => {
+        const chunks: Buffer[] = [];
+        const encrypt = createEncryptStream(parts.keyStore.currentKey(), { photoId: 'manifest' });
+        encrypt.on('data', (chunk: Buffer) => chunks.push(chunk));
+        await new Promise<void>((resolve, reject) => {
+          encrypt.on('end', resolve);
+          encrypt.on('error', reject);
+          encrypt.end(Buffer.from(json));
+        });
+        return Buffer.concat(chunks);
+      },
+      manifestRows: () => repo.dirtyPhotos(),
+      settings: () => ({ throttlePercent: null, wifiOnly: false, autoBackupOnImport: false }),
+      network: () => 'unknown',
+      events: {
+        progress: (done, total, photoId) => {
+          emitProgress({ done, total, photoId });
+        },
+      },
+      now: () => Date.now(),
+      sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      pendingCountChanged: (count) => {
+        emitPending({ count });
+      },
+    });
+  }
+  return backupEngine;
+}
+
 let exportFacade: ExportFacade | undefined;
 
 function getExportFacade(): ExportFacade {
@@ -416,6 +482,7 @@ void app.whenReady().then(async () => {
   registerFullProtocol(getFullService);
   registerImportHandlers(getImportService);
   registerExportHandlers(getExportFacade);
+  registerBackupHandlers(() => ({ run: async () => getBackupEngine().run() }));
   const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();

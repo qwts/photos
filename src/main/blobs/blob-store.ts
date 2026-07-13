@@ -155,6 +155,17 @@ export class BlobStore {
     }
   }
 
+  /** RAW ciphertext stream for an original — backup uploads envelopes
+   * as-is (ADR-0007 encrypt-once); never decrypts. */
+  getEncryptedStream(contentHash: string): Readable {
+    assertHash(contentHash);
+    const path = this.originalPath(contentHash);
+    if (!existsSync(path)) {
+      throw new BlobStoreError(`blob ${contentHash} is not in the store`);
+    }
+    return createReadStream(path);
+  }
+
   /** Decrypting read stream for an original. */
   getStream(contentHash: string, resolveKey: KeyResolver, photoId: string): Readable {
     assertHash(contentHash);

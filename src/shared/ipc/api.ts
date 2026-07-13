@@ -24,6 +24,10 @@ export interface OverlookApi {
     readonly onChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
     readonly onPendingCountChanged: (listener: (payload: { count: number }) => void) => () => void;
   };
+  readonly backup: {
+    readonly run: (request: Req<typeof channels.backupRun>) => Promise<Res<typeof channels.backupRun>>;
+    readonly onProgress: (listener: (payload: z.output<typeof events.backupProgress.payload>) => void) => () => void;
+  };
   readonly export: {
     readonly pickDestination: (request: Req<typeof channels.exportPickDestination>) => Promise<Res<typeof channels.exportPickDestination>>;
     readonly run: (request: Req<typeof channels.exportRun>) => Promise<Res<typeof channels.exportRun>>;
