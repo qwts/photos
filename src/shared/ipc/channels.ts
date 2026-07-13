@@ -176,10 +176,29 @@ export const channels = {
   // Import sources (#84): discovery + the source-card scan. Copying is #87.
   importListSources: defineChannel('import:list-sources', z.object({}), z.object({ sources: z.array(importSourceSchema).readonly() })),
   importScanSource: defineChannel('import:scan-source', z.object({ path: z.string() }), scanSummarySchema),
-  // Import engine (#87): run a batch (new files on the source) copy or move.
+  // Folder source (#237): the OS directory picker behind the dialog's
+  // "Choose a folder" dropzone; null = cancelled.
+  importPickFolder: defineChannel('import:pick-folder', z.object({}), z.object({ path: z.string().nullable() })),
+  // Dropped files (#237): scan an explicit file list (window drag-and-drop).
+  importScanFiles: defineChannel('import:scan-files', z.object({ paths: z.array(z.string()).min(1) }), scanSummarySchema),
+  // Import engine (#87, extended by #237): run a batch — a source path
+  // (copy or move) or an explicit dropped-file list (always copy: Move is
+  // enforced volume-only at the service layer so a user's own files are
+  // never deleted).
   importRun: defineChannel(
     'import:run',
-    z.object({ path: z.string(), mode: z.enum(['copy', 'move']) }),
+    z
+      .object({
+        path: z.string().optional(),
+        files: z.array(z.string()).min(1).optional(),
+        mode: z.enum(['copy', 'move']),
+      })
+      .refine((run) => (run.path === undefined) !== (run.files === undefined), {
+        message: 'exactly one of path or files',
+      })
+      .refine((run) => run.files === undefined || run.mode === 'copy', {
+        message: 'dropped-file imports always copy',
+      }),
     z.object({
       imported: z.number().int().nonnegative(),
       duplicates: z.number().int().nonnegative(),

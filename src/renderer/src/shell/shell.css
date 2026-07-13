@@ -344,3 +344,37 @@
 .ovl-sidebar__albumname::placeholder {
   color: var(--text-faint);
 }
+
+/* Full-window drop overlay (#237) — the mock's own metrics. */
+.ovl-shell__dropOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 400; /* the mock's own layer: above dialogs, below nothing */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--gray-0) 72%, transparent);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.ovl-shell__dropCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  border: 2px dashed var(--accent-cyan);
+  border-radius: var(--radius-3);
+  padding: 40px 64px; /* the mock's own card inset */
+  background: var(--gray-1);
+}
+
+.ovl-shell__dropTitle {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.ovl-shell__dropHint {
+  color: var(--text-faint);
+}

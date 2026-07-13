@@ -75,3 +75,82 @@
   color: var(--accent-amber);
   font-size: var(--text-md);
 }
+
+/* Source picker (#237) — mock's "Import from" section + source states. */
+.ovl-import__pickerLabel {
+  color: var(--text-faint);
+  margin-bottom: var(--space-2);
+}
+
+.ovl-import__cardPath {
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ovl-import__clear {
+  display: flex;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-faint);
+}
+
+.ovl-import__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.5);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-2);
+  padding: var(--space-6) var(--space-3);
+  text-align: center;
+  background: none;
+  width: 100%;
+}
+
+.ovl-import__empty--action {
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-import__empty--action:hover {
+  border-color: var(--accent-cyan);
+  background: var(--gray-2);
+}
+
+.ovl-import__emptyTitle {
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+.ovl-import__emptyHint {
+  font: var(--type-meta);
+  color: var(--text-faint);
+}
+
+.ovl-import__link {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent-cyan);
+  font: inherit;
+}
+
+.ovl-import__row--locked {
+  opacity: 0.45;
+}
+
+.ovl-import__note {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.5);
+  color: var(--text-faint);
+  font: var(--type-meta);
+}

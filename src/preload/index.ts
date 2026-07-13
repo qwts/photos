@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 import type { OverlookApi } from '../shared/ipc/api.js';
 import { channels, events } from '../shared/ipc/channels.js';
@@ -29,6 +29,7 @@ const settingsGet = createInvoker(channels.settingsGet, invokeTransport);
 const backupProviderStatus = createInvoker(channels.backupProviderStatus, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
 const importListSources = createInvoker(channels.importListSources, invokeTransport);
+const importPickFolder = createInvoker(channels.importPickFolder, invokeTransport);
 
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
@@ -75,6 +76,11 @@ const overlook: OverlookApi = {
   import: Object.freeze({
     listSources: async () => importListSources({}),
     scanSource: createInvoker(channels.importScanSource, invokeTransport),
+    pickFolder: async () => importPickFolder({}),
+    scanFiles: createInvoker(channels.importScanFiles, invokeTransport),
+    // The documented sandbox pattern for drag-and-drop paths: the renderer
+    // hands the File across the bridge and webUtils resolves it here (#237).
+    pathForFile: (file: File) => webUtils.getPathForFile(file),
     run: createInvoker(channels.importRun, invokeTransport),
     cancel: createInvoker(channels.importCancel, invokeTransport),
     onScanProgress: createSubscriber(events.scanProgress, subscribeTransport),

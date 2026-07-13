@@ -73,6 +73,10 @@ const VOCABULARY = [
   // Disconnected-state glyph the updated design's StatusBar.jsx/Sidebar.jsx
   // use beyond the readme list (#239).
   'cloud-off',
+  // Import-source glyphs the updated design's ImportDialog.jsx/index.html
+  // use beyond the readme list (#237): the folder dropzone + drop overlay.
+  'folder-open',
+  'image-down',
 ] as const;
 
 describe('Icon', () => {

@@ -132,3 +132,49 @@ test('Move import: warning shown, sources emptied only after verified import', a
     await app.close();
   }
 });
+
+test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for folders', async () => {
+  const folder = makeCard();
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-import-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+      // No OVERLOOK_IMPORT_SOURCE: the folder path is the source under test.
+      OVERLOOK_IMPORT_FOLDER: folder,
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+
+    // Source picker (#237): switch to Local folder and pick through the
+    // harness-seamed dialog.
+    await page.getByRole('radio', { name: 'Local folder' }).click();
+    await page.getByText('Choose a folder to import').click();
+    await expect(page.getByText(folder)).toBeVisible();
+    await expect(page.getByText('3 NEW ·')).toBeVisible();
+
+    // Folder imports never delete a user's own files: Move is locked in the
+    // UI with the design's note...
+    await expect(page.getByRole('radio', { name: 'Move' })).toBeDisabled();
+    await expect(page.getByText('Imported files are copied — source files are left untouched.')).toBeVisible();
+    // ...and the pipeline refuses it outright even if the UI is bypassed.
+    const rejected = await page.evaluate<string>(
+      `window.overlook.import.run({ path: ${JSON.stringify(folder)}, mode: 'move' }).then(() => 'resolved', (e) => String(e))`,
+    );
+    expect(rejected).toContain('Move is only available for removable volumes');
+
+    await page.getByRole('button', { name: 'Import 3 photos' }).click();
+    await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Show in library' }).click();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
+
+    // Copy semantics held: the source folder is untouched.
+    expect(readdirSync(folder).sort()).toEqual([...CARD_FILES].sort());
+  } finally {
+    await app.close();
+  }
+});

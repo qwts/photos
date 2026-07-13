@@ -454,6 +454,20 @@
           "path": "src/renderer/src/shell/Sidebar.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "m15-import-sources-picker-and-drop",
+      "wiki": "User-Story-M15-Import-sources",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/import-flow.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/import/ImportDialog.stories.tsx"
+        }
+      ]
     }
   ]
 }

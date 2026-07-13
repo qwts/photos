@@ -11,25 +11,44 @@ import { formatBytes, formatCount } from '../../../shared/library/format.js';
 
 import './import.css';
 
-// ImportDialog (#88): the design's 420px import flow over the real engine.
-// options → running (two aggregate bars from the engine's streams) → done.
-// The host mounts a fresh instance per source, so state needs no reset.
-// Copy is design-verbatim (README §5 + Content voice): the Move warning, the
-// locked thumbnails checkbox, the always-on encrypt switch.
+// ImportDialog (#88, sources reworked by #237): the design's 440px import
+// flow over the real engine. A segmented source picker — SD card / Local
+// folder, plus Dropped when the window drop opened the dialog — feeds the
+// same options → running (two aggregate bars) → done flow. Move is offered
+// ONLY for the SD card; folder and dropped imports force Copy so the app
+// never deletes a user's own files (the service enforces it again). The
+// host mounts a fresh instance per invocation, so state needs no reset.
 
-export interface ImportDialogSource {
-  readonly path: string;
-  readonly label: string;
-  /** From import.scanSource — the card's mono line + button count. */
+export type ImportSourceKind = 'sd' | 'folder' | 'drop';
+
+interface ScanSummary {
   readonly newCount: number;
   readonly newBytes: number;
   readonly newRaw: number;
   readonly newJpg: number;
 }
 
+/** The source card's mono line — "1,204 NEW · 38.2 GB · 812 RAW / 392 JPG". */
+function summaryDetail(summary: ScanSummary): string {
+  return `${formatCount(summary.newCount)} NEW · ${formatBytes(summary.newBytes)} · ${formatCount(summary.newRaw)} RAW / ${formatCount(summary.newJpg)} JPG`;
+}
+
+type SdState =
+  | { readonly status: 'scanning' }
+  | { readonly status: 'none' }
+  | { readonly status: 'ready'; readonly path: string; readonly label: string; readonly summary: ScanSummary };
+
+type FolderState =
+  | { readonly status: 'empty' }
+  | { readonly status: 'scanning'; readonly path: string }
+  | { readonly status: 'ready'; readonly path: string; readonly summary: ScanSummary };
+
+type DropState = { readonly status: 'scanning' } | { readonly status: 'ready'; readonly summary: ScanSummary };
+
 export interface ImportDialogProps {
   readonly open: boolean;
-  readonly source: ImportDialogSource;
+  /** Paths dropped onto the window (#237); null when opened from the toolbar. */
+  readonly dropped: readonly string[] | null;
   readonly onClose: () => void;
   /** "Show in library" — the shell jumps to Recent imports (E6.7). */
   readonly onDone: () => void;
@@ -46,9 +65,13 @@ interface Bar {
   readonly total: number;
 }
 
-export function ImportDialog({ open, source, onClose, onDone, onComplete }: ImportDialogProps): ReactElement | null {
+export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: ImportDialogProps): ReactElement | null {
   const [phase, setPhase] = useState<Phase>('options');
   const [mode, setMode] = useState<'copy' | 'move'>('copy');
+  const [source, setSource] = useState<ImportSourceKind>(dropped === null ? 'sd' : 'drop');
+  const [sd, setSd] = useState<SdState>({ status: 'scanning' });
+  const [folder, setFolder] = useState<FolderState>({ status: 'empty' });
+  const [drop, setDrop] = useState<DropState>({ status: 'scanning' });
 
   // "On import" is the SAME setting as Settings → Storage & Backup (#114):
   // the dialog opens with the stored preference and a change here persists
@@ -62,8 +85,76 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
     setMode(importMode);
     void window.overlook.settings.set({ patch: { importMode } }).catch(() => undefined);
   };
-  const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: source.newCount });
-  const [thumbBar, setThumbBar] = useState<Bar>({ done: 0, total: source.newCount });
+
+  // SD discovery (#237): the first mounted volume, scanned for the card.
+  useEffect(() => {
+    let stale = false;
+    void window.overlook.import
+      .listSources()
+      .then(async ({ sources }) => {
+        const volume = sources.find((candidate) => candidate.kind === 'volume');
+        if (volume === undefined) {
+          if (!stale) {
+            setSd({ status: 'none' });
+          }
+          return;
+        }
+        const summary = await window.overlook.import.scanSource({ path: volume.path });
+        if (!stale) {
+          setSd({ status: 'ready', path: volume.path, label: volume.label, summary });
+        }
+      })
+      .catch(() => {
+        if (!stale) {
+          setSd({ status: 'none' });
+        }
+      });
+    return () => {
+      stale = true;
+    };
+  }, []);
+
+  // Dropped files (#237): scanned through the same allowlist + NEW dedupe.
+  useEffect(() => {
+    if (dropped === null) {
+      return;
+    }
+    let stale = false;
+    void window.overlook.import
+      .scanFiles({ paths: [...dropped] })
+      .then((summary) => {
+        if (!stale) {
+          setDrop({ status: 'ready', summary });
+        }
+      })
+      .catch(() => {
+        if (!stale) {
+          setDrop({ status: 'ready', summary: { newCount: 0, newBytes: 0, newRaw: 0, newJpg: 0 } });
+        }
+      });
+    return () => {
+      stale = true;
+    };
+  }, [dropped]);
+
+  const chooseFolder = (): void => {
+    void window.overlook.import
+      .pickFolder()
+      .then(async ({ path }) => {
+        if (path === null) {
+          return;
+        }
+        setFolder({ status: 'scanning', path });
+        const summary = await window.overlook.import.scanSource({ path });
+        setFolder({ status: 'ready', path, summary });
+      })
+      .catch(() => {
+        setFolder({ status: 'empty' });
+      });
+  };
+
+  const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: 0 });
+  const [thumbBar, setThumbBar] = useState<Bar>({ done: 0, total: 0 });
   const [imported, setImported] = useState(0);
   const [failed, setFailed] = useState(0);
   const [runError, setRunError] = useState(false);
@@ -90,6 +181,24 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
     return null;
   }
 
+  const usingSd = source === 'sd';
+  const moveAllowed = usingSd; // never delete a user's own files (#237)
+  const importMode = moveAllowed ? mode : 'copy';
+  const activeSummary =
+    source === 'drop'
+      ? drop.status === 'ready'
+        ? drop.summary
+        : null
+      : source === 'sd'
+        ? sd.status === 'ready'
+          ? sd.summary
+          : null
+        : folder.status === 'ready'
+          ? folder.summary
+          : null;
+  const total = activeSummary?.newCount ?? 0;
+  const available = activeSummary !== null && total > 0;
+
   const close = (showRecent: boolean): void => {
     if (cleanCount !== null) {
       onComplete?.(cleanCount); // the modal is gone — the toast is visible
@@ -102,8 +211,16 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
 
   const start = (): void => {
     setPhase('running');
-    void window.overlook.import
-      .run({ path: source.path, mode })
+    setCopyBar({ done: 0, total });
+    setThumbBar({ done: 0, total });
+    const run =
+      source === 'drop'
+        ? window.overlook.import.run({ files: [...(dropped ?? [])], mode: 'copy' })
+        : window.overlook.import.run({
+            path: source === 'sd' ? (sd.status === 'ready' ? sd.path : '') : folder.status === 'ready' ? folder.path : '',
+            mode: importMode,
+          });
+    void run
       .then((summary) => {
         setImported(summary.imported);
         setFailed(summary.failed);
@@ -124,9 +241,9 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
   return (
     <Dialog
       open={open}
-      title="Import from SD card"
+      title="Import photos"
       icon="download"
-      width={420}
+      width={440}
       onClose={
         phase === 'running'
           ? () => undefined
@@ -140,8 +257,8 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button variant="primary" icon="download" onClick={start}>
-              Import {formatCount(source.newCount)} photos
+            <Button variant="primary" icon="download" disabled={!available} onClick={start}>
+              {available ? `Import ${formatCount(total)} photos` : 'Import'}
             </Button>
           </>
         ) : phase === 'running' ? (
@@ -170,22 +287,107 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
     >
       {phase === 'options' ? (
         <div className="ovl-import__options">
-          <div className="ovl-import__card">
-            <Icon name="hard-drive" size={16} />
-            <div className="ovl-import__cardText">
-              <div className="ovl-import__cardTitle">{source.label}</div>
-              <div className="ovl-import__cardMeta mono-data">
-                {formatCount(source.newCount)} NEW · {formatBytes(source.newBytes)} · {formatCount(source.newRaw)} RAW /{' '}
-                {formatCount(source.newJpg)} JPG
-              </div>
-            </div>
+          <div>
+            <div className="ovl-import__pickerLabel mono-data">Import from</div>
+            <Segmented
+              label="Import from"
+              value={source}
+              onChange={setSource}
+              options={[
+                ...(dropped === null ? [] : [{ value: 'drop' as const, icon: 'image' as const, label: 'Dropped' }]),
+                { value: 'sd' as const, icon: 'hard-drive' as const, label: 'SD card' },
+                { value: 'folder' as const, icon: 'folder' as const, label: 'Local folder' },
+              ]}
+            />
           </div>
+          {source === 'drop' ? (
+            drop.status === 'ready' ? (
+              <div className="ovl-import__card" data-testid="import-source-card">
+                <Icon name="image" size={16} color="var(--accent-cyan)" />
+                <div className="ovl-import__cardText">
+                  <div className="ovl-import__cardTitle">
+                    {formatCount(drop.summary.newCount)} photo{drop.summary.newCount === 1 ? '' : 's'} ready to import
+                  </div>
+                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(drop.summary)}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="ovl-import__card">
+                <Icon name="image" size={16} />
+                <div className="ovl-import__cardText">
+                  <div className="ovl-import__cardMeta mono-data">Scanning dropped files…</div>
+                </div>
+              </div>
+            )
+          ) : usingSd ? (
+            sd.status === 'ready' ? (
+              <div className="ovl-import__card" data-testid="import-source-card">
+                <Icon name="hard-drive" size={16} />
+                <div className="ovl-import__cardText">
+                  <div className="ovl-import__cardTitle">{sd.label}</div>
+                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(sd.summary)}</div>
+                </div>
+              </div>
+            ) : sd.status === 'scanning' ? (
+              <div className="ovl-import__card">
+                <Icon name="hard-drive" size={16} />
+                <div className="ovl-import__cardText">
+                  <div className="ovl-import__cardMeta mono-data">Looking for cards…</div>
+                </div>
+              </div>
+            ) : (
+              <div className="ovl-import__empty" data-testid="import-no-card">
+                <Icon name="hard-drive" size={20} color="var(--text-faint)" />
+                <div className="ovl-import__emptyTitle">No SD card detected</div>
+                <div className="ovl-import__emptyHint">
+                  Insert a card, or switch to{' '}
+                  <button
+                    type="button"
+                    className="ovl-import__link"
+                    onClick={() => {
+                      setSource('folder');
+                    }}
+                  >
+                    Local folder
+                  </button>
+                  .
+                </div>
+              </div>
+            )
+          ) : folder.status === 'ready' || folder.status === 'scanning' ? (
+            <div className="ovl-import__card" data-testid="import-source-card">
+              <Icon name="folder" size={16} color="var(--accent-cyan)" />
+              <div className="ovl-import__cardText">
+                <div className="ovl-import__cardPath mono-data">{folder.path}</div>
+                <div className="ovl-import__cardMeta mono-data">
+                  {folder.status === 'ready' ? summaryDetail(folder.summary) : 'Scanning…'}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="ovl-import__clear"
+                aria-label="Clear folder"
+                onClick={() => {
+                  setFolder({ status: 'empty' });
+                }}
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="ovl-import__empty ovl-import__empty--action" onClick={chooseFolder}>
+              <Icon name="folder-open" size={20} color="var(--text-faint)" />
+              <div className="ovl-import__emptyTitle">Choose a folder to import</div>
+              <div className="ovl-import__emptyHint">Scans for photos, including subfolders</div>
+            </button>
+          )}
           <Checkbox checked label="Generate thumbnails on import" />
-          <div className="ovl-import__row">
+          <div className={`ovl-import__row${moveAllowed ? '' : ' ovl-import__row--locked'}`}>
             <span>On import</span>
             <Segmented
               label="On import"
-              value={mode}
+              value={importMode}
+              disabled={!moveAllowed}
               onChange={chooseMode}
               options={[
                 { value: 'copy', label: 'Copy' },
@@ -193,10 +395,15 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
               ]}
             />
           </div>
-          {mode === 'move' ? (
+          {usingSd && mode === 'move' ? (
             <div className="ovl-import__warning mono-data" role="alert">
               <Icon name="triangle-alert" size={12} />
               Originals will be deleted from the card after import.
+            </div>
+          ) : !moveAllowed ? (
+            <div className="ovl-import__note mono-data">
+              <Icon name="info" size={12} />
+              Imported files are copied — source files are left untouched.
             </div>
           ) : null}
           <div className="ovl-import__row">
@@ -209,7 +416,7 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
       ) : (
         <div className="ovl-import__running">
           <ProgressBar
-            label="Copying & encrypting"
+            label={importMode === 'move' ? 'Moving & encrypting' : 'Copying & encrypting'}
             tone="green"
             value={copyBar.done}
             max={Math.max(copyBar.total, 1)}
@@ -227,12 +434,12 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
               <div className="ovl-import__failed" role="alert">
                 <Icon name="triangle-alert" size={15} />
                 {runError
-                  ? 'Import failed — nothing was deleted from the card. Check the source and try again.'
+                  ? 'Import failed — nothing was deleted from the source. Check the source and try again.'
                   : `${[
                       `${formatCount(imported)} imported`,
                       ...(failed > 0 ? [`${formatCount(failed)} failed`] : []),
                       ...(cancelled > 0 ? [`${formatCount(cancelled)} cancelled`] : []),
-                    ].join(' · ')} — everything not imported was kept on the card.`}
+                    ].join(' · ')} — everything not imported was kept on the source.`}
               </div>
             ) : (
               <div className="ovl-import__done">
