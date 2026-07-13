@@ -141,6 +141,18 @@ export const channels = {
   ),
   // Cancel semantics (#88): finish the file in flight, keep completed.
   importCancel: defineChannel('import:cancel', z.object({}), z.object({})),
+  // Export engine (#97): decrypt-on-export to a chosen folder.
+  exportPickDestination: defineChannel('export:pick-destination', z.object({}), z.object({ path: z.string().nullable() })),
+  exportRun: defineChannel(
+    'export:run',
+    z.object({ photoIds: z.array(z.string()).min(1), destination: z.string() }),
+    z.object({
+      exported: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      cancelled: z.number().int().nonnegative(),
+    }),
+  ),
+  exportCancel: defineChannel('export:cancel', z.object({}), z.object({})),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
@@ -170,6 +182,8 @@ export const events = {
     'import:thumb-progress',
     z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() }),
   ),
+  // Export progress (#97): n/total over the batch.
+  exportProgress: defineEvent('export:progress', z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() })),
 } as const;
 
 export type PingRequest = z.output<typeof channels.ping.request>;

@@ -41,6 +41,12 @@ const overlook: OverlookApi = {
     onChanged: createSubscriber(events.libraryChanged, subscribeTransport),
     onPendingCountChanged: createSubscriber(events.pendingCountChanged, subscribeTransport),
   }),
+  export: Object.freeze({
+    pickDestination: createInvoker(channels.exportPickDestination, invokeTransport),
+    run: createInvoker(channels.exportRun, invokeTransport),
+    cancel: createInvoker(channels.exportCancel, invokeTransport),
+    onProgress: createSubscriber(events.exportProgress, subscribeTransport),
+  }),
   import: Object.freeze({
     listSources: async () => importListSources({}),
     scanSource: createInvoker(channels.importScanSource, invokeTransport),
