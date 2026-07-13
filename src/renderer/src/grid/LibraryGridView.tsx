@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -8,6 +9,7 @@ import { PhotoTile } from '../components/PhotoTile';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useLibraryPhotos } from '../state/use-library-photos';
 import { ListRow } from './ListRow';
+import { PurgeConfirm } from './PurgeConfirm';
 import { SelectionPill } from './SelectionPill';
 import { VirtualGrid } from './VirtualGrid';
 
@@ -20,6 +22,8 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { loadMore, exhausted } = useLibraryPhotos();
+  // Purge ceremony (#121): the trash pill's Delete opens the confirm.
+  const [purgeConfirm, setPurgeConfirm] = useState(false);
 
   // An active album narrows like query/chips do (#117): the sidebar count
   // sized for the source no longer applies — track the loaded set instead.
@@ -89,6 +93,9 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
                     });
                   });
                 },
+                onPurge: () => {
+                  setPurgeConfirm(true);
+                },
               }
             : {
                 onDelete: () => {
@@ -116,6 +123,29 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
                   });
                 },
               })}
+        />
+      ) : null}
+      {purgeConfirm && state.selection.size > 0 ? (
+        <PurgeConfirm
+          count={state.selection.size}
+          onCancel={() => {
+            setPurgeConfirm(false);
+          }}
+          onConfirm={() => {
+            const photoIds = [...state.selection];
+            setPurgeConfirm(false);
+            void window.overlook.library.purge({ photoIds }).then(({ purged, remoteFailures }) => {
+              dispatch({
+                type: 'toast/shown',
+                toast:
+                  remoteFailures > 0
+                    ? // Honest partial result: local copies are gone, some
+                      // remote copies are orphaned (audited for retry).
+                      { title: `Deleted ${formatCount(purged)} — ${formatCount(remoteFailures)} CLOUD COPIES PENDING`, tone: 'amber' }
+                    : { title: `Deleted ${formatCount(purged)} ${purged === 1 ? 'photo' : 'photos'}`, tone: 'neutral' },
+              });
+            });
+          }}
         />
       ) : null}
     </>

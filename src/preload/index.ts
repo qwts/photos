@@ -42,6 +42,7 @@ const overlook: OverlookApi = {
     albums: async () => libraryAlbums({}),
     delete: createInvoker(channels.libraryDelete, invokeTransport),
     restore: createInvoker(channels.libraryRestore, invokeTransport),
+    purge: createInvoker(channels.libraryPurge, invokeTransport),
     onChanged: createSubscriber(events.libraryChanged, subscribeTransport),
     onPendingCountChanged: createSubscriber(events.pendingCountChanged, subscribeTransport),
   }),

@@ -19,11 +19,21 @@ export interface SelectionPillProps {
   readonly onRestore?: (() => void) | undefined;
   /** Adds the selection to the picked album (#118). */
   readonly onAddToAlbum?: ((album: AlbumSummary) => void) | undefined;
+  /** Trash-only destructive path (#121) — opens the confirm ceremony. */
+  readonly onPurge?: (() => void) | undefined;
 }
 
 // Floating selection pill (#78) — the mock's bottom-center bar. Export
-// (#100), Delete/Restore (#120), and Add to album (#118) are live.
-export function SelectionPill({ count, onClear, onExport, onDelete, onRestore, onAddToAlbum }: SelectionPillProps): ReactElement {
+// (#100), Delete/Restore/purge (#120/#121), and Add to album (#118) live.
+export function SelectionPill({
+  count,
+  onClear,
+  onExport,
+  onDelete,
+  onRestore,
+  onAddToAlbum,
+  onPurge,
+}: SelectionPillProps): ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="ovl-pill-anchor">
@@ -41,11 +51,16 @@ export function SelectionPill({ count, onClear, onExport, onDelete, onRestore, o
         ) : null}
         <span className="ovl-pill__count mono-data">{formatCount(count)} SELECTED</span>
         {onRestore !== undefined ? (
-          // Trash mode: restoring is the headline action; the destructive
-          // purge path arrives with #121's confirm ceremony.
-          <Button size="sm" variant="secondary" icon="refresh-cw" onClick={onRestore}>
-            Restore
-          </Button>
+          // Trash mode: Restore is the headline; Delete is the destructive
+          // purge behind #121's confirm ceremony.
+          <>
+            <Button size="sm" variant="secondary" icon="refresh-cw" onClick={onRestore}>
+              Restore
+            </Button>
+            <Button size="sm" variant="danger" icon="trash-2" onClick={onPurge}>
+              Delete
+            </Button>
+          </>
         ) : (
           <>
             <Button size="sm" variant="secondary" icon="share" onClick={onExport}>

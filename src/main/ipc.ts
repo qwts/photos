@@ -76,6 +76,16 @@ export function registerAlbumHandlers(getService: () => LibraryService, newId: (
   );
 }
 
+export interface PurgeFacade {
+  purge(photoIds: readonly string[]): Promise<{ purged: number; skipped: number; remoteFailures: number }>;
+}
+
+export function registerPurgeHandlers(getFacade: () => PurgeFacade): void {
+  ipcMain.handle(channels.libraryPurge.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryPurge, async ({ photoIds }) => getFacade().purge(photoIds))(request),
+  );
+}
+
 export interface SettingsFacade {
   get(): AppSettings;
   set(patch: SettingsPatch): AppSettings;

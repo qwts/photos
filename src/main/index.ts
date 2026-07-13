@@ -23,6 +23,7 @@ import { ulid } from './import/ulid.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { FaultInjectingProvider, MockProvider } from './backup/mock-provider.js';
 import { OffloadService } from './backup/offload.js';
+import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createEncryptStream } from './crypto/envelope.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
@@ -34,6 +35,7 @@ import {
   registerImportHandlers,
   registerIpcHandlers,
   registerLibraryHandlers,
+  registerPurgeHandlers,
   registerSettingsHandlers,
   type ExportFacade,
 } from './ipc.js';
@@ -117,6 +119,16 @@ function getLibraryService(): LibraryService {
       new Date().toISOString(),
     );
     libraryParts = { db, blobStore: store, blobStoreReady, keyStore };
+    // Retention sweep (#121): once per session when the library first
+    // opens — deferred so bootstrap stays sync and the smoke test's
+    // lazy-bootstrap stance holds (nothing runs unless the library does).
+    setTimeout(() => {
+      void getPurgeService()
+        .purgeExpired()
+        .catch((error: unknown) => {
+          console.error('[overlook] retention purge failed', error);
+        });
+    }, 0);
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -326,6 +338,15 @@ let backupProvider: FaultInjectingProvider | undefined;
 let autoBackupTrigger: (() => void) | undefined;
 /** Manifest-debt push after deletes (#120/PR #218) — quiet, auto-marked. */
 let manifestSyncTrigger: (() => void) | undefined;
+let purgeService: PurgeService | undefined;
+
+function getPurgeService(): PurgeService {
+  getBackupEngine();
+  if (purgeService === undefined) {
+    throw new Error('backup bootstrap failed; purge unavailable');
+  }
+  return purgeService;
+}
 
 function getBackupEngine(): BackupEngine {
   if (backupEngine === undefined) {
@@ -428,6 +449,33 @@ function getBackupEngine(): BackupEngine {
       audit: (line) => {
         void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
       },
+    });
+    purgeService = new PurgeService({
+      repo: {
+        getDeleted: (id) => repo.getDeleted(id),
+        purgeRow: (id) => {
+          repo.purgeRow(id);
+        },
+        countAnyByContentHash: (hash) => repo.countAnyByContentHash(hash),
+        expiredDeleted: (cutoff) => repo.expiredDeleted(cutoff),
+      },
+      blobs: {
+        deleteOriginal: async (hash) => parts.blobStore.deleteOriginal(hash),
+        deleteThumbs: async (hash) => parts.blobStore.deleteThumbs(hash),
+      },
+      provider,
+      connected: () => getSettingsStore().get().providerId !== null,
+      // Purging changes manifestRows() — same owed-generation rule (and
+      // quiet push) as soft delete (PR #218 review).
+      oweManifest: () => manifestSyncTrigger?.(),
+      libraryChanged: (photoIds) => {
+        emitLibraryChanged({ photoIds: [...photoIds] });
+      },
+      audit: (line) => {
+        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
+      },
+      now: () => Date.now(),
+      sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     });
     // Completion events drive the toasts (#106) and the card's bar clear
     // (#108). `auto` rides along so the renderer keeps automatic successes
@@ -609,6 +657,9 @@ void app.whenReady().then(async () => {
     autoBackupTrigger?.();
   });
   registerExportHandlers(getExportFacade);
+  registerPurgeHandlers(() => ({
+    purge: async (photoIds) => getPurgeService().purge(photoIds),
+  }));
   registerSettingsHandlers(() => getSettingsStore());
   // Change pushes (#111): the store notifies, every window re-renders from
   // the same snapshot.
