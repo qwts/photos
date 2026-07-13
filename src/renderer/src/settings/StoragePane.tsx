@@ -11,14 +11,16 @@ import { Switch } from '../components/Switch';
 import { Field } from './Field';
 import type { AppSettings } from '../../../shared/settings/settings.js';
 
-// Storage & Backup section (#114, updated by #239): the provider connection
-// card + backup knobs. Disconnected now HIDES the backup-specific controls
-// (auto-backup, Wi-Fi only, bandwidth) instead of disabling them — only the
-// connection card, import Copy/Move (which needs no provider), and the
-// locked Encrypt switch remain, per the updated design. Connect/Disconnect
-// drives settings.providerId (the mock connects instantly; live pCloud
-// arrives with #109). Quota is the provider's own answer, not a cached
-// guess.
+// Storage & Backup section (#114, updated by #239, #254): the provider
+// connection card + backup knobs. Disconnected now HIDES the backup-specific
+// controls (auto-backup, Wi-Fi only, bandwidth) instead of disabling them —
+// only the connection card, import Copy/Move (which needs no provider), and
+// the locked Encrypt switch remain, per the updated design.
+// Connect/Disconnect goes through backup:connect / backup:disconnect (#254)
+// so main owns the handshake — instant for the mock, the OAuth browser
+// round-trip for pCloud; providerId flips in settings either way and the
+// settings-changed push re-renders this pane. Quota is the provider's own
+// answer, not a cached guess.
 
 export interface ProviderStatus {
   readonly provider: 'mock' | 'pcloud';
@@ -39,10 +41,30 @@ export interface StoragePaneProps {
 
 export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactElement {
   const [status, setStatus] = useState<ProviderStatus | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     void window.overlook.backup.providerStatus().then(setStatus);
   }, []);
+
+  const toggleConnection = useCallback(
+    (isConnected: boolean) => {
+      setConnecting(true);
+      setConnectError(null);
+      void (isConnected ? window.overlook.backup.disconnect() : window.overlook.backup.connect())
+        .then((result) => {
+          if ('reason' in result && !result.ok) {
+            setConnectError(result.reason ?? 'Connection failed.');
+          }
+        })
+        .finally(() => {
+          setConnecting(false);
+          refresh();
+        });
+    },
+    [refresh],
+  );
 
   // providerId is part of `settings`, so a connect/disconnect patch
   // re-renders this pane and the effect refetches the card's truth.
@@ -72,16 +94,19 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
               <ProgressBar value={status.usedBytes} max={Math.max(status.totalBytes, 1)} tone="cyan" />
             </>
           ) : (
-            <div className="ovl-settings__providerMeta">Link a provider to store encrypted originals off-device.</div>
+            <div className="ovl-settings__providerMeta">
+              {connectError === null ? 'Link a provider to store encrypted originals off-device.' : connectError}
+            </div>
           )}
         </div>
         <Button
           variant={connected ? 'secondary' : 'primary'}
+          disabled={connecting}
           onClick={() => {
-            onPatch({ providerId: connected ? null : (status?.provider ?? 'mock') });
+            toggleConnection(connected);
           }}
         >
-          {connected ? 'Disconnect' : `Connect ${name}`}
+          {connecting ? 'Connecting…' : connected ? 'Disconnect' : `Connect ${name}`}
         </Button>
       </div>
 

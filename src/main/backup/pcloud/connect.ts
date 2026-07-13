@@ -1,0 +1,55 @@
+import { randomBytes } from 'node:crypto';
+
+import { startLoopbackCapture } from './loopback.js';
+import { buildAuthorizeUrl, redactTokens } from './oauth.js';
+import type { PCloudTokenStore } from './token-store.js';
+
+// The pCloud handshake (#254), composed from the loopback + custody pieces.
+// The browser launcher and the connected-side-effect are injected so the
+// whole flow runs under node:test with a scripted "browser".
+
+export interface PCloudConnectOptions {
+  readonly tokenStore: PCloudTokenStore;
+  /** Production: shell.openExternal. */
+  readonly openExternal: (url: string) => Promise<void>;
+  /** Flips settings.providerId — called only after the token is sealed, so
+   * a connected setting always has custody behind it. */
+  readonly onConnected: () => void;
+  /** Test seams; production uses the registered port and a 5-min timeout. */
+  readonly port?: number;
+  readonly timeoutMs?: number;
+}
+
+export type PCloudConnectResult = { ok: boolean; reason: string | null };
+
+export function createPCloudConnect(options: PCloudConnectOptions): () => Promise<PCloudConnectResult> {
+  // One flow at a time — a second Connect while the browser tab is open
+  // must not spawn a second listener on the same port.
+  let inFlight = false;
+
+  return async () => {
+    if (inFlight) {
+      return { ok: false, reason: 'A pCloud sign-in is already in progress — finish it in the browser.' };
+    }
+    inFlight = true;
+    const state = randomBytes(16).toString('hex');
+    const capture = startLoopbackCapture({
+      state,
+      ...(options.port === undefined ? {} : { port: options.port }),
+      ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+    });
+    try {
+      await capture.listening;
+      await options.openExternal(buildAuthorizeUrl(state));
+      const result = await capture.result;
+      options.tokenStore.save({ ...result, connectedAt: new Date().toISOString() });
+      options.onConnected();
+      return { ok: true, reason: null };
+    } catch (error) {
+      capture.close();
+      return { ok: false, reason: redactTokens(error instanceof Error ? error.message : 'pCloud sign-in failed.') };
+    } finally {
+      inFlight = false;
+    }
+  };
+}
