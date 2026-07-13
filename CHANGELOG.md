@@ -1,5 +1,11 @@
 # photos
 
+## 0.13.1
+
+### Patch Changes
+
+- 0d8c06e: Fix pCloud sign-in: v0.13.0 shipped with an incorrect OAuth client id, so Connect failed at the authorize step.
+
 ## 0.13.0
 
 ### Minor Changes
