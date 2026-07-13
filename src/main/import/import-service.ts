@@ -73,7 +73,15 @@ export class ImportService {
       const controller = new AbortController();
       this.controller = controller;
       try {
-        const { files } = await scanSource(path, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, () => undefined);
+        // The signal reaches the fresh scan too — Cancel during hashing on a
+        // big card must stop the I/O promptly (PR #186 review); the engine
+        // then finalizes whatever the truncated scan surfaced as cancelled.
+        const { files } = await scanSource(
+          path,
+          { hasContentHash: (hash) => this.repo.hasContentHash(hash) },
+          () => undefined,
+          controller.signal,
+        );
         const fresh = files.filter((file) => file.isNew).map(({ path: filePath, fileName, kind }) => ({ path: filePath, fileName, kind }));
         const summary = await this.engine.importFiles(fresh, mode, path, controller.signal);
         if (summary.photoIds.length > 0) {

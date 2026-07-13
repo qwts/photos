@@ -95,6 +95,7 @@ export async function scanSource(
   dir: string,
   deps: SourceScannerDeps,
   onProgress?: (progress: SourceScanProgress) => void,
+  signal?: AbortSignal,
 ): Promise<{ readonly summary: SourceScanSummary; readonly files: readonly ScannedFile[] }> {
   const candidates = await listMediaFiles(dir);
   const files: ScannedFile[] = [];
@@ -116,6 +117,9 @@ export async function scanSource(
   });
 
   for (const [index, candidate] of candidates.entries()) {
+    if (signal?.aborted === true) {
+      break; // cancel promptly — no more hashing I/O (PR #186 review)
+    }
     const { size } = await stat(candidate.path);
     const contentHash = await hashFile(candidate.path);
     const isNew = !deps.hasContentHash(contentHash);

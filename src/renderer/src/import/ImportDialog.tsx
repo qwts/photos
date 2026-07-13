@@ -215,9 +215,11 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
                 <Icon name="triangle-alert" size={15} />
                 {runError
                   ? 'Import failed — nothing was deleted from the card. Check the source and try again.'
-                  : failed > 0
-                    ? `${formatCount(imported)} imported · ${formatCount(failed)} failed — failed files were kept on the card.`
-                    : `${formatCount(imported)} imported · ${formatCount(cancelled)} cancelled — remaining files were kept on the card.`}
+                  : `${[
+                      `${formatCount(imported)} imported`,
+                      ...(failed > 0 ? [`${formatCount(failed)} failed`] : []),
+                      ...(cancelled > 0 ? [`${formatCount(cancelled)} cancelled`] : []),
+                    ].join(' · ')} — everything not imported was kept on the card.`}
               </div>
             ) : (
               <div className="ovl-import__done">
