@@ -56,9 +56,18 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
   // when the run finishes (done === total).
   const [backupRun, setBackupRun] = useState<{ done: number; total: number } | null>(null);
   useEffect(() => {
-    return window.overlook.backup.onProgress(({ done, total }) => {
+    const offProgress = window.overlook.backup.onProgress(({ done, total }) => {
       setBackupRun(total === 0 ? null : { done, total });
     });
+    // Early exits (auth/quota) break before a final done===total event —
+    // completion always clears the bar (PR #207 review).
+    const offCompleted = window.overlook.backup.onCompleted(() => {
+      setBackupRun(null);
+    });
+    return () => {
+      offProgress();
+      offCompleted();
+    };
   }, []);
   return (
     <nav className="ovl-sidebar" aria-label="Library">
