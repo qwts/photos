@@ -1,5 +1,13 @@
 # photos
 
+## 0.12.0
+
+### Minor Changes
+
+- 27d8dd9: Disconnecting pCloud now hides every backup surface instead of showing misleading states: the toolbar backup button disappears, the status bar reads "PCLOUD NOT CONNECTED", the sidebar backup card drops the progress/pCloud figures for a local-only line with a Connect link, and Settings → Storage & Backup hides the backup-specific controls (import Copy/Move stays usable — it needs no provider). Everything restores live on reconnect.
+- 6817953: Import is no longer SD-only: the Import dialog gains a source picker — SD card (with a "no card detected" empty state), Local folder (OS picker, scans subfolders), and Dropped (drag photo files anywhere onto the window for a full-window drop overlay that opens the dialog pre-seeded). Move remains exclusive to SD cards: folder and dropped imports force Copy in the UI and the pipeline rejects Move for non-volume sources, so the app never deletes a user's own files. Non-photo drops get a "nothing to import" toast.
+- 4a7093b: Recovery key backup and import (Settings → Privacy): export the library's master key as a password-encrypted `overlook-recovery.key` (scrypt + AES-256-GCM, password + confirmation with a strength meter and an explicit cannot-be-reset acknowledgment), and import a `.key` file on another device to unlock a restored library. Install validates the key against the library's stored key rows and never overwrites working custody it can't vouch for; wrong passwords fail closed.
+
 ## 0.11.0
 
 ### Minor Changes
