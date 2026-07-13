@@ -56,8 +56,8 @@ function world(): { repo: PhotosRepository; db: ReturnType<typeof openLibraryDat
 
 describe('soft delete + restore (#120)', () => {
   test('EXIT CRITERIA: delete → only in trash; every other source excludes it', () => {
-    const { repo, db, ids } = world();
-    const target = ids[0] ?? '';
+    const { repo, db } = world();
+    const target = repo.page({ source: 'favorites', limit: 1 }).photos[0]?.id ?? '';
     assert.deepEqual(repo.softDelete([target]), [target]);
     assert.equal(repo.page({ source: 'all', limit: 10 }).photos.length, 1);
     assert.equal(repo.page({ source: 'favorites', limit: 10 }).photos.length, 0, 'the deleted favorite left Favorites');
@@ -91,8 +91,8 @@ describe('soft delete + restore (#120)', () => {
   });
 
   test('EXIT CRITERIA: restore returns the row intact — favorite and ledger status survive', () => {
-    const { repo, db, ids } = world();
-    const target = ids[0] ?? '';
+    const { repo, db } = world();
+    const target = repo.page({ source: 'favorites', limit: 1 }).photos[0]?.id ?? '';
     run(db, `UPDATE sync_ledger SET status = 'synced', dirty = 0 WHERE photo_id = ?`, target);
     repo.softDelete([target]);
     assert.deepEqual(repo.restore([target]), [target]);
