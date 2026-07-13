@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -105,13 +105,21 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     await page.getByTestId('virtual-grid').waitFor();
     await page.locator('.ovl-tile__img').first().waitFor();
 
-    // Back up so all three copies exist, then trash one photo.
+    // Back up, then target a photo whose blob VERIFIABLY reached the
+    // remote (seed profiles settle some rows without uploading them).
     await page.getByRole('button', { name: 'Back up' }).click();
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
     const remoteBlobs = join(userData, 'library', 'mock-remote', 'blobs');
-    expect(fileCount(remoteBlobs)).toBe(3);
+    const photos = await page.evaluate<{ id: string; contentHash: string }[]>(
+      `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => ({ id: p.id, contentHash: p.contentHash })))`,
+    );
+    const remotePath = (hash: string): string => join(remoteBlobs, hash.slice(0, 2), hash);
+    const target = photos.find((photo) => existsSync(remotePath(photo.contentHash)));
+    expect(target).toBeDefined();
+    const before = fileCount(remoteBlobs);
+    expect(before).toBeGreaterThan(0);
 
-    await page.evaluate(`window.overlook.library.delete({ photoIds: ['01J8SEEDPHOTO0001'] })`);
+    await page.evaluate(`window.overlook.library.delete({ photoIds: ['${target?.id ?? ''}'] })`);
     await page.getByRole('button', { name: 'Recently deleted 1' }).click();
     await expect(page.locator('.ovl-tile__img')).toHaveCount(1);
     await page.keyboard.press('ControlOrMeta+a');
@@ -120,15 +128,16 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     // count → the destructive button.
     await page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' }).click();
     const confirm = page.getByRole('dialog', { name: 'Delete photos' });
-    await expect(confirm).toContainText("This can't be undone.");
+    await expect(confirm).toContainText('This can’t be undone.');
     await confirm.getByRole('button', { name: 'Delete 1 photo' }).click();
     await expect(page.getByRole('status')).toContainText('Deleted 1 photo');
 
     // All three copies are gone; the library keeps browsing.
     await expect(page.getByRole('button', { name: 'Recently deleted 0' })).toBeVisible();
-    expect(fileCount(remoteBlobs)).toBe(2);
+    expect(fileCount(remoteBlobs)).toBe(before - 1);
+    expect(existsSync(remotePath(target?.contentHash ?? ''))).toBe(false);
     const stillListed = await page.evaluate<boolean>(
-      `window.overlook.library.get({ id: '01J8SEEDPHOTO0001' }).then((r) => r.photo !== null)`,
+      `window.overlook.library.get({ id: '${target?.id ?? ''}' }).then((r) => r.photo !== null)`,
     );
     expect(stillListed).toBe(false);
     await page.getByRole('button', { name: /All Photos/u }).click();
