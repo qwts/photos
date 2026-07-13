@@ -33,7 +33,9 @@ export interface ImportDialogProps {
   readonly onClose: () => void;
   /** "Show in library" — the shell jumps to Recent imports (E6.7). */
   readonly onDone: () => void;
-  /** Clean completion (no failures): feeds the green toast (#89). */
+  /** Clean completion (no failures): feeds the green toast (#89). Fired
+   * when the dialog CLOSES — never while the modal scrim still covers the
+   * toast layer and burns its 4s timer (PR #185 review). */
   readonly onComplete?: ((imported: number) => void) | undefined;
 }
 
@@ -52,6 +54,7 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
   const [imported, setImported] = useState(0);
   const [failed, setFailed] = useState(0);
   const [runError, setRunError] = useState(false);
+  const [cleanCount, setCleanCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (phase !== 'running') {
@@ -73,6 +76,16 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
     return null;
   }
 
+  const close = (showRecent: boolean): void => {
+    if (cleanCount !== null) {
+      onComplete?.(cleanCount); // the modal is gone — the toast is visible
+    }
+    if (showRecent) {
+      onDone();
+    }
+    onClose();
+  };
+
   const start = (): void => {
     setPhase('running');
     void window.overlook.import
@@ -82,7 +95,7 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
         setFailed(summary.failed);
         setPhase('done');
         if (summary.failed === 0) {
-          onComplete?.(summary.imported);
+          setCleanCount(summary.imported);
         }
       })
       .catch(() => {
@@ -99,7 +112,13 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
       title="Import from SD card"
       icon="download"
       width={420}
-      onClose={phase === 'running' ? () => undefined : onClose}
+      onClose={
+        phase === 'running'
+          ? () => undefined
+          : () => {
+              close(false);
+            }
+      }
       footer={
         phase === 'options' ? (
           <>
@@ -114,8 +133,7 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
           <Button
             variant="primary"
             onClick={() => {
-              onClose();
-              onDone();
+              close(true);
             }}
           >
             Show in library
