@@ -1,5 +1,29 @@
 # photos
 
+## 0.7.0
+
+### Minor Changes
+
+- 4106eb1: Add to album from the selection pill (#118): a picker popover anchored above the pill lists existing albums with live counts and creates one inline (Enter commits, Escape closes); picking adds the whole selection with the exact-count toast ("Added 12 photos to Big Sur"). Removing from an album stays a follow-up — the design is silent on the album-context action (noted on the epic).
+- 65ec43e: Albums CRUD (#117): create/rename/delete albums and add/remove membership over typed `album:*` IPC — deleting an album never deletes photos (Clear-vs-Delete rules) and every album edit dirties the affected photos for the next manifest (ADR-0007). The sidebar Albums section goes live: inline create from the + affordance, live counts, and an album as the active source filtering the grid (`library:page` gains `albumId`).
+- 1ff13dd: Permanent purge with retention (#121): the trash pill's destructive Delete opens the confirm ceremony (red button, exact counts, "This can't be undone.") and removes all three copies — DB row first (the local state never lies), local blobs, remote last with retries. A failed remote delete is audited as a repairable ORPHAN-REMOTE (surfaced as an amber "CLOUD COPIES PENDING" toast), shared-hash blobs survive while any row still owns them, and purging owes the remote a fresh manifest generation. Soft-deleted rows auto-purge after 30 days — a fixed constant until a settings control is designed (recorded).
+- ec6bfc2: SettingsDialog shell (#112): the design's 640px two-pane frame — 160px icon+label left nav (General / Storage & Backup / Privacy, Storage & Backup default-open), placeholder panes until the sections land, opened from the sidebar gear (which stops stub-toasting).
+- 97bae4e: Settings — General section (#113): default sort order (Date / Name / Size) wired to the store and the grid query — a change re-orders the grid live and persists; appearance segmented with Light disabled ("dark only for now" — the DS has no light theme); thumbnails-on-import locked on with its rationale. The library page query gains a keyset-safe `order` parameter (date newest-first, name A→Z, size largest-first).
+- 2952418: Settings — Privacy section (#115): end-to-end encryption row with the always-on badge and factual copy, face grouping shipped disabled as "not yet available" (the mock's locked-on state is deferred by design — not faked), and the share-diagnostics switch (off by default, anonymous-only copy; the preference persists while reporting stays local-only).
+- a633f83: E2E (#116): settings persist across a real app restart — run one changes sort/Wi-Fi/bandwidth and disconnects the provider, run two proves the store reports them, the grid renders in the persisted order unprompted, the dialog re-renders the disconnected state, and manual backup stays blocked. Also fixes a toast race the suite surfaced: an automatic backup's green "BACKUP COMPLETE" was replacing the import-complete toast — auto successes are now quiet (the status bar still flips); manual runs keep the toast and failures stay loud for every trigger.
+- 5520033: Settings — Storage & Backup section (#114): provider connection card (badge, live quota bar from the provider, Connect/Disconnect driving `providerId` — mock connects instantly, live pCloud arrives with #109), auto-backup switch, shared Copy/Move on-import segmented (the ImportDialog now opens with and persists the same setting), Wi-Fi-only switch, bandwidth slider (Unlimited at 100), locked "Encrypt originals". All backup controls disable when disconnected, and a disconnected provider suppresses auto-backup-on-import.
+- 3da6b11: Typed settings store (#111): zod schema with design defaults, atomic JSON persistence in userData with per-key corrupt recovery, `settings:get`/`settings:set` IPC plus `settings:changed` pushes. The backup engine now reads throttle/Wi-Fi/auto-backup live from the store, and auto-backup-on-import is active (default on, per the design).
+- 73738be: Soft delete (#120): Delete is safe by default — the selection pill's Delete and the lightbox trash button move photos to the Recently deleted source (blobs, ledger, and album membership untouched), where the pill flips to Restore. Deleted rows leave pendingCount and the upload queue; restore brings favorite/EXIF/ledger status back intact and re-dirties the row for the next manifest. Permanent purge is #121's destructive ceremony.
+
+### Patch Changes
+
+- 59719d8: Backup story proven in CI (#110): edit-re-dirties, the offload → lightbox
+  rehydrate round-trip, and a fault-injected upload failure surfacing the red
+  retry toast + error glyph — via the new OVERLOOK_BACKUP_FAULT harness hook.
+  Wi-Fi/throttle honoring stays deterministically covered at the engine
+  integration layer until M09's settings pane exposes it live.
+- c60b2cd: Source truth (#119): sidebar counts now share `page()`'s per-source where-clauses — one query truth, so counts and grid results cannot drift by construction. A property-style suite pins it: for every source, count === full keyset page-walk total; chips AND with sources ('Local only' means ledger-local, contradictions yield the empty set honestly); deleted rows stay invisible outside the trash.
+
 ## 0.6.0
 
 ### Minor Changes
