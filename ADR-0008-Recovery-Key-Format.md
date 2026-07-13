@@ -57,7 +57,10 @@ identifier, never a truncated hash of raw key material, and stable across
 devices so a user can visually match custody after an import.
 
 **Install semantics (`installRecoveredMaster`):** import works precisely
-when the keystore cannot open (the restore scenario). Rules, in order:
+when the keystore cannot open (the restore scenario). Rules, in order: an
+empty directory (no `keys.json` rows AND no `master.key`) is refused
+(`no-library` — installing into a void would wedge the next bootstrap's
+"master exists but no library keys" guard; restore the library files first);
 if `keys.json` exists with rows, the imported master must unwrap every row
 (else `mismatch` — the honest "this key is not this library's"); a matching
 installed master is a no-op (`already-installed`); a *different* master with
@@ -86,6 +89,18 @@ prompt).
   the E2E proves).
 - Version byte 1 reserves the upgrade path (harder KDF, argon2id if a
   prebuilt lands, multi-key escrow) without parsing untrusted parameters.
+
+## Security review
+
+Adversarial pass at implementation time (recorded on
+[#240](https://github.com/qwts/photos/issues/240)): no blockers; four
+hardenings landed with the PR — exact-size `stat` gate before buffering the
+import path (renderer-supplied), the `no-library` refusal above, a 1024-char
+password ceiling in the IPC schema, and a main-side 8-char password floor on
+export. Accepted risks, deliberate: `scryptSync` blocks the main process ~1s
+per rare user-present operation; JS strings can't be zeroized; AES-GCM is
+non-key-committing (exploiting it requires the victim's master + local FS
+write — already game-over).
 
 ## Verification
 
