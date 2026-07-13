@@ -1,5 +1,6 @@
 import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
+import { markDirty } from '../backup/sync-ledger.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
 import type {
@@ -174,7 +175,7 @@ export class PhotosRepository {
       if (updated === undefined) {
         throw new Error(`photo ${photoId} does not exist`);
       }
-      run(this.db, 'UPDATE sync_ledger SET dirty = 1 WHERE photo_id = ?', photoId);
+      markDirty(this.db, photoId);
       return updated.favorite === 1;
     })();
   }
@@ -191,7 +192,8 @@ export class PhotosRepository {
       this.db,
       'SELECT count(*) AS n, sum(bytes) AS b FROM photos p WHERE p.deleted_at IS NULL',
     )[0];
-    return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount() };
+    const lastBackupAt = queryAll<{ at: string | null }>(this.db, 'SELECT max(last_backup_at) AS at FROM sync_ledger')[0]?.at ?? null;
+    return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount(), lastBackupAt };
   }
 
   /** Dedupe primitive (#84): does this content already live in the library?

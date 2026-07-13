@@ -77,7 +77,7 @@ const photoRecordSchema = z.object({
   favorite: z.boolean(),
   keyId: z.number(),
   deletedAt: z.string().nullable(),
-  syncState: z.enum(['local', 'syncing', 'synced', 'offloaded']),
+  syncState: z.enum(['local', 'syncing', 'synced', 'offloaded', 'error']),
 });
 
 export const channels = {
@@ -157,7 +157,7 @@ export const channels = {
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
-    z.object({ photos: z.number(), bytes: z.number(), pending: z.number().int().nonnegative() }),
+    z.object({ photos: z.number(), bytes: z.number(), pending: z.number().int().nonnegative(), lastBackupAt: z.string().nullable() }),
   ),
 } as const;
 

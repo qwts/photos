@@ -105,7 +105,30 @@ const SCHEMA_V1: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1];
+const SCHEMA_V2: Migration = {
+  version: 2,
+  name: 'sync-ledger-error-status',
+  // #104 (ADR-0007): the ledger vocabulary gains 'error' (sync failed, will
+  // retry). SQLite cannot alter a CHECK, so the table rebuilds in place —
+  // forward-only per the migration policy.
+  up(db) {
+    db.exec(`
+      CREATE TABLE sync_ledger_v2 (
+        photo_id TEXT PRIMARY KEY REFERENCES photos (id) ON DELETE CASCADE,
+        status TEXT NOT NULL CHECK (status IN ('local', 'syncing', 'synced', 'offloaded', 'error')),
+        last_backup_at TEXT,
+        dirty INTEGER NOT NULL DEFAULT 1
+      );
+      INSERT INTO sync_ledger_v2 (photo_id, status, last_backup_at, dirty)
+        SELECT photo_id, status, last_backup_at, dirty FROM sync_ledger;
+      DROP TABLE sync_ledger;
+      ALTER TABLE sync_ledger_v2 RENAME TO sync_ledger;
+      CREATE INDEX idx_ledger_status ON sync_ledger (status);
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {

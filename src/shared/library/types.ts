@@ -4,8 +4,8 @@
 
 export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'other';
 
-/** sync_ledger.status vocabulary (ADR-0005). */
-export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offloaded';
+/** sync_ledger.status vocabulary (ADR-0005; 'error' added by #104). */
+export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offloaded' | 'error';
 
 export interface PhotoRecord {
   readonly id: string;
@@ -85,4 +85,6 @@ export interface LibraryStats {
   readonly bytes: number;
   /** Dirty ledger rows — drives the backup button/status (#79). */
   readonly pending: number;
+  /** Latest verified-backup stamp; null before the first backup (#104). */
+  readonly lastBackupAt: string | null;
 }

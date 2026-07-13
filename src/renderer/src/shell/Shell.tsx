@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import './shell.css';
-import { formatCount } from '../../../shared/library/format.js';
+import { formatCount, formatRelativeTime } from '../../../shared/library/format.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
 import { TitleBar } from '../components/TitleBar';
 import { Toast } from '../components/Toast';
@@ -43,6 +43,12 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
         setStats(loaded);
         // Seed the backup state (#79); pushes keep it live afterwards.
         dispatch({ type: 'pendingCount/set', count: loaded.pending });
+        // Real stamp (#104): "JUST NOW" / "2H AGO" from the ledger, "NEVER"
+        // before the first verified backup.
+        dispatch({
+          type: 'backupLabel/set',
+          label: loaded.lastBackupAt === null ? 'NEVER' : formatRelativeTime(loaded.lastBackupAt, Date.now()),
+        });
       });
       void window.overlook.library.albums().then(({ albums: loaded }) => {
         setAlbums(loaded);
