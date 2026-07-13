@@ -21,6 +21,7 @@ import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
+import { transcodeToJpeg } from './export/transcode.js';
 import { registerExportHandlers, registerImportHandlers, registerIpcHandlers, registerLibraryHandlers, type ExportFacade } from './ipc.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
@@ -312,6 +313,8 @@ function getExportFacade(): ExportFacade {
         return stats.bavail * stats.bsize;
       },
       joinPath: (dir, name) => path.join(dir, name),
+      transcodeJpeg: transcodeToJpeg,
+      bufferStream: async (stream) => buffer(stream),
       events: {
         progress: (done, total) => {
           emitProgress({ done, total });
@@ -323,12 +326,17 @@ function getExportFacade(): ExportFacade {
     let controller: AbortController | null = null;
     let turn: Promise<unknown> = Promise.resolve();
     exportFacade = {
-      run: (photoIds, destination) => {
-        const task = async (): Promise<{ exported: number; failed: number; cancelled: number }> => {
+      run: (photoIds, destination, format) => {
+        const task = async (): Promise<{ exported: number; failed: number; cancelled: number; previewTranscodes: number }> => {
           controller = new AbortController();
           try {
-            const summary = await engine.exportPhotos(photoIds, destination, controller.signal);
-            return { exported: summary.exported, failed: summary.failed, cancelled: summary.cancelled };
+            const summary = await engine.exportPhotos(photoIds, destination, controller.signal, format);
+            return {
+              exported: summary.exported,
+              failed: summary.failed,
+              cancelled: summary.cancelled,
+              previewTranscodes: summary.previewTranscodes,
+            };
           } finally {
             controller = null;
           }

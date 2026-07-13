@@ -10,6 +10,7 @@ import { Readable } from 'node:stream';
 
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
 import { ExportEngine, ExportPreflightError, writeFileCleanly, type ExportEngineDeps } from '../../src/main/export/export-engine.js';
+import { transcodeToJpeg } from '../../src/main/export/transcode.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import type { PhotoRecord } from '../../src/shared/library/types.js';
@@ -17,6 +18,34 @@ import type { PhotoRecord } from '../../src/shared/library/types.js';
 // #97 exit criteria against real components: seeded photos through the real
 // encrypted store → byte-identical files on disk, ordered progress,
 // cancellation keeping completed files only.
+
+function fullRow(id: string, fileName: string, contentHash: string, bytes: number): PhotoRecord {
+  return {
+    id,
+    fileName,
+    fileKind: 'jpeg',
+    width: 1,
+    height: 1,
+    bytes,
+    contentHash,
+    camera: null,
+    lens: null,
+    iso: null,
+    aperture: null,
+    shutter: null,
+    focalLength: null,
+    takenAt: null,
+    gpsLat: null,
+    gpsLon: null,
+    place: null,
+    importedAt: '2026-07-13T00:00:00.000Z',
+    importSource: 'test',
+    favorite: false,
+    keyId: 1,
+    deletedAt: null,
+    syncState: 'local',
+  };
+}
 
 async function seededWorld(count: number) {
   const dataDir = mkdtempSync(join(tmpdir(), 'overlook-export-'));
@@ -29,13 +58,7 @@ async function seededWorld(count: number) {
     const bytes = sampleJpeg(index);
     const id = `PHOTO${String(index)}`;
     const ref = await store.putOriginal(Readable.from([bytes]), key, id);
-    rows.set(id, {
-      id,
-      fileName: `IMG_${String(4021 + index)}.JPG`,
-      contentHash: ref.contentHash,
-      bytes: bytes.length,
-      keyId: 1,
-    } as PhotoRecord);
+    rows.set(id, fullRow(id, `IMG_${String(4021 + index)}.JPG`, ref.contentHash, bytes.length));
     bytesById.set(id, bytes);
   }
   const destination = mkdtempSync(join(tmpdir(), 'overlook-export-dest-'));
@@ -55,11 +78,21 @@ async function seededWorld(count: number) {
       return stats.bavail * stats.bsize;
     },
     joinPath: (dir, name) => join(dir, name),
+    transcodeJpeg: transcodeToJpeg,
+    bufferStream: async (stream) => {
+      const chunks: Buffer[] = [];
+      // type-coverage:ignore-next-line -- Readable yields untyped chunks
+      for await (const chunk of stream) {
+        // type-coverage:ignore-next-line -- Readable yields untyped chunks
+        chunks.push(chunk as Buffer);
+      }
+      return Buffer.concat(chunks);
+    },
     events: {
       progress: (done, total) => progress.push([done, total]),
     },
   };
-  return { deps, destination, rows, bytesById, progress, engine: new ExportEngine(deps) };
+  return { deps, destination, rows, bytesById, progress, key, store, engine: new ExportEngine(deps) };
 }
 
 describe('export engine (#97)', () => {
@@ -154,5 +187,49 @@ describe('export engine (#97)', () => {
     const world = await seededWorld(1);
     const summary = await world.engine.exportPhotos(['GHOST', ...world.rows.keys()], world.destination);
     assert.deepEqual({ exported: summary.exported, failed: summary.failed }, { exported: 1, failed: 1 });
+  });
+});
+
+describe('jpeg transcode export (#98)', () => {
+  const FIXTURES = join(import.meta.dirname, '../../../tests/fixtures/exif');
+
+  test('EXIT CRITERIA: a RAF exports as a decodable JPEG from its embedded preview', async () => {
+    const world = await seededWorld(0);
+    const raf = readFileSync(join(FIXTURES, 'sample.raf'));
+    const id = 'RAFPHOTO';
+    const ref = await world.store.putOriginal(Readable.from([raf]), world.key, id);
+    world.rows.set(id, fullRow(id, 'IMG_4021.RAF', ref.contentHash, raf.length));
+
+    const summary = await world.engine.exportPhotos([id], world.destination, undefined, 'jpeg');
+    assert.deepEqual({ exported: summary.exported, previewTranscodes: summary.previewTranscodes }, { exported: 1, previewTranscodes: 1 });
+    assert.equal(summary.files[0]?.fileName, 'IMG_4021.jpg', 'RAW re-extensions to .jpg');
+    const onDisk = readFileSync(join(world.destination, 'IMG_4021.jpg'));
+    assert.equal(onDisk[0], 0xff);
+    assert.equal(onDisk[1], 0xd8, 'JPEG SOI — opens in OS viewers');
+  });
+
+  test('EXIF policy: transcode STRIPS metadata (camera identity and GPS never travel)', async () => {
+    const world = await seededWorld(0);
+    const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+    const id = 'EXIFPHOTO';
+    const ref = await world.store.putOriginal(Readable.from([jpeg]), world.key, id);
+    world.rows.set(id, fullRow(id, 'IMG_4028.JPG', ref.contentHash, jpeg.length));
+
+    const summary = await world.engine.exportPhotos([id], world.destination, undefined, 'jpeg');
+    assert.equal(summary.exported, 1);
+    assert.equal(summary.previewTranscodes, 0, 'a plain JPEG is not preview-capped');
+    const onDisk = readFileSync(join(world.destination, 'IMG_4028.jpg'));
+    assert.ok(jpeg.includes(Buffer.from('FUJIFILM', 'ascii')), 'source carries the make');
+    assert.equal(onDisk.includes(Buffer.from('FUJIFILM', 'ascii')), false, 'transcode must not');
+    assert.equal(onDisk.includes(Buffer.from('Exif', 'ascii')), false);
+  });
+
+  test('original format still streams byte-identical (transcode path not entangled)', async () => {
+    const world = await seededWorld(1);
+    const summary = await world.engine.exportPhotos([...world.rows.keys()], world.destination, undefined, 'original');
+    assert.equal(summary.exported, 1);
+    assert.equal(summary.previewTranscodes, 0);
+    const row = [...world.rows.values()][0];
+    assert.deepEqual(readFileSync(join(world.destination, row?.fileName ?? '')), world.bytesById.get(row?.id ?? ''));
   });
 });

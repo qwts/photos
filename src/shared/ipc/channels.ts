@@ -145,11 +145,12 @@ export const channels = {
   exportPickDestination: defineChannel('export:pick-destination', z.object({}), z.object({ path: z.string().nullable() })),
   exportRun: defineChannel(
     'export:run',
-    z.object({ photoIds: z.array(z.string()).min(1), destination: z.string() }),
+    z.object({ photoIds: z.array(z.string()).min(1), destination: z.string(), format: z.enum(['original', 'jpeg']).optional() }),
     z.object({
       exported: z.number().int().nonnegative(),
       failed: z.number().int().nonnegative(),
       cancelled: z.number().int().nonnegative(),
+      previewTranscodes: z.number().int().nonnegative(),
     }),
   ),
   exportCancel: defineChannel('export:cancel', z.object({}), z.object({})),
