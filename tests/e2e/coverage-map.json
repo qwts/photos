@@ -242,6 +242,20 @@
           "path": "tests/e2e/backup.spec.ts"
         }
       ]
+    },
+    {
+      "id": "m08-backup-faults-and-offload",
+      "wiki": "User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/backup.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/backup-engine.test.ts"
+        }
+      ]
     }
   ]
 }
