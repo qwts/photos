@@ -85,11 +85,22 @@ export function registerExportHandlers(getFacade: () => ExportFacade): void {
 
 export interface BackupFacade {
   run(): Promise<{ uploaded: number; failed: number; skipped: 'wifi' | null }>;
+  offload(photoIds: readonly string[]): Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
+  rehydrate(photoId: string): Promise<void>;
 }
 
 export function registerBackupHandlers(getFacade: () => BackupFacade): void {
   ipcMain.handle(channels.backupRun.name, (_event, request: unknown) =>
     wrapHandler(channels.backupRun, async () => getFacade().run())(request),
+  );
+  ipcMain.handle(channels.backupOffload.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupOffload, async ({ photoIds }) => getFacade().offload(photoIds))(request),
+  );
+  ipcMain.handle(channels.backupRehydrate.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupRehydrate, async ({ photoId }) => {
+      await getFacade().rehydrate(photoId);
+      return { ok: true };
+    })(request),
   );
 }
 

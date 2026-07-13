@@ -164,10 +164,27 @@ export const channels = {
       skipped: z.enum(['wifi']).nullable(),
     }),
   ),
+  // Offload / rehydrate (#107).
+  backupOffload: defineChannel(
+    'backup:offload',
+    z.object({ photoIds: z.array(z.string()).min(1) }),
+    z.object({
+      offloaded: z.number().int().nonnegative(),
+      skipped: z.number().int().nonnegative(),
+      freedBytes: z.number().nonnegative(),
+    }),
+  ),
+  backupRehydrate: defineChannel('backup:rehydrate', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
-    z.object({ photos: z.number(), bytes: z.number(), pending: z.number().int().nonnegative(), lastBackupAt: z.string().nullable() }),
+    z.object({
+      photos: z.number(),
+      bytes: z.number(),
+      pending: z.number().int().nonnegative(),
+      lastBackupAt: z.string().nullable(),
+      offloadedBytes: z.number().nonnegative(),
+    }),
   ),
 } as const;
 

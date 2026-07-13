@@ -22,6 +22,7 @@ import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
 import { BackupEngine } from './backup/backup-engine.js';
 import { MockProvider } from './backup/mock-provider.js';
+import { OffloadService } from './backup/offload.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createEncryptStream } from './crypto/envelope.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
@@ -297,6 +298,7 @@ function getFullService(): FullService {
 }
 
 let backupEngine: BackupEngine | undefined;
+let offloadService: OffloadService | undefined;
 
 function getBackupEngine(): BackupEngine {
   if (backupEngine === undefined) {
@@ -352,6 +354,27 @@ function getBackupEngine(): BackupEngine {
       sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
       pendingCountChanged: (count) => {
         emitPending({ count });
+      },
+      libraryChanged: (photoIds) => {
+        emitLibraryChanged({ photoIds: [...photoIds] });
+      },
+      audit: (line) => {
+        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
+      },
+    });
+    offloadService = new OffloadService({
+      provider,
+      ledger,
+      repo: {
+        get: (id) => repo.get(id),
+        countByContentHash: (hash) => repo.countByContentHash(hash),
+      },
+      ledgerDirty: (photoId) => ledger.isDirty(photoId),
+      blobs: {
+        deleteOriginal: async (hash) => parts.blobStore.deleteOriginal(hash),
+        hasOriginal: (hash) => parts.blobStore.hasOriginal(hash),
+        restoreOriginal: async (hash, ciphertext, photoId) =>
+          parts.blobStore.restoreOriginal(hash, ciphertext, parts.keyStore.resolver(), photoId),
       },
       libraryChanged: (photoIds) => {
         emitLibraryChanged({ photoIds: [...photoIds] });
@@ -506,7 +529,18 @@ void app.whenReady().then(async () => {
   registerFullProtocol(getFullService);
   registerImportHandlers(getImportService);
   registerExportHandlers(getExportFacade);
-  registerBackupHandlers(() => ({ run: async () => getBackupEngine().run() }));
+  registerBackupHandlers(() => {
+    getBackupEngine();
+    const offload = offloadService;
+    if (offload === undefined) {
+      throw new Error('backup bootstrap failed');
+    }
+    return {
+      run: async () => getBackupEngine().run(),
+      offload: async (photoIds) => offload.offload(photoIds),
+      rehydrate: async (photoId) => offload.rehydrate(photoId),
+    };
+  });
   const seedCount = Number(process.env['OVERLOOK_SEED'] ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();

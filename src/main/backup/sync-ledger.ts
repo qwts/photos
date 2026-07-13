@@ -64,6 +64,10 @@ export class SyncLedger {
     this.setStatus(photoId, 'error');
   }
 
+  isDirty(photoId: string): boolean {
+    return queryAll<{ dirty: number }>(this.db, 'SELECT dirty FROM sync_ledger WHERE photo_id = @id', { id: photoId })[0]?.dirty === 1;
+  }
+
   pendingCount(): number {
     return queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM sync_ledger WHERE dirty = 1')[0]?.n ?? 0;
   }

@@ -221,6 +221,12 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
               // Lightbox entry point (#100): count=1, the focused photo.
               dispatch({ type: 'dialog/set', dialog: 'export', open: true });
             }}
+            onRehydrateError={() => {
+              dispatch({
+                type: 'toast/shown',
+                toast: { title: 'RESTORE FAILED — STILL IN PCLOUD', tone: 'red', action: 'retry-backup' },
+              });
+            }}
           />
         );
       })()}
