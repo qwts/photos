@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -180,8 +180,14 @@ describe('consistency scan + repair (#125)', () => {
     // Corruption 2: a purge interrupted after the row delete.
     w.repo.softDelete(['P2']);
     w.repo.purgeRow('P2');
-    // Corruption 3: a crash mid-put strands staging ciphertext.
-    writeFileSync(join(w.dataDir, 'tmp', 'stranded.tmp'), randomBytes(64));
+    // Corruption 3: a crash mid-put strands staging ciphertext (old
+    // mtime — the age gate must never reap LIVE staging writes).
+    const stranded = join(w.dataDir, 'tmp', 'stranded.tmp');
+    writeFileSync(stranded, randomBytes(64));
+    const old = (Date.now() - 2 * 60 * 60 * 1000) / 1000;
+    utimesSync(stranded, old, old);
+    // A FRESH staging file (an in-flight put) must survive the repair.
+    writeFileSync(join(w.dataDir, 'tmp', 'live.tmp'), randomBytes(64));
 
     const before = await w.checker.scan();
     assert.equal(before.lyingRows.length, 1);
@@ -191,6 +197,11 @@ describe('consistency scan + repair (#125)', () => {
     await w.checker.repair();
     const after = await w.checker.scan();
     assert.equal(emptyReport(after), true, 'every category reconciled');
+    assert.deepEqual(
+      (await w.store.listStaged()).map((entry) => entry.name),
+      ['live.tmp'],
+      'the in-flight staging write survived the repair (age gate)',
+    );
     assert.equal(w.ledger.status('P0'), 'error', 'the lost row is surfaced, not hidden');
     assert.notEqual(w.repo.get('P1'), undefined, 'healthy rows untouched');
     assert.equal(w.store.hasOriginal(w.hashes[1] ?? ''), true);

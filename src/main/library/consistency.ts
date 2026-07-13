@@ -2,11 +2,14 @@
 // never lies after a crash. scan() only observes; repair() fixes what is
 // SAFE and reports the rest:
 //   - orphan blobs/thumbs (no row owns the hash)  → removed
-//   - staging leftovers (crash mid-put)           → removed
+//   - staging leftovers (crash mid-put, AGE-GATED) → removed
 //   - lying rows (original missing, status not offloaded):
 //       remote copy verified present → status 'offloaded' (rehydratable)
 //       remote absent                → status 'error' (surfaced in the UI
 //         as the red glyph — the honest v1 of the repair prompt; recorded)
+
+/** Staged files younger than this are presumed live, never reaped. */
+export const STAGED_LEFTOVER_MIN_AGE_MS = 60 * 60 * 1000;
 
 export interface LyingRow {
   readonly photoId: string;
@@ -31,7 +34,7 @@ export interface ConsistencyDeps {
   readonly blobs: {
     readonly listOriginalHashes: () => Promise<string[]>;
     readonly listThumbHashes: () => Promise<string[]>;
-    readonly listStaged: () => Promise<string[]>;
+    readonly listStaged: () => Promise<{ name: string; ageMs: number }[]>;
     readonly hasOriginal: (hash: string) => boolean;
     readonly deleteOriginal: (hash: string) => Promise<void>;
     readonly deleteThumbs: (hash: string) => Promise<void>;
@@ -53,7 +56,11 @@ export class ConsistencyChecker {
     const owned = new Set(rows.map((row) => row.contentHash));
     const orphanOriginals = (await this.deps.blobs.listOriginalHashes()).filter((hash) => !owned.has(hash));
     const orphanThumbs = (await this.deps.blobs.listThumbHashes()).filter((hash) => !owned.has(hash));
-    const stagedLeftovers = await this.deps.blobs.listStaged();
+    // LIVE puts stage in the same directory — only old strands are
+    // leftovers (a startup scan once reaped an in-flight seed write).
+    const stagedLeftovers = (await this.deps.blobs.listStaged())
+      .filter((entry) => entry.ageMs > STAGED_LEFTOVER_MIN_AGE_MS)
+      .map((entry) => entry.name);
     const lyingRows: LyingRow[] = [];
     for (const row of rows) {
       // Offloaded rows are SUPPOSED to have no local original; anything
