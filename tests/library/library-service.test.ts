@@ -187,7 +187,8 @@ describe('library IPC contract', () => {
     assert.equal(stats.photos, 19);
     assert.equal(stats.bytes, 19 * 8_400_000);
     // Fresh inserts mark the ledger dirty; two rows were settled by the
-    // seed (offloaded + synced), so 18 of 20 remain pending (#79).
-    assert.equal(stats.pending, 18);
+    // seed (offloaded + synced) and the deleted row leaves pendingCount
+    // (#120 — it neither uploads nor shows in ENCRYPTING N), so 17 of 20.
+    assert.equal(stats.pending, 17);
   });
 });
