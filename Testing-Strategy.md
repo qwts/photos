@@ -129,6 +129,35 @@ The E2E lane keeps a fast 2,000-row variant of the same path
 (`tests/e2e/grid.spec.ts`) so windowing + cursor paging stay covered per-PR;
 the 200K run is manual because seeding takes ~17 s.
 
+### Perf budgets (#123 — RATCHETS: tighten, never loosen)
+
+The harness: `npm run test:perf` (own Playwright config, ~40 s once seeded;
+never a per-PR gate) or the manual CI lane (`perf.yml`, `workflow_dispatch`).
+It runs the 200K synthetic profile as a SETTLED library (synced ledger rows —
+born-dirty scale rows poisoned pending counts and doomed backups; recorded),
+measures the table below, writes `test-results/perf-report.json`, and asserts
+the budgets in `tests/perf/budgets.ts` (the enforced copy of this table).
+Cold start is measured on a RELAUNCH of the already-seeded profile — the
+product case, not the one-time synthetic insert. Budgets carry ~2× headroom
+over the recorded baseline so machine variance never flakes the lane; CI
+numbers are indicative, the recorded baselines are the dev machine's.
+
+| Metric | Budget | Baseline (2026-07-13, Apple Silicon dev machine, 200K) |
+| --- | --- | --- |
+| Cold start → existing-library grid interactive | < 5,000 ms | 1,643 ms |
+| `library:page` (500) median over IPC | < 250 ms | 4 ms |
+| `library:counts` median over IPC | < 1,000 ms | 689 ms |
+| Search page median over IPC (place substring) | < 600 ms | 5 ms |
+| Scroll dropped-frame share (zooms 96/160/320) | < 0.30 each | 0.20 / 0.00 / 0.00 |
+| Scroll worst frame delta | < 500 ms | 68 ms |
+| Import throughput (100 files, full pipeline) | > 3 photos/s | 34 photos/s |
+| Main-process RSS after the workout | < 1,500 MB | ~280 MB |
+| Renderer JS heap after the workout | < 512 MB | ~17 MB |
+
+Known findings handed to #124: zoom-96 scroll drops (~0.20 — image-decode
+churn at the densest tile size; target ratchet 0.10) and `counts()` at 689 ms
+(five count queries; the offloaded/localOnly ledger subqueries dominate).
+
 ## Policy: coverage travels with the change
 
 1. **Prefer the cheapest lane that proves the behavior.** Unit for logic; DOM
