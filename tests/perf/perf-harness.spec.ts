@@ -60,10 +60,12 @@ async function scrollRun(page: Page, zoom: number): Promise<FrameStats & { dropR
 
 test('200K perf harness: cold start, queries, scroll, import, memory', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'overlook-perf-'));
+  // The seed flag rides ONLY the untimed seeding launch — with it set, the
+  // relaunch would open the library pre-window (the seed-skip check) and
+  // warm the DB inside the measured window (PR #221 review).
   const env = {
     ...process.env,
     OVERLOOK_USER_DATA: userData,
-    OVERLOOK_SEED_SYNTHETIC: String(LIBRARY_SIZE),
     OVERLOOK_INSECURE_KEYSTORE: '1',
   };
 
@@ -71,7 +73,7 @@ test('200K perf harness: cold start, queries, scroll, import, memory', async () 
   // cold-start metric below measures the PRODUCT case, opening an existing
   // library, not the one-time synthetic insert.
   {
-    const seeder = await electron.launch({ args: ['.'], env });
+    const seeder = await electron.launch({ args: ['.'], env: { ...env, OVERLOOK_SEED_SYNTHETIC: String(LIBRARY_SIZE) } });
     const seedPage = await seeder.firstWindow();
     await expect(seedPage.getByTestId('statusbar-left')).toContainText(`${LIBRARY_SIZE.toLocaleString('en-US')} PHOTOS ·`, {
       timeout: 180_000,
