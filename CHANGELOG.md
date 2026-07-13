@@ -1,5 +1,33 @@
 # photos
 
+## 0.4.0
+
+### Minor Changes
+
+- 9546ff4: ExportDialog (#99): the design's 420px export flow with the safety copy
+  verbatim — selected-count row, Original/JPEG segmented, "Decrypt originals"
+  on by default (off disables Export and shows the amber warning; v1 ships no
+  encrypted-export format), destination via the OS folder picker, a single
+  progress bar labeled by decrypt state, and a done summary that honestly
+  notes preview-capped RAW transcodes.
+- be49c3d: Export entry points (#100): the selection pill's Export action goes live
+  (dialog opens with the exact selection count, selection preserved through
+  the flow) and the lightbox share icon opens the dialog with count=1 for the
+  focused photo, replacing the M07 stub toast.
+- c610ccd: JPEG transcode export (#98): `format: jpeg` produces universally-openable
+  files via sharp at quality 90 — RAW sources transcode from their embedded
+  preview (v1 policy) with the preview-capped count surfaced in the summary,
+  filenames re-extension to .jpg under the same collision policy, and
+  metadata is STRIPPED on transcode per ADR-0006's privacy stance (camera
+  identity and GPS travel only when exporting originals).
+
+### Patch Changes
+
+- bd4b9bf: Export proven end-to-end in CI (#101): the OVERLOOK_EXPORT_DESTINATION
+  harness hook mocks the OS folder picker for the acceptance flows — select 3
+  → pill Export → 3 decrypted files on disk, and a full-circle import-a-RAF →
+  lightbox-export-as-JPEG run exercising the preview policy.
+
 ## 0.3.0
 
 ### Minor Changes
