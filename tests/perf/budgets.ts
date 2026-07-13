@@ -1,0 +1,42 @@
+// M11 perf budgets (#123) — RATCHETS: tighten when the numbers improve,
+// never loosen. The written source of truth is the wiki Testing-Strategy
+// §Perf budgets; this file is what the harness enforces. Baselined on the
+// 200K synthetic profile (see the wiki table for the recorded numbers and
+// the machine caveat).
+
+export const BUDGETS = {
+  /** Launch → an EXISTING 200K library's grid interactive (the harness
+   * seeds on a prior untimed run). */
+  coldStartMs: 5_000,
+  /** Median keyset page of 500 over IPC. */
+  page500Ms: 250,
+  /** Median sidebar counts over IPC — five count queries, the offloaded/
+   * localOnly subqueries dominate at 200K; #124 owns tightening this. */
+  countsMs: 1_000,
+  /** Median substring search page over IPC. */
+  searchMs: 600,
+  /** Dropped-frame share during sustained scroll, any zoom. Zoom 96 is
+   * the pressure point (most tiles/viewport — image-decode churn); #124
+   * owns driving this ratchet toward 0.1. */
+  scrollDropRate: 0.3,
+  /** Worst frame-to-frame delta during scroll, ms. */
+  scrollWorstMs: 500,
+  /** Full-pipeline import floor (copy + encrypt + record + thumbs). */
+  importPhotosPerSecMin: 3,
+  /** Main-process RSS ceiling after the workout, MB. */
+  mainRssMbMax: 1_500,
+  /** Renderer JS heap ceiling after the workout, MB. */
+  rendererHeapMbMax: 512,
+} as const;
+
+export interface PerfReport {
+  readonly librarySize: number;
+  readonly coldStartMs: number;
+  readonly page500Ms: number;
+  readonly countsMs: number;
+  readonly searchMs: number;
+  readonly scroll: Record<'zoom96' | 'zoom160' | 'zoom320', { frames: number; dropped: number; worstMs: number; dropRate: number }>;
+  readonly importPhotosPerSec: number;
+  readonly mainRssMb: number;
+  readonly rendererHeapMb: number;
+}
