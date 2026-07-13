@@ -147,11 +147,13 @@ test('chrome truth: statusbar, backup button and card reflect pending state', as
     await expect(page.getByTestId('statusbar-left')).toContainText('12 PHOTOS ·');
     await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 4 → PCLOUD');
     await expect(page.getByTestId('backup-card')).toContainText('Library encrypted');
-    await expect(page.getByTestId('backup-card')).toContainText('0 / 4');
+    // The card shows the real storage split (#108); the progress bar only
+    // renders during an active run. The full run choreography lives in
+    // backup.spec.ts.
+    await expect(page.getByTestId('backup-card')).toContainText('LOCAL ·');
+    await expect(page.getByTestId('backup-card')).toContainText('PCLOUD');
     const backup = page.getByRole('button', { name: 'Back up' });
     await expect(backup).toBeEnabled();
-    await backup.click();
-    await expect(page.getByText('BACKUP LANDS WITH M08')).toBeVisible();
   } finally {
     await app.close();
   }

@@ -102,7 +102,10 @@ export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
             label="Back up"
             disabled={state.pendingCount === 0}
             onClick={() => {
-              dispatch({ type: 'toast/shown', toast: { title: 'BACKUP LANDS WITH M08', tone: 'neutral' } });
+              // Manual trigger (#108): amber start toast per the mock; the
+              // completion listener shows green/red endings.
+              dispatch({ type: 'toast/shown', toast: { title: 'BACKUP STARTED', tone: 'amber' } });
+              void window.overlook.backup.run({});
             }}
           />
         </Tooltip>

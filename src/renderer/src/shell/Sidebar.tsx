@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { formatBytes, formatCount } from '../../../shared/library/format.js';
@@ -51,6 +52,14 @@ export interface SidebarProps {
 export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  // The card's aggregate bar rides backup:progress (#108); it hides again
+  // when the run finishes (done === total).
+  const [backupRun, setBackupRun] = useState<{ done: number; total: number } | null>(null);
+  useEffect(() => {
+    return window.overlook.backup.onProgress(({ done, total }) => {
+      setBackupRun(total === 0 ? null : { done, total });
+    });
+  }, []);
   return (
     <nav className="ovl-sidebar" aria-label="Library">
       <div className="ovl-sidebar__heading mono-data">Library</div>
@@ -89,17 +98,19 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
             <Icon name="settings-2" size={13} color="var(--text-faint)" />
           </button>
         </div>
-        {state.pendingCount > 0 ? (
+        {backupRun !== null && backupRun.done < backupRun.total ? (
           <ProgressBar
             label="Backing up"
-            detail={`0 / ${formatCount(state.pendingCount)}`}
-            value={0}
-            max={state.pendingCount}
+            detail={`${formatCount(backupRun.done)} / ${formatCount(backupRun.total)}`}
+            value={backupRun.done}
+            max={Math.max(backupRun.total, 1)}
             tone="amber"
           />
         ) : null}
         <div className="ovl-sidebar__storage mono-data">
-          {stats === null ? '—' : `${formatBytes(stats.bytes).toUpperCase()} LOCAL · PCLOUD JOINS M08`}
+          {stats === null
+            ? '—'
+            : `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} PCLOUD`}
         </div>
       </div>
     </nav>
