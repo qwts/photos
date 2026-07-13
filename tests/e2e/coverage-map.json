@@ -218,8 +218,8 @@
           "path": "src/renderer/src/export/ExportDialog.stories.tsx"
         },
         {
-          "type": "deferred",
-          "issue": 100
+          "type": "playwright-e2e",
+          "path": "tests/e2e/export-flow.spec.ts"
         }
       ]
     },
