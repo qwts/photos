@@ -136,8 +136,11 @@ export const channels = {
       imported: z.number().int().nonnegative(),
       duplicates: z.number().int().nonnegative(),
       failed: z.number().int().nonnegative(),
+      cancelled: z.number().int().nonnegative(),
     }),
   ),
+  // Cancel semantics (#88): finish the file in flight, keep completed.
+  importCancel: defineChannel('import:cancel', z.object({}), z.object({})),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),

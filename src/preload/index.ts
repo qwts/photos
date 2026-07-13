@@ -45,6 +45,7 @@ const overlook: OverlookApi = {
     listSources: async () => importListSources({}),
     scanSource: createInvoker(channels.importScanSource, invokeTransport),
     run: createInvoker(channels.importRun, invokeTransport),
+    cancel: createInvoker(channels.importCancel, invokeTransport),
     onScanProgress: createSubscriber(events.scanProgress, subscribeTransport),
     onCopyProgress: createSubscriber(events.importCopyProgress, subscribeTransport),
     onThumbProgress: createSubscriber(events.importThumbProgress, subscribeTransport),

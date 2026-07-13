@@ -266,7 +266,7 @@ describe('import engine (#87)', () => {
       assert.equal(world.insertCalls(), 0);
     });
 
-    test('abort mid-batch keeps the journal; a later resume finishes the remainder', async () => {
+    test('user cancel finishes the current file, keeps completed, and finalizes the rest as cancelled (#88)', async () => {
       const world = harness();
       const files = [addSource(world, 'a.jpg', jpeg), addSource(world, 'b.jpg', other)];
       const controller = new AbortController();
@@ -276,20 +276,21 @@ describe('import engine (#87)', () => {
           copyProgress: (done: number) => {
             world.copyEvents.push(done);
             if (done === 1) {
-              controller.abort(); // "kill" after the first file lands
+              controller.abort(); // Cancel clicked after the first file lands
             }
           },
           thumbProgress: () => undefined,
         },
       };
-      const first = await new ImportEngine(deps).importFiles(files, 'copy', '/card', controller.signal);
-      assert.equal(first.imported, 1);
-      assert.notEqual(world.journalRaw(), null, 'interrupted batch keeps its journal');
-      const resumed = await world.engine().resume();
-      assert.equal(resumed?.imported, 2, 'summary spans the whole batch');
-      assert.equal(world.rows.size, 2);
-      assert.equal(world.insertCalls(), 2, 'each file inserted exactly once across runs');
-      assert.equal(world.journalRaw(), null);
+      const summary = await new ImportEngine(deps).importFiles(files, 'copy', '/card', controller.signal);
+      assert.deepEqual(
+        { imported: summary.imported, cancelled: summary.cancelled, failed: summary.failed },
+        { imported: 1, cancelled: 1, failed: 0 },
+      );
+      assert.equal(world.rows.size, 1, 'completed file kept');
+      assert.equal(world.sources.size, 2, 'cancelled sources untouched');
+      assert.equal(world.journalRaw(), null, 'a cancelled batch is FINAL — nothing resumes it');
+      assert.equal(await world.engine().resume(), null);
     });
 
     test('a post-commit thumbnail failure stays imported and retries on resume', async () => {

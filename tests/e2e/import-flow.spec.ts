@@ -1,0 +1,123 @@
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { test, expect, _electron as electron } from '@playwright/test';
+
+// #90 exit criteria: the whole import path proven in CI — fixture folder in,
+// encrypted library out. The OVERLOOK_IMPORT_SOURCE harness hook is the
+// mock-file-dialog seam: it surfaces the fixture card as the first source.
+
+const FIXTURES = join(import.meta.dirname, '../fixtures/exif');
+const CARD_FILES = ['exif-full.jpg', 'sample.raf', 'exif-stripped.jpg'];
+
+function makeCard(): string {
+  const card = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-card-')), 'SDCARD');
+  mkdirSync(card);
+  for (const name of CARD_FILES) {
+    copyFileSync(join(FIXTURES, name), join(card, name));
+  }
+  return card;
+}
+
+/** Every file under `dir` containing `marker` as raw bytes. */
+function filesContaining(dir: string, marker: Buffer): string[] {
+  const hits: string[] = [];
+  for (const name of readdirSync(dir, { recursive: true, encoding: 'utf8' })) {
+    const path = join(dir, name);
+    try {
+      if (statSync(path).isFile() && readFileSync(path).includes(marker)) {
+        hits.push(name);
+      }
+    } catch {
+      continue;
+    }
+  }
+  return hits;
+}
+
+async function launch(card: string) {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-import-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+      OVERLOOK_IMPORT_SOURCE: card,
+    },
+  });
+  return { app, userData };
+}
+
+test('Copy import: dialog flow, encrypted at rest, grid + toast + counts', async () => {
+  const card = makeCard();
+  const { app, userData } = await launch(card);
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+
+    // Options: the fixture card surfaced through the harness seam.
+    await expect(page.getByText('SDCARD')).toBeVisible();
+    await expect(page.getByText('3 NEW ·')).toBeVisible();
+    await page.getByRole('button', { name: 'Import 3 photos' }).click();
+
+    // Done: clean summary, then Show in library.
+    await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Show in library' }).click();
+
+    // Toast fires only after the modal is gone (#89 + PR #185 review).
+    const toast = page.getByRole('status');
+    await expect(toast).toContainText('Imported 3 photos');
+    await expect(toast.getByRole('button', { name: 'Show' })).toBeVisible();
+
+    // The grid shows the batch with real decoded thumbs; sidebar counts live.
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
+    await expect(page.getByRole('button', { name: 'All Photos 3' })).toBeVisible();
+
+    // Toast auto-dismisses at 4s (#89 exit criteria).
+    await expect(toast).toBeHidden({ timeout: 6_000 });
+
+    // Beneath the UI: complete DB rows through the typed bridge...
+    const rows = await page.evaluate<{ camera: string | null; id: string; syncState: string }[]>(
+      `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => ({ camera: p.camera, id: p.id, syncState: p.syncState })))`,
+    );
+    expect(rows).toHaveLength(3);
+    expect(rows.some((row) => row.camera === 'FUJIFILM X-T5')).toBe(true);
+    for (const row of rows) {
+      expect(row.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/u);
+      expect(row.syncState).toBe('local');
+    }
+
+    // ...and no plaintext fixture bytes anywhere in the profile (blobs and
+    // DB encrypted; derivatives strip metadata; no-store protocols).
+    const needle = readFileSync(join(FIXTURES, 'exif-full.jpg')).subarray(600, 640);
+    expect(filesContaining(userData, needle)).toEqual([]);
+
+    // Copy mode: the card is untouched.
+    expect(readdirSync(card).sort()).toEqual([...CARD_FILES].sort());
+  } finally {
+    await app.close();
+  }
+});
+
+test('Move import: warning shown, sources emptied only after verified import', async () => {
+  const card = makeCard();
+  const { app } = await launch(card);
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('radio', { name: 'Move' }).click();
+    await expect(page.getByRole('alert')).toContainText('Originals will be deleted from the card after import.');
+    await page.getByRole('button', { name: 'Import 3 photos' }).click();
+    await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+
+    // Every file verified (decrypt + re-hash) before its source was removed.
+    expect(readdirSync(card)).toEqual([]);
+    for (const name of CARD_FILES) {
+      expect(existsSync(join(card, name))).toBe(false);
+    }
+  } finally {
+    await app.close();
+  }
+});

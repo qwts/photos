@@ -27,7 +27,7 @@ export interface ManifestFile {
   readonly fileName: string;
   readonly kind: FileKind;
   stage: ImportFileStage;
-  status?: 'imported' | 'duplicate' | 'failed' | undefined;
+  status?: 'imported' | 'duplicate' | 'failed' | 'cancelled' | undefined;
   contentHash?: string | undefined;
   photoId?: string | undefined;
   error?: string | undefined;
@@ -44,6 +44,8 @@ export interface ImportSummary {
   readonly imported: number;
   readonly duplicates: number;
   readonly failed: number;
+  /** User-cancelled remainder — never started, sources untouched (#88). */
+  readonly cancelled: number;
   readonly photoIds: readonly string[];
 }
 
@@ -117,7 +119,18 @@ export class ImportEngine {
     };
     for (const file of manifest.files) {
       if (signal?.aborted === true) {
-        break; // journal stays — the next run resumes
+        // User cancel (#88 semantics): the current file already finished —
+        // keep everything completed, finalize the rest as cancelled, and
+        // clear the journal below. (A CRASH leaves no abort signal; its
+        // journal survives untouched for resume.)
+        for (const remaining of manifest.files) {
+          if (remaining.stage === 'pending' && remaining.status === undefined) {
+            remaining.status = 'cancelled';
+            remaining.stage = 'done';
+          }
+        }
+        await persist();
+        break;
       }
       if (file.stage === 'done') {
         continue;
@@ -129,6 +142,8 @@ export class ImportEngine {
         // file is never deleted on any failed path (cleanup is the LAST
         // stage and only runs after verification).
         file.error = error instanceof Error ? error.message : String(error);
+        // Surfaced in the main-process log — the summary only carries counts.
+        console.error(`[overlook] import failed for ${file.fileName}: ${file.error}`);
         if (file.status === 'imported') {
           // The row is committed — this photo IS in the library (PR #183
           // review). Keep it imported and leave the stage where it failed:
@@ -148,6 +163,7 @@ export class ImportEngine {
       imported: manifest.files.filter((file) => file.status === 'imported').length,
       duplicates: manifest.files.filter((file) => file.status === 'duplicate').length,
       failed: manifest.files.filter((file) => file.status === 'failed').length,
+      cancelled: manifest.files.filter((file) => file.status === 'cancelled').length,
       photoIds: manifest.files.flatMap((file) => (file.status === 'imported' && file.photoId !== undefined ? [file.photoId] : [])),
     };
   }

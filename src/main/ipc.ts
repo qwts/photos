@@ -47,7 +47,13 @@ export function registerImportHandlers(getService: () => ImportService): void {
   ipcMain.handle(channels.importRun.name, (_event, request: unknown) =>
     wrapHandler(channels.importRun, async ({ path, mode }) => {
       const summary = await getService().run(path, mode);
-      return { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed };
+      return { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed, cancelled: summary.cancelled };
+    })(request),
+  );
+  ipcMain.handle(channels.importCancel.name, (_event, request: unknown) =>
+    wrapHandler(channels.importCancel, () => {
+      getService().cancel();
+      return {};
     })(request),
   );
 }
