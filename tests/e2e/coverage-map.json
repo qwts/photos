@@ -120,6 +120,10 @@
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [
         {
+          "type": "storybook",
+          "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
+        },
+        {
           "type": "deferred",
           "issue": 96
         }

@@ -7,7 +7,9 @@ import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/l
 import { TitleBar } from '../components/TitleBar';
 import { Toast } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
+import { fullUrl } from '../../../shared/library/full-url.js';
 import { ImportDialog, type ImportDialogSource } from '../import/ImportDialog';
+import { Lightbox } from '../lightbox/Lightbox';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
@@ -118,6 +120,53 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           }}
         />
       ) : null}
+      {(() => {
+        // Lightbox (#92): overlay above the shell, driven by reducer state.
+        const index = state.photos.findIndex((photo) => photo.id === state.lightboxId);
+        const current = index === -1 ? null : (state.photos[index] ?? null);
+        if (current === null) {
+          return null;
+        }
+        const go = (delta: number): void => {
+          const next = state.photos[(index + delta + state.photos.length) % state.photos.length];
+          if (next !== undefined) {
+            dispatch({ type: 'lightbox/opened', photoId: next.id });
+            // Neighbor prefetch (#91): warm the NEXT hop in each direction.
+            for (const hop of [-1, 1]) {
+              const neighbor = state.photos[(index + delta + hop + state.photos.length) % state.photos.length];
+              if (neighbor !== undefined && neighbor.id !== next.id) {
+                void fetch(fullUrl(neighbor.id, { prefetch: true })).catch(() => undefined);
+              }
+            }
+          }
+        };
+        return (
+          <Lightbox
+            photo={current}
+            onClose={() => {
+              dispatch({ type: 'lightbox/closed' });
+            }}
+            onPrev={() => {
+              go(-1);
+            }}
+            onNext={() => {
+              go(1);
+            }}
+            onToggleFavorite={() => {
+              void window.overlook.library.toggleFavorite({ id: current.id }).then(({ pendingCount }) => {
+                dispatch({ type: 'pendingCount/set', count: pendingCount });
+              });
+            }}
+            inspectorOpen={state.inspectorOpen}
+            onToggleInspector={() => {
+              dispatch({ type: 'inspector/toggled' });
+            }}
+            onExport={() => {
+              dispatch({ type: 'toast/shown', toast: { title: 'EXPORT LANDS WITH M07', tone: 'neutral' } });
+            }}
+          />
+        );
+      })()}
       <div className="ovl-shell__body">
         <Sidebar counts={counts} stats={stats} albums={albums} />
         <main className="ovl-shell__content" data-testid="content-region">
