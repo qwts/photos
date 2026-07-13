@@ -199,6 +199,10 @@ export interface BackupFacade {
     usedBytes: number;
     totalBytes: number;
   }>;
+  /** Runs the registered provider's handshake (#254): instant for the mock,
+   * the OAuth loopback flow for pCloud. */
+  connect(): Promise<{ ok: boolean; reason: string | null }>;
+  disconnect(): Promise<void>;
 }
 
 export function registerBackupHandlers(getFacade: () => BackupFacade): void {
@@ -216,6 +220,15 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
   );
   ipcMain.handle(channels.backupProviderStatus.name, (_event, request: unknown) =>
     wrapHandler(channels.backupProviderStatus, async () => getFacade().providerStatus())(request),
+  );
+  ipcMain.handle(channels.backupConnect.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupConnect, async () => getFacade().connect())(request),
+  );
+  ipcMain.handle(channels.backupDisconnect.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupDisconnect, async () => {
+      await getFacade().disconnect();
+      return { ok: true as const };
+    })(request),
   );
 }
 

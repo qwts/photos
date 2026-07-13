@@ -2,7 +2,7 @@ import { access, appendFile, readFile, rename, stat, statfs, unlink, writeFile }
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
-import { app, BrowserWindow, dialog, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, safeStorage, shell } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
@@ -23,6 +23,8 @@ import { ulid } from './import/ulid.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { FaultInjectingProvider, MockProvider } from './backup/mock-provider.js';
 import { OffloadService } from './backup/offload.js';
+import { createPCloudConnect } from './backup/pcloud/connect.js';
+import { PCloudTokenStore } from './backup/pcloud/token-store.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
@@ -370,6 +372,27 @@ let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
 /** The registered provider instance — the connection card reads its quota. */
 let backupProvider: FaultInjectingProvider | undefined;
+
+let pcloudTokenStore: PCloudTokenStore | undefined;
+
+function getPCloudTokenStore(): PCloudTokenStore {
+  pcloudTokenStore ??= new PCloudTokenStore({
+    safeStorage: pickSafeStorage(),
+    dataDir: path.join(app.getPath('userData'), 'library'),
+  });
+  return pcloudTokenStore;
+}
+
+let pcloudConnect: (() => Promise<{ ok: boolean; reason: string | null }>) | undefined;
+
+function getPCloudConnect(): () => Promise<{ ok: boolean; reason: string | null }> {
+  pcloudConnect ??= createPCloudConnect({
+    tokenStore: getPCloudTokenStore(),
+    openExternal: async (url) => shell.openExternal(url),
+    onConnected: () => getSettingsStore().set({ providerId: 'pcloud' }),
+  });
+  return pcloudConnect;
+}
 /** Auto-backup entry point (imports + resume) — set by getBackupEngine. */
 let autoBackupTrigger: (() => void) | undefined;
 /** Manifest-debt push after deletes (#120/PR #218) — quiet, auto-marked. */
@@ -861,6 +884,22 @@ void app.whenReady().then(async () => {
         } catch {
           return { provider: providerId, connected: false, account: null, usedBytes: 0, totalBytes: 0 };
         }
+      },
+      // Connect/disconnect (#254): policy lives here, not in the renderer.
+      // The mock keeps its instant connect; pCloud runs the OAuth loopback
+      // flow (registered by #256 — until then the mock path is the live one).
+      connect: async () => {
+        if (backupProvider?.id === 'pcloud') {
+          return getPCloudConnect()();
+        }
+        getSettingsStore().set({ providerId: 'mock' });
+        return { ok: true, reason: null };
+      },
+      disconnect: () => {
+        getSettingsStore().set({ providerId: null });
+        // Detaching drops custody too — reconnecting is a fresh handshake.
+        getPCloudTokenStore().clear();
+        return Promise.resolve();
       },
     };
   });

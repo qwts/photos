@@ -279,6 +279,12 @@ export const channels = {
       totalBytes: z.number().nonnegative(),
     }),
   ),
+  // Provider connect/disconnect (#254): connect runs whatever handshake the
+  // registered provider needs — the mock connects instantly, pCloud opens
+  // the system browser for the OAuth loopback flow. The token never crosses
+  // this boundary; the renderer only learns ok/reason.
+  backupConnect: defineChannel('backup:connect', z.object({}), z.object({ ok: z.boolean(), reason: z.string().nullable() })),
+  backupDisconnect: defineChannel('backup:disconnect', z.object({}), z.object({ ok: z.literal(true) })),
   // Settings store (#111): typed get + validated partial patch. The locked
   // key (thumbnailsOnImport) is a literal, so a patch flipping it rejects
   // at this boundary.

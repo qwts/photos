@@ -41,6 +41,8 @@ export interface OverlookApi {
     readonly offload: (request: Req<typeof channels.backupOffload>) => Promise<Res<typeof channels.backupOffload>>;
     readonly rehydrate: (request: Req<typeof channels.backupRehydrate>) => Promise<Res<typeof channels.backupRehydrate>>;
     readonly providerStatus: () => Promise<Res<typeof channels.backupProviderStatus>>;
+    readonly connect: () => Promise<Res<typeof channels.backupConnect>>;
+    readonly disconnect: () => Promise<Res<typeof channels.backupDisconnect>>;
   };
   readonly export: {
     readonly pickDestination: (request: Req<typeof channels.exportPickDestination>) => Promise<Res<typeof channels.exportPickDestination>>;

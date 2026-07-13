@@ -14,13 +14,25 @@ import type { OverlookApi } from '../../../shared/ipc/api.js';
 
 function installStub(): void {
   let current: AppSettings = { ...defaultSettings };
+  // connect/disconnect (#254) mutate settings OUTSIDE the set() round-trip,
+  // exactly like main does — so the stub must deliver change pushes too.
+  const listeners = new Set<(payload: { settings: AppSettings }) => void>();
+  const apply = (patch: Parameters<typeof mergeSettings>[1]): void => {
+    current = mergeSettings(current, patch);
+    for (const listener of listeners) {
+      listener({ settings: current });
+    }
+  };
   const settingsApi: OverlookApi['settings'] = {
     get: () => Promise.resolve({ settings: current }),
     set: ({ patch }) => {
-      current = mergeSettings(current, patch);
+      apply(patch);
       return Promise.resolve({ settings: current });
     },
-    onChanged: () => () => undefined,
+    onChanged: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
   };
   const backupApi: OverlookApi['backup'] = {
     run: () => Promise.resolve({ uploaded: 0, failed: 0, skipped: null }),
@@ -35,6 +47,15 @@ function installStub(): void {
           ? { provider: 'mock' as const, connected: false, account: null, usedBytes: 0, totalBytes: 0 }
           : { provider: 'mock' as const, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
       ),
+    // Connect/disconnect (#254) mirror main's mock policy: flip providerId.
+    connect: () => {
+      apply({ providerId: 'mock' });
+      return Promise.resolve({ ok: true, reason: null });
+    },
+    disconnect: () => {
+      apply({ providerId: null });
+      return Promise.resolve({ ok: true as const });
+    },
   };
   const keysApi = {
     status: () => Promise.resolve({ fingerprint: '9F2C·4A81·D0E7·5B3A' }),
