@@ -62,6 +62,7 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
   const ledger = new SyncLedger(db);
   const sleeps: number[] = [];
   const progress: [number, number][] = [];
+  const audits: string[] = [];
   let clock = 0;
   const settings: BackupSettings = {
     throttlePercent: null,
@@ -85,8 +86,10 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
       return Promise.resolve();
     },
     pendingCountChanged: () => undefined,
+    libraryChanged: () => undefined,
+    audit: (line) => audits.push(line),
   };
-  return { deps, repo, ledger, store, provider, faulty, sleeps, progress, engine: new BackupEngine(deps) };
+  return { deps, repo, ledger, store, provider, faulty, sleeps, progress, audits, engine: new BackupEngine(deps) };
 }
 
 describe('backup engine (#105)', () => {
@@ -179,6 +182,23 @@ describe('backup engine (#105)', () => {
     const unlimited = await world(2);
     await unlimited.engine.run();
     assert.deepEqual(unlimited.sleeps, []);
+  });
+
+  test('EXIT CRITERIA (#106): a verify mismatch goes error + stays dirty (re-queued); audit records it', async () => {
+    const w = await world(1);
+    w.faulty.arm('verify-mismatch');
+    const result = await w.engine.run();
+    assert.deepEqual({ uploaded: result.uploaded, failed: result.failed }, { uploaded: 0, failed: 1 });
+    assert.equal(w.ledger.status('P0'), 'error', 'the cloud-alert state');
+    assert.equal(w.ledger.pendingCount(), 1, 're-queued for the next run');
+    assert.ok(w.audits.some((line) => line.startsWith('VERIFY-MISMATCH photo=P0')));
+
+    // Healed: the next run verifies clean and the audit says so.
+    w.faulty.disarm('verify-mismatch');
+    const second = await w.engine.run();
+    assert.equal(second.uploaded, 1);
+    assert.equal(w.ledger.status('P0'), 'synced');
+    assert.ok(w.audits.some((line) => line.startsWith('VERIFY-OK photo=P0')));
   });
 
   test('a row killed mid-upload (already syncing, still dirty) RESUMES (PR #203 review)', async () => {

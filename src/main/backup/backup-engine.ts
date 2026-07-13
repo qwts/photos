@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 import { ProviderError, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
@@ -56,6 +58,10 @@ export interface BackupEngineDeps {
   readonly now: () => number;
   readonly sleep: (ms: number) => Promise<void>;
   readonly pendingCountChanged: (count: number) => void;
+  /** Status changes push targeted library updates (tiles re-render). */
+  readonly libraryChanged: (photoIds: readonly string[]) => void;
+  /** Verify results append to M11's audit trail (#106). */
+  readonly audit: (line: string) => void;
 }
 
 const MAX_ATTEMPTS = 3;
@@ -116,9 +122,20 @@ export class BackupEngine {
         if (this.deps.ledger.status(item.id) !== 'syncing') {
           this.deps.ledger.setStatus(item.id, 'syncing');
         }
-        await this.uploadWithRetry(blobPath(item.contentHash), () => this.deps.encryptedStream(item.contentHash), signal);
-        // #106 inserts checksum verification here; until then upload
-        // success completes the item.
+        const remotePath = blobPath(item.contentHash);
+        await this.uploadWithRetry(remotePath, () => this.deps.encryptedStream(item.contentHash), signal);
+        // Verify-after-upload (#106, ADR-0007): "backed up" is never a lie.
+        // The LOCAL ciphertext hash is the truth the remote must match
+        // before the row may go synced.
+        const local = await this.hashLocalCiphertext(item.contentHash);
+        const remote = await this.deps.provider.verify(remotePath);
+        if (remote.sha256 !== local.sha256 || remote.bytes !== local.bytes) {
+          this.deps.audit(
+            `VERIFY-MISMATCH photo=${item.id} local=${local.sha256}/${String(local.bytes)} remote=${remote.sha256}/${String(remote.bytes)}`,
+          );
+          throw new ProviderError(`verify mismatch for ${item.fileName}`, 'corrupt');
+        }
+        this.deps.audit(`VERIFY-OK photo=${item.id} sha256=${local.sha256} bytes=${String(local.bytes)}`);
         this.deps.ledger.markBackedUp(item.id, new Date(this.deps.now()).toISOString());
         uploaded += 1;
       } catch (error) {
@@ -126,11 +143,13 @@ export class BackupEngine {
         this.deps.ledger.markError(item.id);
         console.error(`[overlook] backup failed for ${item.fileName}: ${error instanceof Error ? error.message : String(error)}`);
         if (error instanceof ProviderError && (error.kind === 'auth' || error.kind === 'quota')) {
+          this.deps.libraryChanged([item.id]);
           break; // retrying the rest cannot help — surface and stop
         }
       }
       this.deps.events.progress(uploaded + failed, total, item.id);
       this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
+      this.deps.libraryChanged([item.id]);
       await this.throttle(settings, this.deps.now() - started);
     }
 
@@ -175,6 +194,17 @@ export class BackupEngine {
         await this.deps.sleep(BACKOFF_BASE_MS * 2 ** (attempt - 1));
       }
     }
+  }
+
+  private async hashLocalCiphertext(contentHash: string): Promise<{ sha256: string; bytes: number }> {
+    const hasher = createHash('sha256');
+    let bytes = 0;
+    const stream = this.deps.encryptedStream(contentHash);
+    stream.on('data', (chunk: Buffer) => {
+      bytes += chunk.length;
+    });
+    await pipeline(stream, hasher);
+    return { sha256: hasher.digest('hex'), bytes };
   }
 
   /** Seals and uploads the next manifest generation; prunes past N=2. */

@@ -195,6 +195,15 @@ export const events = {
   ),
   // Export progress (#97): n/total over the batch.
   exportProgress: defineEvent('export:progress', z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() })),
+  // Backup completion (#106): drives the red toast + retry on failures.
+  backupCompleted: defineEvent(
+    'backup:completed',
+    z.object({
+      uploaded: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      manifestUploaded: z.boolean(),
+    }),
+  ),
   // Backup progress (#105): per-item + aggregate for the sidebar card.
   backupProgress: defineEvent(
     'backup:progress',

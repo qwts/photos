@@ -1,4 +1,4 @@
-import { access, readFile, statfs, unlink } from 'node:fs/promises';
+import { access, appendFile, readFile, statfs, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
@@ -310,6 +310,13 @@ function getBackupEngine(): BackupEngine {
     const emitProgress = createEmitter(events.backupProgress, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
+    const emitCompleted = createEmitter(events.backupCompleted, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const auditPath = path.join(app.getPath('userData'), 'library', 'backup-audit.log');
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -346,7 +353,24 @@ function getBackupEngine(): BackupEngine {
       pendingCountChanged: (count) => {
         emitPending({ count });
       },
+      libraryChanged: (photoIds) => {
+        emitLibraryChanged({ photoIds: [...photoIds] });
+      },
+      audit: (line) => {
+        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
+      },
     });
+    // Completion events drive the red toast + retry (#106); #108 adds the
+    // card. Wrap run() so every trigger reports.
+    const engine = backupEngine;
+    const originalRun = engine.run.bind(engine);
+    engine.run = (signal?: AbortSignal) =>
+      originalRun(signal).then((result) => {
+        if (result.skipped === null) {
+          emitCompleted({ uploaded: result.uploaded, failed: result.failed, manifestUploaded: result.manifestUploaded });
+        }
+        return result;
+      });
   }
   return backupEngine;
 }

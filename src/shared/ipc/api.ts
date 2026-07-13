@@ -27,6 +27,7 @@ export interface OverlookApi {
   readonly backup: {
     readonly run: (request: Req<typeof channels.backupRun>) => Promise<Res<typeof channels.backupRun>>;
     readonly onProgress: (listener: (payload: z.output<typeof events.backupProgress.payload>) => void) => () => void;
+    readonly onCompleted: (listener: (payload: z.output<typeof events.backupCompleted.payload>) => void) => () => void;
   };
   readonly export: {
     readonly pickDestination: (request: Req<typeof channels.exportPickDestination>) => Promise<Res<typeof channels.exportPickDestination>>;
