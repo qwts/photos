@@ -59,14 +59,18 @@ export function registerImportHandlers(getService: () => ImportService): void {
 }
 
 export interface ExportFacade {
-  run(photoIds: readonly string[], destination: string): Promise<{ exported: number; failed: number; cancelled: number }>;
+  run(
+    photoIds: readonly string[],
+    destination: string,
+    format?: 'original' | 'jpeg',
+  ): Promise<{ exported: number; failed: number; cancelled: number; previewTranscodes: number }>;
   cancel(): void;
   pickDestination(): Promise<string | null>;
 }
 
 export function registerExportHandlers(getFacade: () => ExportFacade): void {
   ipcMain.handle(channels.exportRun.name, (_event, request: unknown) =>
-    wrapHandler(channels.exportRun, async ({ photoIds, destination }) => getFacade().run(photoIds, destination))(request),
+    wrapHandler(channels.exportRun, async ({ photoIds, destination, format }) => getFacade().run(photoIds, destination, format))(request),
   );
   ipcMain.handle(channels.exportCancel.name, (_event, request: unknown) =>
     wrapHandler(channels.exportCancel, () => {

@@ -1,9 +1,10 @@
 import { createWriteStream } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
-import type { Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 
 import type { KeyResolver } from '../crypto/envelope.js';
+import type { TranscodeResult } from './transcode.js';
 import type { PhotoRecord } from '../../shared/library/types.js';
 
 // Export engine (#97): the decrypt counterpart to import — selected photos
@@ -14,17 +15,24 @@ import type { PhotoRecord } from '../../shared/library/types.js';
 // keeps everything completed. v1 decision (recorded on #97): no
 // encrypted-export format — the dialog's decrypt-off switch disables Export.
 
+export type ExportFormat = 'original' | 'jpeg';
+
 export interface ExportedFile {
   readonly photoId: string;
   readonly fileName: string;
   /** True when a collision forced a numbered suffix. */
   readonly renamed: boolean;
+  /** True when a RAW transcoded from its embedded preview (#98) —
+   * resolution honestly capped at preview size. */
+  readonly fromPreview: boolean;
 }
 
 export interface ExportSummary {
   readonly exported: number;
   readonly failed: number;
   readonly cancelled: number;
+  /** How many exports were preview-capped RAW transcodes (#98). */
+  readonly previewTranscodes: number;
   readonly files: readonly ExportedFile[];
 }
 
@@ -42,6 +50,10 @@ export interface ExportEngineDeps {
   /** Free bytes on the destination volume (statfs seam). */
   readonly freeBytes: (dir: string) => Promise<number>;
   readonly joinPath: (dir: string, name: string) => string;
+  /** sharp transcode seam (#98) — src/main/export/transcode.ts in prod. */
+  readonly transcodeJpeg: (bytes: Buffer) => Promise<TranscodeResult>;
+  /** Buffers a decrypt stream (transcode needs whole files). */
+  readonly bufferStream: (stream: Readable) => Promise<Buffer>;
   readonly events: { progress(done: number, total: number): void };
 }
 
@@ -60,6 +72,12 @@ export async function writeFileCleanly(path: string, plaintext: Readable): Promi
   }
 }
 
+/** IMG_4021.RAF + '.jpg' → IMG_4021.jpg */
+function reExtension(fileName: string, extension: string): string {
+  const dot = fileName.lastIndexOf('.');
+  return dot <= 0 ? `${fileName}${extension}` : `${fileName.slice(0, dot)}${extension}`;
+}
+
 /** IMG_4021.RAF → IMG_4021 (2).RAF */
 function withSuffix(fileName: string, counter: number): string {
   const dot = fileName.lastIndexOf('.');
@@ -69,7 +87,12 @@ function withSuffix(fileName: string, counter: number): string {
 export class ExportEngine {
   constructor(private readonly deps: ExportEngineDeps) {}
 
-  async exportPhotos(photoIds: readonly string[], destination: string, signal?: AbortSignal): Promise<ExportSummary> {
+  async exportPhotos(
+    photoIds: readonly string[],
+    destination: string,
+    signal?: AbortSignal,
+    format: ExportFormat = 'original',
+  ): Promise<ExportSummary> {
     const photos = photoIds.map((id) => this.deps.repo.get(id));
     // Free-space preflight: the sum of plaintext sizes must fit BEFORE any
     // bytes move — a mid-batch ENOSPC helps nobody.
@@ -96,10 +119,19 @@ export class ExportEngine {
         if (photo === undefined) {
           throw new Error(`photo ${id} is not in the library`);
         }
-        const fileName = await this.resolveCollision(destination, photo.fileName);
         const stream = this.deps.blobs.getStream(photo.contentHash, this.deps.resolveKey, photo.id);
-        await this.deps.writeFile(this.deps.joinPath(destination, fileName), stream);
-        files.push({ photoId: photo.id, fileName, renamed: fileName !== photo.fileName });
+        let plaintext: Readable = stream;
+        let targetName = photo.fileName;
+        let fromPreview = false;
+        if (format === 'jpeg') {
+          const { jpeg, fromPreview: capped } = await this.deps.transcodeJpeg(await this.deps.bufferStream(stream));
+          plaintext = Readable.from([jpeg]);
+          targetName = reExtension(photo.fileName, '.jpg');
+          fromPreview = capped;
+        }
+        const fileName = await this.resolveCollision(destination, targetName);
+        await this.deps.writeFile(this.deps.joinPath(destination, fileName), plaintext);
+        files.push({ photoId: photo.id, fileName, renamed: fileName !== targetName, fromPreview });
       } catch (error) {
         failed += 1;
         console.error(`[overlook] export failed for ${photo?.fileName ?? id}: ${error instanceof Error ? error.message : String(error)}`);
@@ -107,7 +139,7 @@ export class ExportEngine {
       done += 1;
       this.deps.events.progress(done, total);
     }
-    return { exported: files.length, failed, cancelled, files };
+    return { exported: files.length, failed, cancelled, previewTranscodes: files.filter((file) => file.fromPreview).length, files };
   }
 
   private async resolveCollision(destination: string, fileName: string): Promise<string> {
