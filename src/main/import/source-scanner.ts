@@ -97,7 +97,43 @@ export async function scanSource(
   onProgress?: (progress: SourceScanProgress) => void,
   signal?: AbortSignal,
 ): Promise<{ readonly summary: SourceScanSummary; readonly files: readonly ScannedFile[] }> {
-  const candidates = await listMediaFiles(dir);
+  return scanCandidates(await listMediaFiles(dir), deps, onProgress, signal);
+}
+
+/** Dropped-file scan (#237): an explicit path list instead of a directory
+ * walk — same allowlist, hashing, and NEW semantics as scanSource. Non-media
+ * and unreadable paths are skipped, never fatal. */
+export async function scanFiles(
+  paths: readonly string[],
+  deps: SourceScannerDeps,
+  onProgress?: (progress: SourceScanProgress) => void,
+  signal?: AbortSignal,
+): Promise<{ readonly summary: SourceScanSummary; readonly files: readonly ScannedFile[] }> {
+  const candidates: { path: string; fileName: string; kind: FileKind }[] = [];
+  for (const path of paths) {
+    const fileName = basename(path);
+    const kind = classifyMediaFile(fileName);
+    if (kind === null) {
+      continue;
+    }
+    try {
+      if (!(await stat(path)).isFile()) {
+        continue;
+      }
+    } catch {
+      continue;
+    }
+    candidates.push({ path, fileName, kind });
+  }
+  return scanCandidates(candidates, deps, onProgress, signal);
+}
+
+async function scanCandidates(
+  candidates: readonly { path: string; fileName: string; kind: FileKind }[],
+  deps: SourceScannerDeps,
+  onProgress?: (progress: SourceScanProgress) => void,
+  signal?: AbortSignal,
+): Promise<{ readonly summary: SourceScanSummary; readonly files: readonly ScannedFile[] }> {
   const files: ScannedFile[] = [];
   let newCount = 0;
   let newBytes = 0;

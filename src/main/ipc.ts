@@ -100,16 +100,28 @@ export function registerSettingsHandlers(getFacade: () => SettingsFacade): void 
   );
 }
 
-export function registerImportHandlers(getService: () => ImportService, onImported?: () => void): void {
+export function registerImportHandlers(
+  getService: () => ImportService,
+  pickFolder: () => Promise<string | null>,
+  onImported?: () => void,
+): void {
   ipcMain.handle(channels.importListSources.name, (_event, request: unknown) =>
     wrapHandler(channels.importListSources, async () => ({ sources: await getService().listSources() }))(request),
   );
   ipcMain.handle(channels.importScanSource.name, (_event, request: unknown) =>
     wrapHandler(channels.importScanSource, async ({ path }) => getService().scanSource(path))(request),
   );
+  ipcMain.handle(channels.importPickFolder.name, (_event, request: unknown) =>
+    wrapHandler(channels.importPickFolder, async () => ({ path: await pickFolder() }))(request),
+  );
+  ipcMain.handle(channels.importScanFiles.name, (_event, request: unknown) =>
+    wrapHandler(channels.importScanFiles, async ({ paths }) => getService().scanDropped(paths))(request),
+  );
   ipcMain.handle(channels.importRun.name, (_event, request: unknown) =>
-    wrapHandler(channels.importRun, async ({ path, mode }) => {
-      const summary = await getService().run(path, mode);
+    wrapHandler(channels.importRun, async ({ path, files, mode }) => {
+      // The zod refinement guarantees exactly one of path/files, and that a
+      // files run is copy-only (#237).
+      const summary = files !== undefined ? await getService().runFiles(files) : await getService().run(path ?? '', mode);
       // The auto-backup-on-import subscription seam (#105/#111): fires only
       // when the batch actually landed photos.
       if (summary.imported > 0) {

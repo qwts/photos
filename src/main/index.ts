@@ -718,10 +718,23 @@ void app.whenReady().then(async () => {
   registerAlbumHandlers(getLibraryService, ulid);
   registerThumbProtocol(getThumbService);
   registerFullProtocol(getFullService);
-  registerImportHandlers(getImportService, () => {
-    getBackupEngine();
-    autoBackupTrigger?.();
-  });
+  registerImportHandlers(
+    getImportService,
+    async () => {
+      // Harness hook (#237, OVERLOOK_* family): the mock-file-dialog seam
+      // the folder-import E2E drives — a fixed folder instead of the picker.
+      const fixture = harnessEnv('OVERLOOK_IMPORT_FOLDER');
+      if (fixture !== undefined && fixture !== '') {
+        return fixture;
+      }
+      const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    () => {
+      getBackupEngine();
+      autoBackupTrigger?.();
+    },
+  );
   registerExportHandlers(getExportFacade);
   registerPurgeHandlers(() => ({
     purge: async (photoIds) => getPurgeService().purge(photoIds),

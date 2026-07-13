@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
-import type { ReactElement } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { DragEvent, ReactElement } from 'react';
 
 import './shell.css';
 import { formatCount, formatRelativeTime } from '../../../shared/library/format.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
+import { Icon } from '../components/Icon';
 import { TitleBar } from '../components/TitleBar';
 import { Toast } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ExportDialog } from '../export/ExportDialog';
 import { SettingsDialog } from '../settings/SettingsDialog';
-import { ImportDialog, type ImportDialogSource } from '../import/ImportDialog';
+import { classifyMediaFile } from '../../../shared/library/media-files.js';
+import { ImportDialog } from '../import/ImportDialog';
 import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
@@ -32,7 +34,10 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   useGlobalKeys();
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
-  const [importSource, setImportSource] = useState<ImportDialogSource | null>(null);
+  // Window drag-and-drop (#237): dropped photo paths pre-seed the dialog's
+  // Dropped source; `dragging` shows the full-window overlay.
+  const [dropped, setDropped] = useState<readonly string[] | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
 
@@ -144,8 +149,65 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     };
   }, [toast, dispatch]);
 
+  // Window drag-and-drop (#237): a depth counter keeps the overlay stable
+  // across child enter/leave churn (the mock's own approach). Only drags
+  // carrying files count; the drop filters through the same media allowlist
+  // the scanner uses — non-photo drops get the design's toast.
+  const dragDepth = useRef(0);
+  const hasFiles = (event: DragEvent): boolean => Array.from(event.dataTransfer.types).includes('Files');
+  const onDragEnter = (event: DragEvent): void => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    dragDepth.current += 1;
+    setDragging(true);
+  };
+  const onDragOver = (event: DragEvent): void => {
+    if (hasFiles(event)) {
+      event.preventDefault();
+    }
+  };
+  const onDragLeave = (event: DragEvent): void => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    dragDepth.current -= 1;
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0;
+      setDragging(false);
+    }
+  };
+  const onDrop = (event: DragEvent): void => {
+    if (!hasFiles(event)) {
+      return;
+    }
+    event.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    const paths = Array.from(event.dataTransfer.files)
+      .filter((file) => classifyMediaFile(file.name) !== null)
+      .map((file) => window.overlook.import.pathForFile(file))
+      .filter((path) => path !== '');
+    if (paths.length === 0) {
+      dispatch({ type: 'toast/shown', toast: { title: 'Nothing to import — drop photo files', tone: 'amber' } });
+      return;
+    }
+    setDropped(paths);
+    dispatch({ type: 'dialog/set', dialog: 'import', open: true });
+  };
+
   return (
-    <div className="ovl-shell">
+    <div className="ovl-shell" onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+      {dragging ? (
+        <div className="ovl-shell__dropOverlay">
+          <div className="ovl-shell__dropCard">
+            <Icon name="image-down" size={40} color="var(--accent-cyan)" />
+            <div className="ovl-shell__dropTitle">Drop photos to import</div>
+            <div className="ovl-shell__dropHint mono-data">Encrypted on this device · RAW, JPEG, PNG, HEIC</div>
+          </div>
+        </div>
+      ) : null}
       <TitleBar
         platform={platform}
         onMinimize={() => {
@@ -160,30 +222,19 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
       />
       <Toolbar
         onImport={() => {
-          // #88: first available source, scanned for the options card. No
-          // source → the design's toast copy.
-          void window.overlook.import
-            .listSources()
-            .then(async ({ sources }) => {
-              const source = sources[0];
-              if (source === undefined) {
-                dispatch({ type: 'toast/shown', toast: { title: 'NO IMPORT SOURCE FOUND', tone: 'neutral' } });
-                return;
-              }
-              const summary = await window.overlook.import.scanSource({ path: source.path });
-              setImportSource({ path: source.path, label: source.label, ...summary });
-            })
-            .catch(() => {
-              dispatch({ type: 'toast/shown', toast: { title: 'IMPORT SOURCE SCAN FAILED', tone: 'amber' } });
-            });
+          // #237: the dialog owns source discovery (SD scan, folder picker,
+          // no-card empty state) — the toolbar just opens it.
+          setDropped(null);
+          dispatch({ type: 'dialog/set', dialog: 'import', open: true });
         }}
       />
-      {importSource !== null ? (
+      {state.importOpen ? (
         <ImportDialog
           open
-          source={importSource}
+          dropped={dropped}
           onClose={() => {
-            setImportSource(null);
+            setDropped(null);
+            dispatch({ type: 'dialog/set', dialog: 'import', open: false });
           }}
           onDone={() => {
             // "Show in library" jumps to Recent imports (#88).

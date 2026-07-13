@@ -2,6 +2,7 @@ import {
   defaultVolumeListerDeps,
   folderSource,
   listVolumes,
+  scanFiles,
   scanSource,
   type ImportSource,
   type SourceScanProgress,
@@ -55,7 +56,9 @@ export class ImportService {
     // injector is unpackaged-only (#129 F1); it returns undefined otherwise.
     const fixture = this.fixtureSource();
     if (fixture !== undefined && fixture !== '') {
-      return [folderSource(fixture), ...sources];
+      // The fixture stands in for the mounted card, so it poses as a volume
+      // — the dialog's SD segment surfaces it and Move stays testable (#237).
+      return [{ ...folderSource(fixture), kind: 'volume' }, ...sources];
     }
     return sources;
   }
@@ -74,6 +77,16 @@ export class ImportService {
 
   /** Runs a batch over the source's NEW files (fresh scan → engine). */
   async run(path: string, mode: ImportMode): Promise<ImportSummary> {
+    if (mode === 'move') {
+      // Pipeline-layer enforcement (#237): Move deletes sources after
+      // verification, so it is only ever offered for removable volumes —
+      // a folder or dropped import must never delete a user's own files,
+      // even if a caller bypasses the dialog's forced-Copy UI.
+      const sources = await this.listSources();
+      if (!sources.some((candidate) => candidate.kind === 'volume' && candidate.path === path)) {
+        throw new Error('Move is only available for removable volumes');
+      }
+    }
     return this.serialize(async () => {
       const controller = new AbortController();
       this.controller = controller;
@@ -97,6 +110,37 @@ export class ImportService {
         this.controller = null;
       }
     });
+  }
+
+  /** Dropped-file batch (#237): explicit paths, always copy — the window
+   * drop can never delete a user's own files. */
+  async runFiles(paths: readonly string[]): Promise<ImportSummary> {
+    return this.serialize(async () => {
+      const controller = new AbortController();
+      this.controller = controller;
+      try {
+        const { files } = await scanFiles(
+          paths,
+          { hasContentHash: (hash) => this.repo.hasContentHash(hash) },
+          () => undefined,
+          controller.signal,
+        );
+        const fresh = files.filter((file) => file.isNew).map(({ path: filePath, fileName, kind }) => ({ path: filePath, fileName, kind }));
+        const summary = await this.engine.importFiles(fresh, 'copy', 'dropped', controller.signal);
+        if (summary.photoIds.length > 0) {
+          this.events.imported(summary.photoIds);
+        }
+        return summary;
+      } finally {
+        this.controller = null;
+      }
+    });
+  }
+
+  /** Dropped-file scan (#237): the dialog's Dropped card numbers. */
+  async scanDropped(paths: readonly string[]): Promise<SourceScanSummary> {
+    const { summary } = await scanFiles(paths, { hasContentHash: (hash) => this.repo.hasContentHash(hash) });
+    return summary;
   }
 
   /** Cancel semantics (#88): the engine finishes the file in flight, keeps

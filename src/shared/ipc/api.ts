@@ -56,6 +56,11 @@ export interface OverlookApi {
   readonly import: {
     readonly listSources: () => Promise<Res<typeof channels.importListSources>>;
     readonly scanSource: (request: Req<typeof channels.importScanSource>) => Promise<Res<typeof channels.importScanSource>>;
+    readonly pickFolder: () => Promise<Res<typeof channels.importPickFolder>>;
+    readonly scanFiles: (request: Req<typeof channels.importScanFiles>) => Promise<Res<typeof channels.importScanFiles>>;
+    /** Sandboxed renderers can't read File.path — the preload maps a
+     * DataTransfer File to its filesystem path (webUtils) for drops (#237). */
+    readonly pathForFile: (file: File) => string;
     readonly run: (request: Req<typeof channels.importRun>) => Promise<Res<typeof channels.importRun>>;
     readonly cancel: (request: Req<typeof channels.importCancel>) => Promise<Res<typeof channels.importCancel>>;
     readonly onScanProgress: (listener: (payload: z.output<typeof events.scanProgress.payload>) => void) => () => void;

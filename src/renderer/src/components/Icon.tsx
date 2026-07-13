@@ -17,10 +17,12 @@ import {
   Download,
   Folder,
   Funnel,
+  FolderOpen,
   Grid2x2,
   Grid3x3,
   HardDrive,
   Image,
+  ImageDown,
   ImageOff,
   Images,
   Info,
@@ -68,11 +70,13 @@ export const ICON_NAMES = [
   'cloud-upload',
   'database',
   'download',
+  'folder-open',
   'funnel',
   'grid-2x2',
   'grid-3x3',
   'hard-drive',
   'image',
+  'image-down',
   'image-off',
   'images',
   'info',
@@ -119,11 +123,13 @@ const ICONS = {
   database: Database,
   download: Download,
   folder: Folder,
+  'folder-open': FolderOpen,
   funnel: Funnel,
   'grid-2x2': Grid2x2,
   'grid-3x3': Grid3x3,
   'hard-drive': HardDrive,
   image: Image,
+  'image-down': ImageDown,
   'image-off': ImageOff,
   images: Images,
   info: Info,
@@ -154,7 +160,8 @@ const ICONS = {
 // mock's own additional usages, adopted as-is — as are the minus/square/x
 // window-control glyphs above.
 // 15 and 28 come from the design's own Toolbar.jsx / LibraryGrid.jsx usage.
-export type IconSize = 11 | 12 | 13 | 14 | 15 | 16 | 18 | 20 | 28;
+// 40 is the drop overlay's hero glyph (#237, index.html).
+export type IconSize = 11 | 12 | 13 | 14 | 15 | 16 | 18 | 20 | 28 | 40;
 
 export interface IconProps {
   readonly name: IconName;
