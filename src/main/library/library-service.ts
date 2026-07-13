@@ -85,6 +85,22 @@ export class LibraryService {
     return { removed: removed.length };
   }
 
+  // Soft delete + restore (#120): targeted pushes; pendingCount changes in
+  // both directions (deleted rows leave it, restores re-dirty).
+  deletePhotos(photoIds: readonly string[]): { deleted: number } {
+    const deleted = this.repo.softDelete(photoIds);
+    this.events.libraryChanged(deleted);
+    this.events.pendingCountChanged(this.repo.pendingCount());
+    return { deleted: deleted.length };
+  }
+
+  restorePhotos(photoIds: readonly string[]): { restored: number } {
+    const restored = this.repo.restore(photoIds);
+    this.events.libraryChanged(restored);
+    this.events.pendingCountChanged(this.repo.pendingCount());
+    return { restored: restored.length };
+  }
+
   pendingCount(): number {
     return this.repo.pendingCount();
   }

@@ -36,6 +36,12 @@ export function registerLibraryHandlers(getService: () => LibraryService): void 
   ipcMain.handle(channels.libraryAlbums.name, (_event, request: unknown) =>
     wrapHandler(channels.libraryAlbums, () => ({ albums: getService().albums() }))(request),
   );
+  ipcMain.handle(channels.libraryDelete.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryDelete, ({ photoIds }) => getService().deletePhotos(photoIds))(request),
+  );
+  ipcMain.handle(channels.libraryRestore.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryRestore, ({ photoIds }) => getService().restorePhotos(photoIds))(request),
+  );
 }
 
 export function registerAlbumHandlers(getService: () => LibraryService, newId: () => string): void {

@@ -203,6 +203,47 @@ export class PhotosRepository {
     return row === undefined ? undefined : toRecord(row);
   }
 
+  /** Soft delete (#120): rows move to Recently deleted, restorable — no
+   * blob, ledger, or membership changes (purge is #121's ceremony).
+   * Deleted rows leave pendingCount via the JOIN there. */
+  softDelete(photoIds: readonly string[]): string[] {
+    return this.db.transaction(() => {
+      const deleted: string[] = [];
+      const at = new Date().toISOString();
+      for (const photoId of photoIds) {
+        const row = queryGet<{ id: string }>(
+          this.db,
+          'UPDATE photos SET deleted_at = @at WHERE id = @photoId AND deleted_at IS NULL RETURNING id',
+          { at, photoId },
+        );
+        if (row !== undefined) {
+          deleted.push(photoId);
+        }
+      }
+      return deleted;
+    })();
+  }
+
+  /** Restore from Recently deleted: favorite/EXIF/ledger status come back
+   * untouched; the row re-dirties so the next manifest includes it again. */
+  restore(photoIds: readonly string[]): string[] {
+    return this.db.transaction(() => {
+      const restored: string[] = [];
+      for (const photoId of photoIds) {
+        const row = queryGet<{ id: string }>(
+          this.db,
+          'UPDATE photos SET deleted_at = NULL WHERE id = @photoId AND deleted_at IS NOT NULL RETURNING id',
+          { photoId },
+        );
+        if (row !== undefined) {
+          markDirty(this.db, photoId);
+          restored.push(photoId);
+        }
+      }
+      return restored;
+    })();
+  }
+
   /** StatusBar totals: live (non-deleted) photo count + bytes. */
   stats(): LibraryStats {
     const row = queryAll<{ n: number; b: number | null }>(
@@ -363,7 +404,14 @@ export class PhotosRepository {
 
   /** pendingCount source: dirty ledger rows (design §backup dirtiness). */
   pendingCount(): number {
-    return queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM sync_ledger WHERE dirty = 1')[0]?.n ?? 0;
+    // Deleted rows leave the pending count (#120): they neither upload
+    // (dirtyPhotos filters them) nor belong in "ENCRYPTING N → PCLOUD".
+    return (
+      queryAll<{ n: number }>(
+        this.db,
+        'SELECT count(*) AS n FROM sync_ledger l JOIN photos p ON p.id = l.photo_id WHERE l.dirty = 1 AND p.deleted_at IS NULL',
+      )[0]?.n ?? 0
+    );
   }
 
   /** Sidebar counts share page()'s sourceWhere — ONE query truth per

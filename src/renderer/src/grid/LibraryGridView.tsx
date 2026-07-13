@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 
 import type { PhotoRecord } from '../../../shared/library/types.js';
+import { formatCount } from '../../../shared/library/format.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import { Icon } from '../components/Icon';
 import { PhotoTile } from '../components/PhotoTile';
@@ -75,6 +76,34 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
           onExport={() => {
             dispatch({ type: 'dialog/set', dialog: 'export', open: true });
           }}
+          // Soft delete / restore (#120): the visible page refreshes off
+          // the change push; the reducer intersects the selection away.
+          {...(state.source === 'deleted'
+            ? {
+                onRestore: () => {
+                  const photoIds = [...state.selection];
+                  void window.overlook.library.restore({ photoIds }).then(({ restored }) => {
+                    dispatch({
+                      type: 'toast/shown',
+                      toast: { title: `Restored ${formatCount(restored)} ${restored === 1 ? 'photo' : 'photos'}`, tone: 'green' },
+                    });
+                  });
+                },
+              }
+            : {
+                onDelete: () => {
+                  const photoIds = [...state.selection];
+                  void window.overlook.library.delete({ photoIds }).then(({ deleted }) => {
+                    dispatch({
+                      type: 'toast/shown',
+                      toast: {
+                        title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Recently deleted`,
+                        tone: 'neutral',
+                      },
+                    });
+                  });
+                },
+              })}
         />
       ) : null}
     </>

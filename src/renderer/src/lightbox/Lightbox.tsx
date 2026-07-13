@@ -28,6 +28,9 @@ export interface LightboxProps {
   readonly onExport: () => void;
   /** Rehydrate failed — the host shows the red toast (#107). */
   readonly onRehydrateError?: (() => void) | undefined;
+  /** Soft-deletes this photo (#120) — the row leaving the visible set
+   * closes the lightbox via the reducer's intersection rule. */
+  readonly onDelete: () => void;
 }
 
 /** The bottom strip's EXIF line — only what the file actually states. */
@@ -52,6 +55,7 @@ export function Lightbox({
   onToggleInspector,
   onExport,
   onRehydrateError,
+  onDelete,
 }: LightboxProps): ReactElement {
   const [chrome, setChrome] = useState(true);
   const [wokenFor, setWokenFor] = useState(photo.id);
@@ -145,9 +149,7 @@ export function Lightbox({
         <IconButton icon="star" label="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
         <IconButton icon="share" label="Export" onClick={onExport} />
         <IconButton icon="info" label="Inspector (I)" active={inspectorOpen} onClick={onToggleInspector} />
-        {/* Delete routes to M10's soft-delete flow (#110); the seam ships
-            disabled until then (#95 tracking note). */}
-        <IconButton icon="trash-2" label="Delete (soft-delete lands with M10)" disabled />
+        <IconButton icon="trash-2" label="Delete" onClick={onDelete} />
       </div>
       <div className={`ovl-lightbox__nav ovl-lightbox__chrome${chromeClass}`}>
         <IconButton icon="chevron-left" size="lg" label="Previous (←)" onClick={onPrev} />
