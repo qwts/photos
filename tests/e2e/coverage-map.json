@@ -170,6 +170,20 @@
           "path": "tests/e2e/import-flow.spec.ts"
         }
       ]
+    },
+    {
+      "id": "m06-lightbox-keyboard",
+      "wiki": "User-Story-M06-Lightbox-Inspector",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/lightbox.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/library/app-state.test.ts"
+        }
+      ]
     }
   ]
 }

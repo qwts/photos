@@ -128,6 +128,23 @@ describe('app state reducer', () => {
     assert.equal(state.lightboxId, null);
   });
 
+  test('lightbox/stepped walks the visible sequence with wraparound (#93)', () => {
+    const photo = (id: string) => ({ id }) as AppState['photos'][number];
+    // A closed lightbox ignores steps.
+    const closed = apply(initialAppState, { type: 'photos/loaded', photos: [photo('a'), photo('b')], append: false });
+    assert.equal(apply(closed, { type: 'lightbox/stepped', delta: 1 }).lightboxId, null);
+
+    let state = apply(closed, { type: 'lightbox/opened', photoId: 'a' });
+    state = apply(state, { type: 'lightbox/stepped', delta: 1 });
+    assert.equal(state.lightboxId, 'b');
+    // Forward off the end wraps to the start; backward from the start wraps
+    // to the end.
+    state = apply(state, { type: 'lightbox/stepped', delta: 1 });
+    assert.equal(state.lightboxId, 'a');
+    state = apply(state, { type: 'lightbox/stepped', delta: -1 });
+    assert.equal(state.lightboxId, 'b');
+  });
+
   test('import-completion toast carries its serializable Show action (#89)', () => {
     const state = apply(initialAppState, {
       type: 'toast/shown',
