@@ -196,6 +196,24 @@ enforces shape, path existence, and that deferred entries carry issues.
    carries the acceptance checkbox; the coverage-summary reporter renders the
    map distribution on each run. Each epic seeds its own entries.
 
+## pCloud live contract run (owner-executed, never CI)
+
+The provider contract suite also runs against **live pCloud** (#256, the
+#109 epic) — env-gated so CI stays mock-only:
+
+```sh
+OVERLOOK_PCLOUD_LIVE=1 npm run test:pcloud:live
+```
+
+The suite prints a pCloud authorize URL; open it in a browser and approve.
+The loopback listener captures the token itself (implicit flow — nothing to
+copy) and the contract cases run against a scratch prefix under
+`/Overlook/contract-scratch-<ulid>/`, cleaned up afterward. Requirements: a
+browser session logged into the owner's pCloud account, and the registered
+redirect (`http://127.0.0.1:41573/callback`) reachable — i.e. run it on a
+machine, not a headless box. A green run is #109's exit criteria; record it
+on the epic when it passes.
+
 ## Command quick reference
 
 ```sh
