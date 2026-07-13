@@ -94,6 +94,8 @@
 
 .ovl-albumpicker__create::placeholder {
   color: var(--text-faint);
+}
+
 .ovl-purge__copy {
   margin: 0;
   font-size: var(--text-md);
