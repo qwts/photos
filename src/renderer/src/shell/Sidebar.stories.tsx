@@ -92,6 +92,11 @@ export const CollapseAndExpand: Story = {
     await expect(canvas.queryByTestId('backup-card')).not.toBeInTheDocument();
     await expect(canvas.getByTestId('backup-shield')).toBeVisible();
     await expect(window.localStorage.getItem(COLLAPSE_KEY)).toBe('1');
+    // The rail's icon-square metrics must win over the base row rule
+    // (PR #245 review — source-order regression guard).
+    const railRow = canvas.getByRole('button', { name: 'All Photos · 204,318' });
+    await expect(window.getComputedStyle(railRow).width).toBe('36px');
+    await expect(window.getComputedStyle(railRow).height).toBe('32px');
     // Every destination stays reachable: a rail row hover surfaces the
     // label + count in a right-side tooltip.
     // The just-clicked toggle keeps focus (and so its own tooltip) — query

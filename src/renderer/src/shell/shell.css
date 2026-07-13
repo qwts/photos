@@ -136,13 +136,6 @@
   margin: 12px auto 6px;
 }
 
-.ovl-siderow--collapsed {
-  width: 36px; /* the mock's own rail row square */
-  height: 32px;
-  padding: 0;
-  justify-content: center;
-}
-
 .ovl-sidebar__shield {
   display: flex;
   align-items: center;
@@ -206,6 +199,15 @@
 
 .ovl-siderow__count {
   color: var(--text-faint);
+}
+
+/* After the base .ovl-siderow rules — same specificity, so source order is
+ * what lets the rail metrics win (PR #245 review). */
+.ovl-siderow--collapsed {
+  width: 36px; /* the mock's own rail row square */
+  height: 32px;
+  padding: 0;
+  justify-content: center;
 }
 
 .ovl-sidebar__spacer {
