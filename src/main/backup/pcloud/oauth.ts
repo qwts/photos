@@ -5,7 +5,7 @@
 // token-redacting error messages. Electron-free so node:test covers every
 // branch without a browser.
 
-export const PCLOUD_CLIENT_ID = '83ag1ClbJd7';
+export const PCLOUD_CLIENT_ID = '83ag1CIbJd7';
 
 // Registered verbatim in the owner's pCloud app console — exact-match, so
 // 127.0.0.1 (not localhost), this port, this path.
