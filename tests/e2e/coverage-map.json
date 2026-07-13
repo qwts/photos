@@ -468,6 +468,24 @@
           "path": "src/renderer/src/import/ImportDialog.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "m18-recovery-key-backup-import",
+      "wiki": "User-Story-M18-Recovery-key",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/keys-recovery.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/KeyDialog.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        }
+      ]
     }
   ]
 }

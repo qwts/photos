@@ -36,7 +36,13 @@ function installStub(): void {
           : { provider: 'mock' as const, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
       ),
   };
-  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { settings: settingsApi, backup: backupApi };
+  const keysApi = {
+    status: () => Promise.resolve({ fingerprint: '9F2C·4A81·D0E7·5B3A' }),
+    export: () => Promise.resolve({ path: null }),
+    pickFile: () => Promise.resolve({ path: null }),
+    import: () => Promise.resolve({ installed: false, fingerprint: null, reason: 'invalid' as const }),
+  } as unknown as OverlookApi['keys'];
+  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { settings: settingsApi, backup: backupApi, keys: keysApi };
 }
 
 const meta: Meta<typeof SettingsDialog> = {
@@ -111,6 +117,15 @@ export const PrivacySection: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.click(body.getByRole('button', { name: 'Privacy' }));
+
+    // Recovery key row (#240): fingerprint + both KeyDialog entry points.
+    await waitFor(() => expect(body.getByTestId('recovery-key-row')).toHaveTextContent('9F2C·4A81·D0E7·5B3A'));
+    await userEvent.click(body.getByRole('button', { name: 'Back up…' }));
+    await expect(body.getByRole('dialog', { name: 'Back up encryption key' })).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(body.getByRole('button', { name: 'Import…' }));
+    await expect(body.getByRole('dialog', { name: 'Import encryption key' })).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Cancel' }));
 
     // Factual, always-on encryption row.
     await waitFor(() => expect(body.getByText('Always on')).toBeVisible());

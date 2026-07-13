@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactElement } from 'react';
 import { Dialog } from '../components/Dialog';
 import { Icon, type IconName } from '../components/Icon';
 import { GeneralPane } from './GeneralPane';
+import { KeyDialog, type KeyDialogMode } from './KeyDialog';
 import { PrivacyPane } from './PrivacyPane';
 import { StoragePane } from './StoragePane';
 import type { AppSettings, SettingsPatch } from '../../../shared/settings/settings.js';
@@ -30,6 +31,8 @@ const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: string }
 export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactElement | null {
   const [section, setSection] = useState<SettingsSection>('storage');
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  // Recovery-key dialog (#240): layered over Settings, per the mock.
+  const [keyMode, setKeyMode] = useState<KeyDialogMode | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -81,10 +84,19 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
           ) : section === 'storage' ? (
             <StoragePane settings={settings} onPatch={patch} />
           ) : (
-            <PrivacyPane settings={settings} onPatch={patch} />
+            <PrivacyPane settings={settings} onPatch={patch} onKeyAction={setKeyMode} />
           )}
         </div>
       </div>
+      {keyMode !== null ? (
+        <KeyDialog
+          open
+          mode={keyMode}
+          onClose={() => {
+            setKeyMode(null);
+          }}
+        />
+      ) : null}
     </Dialog>
   );
 }

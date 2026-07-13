@@ -110,3 +110,213 @@
   font: var(--type-meta);
   color: var(--text-faint);
 }
+
+/* Recovery key (#240) — KeyDialog.jsx metrics. */
+.ovl-key__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px; /* the mock's own stack gap */
+}
+
+.ovl-key__done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+}
+
+.ovl-key__doneline {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-2) + var(--space-1) / 2);
+  color: var(--accent-green);
+  font-size: var(--text-md);
+}
+
+.ovl-key__label {
+  color: var(--text-faint);
+  margin-bottom: calc(var(--space-1) * 1.5);
+}
+
+.ovl-keynote {
+  display: flex;
+  gap: calc(var(--space-2) + var(--space-1) / 2);
+  background: var(--gray-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  padding: calc(var(--space-2) + var(--space-1) / 2) var(--space-3);
+}
+
+.ovl-keynote--amber {
+  background: var(--accent-amber-dim);
+}
+
+.ovl-keynote--green {
+  background: var(--accent-green-dim);
+}
+
+.ovl-keynote__body {
+  font: var(--type-meta);
+  color: var(--text-muted);
+  line-height: 1.45; /* the mock's own note leading */
+}
+
+.ovl-keyfp {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-2) + var(--space-1) / 2);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-1);
+  border-bottom: 1px solid var(--border-1);
+}
+
+.ovl-keyfp__body {
+  flex: 1;
+}
+
+.ovl-keyfp__label {
+  color: var(--text-faint);
+}
+
+.ovl-keyfp__value {
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+.ovl-key__meter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.ovl-key__meterbars {
+  flex: 1;
+  display: flex;
+  gap: 3px; /* the mock's own segment gap */
+}
+
+.ovl-key__meterbar {
+  flex: 1;
+  height: 4px; /* the mock's own meter height */
+  border-radius: var(--radius-full);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-key__meterlabel {
+  font: var(--type-meta);
+  min-width: 74px; /* the mock's own label column */
+  text-align: right;
+}
+
+.ovl-key__mismatch {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.5);
+  margin-top: var(--space-2);
+  color: var(--accent-red);
+  font: var(--type-meta);
+}
+
+.ovl-key__filecard {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-2) + var(--space-1) / 2);
+  background: var(--gray-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  padding: calc(var(--space-2) + var(--space-1) / 2) var(--space-3);
+}
+
+.ovl-key__filebody {
+  flex: 1;
+  min-width: 0;
+}
+
+.ovl-key__filename {
+  font-size: var(--text-md);
+  color: var(--text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ovl-key__filemeta {
+  color: var(--text-faint);
+  margin-top: 2px; /* the mock's own meta offset */
+}
+
+.ovl-key__clear {
+  display: flex;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-faint);
+}
+
+.ovl-key__dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.5);
+  width: 100%;
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-2);
+  background: none;
+  padding: var(--space-6) var(--space-3);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-key__dropzone:hover {
+  border-color: var(--accent-cyan);
+  background: var(--gray-2);
+}
+
+.ovl-key__droptitle {
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+.ovl-key__drophint {
+  color: var(--text-faint);
+}
+
+/* Settings → Privacy recovery row (#240). */
+.ovl-settings__keyrow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-1);
+}
+
+.ovl-settings__keytitle {
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+.ovl-settings__keyhint {
+  font: var(--type-meta);
+  color: var(--text-faint);
+  margin-top: 2px; /* the mock's own hint offset */
+}
+
+.ovl-settings__keyfp {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.75);
+  margin-top: calc(var(--space-1) * 1.5);
+  color: var(--text-muted);
+}
+
+.ovl-settings__keyactions {
+  flex: none;
+  display: flex;
+  gap: var(--space-2);
+}
