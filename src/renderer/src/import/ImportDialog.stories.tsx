@@ -2,10 +2,27 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { ImportDialog } from './ImportDialog';
+import { defaultSettings, mergeSettings, type AppSettings } from '../../../shared/settings/settings.js';
+import type { OverlookApi } from '../../../shared/ipc/api.js';
 
 // #88 exit criteria: pixel/copy match to the mock (counts, warnings
 // verbatim) + interaction coverage for the Move warning. Phase transitions
 // past "options" need the real engine and land with #90's fixture E2E.
+// The decorator stubs window.overlook.settings — the dialog shares its
+// "On import" mode with the settings store (#114).
+
+function installStub(): void {
+  let current: AppSettings = { ...defaultSettings };
+  const settingsApi: OverlookApi['settings'] = {
+    get: () => Promise.resolve({ settings: current }),
+    set: ({ patch }) => {
+      current = mergeSettings(current, patch);
+      return Promise.resolve({ settings: current });
+    },
+    onChanged: () => () => undefined,
+  };
+  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { settings: settingsApi };
+}
 
 const SOURCE = {
   path: '/Volumes/SONY128',
@@ -20,6 +37,12 @@ const meta: Meta<typeof ImportDialog> = {
   title: 'App/ImportDialog',
   component: ImportDialog,
   args: { open: true, source: SOURCE, onClose: fn(), onDone: fn() },
+  decorators: [
+    (Story) => {
+      installStub();
+      return <Story />;
+    },
+  ],
 };
 
 export default meta;
