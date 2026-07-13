@@ -8,6 +8,11 @@ import { ProgressBar } from '../components/ProgressBar';
 import { Tooltip } from '../components/Tooltip';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 
+// The shell stylesheet carries the sidebar/rail rules; importing it here
+// (not just in Shell) keeps the component styled when mounted alone, e.g.
+// by its stories (PR #245).
+import './shell.css';
+
 const SOURCES: readonly { key: SourceFilter; icon: IconName; label: string }[] = [
   { key: 'all', icon: 'images', label: 'All Photos' },
   { key: 'favorites', icon: 'star', label: 'Favorites' },
