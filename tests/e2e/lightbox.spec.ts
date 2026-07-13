@@ -44,11 +44,17 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
     await page.keyboard.press('ArrowRight');
     await expect(lightbox).toContainText('IMG_4021.RAF');
 
-    // i toggles the Inspector while the lightbox stays up.
+    // i toggles the Inspector while the lightbox stays up — and the panel
+    // shows the REAL record (#94): seeded camera, dimensions, key metadata.
     await page.keyboard.press('i');
-    await expect(page.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
+    const inspector = page.getByRole('complementary', { name: 'Inspector' });
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText('RAW');
+    await expect(inspector).toContainText('FUJIFILM X-T5');
+    await expect(inspector).toContainText('6240×4160 · 26.0 MP');
+    await expect(inspector).toContainText('AES-256-GCM · KEY #1');
     await page.keyboard.press('i');
-    await expect(page.getByRole('complementary', { name: 'Inspector' })).toBeHidden();
+    await expect(inspector).toBeHidden();
 
     // Esc closes the lightbox FIRST (dual semantics live in the reducer).
     await page.keyboard.press('Escape');

@@ -86,7 +86,12 @@ export function Lightbox({
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
 
   return (
-    <div className="ovl-lightbox" data-testid="lightbox" data-chrome={chrome ? 'on' : 'off'} onMouseMove={wake}>
+    <div
+      className={`ovl-lightbox${inspectorOpen ? ' ovl-lightbox--docked' : ''}`}
+      data-testid="lightbox"
+      data-chrome={chrome ? 'on' : 'off'}
+      onMouseMove={wake}
+    >
       <img
         className="ovl-lightbox__img"
         src={fullUrl(photo.id)}

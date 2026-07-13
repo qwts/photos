@@ -9,6 +9,7 @@ import { Toast } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ImportDialog, type ImportDialogSource } from '../import/ImportDialog';
+import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
@@ -183,9 +184,14 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
         </main>
         {state.inspectorOpen ? (
           <aside className="ovl-shell__inspector" aria-label="Inspector">
-            <span className="mono-data" style={{ color: 'var(--text-faint)' }}>
-              Inspector — M06
-            </span>
+            <Inspector
+              photo={
+                // The focused photo (#94): the lightbox photo wins; else a
+                // single grid selection; else the empty hint.
+                state.photos.find((photo) => photo.id === state.lightboxId) ??
+                (state.selection.size === 1 ? (state.photos.find((photo) => state.selection.has(photo.id)) ?? null) : null)
+              }
+            />
           </aside>
         ) : null}
       </div>

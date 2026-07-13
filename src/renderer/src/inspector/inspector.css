@@ -1,0 +1,70 @@
+/* Inspector (#94) — design Inspector.jsx.txt, tokens only. The dock itself
+ * (width, border, background) belongs to the shell's aside. */
+
+.ovl-inspector {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  height: 100%;
+}
+
+.ovl-inspector--empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font: var(--type-meta);
+}
+
+.ovl-inspector__header {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-2) + var(--space-1) / 2);
+  padding: var(--space-3) calc(var(--space-3) + var(--space-1) / 2);
+  border-bottom: 1px solid var(--border-1);
+}
+
+.ovl-inspector__thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-tile);
+}
+
+.ovl-inspector__headText {
+  flex: 1;
+  min-width: 0;
+}
+
+.ovl-inspector__name {
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-inspector__date {
+  font: var(--type-meta);
+  color: var(--text-faint);
+  margin-top: calc(var(--space-1) / 2);
+}
+
+.ovl-inspector__section {
+  padding: calc(var(--space-2) + var(--space-1) / 2) calc(var(--space-3) + var(--space-1) / 2);
+  border-bottom: 1px solid var(--border-1);
+}
+
+.ovl-inspector__sectionTitle {
+  font: var(--type-meta);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: calc(var(--space-1) * 1.5);
+}
+
+.ovl-inspector__badges {
+  display: flex;
+  gap: calc(var(--space-1) * 1.5);
+  flex-wrap: wrap;
+}
