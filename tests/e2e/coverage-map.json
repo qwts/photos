@@ -124,8 +124,8 @@
           "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
         },
         {
-          "type": "deferred",
-          "issue": 96
+          "type": "playwright-e2e",
+          "path": "tests/e2e/lightbox.spec.ts"
         }
       ]
     },
