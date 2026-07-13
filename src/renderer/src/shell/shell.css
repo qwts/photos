@@ -187,10 +187,13 @@
 
 .ovl-shell__inspector {
   flex: none;
+  /* border-box + no outer padding: the rail's OUTER width is exactly
+   * --inspector-w, so the docked lightbox (right: --inspector-w) never
+   * overlaps it (PR #190 review). The #94 panel pads its own sections. */
+  box-sizing: border-box;
   width: var(--inspector-w);
   border-left: 1px solid var(--border-1);
   background: var(--surface-panel);
-  padding: var(--space-5);
   overflow: auto;
 }
 
