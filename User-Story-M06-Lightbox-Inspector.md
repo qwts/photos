@@ -20,7 +20,13 @@ Lane A. Full-window single-photo viewing with decrypt-to-view delivery (memory-o
 | Flow | Status | Coverage |
 | --- | --- | --- |
 | Full-res delivery: memory-only decrypt over `overlook-full://`, `no-store` (no disk-cache plaintext), RAW preview-marked (`X-Overlook-Preview: 1`), bounded LRU budget, `?prefetch=1` neighbor warm, rapid-paging cancellation | ✅ #91 (PR #179) | `tests/e2e/fullres.spec.ts` (incl. whole-profile plaintext scan) + `tests/fullres/full-service.test.ts` — ledger id `m06-full-res-delivery` |
-| Lightbox / keyboard / inspector / mutations flows | ⏳ deferred to #96 | ledger id `m04-lightbox-open` (deferred, issue #96) |
+| Lightbox open + auto-hiding chrome (2.2s, wake on move/photo change) | ✅ #92 (PR #187) | `Lightbox.stories.tsx` play tests + `tests/e2e/lightbox.spec.ts` — ledger id `m04-lightbox-open` |
+| Keyboard: ←/→ wraparound, Esc dual semantics, i for inspector | ✅ #93 (PR #188) | `tests/e2e/lightbox.spec.ts` + reducer tests — ledger id `m06-lightbox-keyboard` |
+| Inspector truth panel (real EXIF/key metadata, never-fabricate) | ✅ #94 (PR #190) | `Inspector.stories.tsx` + e2e — ledger id `m06-inspector` |
+| Mutations: favorite → tile star + pendingCount + StatusBar, no reload | ✅ #95 (PR #191) | e2e — ledger id `m06-lightbox-mutations` |
+| Viewing-journey acceptance (selection through Esc, autohide in CI) | ✅ #96 (PR #192) | `tests/e2e/lightbox.spec.ts` |
+
+Notable: the #96 acceptance E2E caught a real bug — Chromium's synthetic mousemove on our own pointer-events flip kept re-waking the chrome; stationary events are now ignored (patch changeset).
 
 ## Definition of done
 
