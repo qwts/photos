@@ -26,6 +26,8 @@ export interface LightboxProps {
   readonly onToggleInspector: () => void;
   /** Export dialog arrives with M07 (count=1); stub until then. */
   readonly onExport: () => void;
+  /** Rehydrate failed — the host shows the red toast (#107). */
+  readonly onRehydrateError?: (() => void) | undefined;
 }
 
 /** The bottom strip's EXIF line — only what the file actually states. */
@@ -49,6 +51,7 @@ export function Lightbox({
   inspectorOpen,
   onToggleInspector,
   onExport,
+  onRehydrateError,
 }: LightboxProps): ReactElement {
   const [chrome, setChrome] = useState(true);
   const [wokenFor, setWokenFor] = useState(photo.id);
@@ -95,6 +98,18 @@ export function Lightbox({
     };
   }, [armTimer, photo.id]);
 
+  // Rehydrate on touch (#107): an offloaded photo downloads back on open;
+  // failure surfaces as offloaded + red toast from the host — never a
+  // half-restored record. The changed push flips syncState and the img
+  // re-keys to retry the (previously 404) full-res URL.
+  const offloaded = photo.syncState === 'offloaded';
+  useEffect(() => {
+    if (!offloaded) {
+      return;
+    }
+    void window.overlook.backup.rehydrate({ photoId: photo.id }).catch(() => onRehydrateError?.());
+  }, [offloaded, photo.id, onRehydrateError]);
+
   const taken = photo.takenAt ?? photo.importedAt;
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
 
@@ -106,6 +121,7 @@ export function Lightbox({
       onMouseMove={wake}
     >
       <img
+        key={`${photo.id}-${photo.syncState}`}
         className="ovl-lightbox__img"
         src={fullUrl(photo.id)}
         alt={photo.fileName}

@@ -193,7 +193,13 @@ export class PhotosRepository {
       'SELECT count(*) AS n, sum(bytes) AS b FROM photos p WHERE p.deleted_at IS NULL',
     )[0];
     const lastBackupAt = queryAll<{ at: string | null }>(this.db, 'SELECT max(last_backup_at) AS at FROM sync_ledger')[0]?.at ?? null;
-    return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount(), lastBackupAt };
+    const offloadedBytes =
+      queryAll<{ b: number | null }>(
+        this.db,
+        `SELECT sum(p.bytes) AS b FROM photos p JOIN sync_ledger l ON l.photo_id = p.id
+          WHERE l.status = 'offloaded' AND p.deleted_at IS NULL`,
+      )[0]?.b ?? 0;
+    return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount(), lastBackupAt, offloadedBytes };
   }
 
   /** Dedupe primitive (#84): does this content already live in the library?
@@ -211,6 +217,15 @@ export class PhotosRepository {
        FROM albums a LEFT JOIN album_photos ap ON ap.album_id = a.id
        GROUP BY a.id ORDER BY a.position`,
     ).map((row) => ({ id: row.id, name: row.name, count: row.n }));
+  }
+
+  /** Shared-hash guard for offload (#107): live photos on this hash. */
+  countByContentHash(contentHash: string): number {
+    return (
+      queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM photos WHERE content_hash = @hash AND deleted_at IS NULL', {
+        hash: contentHash,
+      })[0]?.n ?? 0
+    );
   }
 
   /** Manifest rows (#105, ADR-0007): EVERY live photo — the remote must be

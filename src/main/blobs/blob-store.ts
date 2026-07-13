@@ -155,6 +155,40 @@ export class BlobStore {
     }
   }
 
+  hasOriginal(contentHash: string): boolean {
+    assertHash(contentHash);
+    return existsSync(this.originalPath(contentHash));
+  }
+
+  /** Rehydrate restore (#107): RAW ciphertext lands staged, links into the
+   * store (no-replace), and MUST verify (decrypt + re-hash against the
+   * content address) before it counts — a bad download never publishes. */
+  async restoreOriginal(contentHash: string, ciphertext: Readable, resolveKey: KeyResolver, photoId: string): Promise<void> {
+    assertHash(contentHash);
+    const stagePath = join(this.tmpDir, `restore-${randomBytes(8).toString('hex')}`);
+    try {
+      await pipeline(ciphertext, createWriteStream(stagePath, { flags: 'wx' }));
+      const finalPath = this.originalPath(contentHash);
+      await mkdir(dirname(finalPath), { recursive: true });
+      try {
+        await link(stagePath, finalPath);
+      } catch (error) {
+        if (!isErrno(error, 'EEXIST')) {
+          throw error;
+        }
+      }
+      await rm(stagePath, { force: true });
+      if (!(await this.verifyOriginal(contentHash, resolveKey, photoId))) {
+        await rm(finalPath, { force: true });
+        throw new BlobStoreError(`restored blob ${contentHash} failed verification`);
+      }
+      await fsyncDir(dirname(finalPath));
+    } catch (error) {
+      await rm(stagePath, { force: true });
+      throw error;
+    }
+  }
+
   /** RAW ciphertext stream for an original — backup uploads envelopes
    * as-is (ADR-0007 encrypt-once); never decrypts. */
   getEncryptedStream(contentHash: string): Readable {

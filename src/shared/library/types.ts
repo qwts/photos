@@ -87,4 +87,6 @@ export interface LibraryStats {
   readonly pending: number;
   /** Latest verified-backup stamp; null before the first backup (#104). */
   readonly lastBackupAt: string | null;
+  /** Bytes whose originals live only in the cloud (#107). */
+  readonly offloadedBytes: number;
 }
