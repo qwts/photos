@@ -84,7 +84,9 @@ export const AlbumPickerFlow: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: /Add to album/ }));
-    await waitFor(() => expect(canvas.getByRole('menuitem', { name: /Big Sur/ })).toBeVisible());
+    // Focus moves INTO the picker on open (PR #219 review) — keyboard users
+    // land on the first album row, not back on the trigger.
+    await waitFor(() => expect(canvas.getByRole('menuitem', { name: /Big Sur/ })).toHaveFocus());
     await userEvent.click(canvas.getByRole('menuitem', { name: /Big Sur/ }));
     await expect(args.onAddToAlbum).toHaveBeenCalledWith({ id: 'A1', name: 'Big Sur', count: 10 });
     await expect(canvas.queryByTestId('album-picker')).toBeNull();
