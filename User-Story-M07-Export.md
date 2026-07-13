@@ -14,6 +14,18 @@ Lane B. The counterpart to encrypted storage: exporting writes real, openable fi
 | [#100](https://github.com/qwts/photos/issues/100) | Export entry points: selection action pill + lightbox | #99, #78, #92 |
 | [#101](https://github.com/qwts/photos/issues/101) | E2E: select → export → decrypted files on disk | #100 |
 
+## Acceptance coverage
+
+| Flow | Status | Coverage |
+| --- | --- | --- |
+| Export engine: stream-decrypt to destination, collision suffixes, statfs preflight, partial cleanup, serialized runs, cancel-keeps-completed | ✅ #97 (PR #194) | `tests/export/export-engine.test.ts` (real store, byte-identical) |
+| JPEG transcode (q90, EXIF stripped per ADR-0006, all RAW kinds via preview policy) | ✅ #98 (PR #195) | `tests/export/export-engine.test.ts` |
+| ExportDialog (decrypt-off ⇒ disabled + warning, phases on engine events, cancelled-aware done copy) | ✅ #99 (PR #197) | `ExportDialog.stories.tsx` play tests + `tests/e2e/export-flow.spec.ts` — ledger id `m07-export-dialog` |
+| Entry points: pill + lightbox with exact counts, selection preserved | ✅ #100 (PR #198) | `tests/e2e/export-entry.spec.ts` — ledger id `m07-export-entry-points` |
+| Acceptance: select→export→files on disk (sha256-vs-contentHash byte fidelity) + full-circle RAF import → JPEG export | ✅ #101 (PR #199) | `tests/e2e/export-flow.spec.ts` |
+
+Recorded decisions: v1 ships no encrypted-export format (decrypt-off just disables Export); transcode quality 90; EXIF/GPS stripped on transcode — metadata travels only with Original exports.
+
 ## Definition of done
 
 See the epic issue [#42](https://github.com/qwts/photos/issues/42) — the epic body is canonical; this page is the planning index entry.
