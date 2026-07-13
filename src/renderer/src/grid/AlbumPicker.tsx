@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import './pill.css';
 import { formatCount } from '../../../shared/library/format.js';
@@ -36,8 +36,25 @@ export function AlbumPicker({ onPick, onClose }: AlbumPickerProps): ReactElement
     };
   }, [onClose]);
 
+  // Keyboard flow (PR #219 review): the popover renders BEFORE its trigger
+  // in DOM order, so focus must move INTO it on open — the first album row
+  // when any exist, else the create input. Once only: the albums load is
+  // async, and refocusing on later renders would steal the caret.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const focusedOnce = useRef(false);
+  useEffect(() => {
+    if (focusedOnce.current) {
+      return;
+    }
+    const first = rootRef.current?.querySelector<HTMLElement>('[role="menuitem"], input');
+    if (first !== null && first !== undefined) {
+      focusedOnce.current = true;
+      first.focus();
+    }
+  }, [albums]);
+
   return (
-    <div className="ovl-albumpicker" data-testid="album-picker" role="menu" aria-label="Add to album">
+    <div ref={rootRef} className="ovl-albumpicker" data-testid="album-picker" role="menu" aria-label="Add to album">
       {albums.map((album) => (
         <button
           key={album.id}
