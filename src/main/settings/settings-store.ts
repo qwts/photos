@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { defaultSettings, recoverSettings, type AppSettings, type SettingsPatch } from '../../shared/settings/settings.js';
+import { defaultSettings, mergeSettings, recoverSettings, type AppSettings, type SettingsPatch } from '../../shared/settings/settings.js';
 
 // Settings persistence (#111): JSON in userData, written atomically
 // (tmp + rename — a crash mid-write never truncates the live file). Load
@@ -28,7 +28,7 @@ export class SettingsStore {
   }
 
   set(patch: SettingsPatch): AppSettings {
-    this.settings = merge(this.settings, patch);
+    this.settings = mergeSettings(this.settings, patch);
     this.persist();
     for (const listener of this.listeners) {
       listener(this.settings);
@@ -61,21 +61,4 @@ export class SettingsStore {
     writeFileSync(staging, `${JSON.stringify(this.settings, null, 2)}\n`, 'utf8');
     renameSync(staging, this.filePath);
   }
-}
-
-// Explicit per-key merge: `undefined` in a patch means "unchanged", while
-// providerId's real `null` (disconnected) must win — so no spread, no ??
-// on the nullable key.
-function merge(current: AppSettings, patch: SettingsPatch): AppSettings {
-  return {
-    sortOrder: patch.sortOrder ?? current.sortOrder,
-    appearance: patch.appearance ?? current.appearance,
-    thumbnailsOnImport: true,
-    autoBackupOnImport: patch.autoBackupOnImport ?? current.autoBackupOnImport,
-    importMode: patch.importMode ?? current.importMode,
-    wifiOnly: patch.wifiOnly ?? current.wifiOnly,
-    bandwidthLimit: patch.bandwidthLimit ?? current.bandwidthLimit,
-    shareDiagnostics: patch.shareDiagnostics ?? current.shareDiagnostics,
-    providerId: patch.providerId !== undefined ? patch.providerId : current.providerId,
-  };
 }

@@ -11,6 +11,9 @@ export interface SegmentedOption<T extends string> {
   readonly icon?: IconName;
   /** Icon-only rendering; the label becomes the Tooltip + accessible name. */
   readonly iconOnly?: boolean;
+  /** Unavailable option (#113's locked-control pattern): rendered but not
+   * selectable — the button disables and arrow keys skip it. */
+  readonly disabled?: boolean;
 }
 
 export interface SegmentedProps<T extends string> {
@@ -32,8 +35,9 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
   const normalized = options.map(normalize);
 
   const moveSelection = (delta: number): void => {
-    const index = normalized.findIndex((option) => option.value === value);
-    const next = normalized[(index + delta + normalized.length) % normalized.length];
+    const enabled = normalized.filter((option) => option.disabled !== true);
+    const index = enabled.findIndex((option) => option.value === value);
+    const next = enabled[(index + delta + enabled.length) % enabled.length];
     if (next !== undefined) {
       onChange(next.value);
       groupRef.current?.querySelector<HTMLButtonElement>(`[data-value="${next.value}"]`)?.focus();
@@ -67,6 +71,7 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
             aria-checked={on}
             aria-label={option.label}
             data-value={option.value}
+            disabled={option.disabled}
             tabIndex={on ? 0 : -1}
             className={[
               'ovl-segmented__option',

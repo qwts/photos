@@ -41,9 +41,14 @@ export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'syncStat
 /** The sidebar's library sources (design §Sidebar). */
 export type SourceFilter = 'all' | 'favorites' | 'recent' | 'offloaded' | 'deleted';
 
+/** The grid's sort orders (#113): date newest-first, name A→Z, size
+ * largest-first (decisions recorded on the PR). */
+export type SortOrder = 'date' | 'name' | 'size';
+
 export interface PageCursor {
-  /** COALESCE(taken_at, imported_at) of the last row of the previous page. */
-  readonly sortKey: string;
+  /** The active ordering's sort expression at the last row of the previous
+   * page — an ISO string (date), lowercased name, or byte count (size). */
+  readonly sortKey: string | number;
   readonly id: string;
 }
 
@@ -64,6 +69,8 @@ export interface PageRequest {
   /** Case-insensitive substring over name/place/camera (mock semantics). */
   readonly query?: string | undefined;
   readonly chips?: ChipFilters | undefined;
+  /** Defaults to 'date' (newest first). */
+  readonly order?: SortOrder | undefined;
 }
 
 export interface PageResult {

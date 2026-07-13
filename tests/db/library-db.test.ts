@@ -162,7 +162,7 @@ describe('PhotosRepository', () => {
       repo.insert(samplePhoto());
     }
     const seen: string[] = [];
-    let cursor: { sortKey: string; id: string } | undefined;
+    let cursor: { sortKey: string | number; id: string } | undefined;
     for (;;) {
       const page = repo.page({ source: 'all', limit: 7, ...(cursor ? { cursor } : {}) });
       seen.push(...page.photos.map((photo) => photo.id));
@@ -188,6 +188,47 @@ describe('PhotosRepository', () => {
     repo.insert(samplePhoto({ takenAt: '2026-01-01T00:00:00.000Z' }));
     const page = repo.page({ source: 'all', limit: 10 });
     assert.equal(page.photos[0]?.takenAt, null);
+    db.close();
+  });
+
+  test('name order (#113): A→Z, keyset pages cleanly across the ASC cursor', () => {
+    const { db, repo } = openSeeded();
+    const names = ['delta.jpg', 'alpha.jpg', 'Charlie.jpg', 'bravo.jpg', 'echo.jpg'];
+    for (const fileName of names) {
+      repo.insert(samplePhoto({ fileName }));
+    }
+    const seen: string[] = [];
+    let cursor: { sortKey: string | number; id: string } | undefined;
+    for (;;) {
+      const page = repo.page({ source: 'all', limit: 2, order: 'name', ...(cursor ? { cursor } : {}) });
+      seen.push(...page.photos.map((photo) => photo.fileName));
+      if (page.nextCursor === null) {
+        break;
+      }
+      cursor = page.nextCursor;
+    }
+    // Case-insensitive ascending — 'Charlie' sorts between bravo and delta.
+    assert.deepEqual(seen, ['alpha.jpg', 'bravo.jpg', 'Charlie.jpg', 'delta.jpg', 'echo.jpg']);
+    db.close();
+  });
+
+  test('size order (#113): largest first, numeric keyset cursor', () => {
+    const { db, repo } = openSeeded();
+    for (const bytes of [100, 9_000_000, 5_000]) {
+      repo.insert(samplePhoto({ bytes }));
+    }
+    const first = repo.page({ source: 'all', limit: 2, order: 'size' });
+    assert.deepEqual(
+      first.photos.map((photo) => photo.bytes),
+      [9_000_000, 5_000],
+    );
+    // The numeric cursor pages correctly (no string comparison of digits).
+    assert.notEqual(first.nextCursor, null);
+    const rest = repo.page({ source: 'all', limit: 2, order: 'size', cursor: first.nextCursor ?? undefined });
+    assert.deepEqual(
+      rest.photos.map((photo) => photo.bytes),
+      [100],
+    );
     db.close();
   });
 

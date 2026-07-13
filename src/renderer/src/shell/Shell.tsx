@@ -69,6 +69,18 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     };
   }, [dispatch]);
 
+  // Settings truth (#113): seed the reducer's sortOrder from the store and
+  // follow changed pushes — a sort change in the dialog re-orders the grid
+  // live via the query hook's refetch.
+  useEffect(() => {
+    void window.overlook.settings.get().then(({ settings }) => {
+      dispatch({ type: 'sortOrder/set', order: settings.sortOrder });
+    });
+    return window.overlook.settings.onChanged(({ settings }) => {
+      dispatch({ type: 'sortOrder/set', order: settings.sortOrder });
+    });
+  }, [dispatch]);
+
   // Backup completion (#106): failures surface as the red toast with a
   // Retry action; the pending/count refresh rides the existing pushes.
   useEffect(() => {

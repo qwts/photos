@@ -30,7 +30,7 @@ function defineEvent<TPayload extends z.ZodType>(name: string, payload: TPayload
   return { name, payload };
 }
 
-const pageCursorSchema = z.object({ sortKey: z.string(), id: z.string() });
+const pageCursorSchema = z.object({ sortKey: z.union([z.string(), z.number()]), id: z.string() });
 
 const chipFiltersSchema = z.object({
   favorites: z.boolean().optional(),
@@ -102,6 +102,7 @@ export const channels = {
       recentSince: z.string().optional(),
       query: z.string().optional(),
       chips: chipFiltersSchema.optional(),
+      order: z.enum(['date', 'name', 'size']).optional(),
     }),
     z.object({ photos: z.array(photoRecordSchema).readonly(), nextCursor: pageCursorSchema.nullable() }),
   ),

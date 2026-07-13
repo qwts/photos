@@ -47,10 +47,25 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     const dialog = page.getByTestId('settings-dialog');
     await expect(dialog).toBeVisible();
     await expect(page.getByRole('button', { name: 'Storage & Backup' })).toHaveAttribute('aria-current', 'true');
+
+    // #113: sort change re-orders the grid LIVE. Seed rows share one byte
+    // size, so 'size' falls to its id-DESC tiebreak — the first tile flips
+    // from the newest-by-date (IMG_4021.RAF) to the highest id (IMG_4028).
     await page.getByRole('button', { name: 'General' }).click();
-    await expect(page.getByTestId('settings-pane')).toContainText('General settings land here next.');
+    await expect(page.locator('.ovl-tile__img').first()).toHaveAttribute('alt', 'IMG_4021.RAF');
+    await page.getByRole('radio', { name: 'Size' }).click();
+    await expect(page.locator('.ovl-tile__img').first()).toHaveAttribute('alt', 'IMG_4028.JPG');
+    // The locked controls render per the pattern: Light disabled, thumbs on.
+    await expect(page.getByRole('radio', { name: 'Light' })).toBeDisabled();
+    await expect(page.getByRole('switch')).toBeDisabled();
+
     await page.keyboard.press('Escape');
     await expect(dialog).not.toBeVisible();
+
+    // The order persists in the store (restart persistence is unit-proven;
+    // the full app-restart e2e is #116).
+    const persisted = await page.evaluate<{ settings: { sortOrder: string } }>(`window.overlook.settings.get()`);
+    expect(persisted.settings.sortOrder).toBe('size');
   } finally {
     await app.close();
   }
