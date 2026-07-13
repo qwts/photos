@@ -29,6 +29,23 @@ export class ProviderError extends Error {
   }
 }
 
+/** Remote paths are OUR vocabulary: forward-slash relative segments only.
+ * Backslashes and drive letters would re-split under Windows node:path
+ * (PR #200 review), so they are rejected outright, as are traversal and
+ * empty segments. Every adapter validates through this one gate (#255). */
+export function assertSafeRemotePath(path: string): void {
+  const segments = path.split('/');
+  if (
+    path === '' ||
+    path.startsWith('/') ||
+    path.includes('\\') ||
+    path.includes(':') ||
+    segments.some((segment) => segment === '' || segment === '..')
+  ) {
+    throw new ProviderError(`unsafe remote path: ${path}`, 'corrupt');
+  }
+}
+
 export interface StorageProvider {
   /** Stable id ('mock', 'pcloud') — the registry + settings key. */
   readonly id: string;

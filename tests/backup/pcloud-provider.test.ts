@@ -1,0 +1,191 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
+
+import { PCloudProvider } from '../../src/main/backup/pcloud/pcloud-provider.js';
+import { ProviderError } from '../../src/main/backup/provider.js';
+import type { PCloudAuthRecord } from '../../src/main/backup/pcloud/token-store.js';
+
+// #255 exit criteria: every StorageProvider method and every error-mapping
+// class proven against a scripted pCloud API — no network.
+
+const RECORD: PCloudAuthRecord = { accessToken: 'tok-1', apiHost: 'api.pcloud.com', connectedAt: '2026-07-13T00:00:00.000Z' };
+
+interface ApiCall {
+  readonly method: string;
+  readonly params: Map<string, string>;
+}
+
+type Script = Record<string, (params: Map<string, string>) => unknown>;
+
+/** A fetch stub speaking pCloud's envelope: routes API methods through the
+ * script, serves download hosts from `downloads`. */
+function world(script: Script, downloads: Record<string, string | number> = {}) {
+  const calls: ApiCall[] = [];
+  const route = (input: string | URL | Request, init?: RequestInit): Response => {
+    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url);
+    if (url.hostname.startsWith('dl.')) {
+      const body = downloads[url.pathname];
+      if (body === undefined) {
+        return new Response(null, { status: 404 });
+      }
+      return typeof body === 'number' ? new Response(null, { status: body }) : new Response(body);
+    }
+    const method = url.pathname.slice(1);
+    const params = new Map<string, string>();
+    const body = init?.body;
+    if (body instanceof URLSearchParams || body instanceof FormData) {
+      for (const [key, value] of body.entries()) {
+        if (typeof value === 'string') {
+          params.set(key, value);
+        }
+      }
+    }
+    calls.push({ method, params });
+    const handler = script[method];
+    if (handler === undefined) {
+      throw new Error(`unscripted pCloud method: ${method}`);
+    }
+    const result = handler(params);
+    return result instanceof Response ? result : new Response(JSON.stringify(result));
+  };
+  const fetchImpl = ((input: string | URL | Request, init?: RequestInit) => Promise.resolve(route(input, init))) as typeof fetch;
+  const provider = new PCloudProvider({ auth: () => RECORD, libraryId: 'lib1', fetchImpl });
+  return { provider, calls };
+}
+
+const ok = (extra: Record<string, unknown> = {}) => ({ result: 0, ...extra });
+
+describe('pCloud provider adapter (#255)', () => {
+  test('EXIT CRITERIA: put ensures ancestors once, uploads under /Overlook/<libraryId>/, reports recorded size', async () => {
+    const { provider, calls } = world({
+      createfolderifnotexists: () => ok(),
+      uploadfile: () => ok({ metadata: [{ name: 'h1', isfolder: false, size: 7 }] }),
+    });
+    assert.deepEqual(await provider.put('blobs/ab/h1', Readable.from([Buffer.from('payload')])), { bytes: 7 });
+
+    const folders = calls.filter((c) => c.method === 'createfolderifnotexists').map((c) => c.params.get('path'));
+    assert.deepEqual(folders, ['/Overlook', '/Overlook/lib1', '/Overlook/lib1/blobs', '/Overlook/lib1/blobs/ab']);
+    const upload = calls.find((c) => c.method === 'uploadfile');
+    assert.equal(upload?.params.get('path'), '/Overlook/lib1/blobs/ab');
+    assert.equal(upload?.params.get('filename'), 'h1');
+    assert.equal(upload?.params.get('access_token'), 'tok-1');
+    assert.equal(upload?.params.get('nopartial'), '1');
+
+    // Second put in the same fan-out folder: the ancestor cache pays zero
+    // extra createfolder round-trips.
+    await provider.put('blobs/ab/h2', Readable.from([Buffer.from('x')]));
+    assert.equal(calls.filter((c) => c.method === 'createfolderifnotexists').length, 4);
+  });
+
+  test('unsafe remote paths are rejected outright, before any network', async () => {
+    const { provider, calls } = world({});
+    for (const bad of ['/abs', 'a/../b', '', 'a//b', 'a\\..\\outside', 'C:/evil']) {
+      await assert.rejects(
+        provider.put(bad, Readable.from([Buffer.from('x')])),
+        (error: unknown) => error instanceof ProviderError && error.kind === 'corrupt',
+      );
+    }
+    assert.equal(calls.length, 0);
+  });
+
+  test('without custody every data call is kind=auth and authState says not-connected', async () => {
+    const provider = new PCloudProvider({ auth: () => null, libraryId: 'lib1', fetchImpl: fetch });
+    assert.equal(await provider.authState(), 'not-connected');
+    await assert.rejects(provider.quota(), (error: unknown) => error instanceof ProviderError && error.kind === 'auth');
+  });
+
+  test('error mapping: token codes → auth, 2008 → quota, 2009 → not-found, network/HTTP-5xx → transient', async () => {
+    const kinds = async (script: Script, run: (p: PCloudProvider) => Promise<unknown>) => {
+      const { provider } = world(script);
+      try {
+        await run(provider);
+        return null;
+      } catch (error) {
+        return error instanceof ProviderError ? error.kind : 'not-provider-error';
+      }
+    };
+    assert.equal(await kinds({ userinfo: () => ({ result: 2094, error: 'Invalid access_token provided.' }) }, (p) => p.quota()), 'auth');
+    assert.equal(
+      await kinds({ createfolderifnotexists: () => ok(), uploadfile: () => ({ result: 2008, error: 'over quota' }) }, (p) =>
+        p.put('blobs/ab/h1', Readable.from([Buffer.from('x')])),
+      ),
+      'quota',
+    );
+    assert.equal(
+      await kinds({ getfilelink: () => ({ result: 2009, error: 'File not found.' }) }, (p) => p.getStream('blobs/ab/h1')),
+      'not-found',
+    );
+    assert.equal(
+      await kinds(
+        {
+          userinfo: () => {
+            throw new Error('socket hang up');
+          },
+        },
+        (p) => p.quota(),
+      ),
+      'transient',
+    );
+    assert.equal(await kinds({ userinfo: () => new Response(null, { status: 503 }) }, (p) => p.quota()), 'transient');
+  });
+
+  test('getStream: follows the download host and streams the bytes', async () => {
+    const { provider } = world({ getfilelink: () => ok({ hosts: ['dl.pcloud.com'], path: '/x/h1.bin' }) }, { '/x/h1.bin': 'DATA' });
+    assert.deepEqual(await buffer(await provider.getStream('blobs/ab/h1')), Buffer.from('DATA'));
+  });
+
+  test('list: flattens the recursive tree into provider-relative entries; missing prefix lists empty', async () => {
+    const tree = {
+      metadata: {
+        name: 'blobs',
+        isfolder: true,
+        contents: [
+          { name: 'ab', isfolder: true, contents: [{ name: 'h1', isfolder: false, size: 3 }] },
+          { name: 'manifest.bin', isfolder: false, size: 5 },
+        ],
+      },
+    };
+    const { provider, calls } = world({ listfolder: () => ok(tree) });
+    assert.deepEqual(await provider.list('blobs'), [
+      { path: 'blobs/ab/h1', bytes: 3 },
+      { path: 'blobs/manifest.bin', bytes: 5 },
+    ]);
+    assert.equal(calls[0]?.params.get('recursive'), '1');
+
+    const empty = world({ listfolder: () => ({ result: 2005, error: 'Directory does not exist.' }) });
+    assert.deepEqual(await empty.provider.list('blobs'), []);
+  });
+
+  test('delete: idempotent — deleting a missing entry resolves like the mock', async () => {
+    const { provider } = world({ deletefile: () => ({ result: 2009, error: 'File not found.' }) });
+    await provider.delete('blobs/ab/gone');
+  });
+
+  test('quota maps userinfo fields', async () => {
+    const { provider } = world({ userinfo: () => ok({ usedquota: 380, quota: 500 }) });
+    assert.deepEqual(await provider.quota(), { usedBytes: 380, totalBytes: 500 });
+  });
+
+  test('verify: uses the API sha256 when the region provides it', async () => {
+    const { provider } = world({ checksumfile: () => ok({ sha256: 'abc123', metadata: { name: 'h1', isfolder: false, size: 9 } }) });
+    assert.deepEqual(await provider.verify('blobs/ab/h1'), { sha256: 'abc123', bytes: 9 });
+  });
+
+  test('verify: US region (no sha256) falls back to download-and-hash — never skips', async () => {
+    const { provider } = world(
+      {
+        checksumfile: () => ok({ sha1: 'ignored', metadata: { name: 'h1', isfolder: false, size: 4 } }),
+        getfilelink: () => ok({ hosts: ['dl.pcloud.com'], path: '/x/h1.bin' }),
+      },
+      { '/x/h1.bin': 'DATA' },
+    );
+    assert.deepEqual(await provider.verify('blobs/ab/h1'), {
+      sha256: createHash('sha256').update('DATA').digest('hex'),
+      bytes: 4,
+    });
+  });
+});
