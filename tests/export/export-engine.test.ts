@@ -19,11 +19,17 @@ import type { PhotoRecord } from '../../src/shared/library/types.js';
 // encrypted store → byte-identical files on disk, ordered progress,
 // cancellation keeping completed files only.
 
-function fullRow(id: string, fileName: string, contentHash: string, bytes: number): PhotoRecord {
+function fullRow(
+  id: string,
+  fileName: string,
+  contentHash: string,
+  bytes: number,
+  fileKind: PhotoRecord['fileKind'] = 'jpeg',
+): PhotoRecord {
   return {
     id,
     fileName,
-    fileKind: 'jpeg',
+    fileKind,
     width: 1,
     height: 1,
     bytes,
@@ -198,7 +204,7 @@ describe('jpeg transcode export (#98)', () => {
     const raf = readFileSync(join(FIXTURES, 'sample.raf'));
     const id = 'RAFPHOTO';
     const ref = await world.store.putOriginal(Readable.from([raf]), world.key, id);
-    world.rows.set(id, fullRow(id, 'IMG_4021.RAF', ref.contentHash, raf.length));
+    world.rows.set(id, fullRow(id, 'IMG_4021.RAF', ref.contentHash, raf.length, 'raw'));
 
     const summary = await world.engine.exportPhotos([id], world.destination, undefined, 'jpeg');
     assert.deepEqual({ exported: summary.exported, previewTranscodes: summary.previewTranscodes }, { exported: 1, previewTranscodes: 1 });
@@ -222,6 +228,18 @@ describe('jpeg transcode export (#98)', () => {
     assert.ok(jpeg.includes(Buffer.from('FUJIFILM', 'ascii')), 'source carries the make');
     assert.equal(onDisk.includes(Buffer.from('FUJIFILM', 'ascii')), false, 'transcode must not');
     assert.equal(onDisk.includes(Buffer.from('Exif', 'ascii')), false);
+  });
+
+  test('a v1-unrenderable RAW (no RAF preview) fails honestly; batch continues (PR #195 review)', async () => {
+    const world = await seededWorld(1);
+    const junk = Buffer.from(Array.from({ length: 256 }, (_, index) => (index * 131 + 7) % 256)); // an "ARW" container
+    const id = 'ARWPHOTO';
+    const ref = await world.store.putOriginal(Readable.from([junk]), world.key, id);
+    world.rows.set(id, fullRow(id, 'IMG_9000.ARW', ref.contentHash, junk.length, 'raw'));
+
+    const summary = await world.engine.exportPhotos([...world.rows.keys()], world.destination, undefined, 'jpeg');
+    assert.deepEqual({ exported: summary.exported, failed: summary.failed }, { exported: 1, failed: 1 });
+    assert.equal(readdirSync(world.destination).length, 1, 'no partial or bogus file for the failed RAW');
   });
 
   test('original format still streams byte-identical (transcode path not entangled)', async () => {
