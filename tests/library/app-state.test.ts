@@ -113,6 +113,21 @@ describe('app state reducer', () => {
     assert.equal(state.toast, null);
   });
 
+  test('lightbox follows visibility: an id that leaves the photo set closes for real (#92)', () => {
+    const photo = (id: string) => ({ id }) as AppState['photos'][number];
+    let state = apply(
+      initialAppState,
+      { type: 'photos/loaded', photos: [photo('a'), photo('b')], append: false },
+      { type: 'lightbox/opened', photoId: 'a' },
+    );
+    // A refetch still containing the photo keeps the lightbox open...
+    state = apply(state, { type: 'photos/loaded', photos: [photo('a')], append: false });
+    assert.equal(state.lightboxId, 'a');
+    // ...but one without it clears the id — no spurious reopen later.
+    state = apply(state, { type: 'photos/loaded', photos: [photo('b')], append: false });
+    assert.equal(state.lightboxId, null);
+  });
+
   test('import-completion toast carries its serializable Show action (#89)', () => {
     const state = apply(initialAppState, {
       type: 'toast/shown',
