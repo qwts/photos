@@ -28,6 +28,7 @@ import { createEncryptStream } from './crypto/envelope.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
 import { transcodeToJpeg } from './export/transcode.js';
 import {
+  registerAlbumHandlers,
   registerBackupHandlers,
   registerExportHandlers,
   registerImportHandlers,
@@ -579,6 +580,7 @@ function createWindow(): void {
 void app.whenReady().then(async () => {
   registerIpcHandlers();
   registerLibraryHandlers(getLibraryService);
+  registerAlbumHandlers(getLibraryService, ulid);
   registerThumbProtocol(getThumbService);
   registerFullProtocol(getFullService);
   registerImportHandlers(getImportService, () => {

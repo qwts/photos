@@ -21,14 +21,14 @@ function chipsActive(chips: ChipFilters): boolean {
 // previous set is dropped instead of appended. `exhausted` tells the grid
 // the loaded count IS the filtered total (counts can't answer for filters).
 export function useLibraryPhotos(): { readonly loadMore: () => void; readonly exhausted: boolean } {
-  const { source, query, chips, sortOrder } = useAppState();
+  const { source, query, chips, sortOrder, album } = useAppState();
   const dispatch = useAppDispatch();
   const cursorRef = useRef<PageCursor | null>(null);
   const requestRef = useRef(0);
   const inFlightRef = useRef(false);
   // Exhaustion is keyed to the visible set: switching sets changes the key,
   // which resets `exhausted` derivationally (no setState-in-effect).
-  const setKey = `${source}|${query}|${JSON.stringify(chips)}|${sortOrder}`;
+  const setKey = `${source}|${query}|${JSON.stringify(chips)}|${sortOrder}|${album ?? ''}`;
   const [exhaustedKey, setExhaustedKey] = useState<string | null>(null);
   const exhausted = exhaustedKey === setKey;
 
@@ -40,8 +40,9 @@ export function useLibraryPhotos(): { readonly loadMore: () => void; readonly ex
       ...(query === '' ? {} : { query }),
       ...(chipsActive(chips) ? { chips } : {}),
       ...(sortOrder === 'date' ? {} : { order: sortOrder }),
+      ...(album === null ? {} : { albumId: album }),
     }),
-    [source, query, chips, sortOrder],
+    [source, query, chips, sortOrder, album],
   );
 
   const fetchFirstPage = useCallback(() => {

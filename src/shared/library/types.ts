@@ -71,6 +71,8 @@ export interface PageRequest {
   readonly chips?: ChipFilters | undefined;
   /** Defaults to 'date' (newest first). */
   readonly order?: SortOrder | undefined;
+  /** Restrict to one album's members (#117) — AND-combined with source. */
+  readonly albumId?: string | undefined;
 }
 
 export interface PageResult {

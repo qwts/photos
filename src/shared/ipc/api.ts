@@ -24,6 +24,13 @@ export interface OverlookApi {
     readonly onChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
     readonly onPendingCountChanged: (listener: (payload: { count: number }) => void) => () => void;
   };
+  readonly albums: {
+    readonly create: (request: Req<typeof channels.albumCreate>) => Promise<Res<typeof channels.albumCreate>>;
+    readonly rename: (request: Req<typeof channels.albumRename>) => Promise<Res<typeof channels.albumRename>>;
+    readonly delete: (request: Req<typeof channels.albumDelete>) => Promise<Res<typeof channels.albumDelete>>;
+    readonly addPhotos: (request: Req<typeof channels.albumAddPhotos>) => Promise<Res<typeof channels.albumAddPhotos>>;
+    readonly removePhotos: (request: Req<typeof channels.albumRemovePhotos>) => Promise<Res<typeof channels.albumRemovePhotos>>;
+  };
   readonly backup: {
     readonly run: (request: Req<typeof channels.backupRun>) => Promise<Res<typeof channels.backupRun>>;
     readonly onProgress: (listener: (payload: z.output<typeof events.backupProgress.payload>) => void) => () => void;
