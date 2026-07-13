@@ -146,7 +146,7 @@ numbers are indicative, the recorded baselines are the dev machine's.
 | --- | --- | --- |
 | Cold start → existing-library grid interactive | < 5,000 ms | 1,643 ms |
 | `library:page` (500) median over IPC | < 250 ms | 4 ms |
-| `library:counts` median over IPC | < 1,000 ms | 689 ms |
+| `library:counts` median over IPC | < 500 ms | 378 ms (#124: one FILTER-clause pass, was 689 ms) |
 | Search page median over IPC (place substring) | < 600 ms | 5 ms |
 | Scroll dropped-frame share (zooms 96/160/320) | < 0.30 each | 0.20 / 0.00 / 0.00 |
 | Scroll worst frame delta | < 500 ms | 68 ms |
@@ -154,9 +154,12 @@ numbers are indicative, the recorded baselines are the dev machine's.
 | Main-process RSS after the workout | < 1,500 MB | ~280 MB |
 | Renderer JS heap after the workout | < 512 MB | ~17 MB |
 
-Known findings handed to #124: zoom-96 scroll drops (~0.20 — image-decode
-churn at the densest tile size; target ratchet 0.10) and `counts()` at 689 ms
-(five count queries; the offloaded/localOnly ledger subqueries dominate).
+#124 outcomes: `counts()` rewritten as ONE FILTER-clause pass over the
+ledger join (689 → 378 ms; ratchet tightened to 500 ms). Zoom-96 scroll
+drops (~0.20, worst frame 68 ms) stay within the 0.30 budget; the obvious
+lever — letting Chromium disk-cache decoded thumbs — is REJECTED on privacy
+grounds (decrypted bytes never hit disk, ADR-0004), so further tightening
+waits for an in-memory decode pool (recorded).
 
 ### Coverage-map distribution (#126 sweep, 2026-07-13)
 
