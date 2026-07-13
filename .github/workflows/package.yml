@@ -1,7 +1,12 @@
-# Unsigned dev packaging on demand (#53). Deliberately NOT part of the PR
+# Packaging on demand (#53, #128). Deliberately NOT part of the PR
 # gate — packaging is the slow lane; run it manually when packaging risk
 # changes (Electron bumps, native modules, builder config). The Release
 # workflow reuses this matrix via workflow_call so it lives in one place.
+#
+# Signing is env-gated (#128): when the CSC_LINK secret exists, the mac leg
+# signs (Developer ID + hardened runtime) and notarizes (notarytool via the
+# APPLE_API_* secrets). Without secrets the build is unsigned, as before.
+# Windows signing waits on a certificate (#128).
 name: Package
 
 on:
@@ -39,8 +44,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Package (unsigned)
-        run: npm run package
+      - name: Package
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ] && [ -n "$CSC_LINK" ]; then
+            # electron-builder's notarytool integration wants APPLE_API_KEY as
+            # a path to the .p8; the secret holds its base64-encoded contents.
+            # Without the notarize secrets electron-builder still signs and
+            # skips notarization with a warning.
+            if [ -n "$APPLE_API_KEY_B64" ]; then
+              export APPLE_API_KEY="$RUNNER_TEMP/asc-api-key.p8"
+              printf '%s' "$APPLE_API_KEY_B64" | base64 -d > "$APPLE_API_KEY"
+            fi
+            npm run package:signed
+          else
+            npm run package
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
