@@ -66,6 +66,22 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     // the full app-restart e2e is #116).
     const persisted = await page.evaluate<{ settings: { sortOrder: string } }>(`window.overlook.settings.get()`);
     expect(persisted.settings.sortOrder).toBe('size');
+
+    // #114: Storage & Backup opens by default with the connected mock card;
+    // Disconnect flips the badge, disables every backup control, and
+    // persists providerId null; the mock reconnects instantly.
+    await page.getByRole('button', { name: 'Settings' }).click();
+    const card = page.getByTestId('provider-card');
+    await expect(card).toContainText('Connected');
+    await page.getByRole('button', { name: 'Disconnect' }).click();
+    await expect(card).toContainText('Not connected');
+    await expect(page.getByRole('radio', { name: 'Copy' })).toBeDisabled();
+    await expect(page.getByRole('switch').first()).toBeDisabled();
+    const provider = await page.evaluate<{ settings: { providerId: string | null } }>(`window.overlook.settings.get()`);
+    expect(provider.settings.providerId).toBe(null);
+    await page.getByRole('button', { name: 'Connect Mock provider' }).click();
+    await expect(card).toContainText('Connected');
+    await expect(page.getByRole('radio', { name: 'Copy' })).toBeEnabled();
   } finally {
     await app.close();
   }

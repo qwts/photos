@@ -22,6 +22,8 @@ export interface SegmentedProps<T extends string> {
   readonly onChange: (value: T) => void;
   /** Accessible name for the group (e.g. "View", "On import"). */
   readonly label: string;
+  /** Disables the whole group (#114's disconnected-controls pattern). */
+  readonly disabled?: boolean;
 }
 
 function normalize<T extends string>(option: T | SegmentedOption<T>): SegmentedOption<T> {
@@ -30,11 +32,14 @@ function normalize<T extends string>(option: T | SegmentedOption<T>): SegmentedO
 
 // components/forms/Segmented.jsx + keyboard operation per #60's exit
 // criteria: radiogroup semantics, arrow keys move the exclusive selection.
-export function Segmented<T extends string>({ options, value, onChange, label }: SegmentedProps<T>): ReactElement {
+export function Segmented<T extends string>({ options, value, onChange, label, disabled = false }: SegmentedProps<T>): ReactElement {
   const groupRef = useRef<HTMLDivElement>(null);
   const normalized = options.map(normalize);
 
   const moveSelection = (delta: number): void => {
+    if (disabled) {
+      return;
+    }
     const enabled = normalized.filter((option) => option.disabled !== true);
     const index = enabled.findIndex((option) => option.value === value);
     const next = enabled[(index + delta + enabled.length) % enabled.length];
@@ -71,7 +76,7 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
             aria-checked={on}
             aria-label={option.label}
             data-value={option.value}
-            disabled={option.disabled}
+            disabled={disabled || option.disabled}
             tabIndex={on ? 0 : -1}
             className={[
               'ovl-segmented__option',

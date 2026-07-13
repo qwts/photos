@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactElement } from 'react';
 import { Dialog } from '../components/Dialog';
 import { Icon, type IconName } from '../components/Icon';
 import { GeneralPane } from './GeneralPane';
+import { StoragePane } from './StoragePane';
 import type { AppSettings, SettingsPatch } from '../../../shared/settings/settings.js';
 
 import './settings.css';
@@ -80,8 +81,10 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
           })}
         </nav>
         <div className="ovl-settings__pane" data-testid="settings-pane">
-          {section === 'general' && settings !== null ? (
+          {settings !== null && section === 'general' ? (
             <GeneralPane settings={settings} onPatch={patch} />
+          ) : settings !== null && section === 'storage' ? (
+            <StoragePane settings={settings} onPatch={patch} />
           ) : active === undefined ? null : (
             <Placeholder label={active.label} />
           )}

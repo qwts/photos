@@ -5,11 +5,12 @@ import { SettingsDialog } from './SettingsDialog';
 import { defaultSettings, mergeSettings, type AppSettings } from '../../../shared/settings/settings.js';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
 
-// #112/#113 exit criteria: the 640px two-pane frame (Storage & Backup opens
-// by default, nav switches panes, keyboard-operable, Esc closes) and the
+// #112–#114 exit criteria: the 640px two-pane frame (Storage & Backup opens
+// by default, nav switches panes, keyboard-operable, Esc closes), the
 // General section (sort segmented wired to the store stub, Light disabled
-// with the dark-only hint, thumbnails locked on). The decorator installs an
-// in-memory window.overlook.settings.
+// with the dark-only hint, thumbnails locked on), and the Storage & Backup
+// section (connection card + disconnected-disables-everything). The
+// decorator installs in-memory window.overlook settings + backup stubs.
 
 function installStub(): void {
   let current: AppSettings = { ...defaultSettings };
@@ -21,7 +22,21 @@ function installStub(): void {
     },
     onChanged: () => () => undefined,
   };
-  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { settings: settingsApi };
+  const backupApi: OverlookApi['backup'] = {
+    run: () => Promise.resolve({ uploaded: 0, failed: 0, skipped: null }),
+    onProgress: () => () => undefined,
+    onCompleted: () => () => undefined,
+    offload: () => Promise.resolve({ offloaded: 0, skipped: 0, freedBytes: 0 }),
+    rehydrate: () => Promise.resolve({ ok: true }),
+    // The card's truth follows the stub store's providerId, like main does.
+    providerStatus: () =>
+      Promise.resolve(
+        current.providerId === null
+          ? { provider: 'mock' as const, connected: false, account: null, usedBytes: 0, totalBytes: 0 }
+          : { provider: 'mock' as const, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
+      ),
+  };
+  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { settings: settingsApi, backup: backupApi };
 }
 
 const meta: Meta<typeof SettingsDialog> = {
@@ -45,7 +60,33 @@ export const StorageOpensByDefault: Story = {
     await expect(body.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     const storage = body.getByRole('button', { name: 'Storage & Backup' });
     await expect(storage).toHaveAttribute('aria-current', 'true');
-    await expect(body.getByText('Storage & Backup settings land here next.')).toBeVisible();
+    // The real pane (#114): connected card with live quota + enabled knobs.
+    await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
+    await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
+    await expect(body.getByText('Back up new imports automatically')).toBeVisible();
+  },
+};
+
+export const DisconnectDisablesEverything: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+
+    // Disconnected-first per design: badge flips, quota gone, ALL backup
+    // controls disable — only the locked Encrypt switch stays (disabled too).
+    await waitFor(() => expect(body.getByText('Not connected')).toBeVisible());
+    await expect(body.getByText('Link a provider to store encrypted originals off-device.')).toBeVisible();
+    for (const control of body.getAllByRole('switch')) {
+      await expect(control).toBeDisabled();
+    }
+    await expect(body.getByRole('radio', { name: 'Copy' })).toBeDisabled();
+    await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();
+
+    // Reconnect: instant with the mock, quota returns.
+    await userEvent.click(body.getByRole('button', { name: 'Connect Mock provider' }));
+    await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
+    await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
   },
 };
 
