@@ -3,6 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 
 import { channels } from '../shared/ipc/channels.js';
 import { wrapHandler } from '../shared/ipc/registry.js';
+import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
 
@@ -37,7 +38,21 @@ export function registerLibraryHandlers(getService: () => LibraryService): void 
   );
 }
 
-export function registerImportHandlers(getService: () => ImportService): void {
+export interface SettingsFacade {
+  get(): AppSettings;
+  set(patch: SettingsPatch): AppSettings;
+}
+
+export function registerSettingsHandlers(getFacade: () => SettingsFacade): void {
+  ipcMain.handle(channels.settingsGet.name, (_event, request: unknown) =>
+    wrapHandler(channels.settingsGet, () => ({ settings: getFacade().get() }))(request),
+  );
+  ipcMain.handle(channels.settingsSet.name, (_event, request: unknown) =>
+    wrapHandler(channels.settingsSet, ({ patch }) => ({ settings: getFacade().set(patch) }))(request),
+  );
+}
+
+export function registerImportHandlers(getService: () => ImportService, onImported?: () => void): void {
   ipcMain.handle(channels.importListSources.name, (_event, request: unknown) =>
     wrapHandler(channels.importListSources, async () => ({ sources: await getService().listSources() }))(request),
   );
@@ -47,6 +62,11 @@ export function registerImportHandlers(getService: () => ImportService): void {
   ipcMain.handle(channels.importRun.name, (_event, request: unknown) =>
     wrapHandler(channels.importRun, async ({ path, mode }) => {
       const summary = await getService().run(path, mode);
+      // The auto-backup-on-import subscription seam (#105/#111): fires only
+      // when the batch actually landed photos.
+      if (summary.imported > 0) {
+        onImported?.();
+      }
       return { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed, cancelled: summary.cancelled };
     })(request),
   );

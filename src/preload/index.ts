@@ -25,6 +25,7 @@ const toggleMaximizeWindow = createInvoker(channels.windowToggleMaximize, invoke
 const closeWindow = createInvoker(channels.windowClose, invokeTransport);
 
 const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
+const settingsGet = createInvoker(channels.settingsGet, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
 const importListSources = createInvoker(channels.importListSources, invokeTransport);
 
@@ -53,6 +54,11 @@ const overlook: OverlookApi = {
     run: createInvoker(channels.exportRun, invokeTransport),
     cancel: createInvoker(channels.exportCancel, invokeTransport),
     onProgress: createSubscriber(events.exportProgress, subscribeTransport),
+  }),
+  settings: Object.freeze({
+    get: async () => settingsGet({}),
+    set: createInvoker(channels.settingsSet, invokeTransport),
+    onChanged: createSubscriber(events.settingsChanged, subscribeTransport),
   }),
   import: Object.freeze({
     listSources: async () => importListSources({}),
