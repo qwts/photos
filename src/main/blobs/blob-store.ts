@@ -168,6 +168,15 @@ export class BlobStore {
     const stagePath = join(this.tmpDir, `restore-${randomBytes(8).toString('hex')}`);
     try {
       await pipeline(ciphertext, createWriteStream(stagePath, { flags: 'wx' }));
+      // Same durability point as put(): the staged bytes themselves fsync
+      // BEFORE publishing — a power loss never leaves a present-but-
+      // incomplete blob behind a synced ledger row (PR #205 review).
+      const handle = await open(stagePath, 'r');
+      try {
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
       const finalPath = this.originalPath(contentHash);
       await mkdir(dirname(finalPath), { recursive: true });
       try {
