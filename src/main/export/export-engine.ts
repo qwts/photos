@@ -1,3 +1,6 @@
+import { createWriteStream } from 'node:fs';
+import { rm } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 
 import type { KeyResolver } from '../crypto/envelope.js';
@@ -40,6 +43,21 @@ export interface ExportEngineDeps {
   readonly freeBytes: (dir: string) => Promise<number>;
   readonly joinPath: (dir: string, name: string) => string;
   readonly events: { progress(done: number, total: number): void };
+}
+
+/**
+ * The default writeFile seam: streams to `path` (never clobbering), and on
+ * ANY failure — ENOSPC past the preflight, device errors, an authentication
+ * failure mid-decrypt — removes the partial file so the destination never
+ * holds a truncated "original" (PR #194 review).
+ */
+export async function writeFileCleanly(path: string, plaintext: Readable): Promise<void> {
+  try {
+    await pipeline(plaintext, createWriteStream(path, { flags: 'wx' }));
+  } catch (error) {
+    await rm(path, { force: true });
+    throw error;
+  }
 }
 
 /** IMG_4021.RAF → IMG_4021 (2).RAF */
