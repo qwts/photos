@@ -1,0 +1,156 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Readable } from 'node:stream';
+
+import { BlobStore } from '../../src/main/blobs/blob-store.js';
+import { MockProvider } from '../../src/main/backup/mock-provider.js';
+import { PurgeService, PURGE_RETENTION_DAYS } from '../../src/main/library/purge-service.js';
+import { openLibraryDatabase } from '../../src/main/db/database.js';
+import { PhotosRepository } from '../../src/main/db/photos-repository.js';
+import { run } from '../../src/main/db/sql.js';
+import { sampleJpeg } from '../../src/main/library/seed.js';
+import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
+import type { PhotoInsert } from '../../src/shared/library/types.js';
+
+// #121: the one truly destructive path over REAL store/repo/provider —
+// all three copies go; failures leave a repairable, non-lying state.
+
+const NOW = Date.parse('2026-07-13T12:00:00.000Z');
+
+async function world(count: number, options: { contentHash?: string } = {}) {
+  const dataDir = mkdtempSync(join(tmpdir(), 'overlook-purge-'));
+  const db = openLibraryDatabase({ path: join(dataDir, 'library.db'), dbKey: randomBytes(32) });
+  run(db, `INSERT OR IGNORE INTO keys (id, wrapped_key, created_at) VALUES (1, 'test', '2026-07-01T00:00:00.000Z')`);
+  const repo = new PhotosRepository(db);
+  const store = new BlobStore({ dataDir });
+  await store.init();
+  const key: EnvelopeKey = { id: 1, key: randomBytes(32) };
+  const provider = new MockProvider({ rootDir: mkdtempSync(join(tmpdir(), 'overlook-purge-remote-')) });
+  const hashes: string[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const bytes = sampleJpeg(options.contentHash === undefined ? index : 0);
+    const ref = await store.putOriginal(Readable.from([bytes]), key, `P${String(index)}`);
+    await store.putThumb(Readable.from([bytes]), key, `P${String(index)}`, ref.contentHash, 'thumb');
+    await provider.put(`blobs/${ref.contentHash.slice(0, 2)}/${ref.contentHash}`, store.getEncryptedStream(ref.contentHash));
+    hashes.push(ref.contentHash);
+    repo.insert({
+      id: `P${String(index)}`,
+      fileName: `IMG_${String(index)}.JPG`,
+      fileKind: 'jpeg',
+      width: 1,
+      height: 1,
+      bytes: ref.bytes,
+      contentHash: options.contentHash === undefined ? ref.contentHash : `${ref.contentHash}-${String(index)}`,
+      camera: null,
+      lens: null,
+      iso: null,
+      aperture: null,
+      shutter: null,
+      focalLength: null,
+      takenAt: null,
+      gpsLat: null,
+      gpsLon: null,
+      place: null,
+      importedAt: '2026-07-01T00:00:00.000Z',
+      importSource: 'test',
+      keyId: 1,
+    } satisfies PhotoInsert);
+  }
+  const audits: string[] = [];
+  const owed: number[] = [];
+  const changed: string[][] = [];
+  const connected = true;
+  const service = new PurgeService({
+    repo: {
+      getDeleted: (id) => repo.getDeleted(id),
+      purgeRow: (id) => {
+        repo.purgeRow(id);
+      },
+      countAnyByContentHash: (hash) => repo.countAnyByContentHash(hash),
+      expiredDeleted: (cutoff) => repo.expiredDeleted(cutoff),
+    },
+    blobs: {
+      deleteOriginal: async (hash) => store.deleteOriginal(hash),
+      deleteThumbs: async (hash) => store.deleteThumbs(hash),
+    },
+    provider,
+    connected: () => connected,
+    oweManifest: () => owed.push(1),
+    libraryChanged: (ids) => changed.push([...ids]),
+    audit: (line) => audits.push(line),
+    now: () => NOW,
+    sleep: () => Promise.resolve(),
+  });
+  return {
+    db,
+    repo,
+    store,
+    provider,
+    hashes,
+    audits,
+    owed,
+    changed,
+    service,
+    dataDir,
+  };
+}
+
+describe('purge (#121)', () => {
+  test('EXIT CRITERIA: purge removes all three copies — DB row, local blobs, remote', async () => {
+    const w = await world(1);
+    const hash = w.hashes[0] ?? '';
+    w.repo.softDelete(['P0']);
+
+    const summary = await w.service.purge(['P0']);
+    assert.deepEqual(summary, { purged: 1, skipped: 0, remoteFailures: 0 });
+    assert.equal(w.repo.get('P0'), undefined, 'DB row gone');
+    assert.equal(w.store.hasOriginal(hash), false, 'local original gone');
+    assert.equal(existsSync(join(w.dataDir, 'blobs')), true);
+    assert.equal((await w.provider.list('blobs')).length, 0, 'remote copy gone');
+    assert.ok(w.audits.some((line) => line.startsWith('PURGE photo=P0')));
+    assert.equal(w.owed.length, 1, 'the manifest generation is owed');
+    assert.deepEqual(w.changed, [['P0']]);
+  });
+
+  test('live rows are skipped, never forced — only Recently deleted purges', async () => {
+    const w = await world(1);
+    const summary = await w.service.purge(['P0', 'GHOST']);
+    assert.deepEqual(summary, { purged: 0, skipped: 2, remoteFailures: 0 });
+    assert.notEqual(w.repo.get('P0'), undefined);
+    assert.equal(w.owed.length, 0);
+  });
+
+  test('a failed remote delete leaves a repairable, non-lying state (audited orphan)', async () => {
+    const w = await world(1);
+    const hash = w.hashes[0] ?? '';
+    w.repo.softDelete(['P0']);
+    w.provider.setConnected(false); // every remote call now fails kind=auth
+
+    const summary = await w.service.purge(['P0']);
+    assert.deepEqual({ purged: summary.purged, remoteFailures: summary.remoteFailures }, { purged: 1, remoteFailures: 1 });
+    assert.equal(w.repo.get('P0'), undefined, 'DB never lies — the row went first');
+    assert.equal(w.store.hasOriginal(hash), false, 'local copy gone');
+    assert.ok(
+      w.audits.some((line) => line.startsWith(`ORPHAN-REMOTE photo=P0 hash=${hash}`)),
+      'the orphaned remote copy is audited for M11 repair',
+    );
+  });
+
+  test('retention sweep purges only rows older than the window', async () => {
+    const w = await world(2);
+    w.repo.softDelete(['P0', 'P1']);
+    const expired = new Date(NOW - (PURGE_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000).toISOString();
+    run(w.db, `UPDATE photos SET deleted_at = ? WHERE id = 'P0'`, expired);
+
+    const summary = await w.service.purgeExpired();
+    assert.equal(summary.purged, 1, 'only the expired row went');
+    assert.equal(w.repo.get('P0'), undefined);
+    assert.notEqual(w.repo.getDeleted('P1'), undefined, 'the fresh trash row survives');
+    assert.ok(w.audits.some((line) => line.startsWith('PURGE-RETENTION count=1')));
+  });
+});

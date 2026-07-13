@@ -1,8 +1,17 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+/** Recursive file count — the mock provider's remote blob tree. */
+function fileCount(dir: string): number {
+  try {
+    return readdirSync(dir, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile()).length;
+  } catch {
+    return 0;
+  }
+}
 
 // #120 exit criteria: delete from grid AND lightbox → Recently deleted →
 // restore → back with favorite/status intact. Purge lands with #121.
@@ -43,7 +52,8 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     await expect(page.getByTestId('lightbox')).not.toBeVisible();
     await expect(page.getByRole('button', { name: 'Recently deleted 2' })).toBeVisible();
 
-    // Trash shows both; the pill flips to Restore (no Delete/Export).
+    // Trash shows both; the pill flips to Restore + the destructive Delete
+    // (#121's purge ceremony — no Export here).
     await page.getByRole('button', { name: 'Recently deleted 2' }).click();
     // Wait for REAL tiles, not placeholder cells — ⌘A reads loaded photos
     // (the #189 cold-start rule applies to source switches too).
@@ -51,7 +61,8 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     await page.keyboard.press('ControlOrMeta+a');
     await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
     await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
-    await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' })).toHaveCount(0);
+    await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' })).toBeVisible();
+    await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Export' })).toHaveCount(0);
 
     // The in-trash lightbox offers no Delete either (PR #218 review) —
     // an already-deleted row's action is Restore, purge is #121.
@@ -71,6 +82,57 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     );
     expect(favorite).toBe(true);
     await expect(page.getByRole('button', { name: 'Recently deleted 0' })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+// #121 exit criteria: purge removes all three copies under the mock
+// provider — destructive confirm with exact counts and "Delete" language.
+test('purge: confirm ceremony removes DB row, local blob, and remote copy', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-purge-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '3',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+
+    // Back up so all three copies exist, then trash one photo.
+    await page.getByRole('button', { name: 'Back up' }).click();
+    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
+    const remoteBlobs = join(userData, 'library', 'mock-remote', 'blobs');
+    expect(fileCount(remoteBlobs)).toBe(3);
+
+    await page.evaluate(`window.overlook.library.delete({ photoIds: ['01J8SEEDPHOTO0001'] })`);
+    await page.getByRole('button', { name: 'Recently deleted 1' }).click();
+    await expect(page.locator('.ovl-tile__img')).toHaveCount(1);
+    await page.keyboard.press('ControlOrMeta+a');
+
+    // The ceremony: red Delete in the pill → confirm dialog with the exact
+    // count → the destructive button.
+    await page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Delete photos' });
+    await expect(confirm).toContainText("This can't be undone.");
+    await confirm.getByRole('button', { name: 'Delete 1 photo' }).click();
+    await expect(page.getByRole('status')).toContainText('Deleted 1 photo');
+
+    // All three copies are gone; the library keeps browsing.
+    await expect(page.getByRole('button', { name: 'Recently deleted 0' })).toBeVisible();
+    expect(fileCount(remoteBlobs)).toBe(2);
+    const stillListed = await page.evaluate<boolean>(
+      `window.overlook.library.get({ id: '01J8SEEDPHOTO0001' }).then((r) => r.photo !== null)`,
+    );
+    expect(stillListed).toBe(false);
+    await page.getByRole('button', { name: /All Photos/u }).click();
+    await expect(page.locator('.ovl-tile__img')).toHaveCount(2);
   } finally {
     await app.close();
   }

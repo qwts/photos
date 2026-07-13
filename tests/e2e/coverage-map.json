@@ -382,6 +382,20 @@
           "path": "src/renderer/src/grid/SelectionPill.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "m10-purge-retention",
+      "wiki": "User-Story-M10-Albums-organization-deletion",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/trash.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/library/purge-service.test.ts"
+        }
+      ]
     }
   ]
 }

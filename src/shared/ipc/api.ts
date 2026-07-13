@@ -23,6 +23,7 @@ export interface OverlookApi {
     readonly albums: () => Promise<Res<typeof channels.libraryAlbums>>;
     readonly delete: (request: Req<typeof channels.libraryDelete>) => Promise<Res<typeof channels.libraryDelete>>;
     readonly restore: (request: Req<typeof channels.libraryRestore>) => Promise<Res<typeof channels.libraryRestore>>;
+    readonly purge: (request: Req<typeof channels.libraryPurge>) => Promise<Res<typeof channels.libraryPurge>>;
     readonly onChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
     readonly onPendingCountChanged: (listener: (payload: { count: number }) => void) => () => void;
   };

@@ -372,6 +372,36 @@ export class PhotosRepository {
     })();
   }
 
+  /** Purge candidates only (#121): the row, iff it is soft-deleted. */
+  getDeleted(photoId: string): PhotoRecord | undefined {
+    const row = this.get(photoId);
+    return row !== undefined && row.deletedAt !== null ? row : undefined;
+  }
+
+  /** Soft-deleted longer than the retention window (#121's auto-purge). */
+  expiredDeleted(cutoffIso: string): string[] {
+    return queryAll<{ id: string }>(this.db, 'SELECT id FROM photos WHERE deleted_at IS NOT NULL AND deleted_at < @cutoff', {
+      cutoff: cutoffIso,
+    }).map((row) => row.id);
+  }
+
+  /** Removes the DB row (ledger + membership CASCADE). Deleted rows only —
+   * a live row can never be purged, only soft-deleted first. */
+  purgeRow(photoId: string): void {
+    const gone = queryGet<{ id: string }>(this.db, 'DELETE FROM photos WHERE id = ? AND deleted_at IS NOT NULL RETURNING id', photoId);
+    if (gone === undefined) {
+      throw new Error(`photo ${photoId} is not in Recently deleted`);
+    }
+  }
+
+  /** Blob-ownership count for PURGE (#121): every remaining row on this
+   * hash, deleted or not — soft-deleted twins still own their blobs. */
+  countAnyByContentHash(contentHash: string): number {
+    return (
+      queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM photos WHERE content_hash = @hash', { hash: contentHash })[0]?.n ?? 0
+    );
+  }
+
   /** Shared-hash guard for offload (#107): live photos on this hash. */
   countByContentHash(contentHash: string): number {
     return (

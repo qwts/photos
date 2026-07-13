@@ -141,6 +141,18 @@ export const channels = {
     z.object({ photoIds: z.array(z.string()).min(1) }),
     z.object({ restored: z.number().int().nonnegative() }),
   ),
+  // Permanent purge (#121): destructive-confirmed in the renderer; removes
+  // DB row, local blobs, and remote copies (remote last, failures audited
+  // as repairable orphans — never a lying local state).
+  libraryPurge: defineChannel(
+    'library:purge',
+    z.object({ photoIds: z.array(z.string()).min(1) }),
+    z.object({
+      purged: z.number().int().nonnegative(),
+      skipped: z.number().int().nonnegative(),
+      remoteFailures: z.number().int().nonnegative(),
+    }),
+  ),
   // Albums CRUD (#117): first-class library objects. Deleting an album
   // never deletes photos (Clear-vs-Delete rules); membership edits dirty
   // the ledger (manifest-relevant, ADR-0007).
