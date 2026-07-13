@@ -68,11 +68,24 @@ export function Lightbox({
     }, CHROME_IDLE_MS);
   }, []);
 
-  // Mousemove wakes the chrome and pushes the idle deadline out.
-  const wake = useCallback(() => {
-    setChrome(true);
-    armTimer();
-  }, [armTimer]);
+  // Mousemove wakes the chrome and pushes the idle deadline out. Chromium
+  // re-dispatches a synthetic mousemove when hit-testing changes under a
+  // STATIONARY cursor (our own pointer-events flip on fade!) — ignore
+  // events that didn't actually move, or the chrome can never hide while
+  // the pointer rests on it.
+  const lastPoint = useRef<{ x: number; y: number } | null>(null);
+  const wake = useCallback(
+    (event: { clientX: number; clientY: number }) => {
+      const previous = lastPoint.current;
+      lastPoint.current = { x: event.clientX, y: event.clientY };
+      if (previous !== null && previous.x === event.clientX && previous.y === event.clientY) {
+        return;
+      }
+      setChrome(true);
+      armTimer();
+    },
+    [armTimer],
+  );
 
   // (Re)arm the hide timer on mount and on every photo change.
   useEffect(() => {
