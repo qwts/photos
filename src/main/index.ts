@@ -23,6 +23,7 @@ import { ulid } from './import/ulid.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { FaultInjectingProvider, MockProvider } from './backup/mock-provider.js';
 import { OffloadService } from './backup/offload.js';
+import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createEncryptStream } from './crypto/envelope.js';
@@ -127,6 +128,20 @@ function getLibraryService(): LibraryService {
         .purgeExpired()
         .catch((error: unknown) => {
           console.error('[overlook] retention purge failed', error);
+        });
+      // Startup lightweight check (#125): repair what is safe, surface the
+      // rest as red glyphs via the status the repair writes.
+      void consistencyChecker
+        ?.repair()
+        .then((summary) => {
+          const issues =
+            summary.orphanOriginals.length + summary.orphanThumbs.length + summary.stagedLeftovers.length + summary.lyingRows.length;
+          if (issues > 0) {
+            console.warn('[overlook] consistency repair:', JSON.stringify(summary));
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('[overlook] consistency check failed', error);
         });
     }, 0);
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
@@ -339,6 +354,7 @@ let autoBackupTrigger: (() => void) | undefined;
 /** Manifest-debt push after deletes (#120/PR #218) — quiet, auto-marked. */
 let manifestSyncTrigger: (() => void) | undefined;
 let purgeService: PurgeService | undefined;
+let consistencyChecker: ConsistencyChecker | undefined;
 
 function getPurgeService(): PurgeService {
   getBackupEngine();
@@ -476,6 +492,35 @@ function getBackupEngine(): BackupEngine {
       },
       now: () => Date.now(),
       sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    });
+    consistencyChecker = new ConsistencyChecker({
+      rows: () => repo.allRows(),
+      blobs: {
+        listOriginalHashes: async () => parts.blobStore.listOriginalHashes(),
+        listThumbHashes: async () => parts.blobStore.listThumbHashes(),
+        listStaged: async () => parts.blobStore.listStaged(),
+        hasOriginal: (hash) => parts.blobStore.hasOriginal(hash),
+        deleteOriginal: async (hash) => parts.blobStore.deleteOriginal(hash),
+        deleteThumbs: async (hash) => parts.blobStore.deleteThumbs(hash),
+        removeStaged: async (name) => parts.blobStore.removeStaged(name),
+      },
+      remoteHas: async (hash) => {
+        try {
+          await provider.verify(`blobs/${hash.slice(0, 2)}/${hash}`);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      setStatus: (photoId, status) => {
+        ledger.repairStatus(photoId, status);
+      },
+      libraryChanged: (photoIds) => {
+        emitLibraryChanged({ photoIds: [...photoIds] });
+      },
+      audit: (line) => {
+        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
+      },
     });
     // Completion events drive the toasts (#106) and the card's bar clear
     // (#108). `auto` rides along so the renderer keeps automatic successes

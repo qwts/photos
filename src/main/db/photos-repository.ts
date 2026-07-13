@@ -402,6 +402,15 @@ export class PhotosRepository {
     );
   }
 
+  /** Consistency-scan rows (#125): EVERY row, deleted included — trash
+   * rows still own their blobs until purge. */
+  allRows(): readonly { id: string; contentHash: string; syncState: string }[] {
+    return queryAll<{ id: string; content_hash: string; status: string | null }>(
+      this.db,
+      'SELECT p.id, p.content_hash, l.status FROM photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id',
+    ).map((row) => ({ id: row.id, contentHash: row.content_hash, syncState: row.status ?? 'local' }));
+  }
+
   /** Shared-hash guard for offload (#107): live photos on this hash. */
   countByContentHash(contentHash: string): number {
     return (
