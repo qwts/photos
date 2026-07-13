@@ -206,7 +206,10 @@ export class FaultInjectingProvider implements StorageProvider {
   async verify(path: string): Promise<{ sha256: string; bytes: number }> {
     const real = await this.inner.verify(path);
     if (this.faults.has('verify-mismatch')) {
-      return { sha256: `0${real.sha256.slice(1)}`, bytes: real.bytes };
+      // Guaranteed-different digest: flip the first hex nibble (a fixed
+      // prefix was a no-op 1 time in 16 — ciphertext hashes are random).
+      const flipped = real.sha256.startsWith('0') ? '1' : '0';
+      return { sha256: `${flipped}${real.sha256.slice(1)}`, bytes: real.bytes };
     }
     return real;
   }
