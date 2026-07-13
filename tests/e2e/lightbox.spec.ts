@@ -108,3 +108,49 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
     await app.close();
   }
 });
+
+// #96: the remaining viewing-journey exit criteria — selection intact
+// through Esc-from-lightbox (dual semantics at the UI level) and the 2.2s
+// chrome autohide observed end-to-end.
+test('viewing journey: selection survives Esc-from-lightbox; chrome autohides and wakes', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-journey-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '4',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+
+    // Select a photo, then open ANOTHER in the lightbox.
+    await page.locator('.ovl-grid__cell').nth(2).getByRole('button', { name: 'Select' }).click();
+    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+    await page.locator('.ovl-grid__cell').first().click();
+    const lightbox = page.getByTestId('lightbox');
+    await expect(lightbox).toBeVisible();
+
+    // Chrome starts awake, hides after the 2.2s idle window (no mouse), and
+    // wakes on movement.
+    await expect(lightbox).toHaveAttribute('data-chrome', 'on');
+    await expect(lightbox).toHaveAttribute('data-chrome', 'off', { timeout: 5000 });
+    await page.mouse.move(300, 300);
+    await page.mouse.move(320, 320);
+    await expect(lightbox).toHaveAttribute('data-chrome', 'on');
+
+    // Esc #1 exits the lightbox ONLY — the selection is intact…
+    await page.keyboard.press('Escape');
+    await expect(lightbox).toBeHidden();
+    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+    // …Esc #2 clears it (the reducer's dual semantics, at the UI level).
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('selection-pill')).toBeHidden();
+  } finally {
+    await app.close();
+  }
+});
