@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -46,6 +46,17 @@ describe('provider runtime policy (#256)', () => {
       first,
       'a fresh instance (restart) reads the same id',
     );
+  });
+
+  test('a corrupted library-id record is replaced, never used as a remote home (PR #260 review)', () => {
+    const { runtime: r, dataDir } = runtime();
+    const original = r.libraryId();
+    for (const bad of ['', 'short', `${original}\nTRAILING-JUNK-MAKING-IT-LONG`, 'lowercase0123456789abcdef0']) {
+      writeFileSync(join(dataDir, 'library-id'), bad);
+      const replacement = r.libraryId();
+      assert.match(replacement, /^[0-9A-HJKMNP-TV-Z]{26}$/u);
+      assert.equal(readFileSync(join(dataDir, 'library-id'), 'utf8').trim(), replacement, 'the fresh id is persisted');
+    }
   });
 
   test('defaultTarget: dev → mock, packaged → pcloud, harness override wins in dev', () => {
