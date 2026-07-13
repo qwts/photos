@@ -239,9 +239,9 @@ export class PhotosRepository {
   /** Album members — the rows an album edit dirties (manifest-relevant
    * per ADR-0007). */
   albumMembers(albumId: string): string[] {
-    return queryAll<{ photo_id: string }>(this.db, 'SELECT photo_id FROM album_photos WHERE album_id = ? ORDER BY position', albumId).map(
-      (row) => row.photo_id,
-    );
+    return queryAll<{ photo_id: string }>(this.db, 'SELECT photo_id FROM album_photos WHERE album_id = @albumId ORDER BY position', {
+      albumId,
+    }).map((row) => row.photo_id);
   }
 
   /** Albums CRUD (#117). Deleting an album NEVER deletes photos — the
