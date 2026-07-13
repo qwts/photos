@@ -158,6 +158,17 @@ Known findings handed to #124: zoom-96 scroll drops (~0.20 — image-decode
 churn at the densest tile size; target ratchet 0.10) and `counts()` at 689 ms
 (five count queries; the offloaded/localOnly ledger subqueries dominate).
 
+### Coverage-map distribution (#126 sweep, 2026-07-13)
+
+The full design README screen/interaction inventory maps to 33 ledger
+entries: **30 automated** (31 playwright-e2e, 12 storybook, 10 unit-dom
+coverages), **1 manual-with-reason** (motion timings / hover fills /
+disabled opacity — visual-only rules; the disabled PATTERN is exercised by
+component stories), and **2 deferred-with-issues** for the design README's
+"not yet designed" set: semantic search results UI (#224) and album
+drag-and-drop reordering (#225). Zero unmapped flows; the validator
+enforces shape, path existence, and that deferred entries carry issues.
+
 ## Policy: coverage travels with the change
 
 1. **Prefer the cheapest lane that proves the behavior.** Unit for logic; DOM
