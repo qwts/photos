@@ -79,6 +79,11 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(page.getByRole('switch').first()).toBeDisabled();
     const provider = await page.evaluate<{ settings: { providerId: string | null } }>(`window.overlook.settings.get()`);
     expect(provider.settings.providerId).toBe(null);
+    // The slider is REALLY disabled (keyboard-inert), and a manual run is
+    // blocked outright while disconnected (PR #213 review).
+    await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeDisabled();
+    const blocked = await page.evaluate<{ skipped: string | null }>(`window.overlook.backup.run({})`);
+    expect(blocked.skipped).toBe('disconnected');
     await page.getByRole('button', { name: 'Connect Mock provider' }).click();
     await expect(card).toContainText('Connected');
     await expect(page.getByRole('radio', { name: 'Copy' })).toBeEnabled();

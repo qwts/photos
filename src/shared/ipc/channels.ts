@@ -157,14 +157,15 @@ export const channels = {
     }),
   ),
   exportCancel: defineChannel('export:cancel', z.object({}), z.object({})),
-  // Backup engine (#105): the toolbar's manual trigger.
+  // Backup engine (#105): the toolbar's manual trigger. 'disconnected'
+  // (#114): providerId null blocks manual runs too, not just auto-backup.
   backupRun: defineChannel(
     'backup:run',
     z.object({}),
     z.object({
       uploaded: z.number().int().nonnegative(),
       failed: z.number().int().nonnegative(),
-      skipped: z.enum(['wifi']).nullable(),
+      skipped: z.enum(['wifi', 'disconnected']).nullable(),
     }),
   ),
   // Offload / rehydrate (#107).

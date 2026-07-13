@@ -103,9 +103,14 @@ export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
             disabled={state.pendingCount === 0}
             onClick={() => {
               // Manual trigger (#108): amber start toast per the mock; the
-              // completion listener shows green/red endings.
+              // completion listener shows green/red endings. A disconnected
+              // provider blocks the run (#114) — say so instead.
               dispatch({ type: 'toast/shown', toast: { title: 'BACKUP STARTED', tone: 'amber' } });
-              void window.overlook.backup.run({});
+              void window.overlook.backup.run({}).then(({ skipped }) => {
+                if (skipped === 'disconnected') {
+                  dispatch({ type: 'toast/shown', toast: { title: 'BACKUP OFF — NOT CONNECTED', tone: 'neutral' } });
+                }
+              });
             }}
           />
         </Tooltip>

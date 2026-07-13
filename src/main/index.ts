@@ -587,7 +587,14 @@ void app.whenReady().then(async () => {
       throw new Error('backup bootstrap failed');
     }
     return {
-      run: async () => getBackupEngine().run(),
+      // Disconnected blocks MANUAL runs too (PR #213 review) — the toolbar
+      // and retry action must not upload to a provider the user detached.
+      run: async () => {
+        if (getSettingsStore().get().providerId === null) {
+          return { uploaded: 0, failed: 0, skipped: 'disconnected' as const };
+        }
+        return getBackupEngine().run();
+      },
       offload: async (photoIds) => offload.offload(photoIds),
       rehydrate: async (photoId) => offload.rehydrate(photoId),
       // Connection card truth (#114): connected = the user's providerId
