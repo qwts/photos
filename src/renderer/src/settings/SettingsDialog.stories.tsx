@@ -98,7 +98,36 @@ export const NavSwitchesPanes: Story = {
     await expect(body.getByRole('button', { name: 'General' })).toHaveAttribute('aria-current', 'true');
     await waitFor(() => expect(body.getByText('Default sort order')).toBeVisible());
     await userEvent.click(body.getByRole('button', { name: 'Privacy' }));
-    await expect(body.getByText('Privacy settings land here next.')).toBeVisible();
+    await expect(body.getByText('End-to-end encryption')).toBeVisible();
+  },
+};
+
+export const PrivacySection: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole('button', { name: 'Privacy' }));
+
+    // Factual, always-on encryption row.
+    await waitFor(() => expect(body.getByText('Always on')).toBeVisible());
+    await expect(body.getByText('Originals and thumbnails are encrypted on this device before leaving it.')).toBeVisible();
+
+    // Face grouping is deferred — disabled and OFF, never faked as active.
+    const [faceGrouping, diagnostics] = body.getAllByRole('switch');
+    if (faceGrouping === undefined || diagnostics === undefined) {
+      throw new Error('expected the face-grouping and diagnostics switches');
+    }
+    await expect(faceGrouping).toBeDisabled();
+    await expect(faceGrouping).not.toBeChecked();
+    await expect(body.getByText('Not yet available — will run entirely on-device when it ships.')).toBeVisible();
+
+    // Diagnostics: off by default, honest local-only copy, persists via the
+    // store stub.
+    await expect(diagnostics).not.toBeChecked();
+    await expect(
+      body.getByText('Anonymous crash reports only — never photo content or metadata. Reporting stays local-only for now.'),
+    ).toBeVisible();
+    await userEvent.click(diagnostics);
+    await waitFor(() => expect(diagnostics).toBeChecked());
   },
 };
 

@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactElement } from 'react';
 import { Dialog } from '../components/Dialog';
 import { Icon, type IconName } from '../components/Icon';
 import { GeneralPane } from './GeneralPane';
+import { PrivacyPane } from './PrivacyPane';
 import { StoragePane } from './StoragePane';
 import type { AppSettings, SettingsPatch } from '../../../shared/settings/settings.js';
 
@@ -25,10 +26,6 @@ const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: string }
   { key: 'storage', icon: 'cloud', label: 'Storage & Backup' },
   { key: 'privacy', icon: 'shield-check', label: 'Privacy' },
 ];
-
-function Placeholder({ label }: { readonly label: string }): ReactElement {
-  return <div className="ovl-settings__placeholder">{label} settings land here next.</div>;
-}
 
 export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactElement | null {
   const [section, setSection] = useState<SettingsSection>('storage');
@@ -56,8 +53,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
     });
   };
 
-  const active = SECTIONS.find((candidate) => candidate.key === section) ?? SECTIONS[1];
-
   return (
     <Dialog open title="Settings" icon="settings-2" width={640} onClose={onClose}>
       <div className="ovl-settings" data-testid="settings-dialog">
@@ -81,12 +76,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
           })}
         </nav>
         <div className="ovl-settings__pane" data-testid="settings-pane">
-          {settings !== null && section === 'general' ? (
+          {settings === null ? null : section === 'general' ? (
             <GeneralPane settings={settings} onPatch={patch} />
-          ) : settings !== null && section === 'storage' ? (
+          ) : section === 'storage' ? (
             <StoragePane settings={settings} onPatch={patch} />
-          ) : active === undefined ? null : (
-            <Placeholder label={active.label} />
+          ) : (
+            <PrivacyPane settings={settings} onPatch={patch} />
           )}
         </div>
       </div>

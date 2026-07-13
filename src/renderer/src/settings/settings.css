@@ -44,12 +44,6 @@
   min-width: 0;
 }
 
-.ovl-settings__placeholder {
-  padding: var(--space-3) 0;
-  font-size: var(--text-md);
-  color: var(--text-faint);
-}
-
 .ovl-settings__fields {
   display: flex;
   flex-direction: column;

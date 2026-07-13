@@ -87,6 +87,19 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await page.getByRole('button', { name: 'Connect Mock provider' }).click();
     await expect(card).toContainText('Connected');
     await expect(page.getByRole('radio', { name: 'Copy' })).toBeEnabled();
+
+    // #115: the Privacy pane — always-on badge, deferred face grouping
+    // (disabled + off, never faked), diagnostics persists through the store.
+    await page.getByRole('button', { name: 'Privacy' }).click();
+    const pane = page.getByTestId('settings-pane');
+    await expect(pane).toContainText('Always on');
+    const paneSwitches = pane.getByRole('switch');
+    await expect(paneSwitches.first()).toBeDisabled();
+    await expect(paneSwitches.first()).toHaveAttribute('aria-checked', 'false');
+    await paneSwitches.nth(1).click();
+    await expect
+      .poll(async () => page.evaluate<boolean>(`window.overlook.settings.get().then((r) => r.settings.shareDiagnostics)`))
+      .toBe(true);
   } finally {
     await app.close();
   }
