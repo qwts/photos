@@ -17,7 +17,14 @@ export function StatusBar({ stats }: { readonly stats: LibraryStats | null }): R
         {stats === null ? '—' : `${formatCount(stats.photos)} PHOTOS · ${formatBytes(stats.bytes).toUpperCase()}`}
       </span>
       <span className="ovl-statusbar__spacer" />
-      {syncing ? (
+      {!state.providerConnected ? (
+        // Disconnected (#239): a faint statement of fact, never a fabricated
+        // backed-up state.
+        <span className="ovl-statusbar__item" data-testid="sync-state">
+          <Icon name="cloud-off" size={12} strokeWidth={2} />
+          PCLOUD NOT CONNECTED
+        </span>
+      ) : syncing ? (
         <span className="ovl-statusbar__item ovl-statusbar__item--amber" data-testid="sync-state">
           <span className="ovl-statusbar__spin">
             <Icon name="refresh-cw" size={11} strokeWidth={2} />

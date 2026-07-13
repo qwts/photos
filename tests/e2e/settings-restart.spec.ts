@@ -58,13 +58,15 @@ test('settings persist across an app restart and re-render the UI', async () => 
     await expect(page.locator('.ovl-tile__img').first()).toHaveAttribute('alt', 'IMG_4028.JPG');
 
     // The dialog re-renders the persisted state too: disconnected card,
-    // backup controls disabled, slider at 40.
+    // backup-specific controls hidden (#239), import Copy/Move still usable.
+    // The bandwidth value itself persists in the store even while its
+    // control is hidden.
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByTestId('provider-card')).toContainText('Not connected');
-    await expect(page.getByRole('radio', { name: 'Copy' })).toBeDisabled();
-    await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeDisabled();
-    await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toHaveValue('40');
-    await expect(page.getByTestId('settings-pane')).toContainText('40% of available upload');
+    await expect(page.getByRole('radio', { name: 'Copy' })).toBeEnabled();
+    await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeHidden();
+    const stored = await page.evaluate<{ settings: { bandwidthLimit: number } }>(`window.overlook.settings.get()`);
+    expect(stored.settings.bandwidthLimit).toBe(40);
 
     // And a manual backup stays blocked while disconnected — the restart
     // did not silently reconnect anything.

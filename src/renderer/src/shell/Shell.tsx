@@ -75,9 +75,13 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   useEffect(() => {
     void window.overlook.settings.get().then(({ settings }) => {
       dispatch({ type: 'sortOrder/set', order: settings.sortOrder });
+      dispatch({ type: 'providerConnected/set', connected: settings.providerId !== null });
     });
     return window.overlook.settings.onChanged(({ settings }) => {
       dispatch({ type: 'sortOrder/set', order: settings.sortOrder });
+      // Disconnect hides every pCloud surface live (#239) — toolbar backup,
+      // status-bar sync line, sidebar backup progress.
+      dispatch({ type: 'providerConnected/set', connected: settings.providerId !== null });
     });
   }, [dispatch]);
 

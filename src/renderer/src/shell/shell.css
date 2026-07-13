@@ -249,6 +249,26 @@
   color: var(--text-faint);
 }
 
+/* Disconnected card row (#239): plain-fact line + the Connect path. */
+.ovl-sidebar__connect {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font: var(--type-meta);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.ovl-sidebar__connect-cta {
+  color: var(--accent-cyan);
+}
+
 .ovl-shell__content {
   flex: 1;
   min-width: 0;

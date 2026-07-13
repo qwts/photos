@@ -11,11 +11,14 @@ import { Switch } from '../components/Switch';
 import { Field } from './Field';
 import type { AppSettings } from '../../../shared/settings/settings.js';
 
-// Storage & Backup section (#114): the provider connection card + every
-// backup knob, disconnected-first — ALL backup controls disable when not
-// connected (per design). Connect/Disconnect drives settings.providerId
-// (the mock connects instantly; live pCloud arrives with #109). Quota is
-// the provider's own answer, not a cached guess.
+// Storage & Backup section (#114, updated by #239): the provider connection
+// card + backup knobs. Disconnected now HIDES the backup-specific controls
+// (auto-backup, Wi-Fi only, bandwidth) instead of disabling them — only the
+// connection card, import Copy/Move (which needs no provider), and the
+// locked Encrypt switch remain, per the updated design. Connect/Disconnect
+// drives settings.providerId (the mock connects instantly; live pCloud
+// arrives with #109). Quota is the provider's own answer, not a cached
+// guess.
 
 export interface ProviderStatus {
   readonly provider: 'mock' | 'pcloud';
@@ -82,20 +85,43 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
         </Button>
       </div>
 
-      <Field label="Back up new imports automatically" hint="Encrypts and uploads originals after import.">
-        <Switch
-          checked={settings.autoBackupOnImport}
-          disabled={!connected}
-          onChange={(autoBackupOnImport) => {
-            onPatch({ autoBackupOnImport });
-          }}
-        />
-      </Field>
+      {connected ? (
+        <>
+          <Field label="Back up new imports automatically" hint="Encrypts and uploads originals after import.">
+            <Switch
+              checked={settings.autoBackupOnImport}
+              onChange={(autoBackupOnImport) => {
+                onPatch({ autoBackupOnImport });
+              }}
+            />
+          </Field>
+          <Field label="Wi-Fi only" hint="Pause uploads on cellular or metered connections.">
+            <Switch
+              checked={settings.wifiOnly}
+              onChange={(wifiOnly) => {
+                onPatch({ wifiOnly });
+              }}
+            />
+          </Field>
+          <Field label="Upload bandwidth limit" hint={bandwidth >= 100 ? 'Unlimited' : `${String(bandwidth)}% of available upload`}>
+            <Slider
+              label="Upload bandwidth limit"
+              value={bandwidth}
+              min={10}
+              max={100}
+              step={5}
+              width={130}
+              onChange={(bandwidthLimit) => {
+                onPatch({ bandwidthLimit });
+              }}
+            />
+          </Field>
+        </>
+      ) : null}
       <Field label="On import, from card or drive" hint="Move frees space immediately; copy keeps the source untouched.">
         <Segmented
           label="On import, from card or drive"
           value={settings.importMode}
-          disabled={!connected}
           options={[
             { value: 'copy', label: 'Copy' },
             { value: 'move', label: 'Move' },
@@ -104,31 +130,6 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
             onPatch({ importMode });
           }}
         />
-      </Field>
-      <Field label="Wi-Fi only" hint="Pause uploads on cellular or metered connections.">
-        <Switch
-          checked={settings.wifiOnly}
-          disabled={!connected}
-          onChange={(wifiOnly) => {
-            onPatch({ wifiOnly });
-          }}
-        />
-      </Field>
-      <Field label="Upload bandwidth limit" hint={bandwidth >= 100 ? 'Unlimited' : `${String(bandwidth)}% of available upload`}>
-        <div className={connected ? undefined : 'ovl-settings__lockedControl'}>
-          <Slider
-            label="Upload bandwidth limit"
-            value={bandwidth}
-            min={10}
-            max={100}
-            step={5}
-            width={130}
-            disabled={!connected}
-            onChange={(bandwidthLimit) => {
-              onPatch({ bandwidthLimit });
-            }}
-          />
-        </div>
       </Field>
       <Field label="Encrypt originals" hint="Client-side encryption before any upload. Cannot be disabled.">
         <Switch checked disabled />

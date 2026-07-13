@@ -70,6 +70,9 @@ const VOCABULARY = [
   // the readme list (#238).
   'panel-left-close',
   'panel-left-open',
+  // Disconnected-state glyph the updated design's StatusBar.jsx/Sidebar.jsx
+  // use beyond the readme list (#239).
+  'cloud-off',
 ] as const;
 
 describe('Icon', () => {

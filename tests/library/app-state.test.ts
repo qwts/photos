@@ -96,6 +96,14 @@ describe('app state reducer', () => {
     assert.equal(state.lastBackupLabel, 'JUST NOW');
   });
 
+  test('providerConnected mirrors the settings push (#239)', () => {
+    assert.equal(initialAppState.providerConnected, true);
+    const off = apply(initialAppState, { type: 'providerConnected/set', connected: false });
+    assert.equal(off.providerConnected, false);
+    const on = apply(off, { type: 'providerConnected/set', connected: true });
+    assert.equal(on.providerConnected, true);
+  });
+
   test('query, view, explicit lightbox close, and toast lifecycle', () => {
     let state = apply(
       initialAppState,
