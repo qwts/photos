@@ -352,6 +352,12 @@ function getExportFacade(): ExportFacade {
         controller?.abort();
       },
       pickDestination: async () => {
+        // Harness hook (#101, OVERLOOK_* family): the mock-file-dialog seam
+        // the export E2E drives — a fixed destination instead of the picker.
+        const fixture = process.env['OVERLOOK_EXPORT_DESTINATION'];
+        if (fixture !== undefined && fixture !== '') {
+          return fixture;
+        }
         const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
         return result.canceled ? null : (result.filePaths[0] ?? null);
       },
