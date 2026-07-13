@@ -100,7 +100,10 @@ function sourceWhere(source: PageRequest['source']): string {
     case 'recent':
       return 'p.deleted_at IS NULL AND p.imported_at >= @recentSince';
     case 'offloaded':
-      return `p.deleted_at IS NULL AND p.id IN (SELECT photo_id FROM sync_ledger WHERE status = 'offloaded')`;
+      // Join-based (photo_id is the ledger PK, so the join is 1:1): usable
+      // in page() AND as a single-pass counts() FILTER clause (#124 — the
+      // IN-subquery form cost ~700ms at 200K).
+      return `p.deleted_at IS NULL AND l.status = 'offloaded'`;
     case 'deleted':
       return 'p.deleted_at IS NOT NULL';
   }
@@ -455,18 +458,23 @@ export class PhotosRepository {
 
   /** Sidebar counts share page()'s sourceWhere — ONE query truth per
    * source, so counts and grid results cannot drift (#119; the mock's
-   * fall-through gap, fixed by construction). */
+   * fall-through gap, fixed by construction). Single pass over the join
+   * with FILTER clauses (#124): five separate counts cost ~690ms at 200K;
+   * one scan serves them all. */
   counts(recentSince: string): SourceCounts {
-    const one = (source: PageRequest['source']): number =>
-      queryAll<{ n: number }>(this.db, `SELECT count(*) AS n FROM photos p WHERE ${sourceWhere(source)}`, {
-        recentSince,
-      })[0]?.n ?? 0;
+    const sources = ['all', 'favorites', 'recent', 'offloaded', 'deleted'] as const;
+    const filters = sources.map((source) => `count(*) FILTER (WHERE ${sourceWhere(source)}) AS "${source}"`).join(', ');
+    const row = queryAll<Record<(typeof sources)[number], number>>(
+      this.db,
+      `SELECT ${filters} FROM photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id`,
+      { recentSince },
+    )[0];
     return {
-      all: one('all'),
-      favorites: one('favorites'),
-      recent: one('recent'),
-      offloaded: one('offloaded'),
-      deleted: one('deleted'),
+      all: row?.all ?? 0,
+      favorites: row?.favorites ?? 0,
+      recent: row?.recent ?? 0,
+      offloaded: row?.offloaded ?? 0,
+      deleted: row?.deleted ?? 0,
     };
   }
 }
