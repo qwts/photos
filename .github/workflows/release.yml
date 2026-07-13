@@ -84,22 +84,30 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          # Mirrors the gate in package.yml: with the cert secret the mac
-          # build was signed + notarized, so the tag publishes as a full
-          # release; without it, the historical unsigned pre-release (#128).
-          SIGNED: ${{ secrets.CSC_LINK != '' }}
+          # Mirrors the gate in package.yml: full release only when the mac
+          # build could sign AND notarize (cert-only would leave Gatekeeper
+          # rejecting the app — package.yml's spctl gate fails that build
+          # anyway); otherwise the historical unsigned pre-release (#128).
+          SIGNED: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY != '' }}
         run: |
           if [ "$SIGNED" = "true" ]; then
-            flags=(--title "Overlook $TAG")
+            prerelease=false
+            title="Overlook $TAG"
           else
-            flags=(--prerelease --title "Overlook $TAG (unsigned dev build)")
+            prerelease=true
+            title="Overlook $TAG (unsigned dev build)"
           fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG exists — replacing assets."
+            # Re-runs must also promote/demote, not just swap assets — e.g. a
+            # tag first published unsigned and rebuilt after secrets landed.
+            echo "Release $TAG exists — updating flags and replacing assets."
+            gh release edit "$TAG" --prerelease="$prerelease" --title "$title" \
+              --repo "$GITHUB_REPOSITORY"
             gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$TAG" dist/* \
-              "${flags[@]}" \
+              --prerelease="$prerelease" \
+              --title "$title" \
               --notes-file notes.md \
               --repo "$GITHUB_REPOSITORY"
           fi
