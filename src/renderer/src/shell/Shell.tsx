@@ -71,11 +71,18 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   // Backup completion (#106): failures surface as the red toast with a
   // Retry action; the pending/count refresh rides the existing pushes.
   useEffect(() => {
-    return window.overlook.backup.onCompleted(({ failed }) => {
+    return window.overlook.backup.onCompleted(({ failed, manifestUploaded }) => {
       if (failed > 0) {
         dispatch({
           type: 'toast/shown',
           toast: { title: `BACKUP: ${formatCount(failed)} FAILED — WILL RETRY`, tone: 'red', action: 'retry-backup' },
+        });
+      } else if (!manifestUploaded) {
+        // Blobs verified but the remote is owed its manifest generation —
+        // without it the backup is not restorable (PR #204 review).
+        dispatch({
+          type: 'toast/shown',
+          toast: { title: 'BACKUP INDEX PENDING — WILL RETRY', tone: 'red', action: 'retry-backup' },
         });
       }
     });
