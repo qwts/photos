@@ -5,9 +5,6 @@
 // token-redacting error messages. Electron-free so node:test covers every
 // branch without a browser.
 
-// The value shipped in v0.13.0 was the app's client SECRET, pasted by
-// mistake (burned + rotated in the pCloud console the same day). This is
-// the actual public client id.
 export const PCLOUD_CLIENT_ID = '83ag1ClbJd7';
 
 // Registered verbatim in the owner's pCloud app console — exact-match, so
