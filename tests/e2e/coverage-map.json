@@ -134,8 +134,8 @@
           "path": "src/renderer/src/import/ImportDialog.stories.tsx"
         },
         {
-          "type": "deferred",
-          "issue": 90
+          "type": "playwright-e2e",
+          "path": "tests/e2e/import-flow.spec.ts"
         }
       ]
     },
@@ -162,8 +162,8 @@
           "path": "tests/library/app-state.test.ts"
         },
         {
-          "type": "deferred",
-          "issue": 90
+          "type": "playwright-e2e",
+          "path": "tests/e2e/import-flow.spec.ts"
         }
       ]
     }

@@ -10,6 +10,7 @@ import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { KeyStore } from './crypto/keystore.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
+import { run } from './db/sql.js';
 import { registerFullProtocol } from './fullres/full-protocol.js';
 import { FullService } from './fullres/full-service.js';
 import { extractMetadata } from './import/exif.js';
@@ -87,6 +88,16 @@ function getLibraryService(): LibraryService {
     // Reads fail clean before init, but WRITES race the directory creation
     // on a fresh profile — importers await this promise (PR #183 review).
     const blobStoreReady = store.init();
+    // photos.key_id references keys(id): the current key's row must exist
+    // before the FIRST real import on a fresh profile (#90 caught this —
+    // previously only the dev seed wrote it). The wrapped key itself lives
+    // in the keystore; this row is FK metadata.
+    run(
+      db,
+      `INSERT OR IGNORE INTO keys (id, wrapped_key, created_at) VALUES (?, 'keystore-managed', ?)`,
+      keyStore.currentKey().id,
+      new Date().toISOString(),
+    );
     libraryParts = { db, blobStore: store, blobStoreReady, keyStore };
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));

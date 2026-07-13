@@ -54,6 +54,7 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
   const [imported, setImported] = useState(0);
   const [failed, setFailed] = useState(0);
   const [runError, setRunError] = useState(false);
+  const [cancelled, setCancelled] = useState(0);
   const [cleanCount, setCleanCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -93,8 +94,9 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
       .then((summary) => {
         setImported(summary.imported);
         setFailed(summary.failed);
+        setCancelled(summary.cancelled);
         setPhase('done');
-        if (summary.failed === 0) {
+        if (summary.failed === 0 && summary.cancelled === 0) {
           setCleanCount(summary.imported);
         }
       })
@@ -129,6 +131,18 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
               Import {formatCount(source.newCount)} photos
             </Button>
           </>
+        ) : phase === 'running' ? (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              // Cancel semantics (#88): the engine finishes the file in
+              // flight and keeps everything completed; the run's own
+              // resolution moves us to the done summary.
+              void window.overlook.import.cancel({});
+            }}
+          >
+            Cancel
+          </Button>
         ) : phase === 'done' ? (
           <Button
             variant="primary"
@@ -196,12 +210,14 @@ export function ImportDialog({ open, source, onClose, onDone, onComplete }: Impo
             detail={`${formatCount(thumbBar.done)} / ${formatCount(thumbBar.total)}`}
           />
           {phase === 'done' ? (
-            runError || failed > 0 ? (
+            runError || failed > 0 || cancelled > 0 ? (
               <div className="ovl-import__failed" role="alert">
                 <Icon name="triangle-alert" size={15} />
                 {runError
                   ? 'Import failed — nothing was deleted from the card. Check the source and try again.'
-                  : `${formatCount(imported)} imported · ${formatCount(failed)} failed — failed files were kept on the card.`}
+                  : failed > 0
+                    ? `${formatCount(imported)} imported · ${formatCount(failed)} failed — failed files were kept on the card.`
+                    : `${formatCount(imported)} imported · ${formatCount(cancelled)} cancelled — remaining files were kept on the card.`}
               </div>
             ) : (
               <div className="ovl-import__done">

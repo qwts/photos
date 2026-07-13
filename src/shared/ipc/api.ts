@@ -28,6 +28,7 @@ export interface OverlookApi {
     readonly listSources: () => Promise<Res<typeof channels.importListSources>>;
     readonly scanSource: (request: Req<typeof channels.importScanSource>) => Promise<Res<typeof channels.importScanSource>>;
     readonly run: (request: Req<typeof channels.importRun>) => Promise<Res<typeof channels.importRun>>;
+    readonly cancel: (request: Req<typeof channels.importCancel>) => Promise<Res<typeof channels.importCancel>>;
     readonly onScanProgress: (listener: (payload: z.output<typeof events.scanProgress.payload>) => void) => () => void;
     readonly onCopyProgress: (listener: (payload: z.output<typeof events.importCopyProgress.payload>) => void) => () => void;
     readonly onThumbProgress: (listener: (payload: z.output<typeof events.importThumbProgress.payload>) => void) => () => void;

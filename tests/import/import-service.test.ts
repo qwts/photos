@@ -35,7 +35,7 @@ describe('import service serialization (#87)', () => {
       peak = Math.max(peak, active);
       await new Promise((resolve) => setTimeout(resolve, 20));
       active -= 1;
-      return { imported: 0, duplicates: 0, failed: 0, photoIds: [] };
+      return { imported: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] };
     };
     const engine = {
       importFiles: enter,
@@ -57,7 +57,7 @@ describe('import service serialization (#87)', () => {
         if (calls === 1) {
           return Promise.reject(new Error('first batch dies'));
         }
-        return Promise.resolve({ imported: 0, duplicates: 0, failed: 0, photoIds: [] });
+        return Promise.resolve({ imported: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] });
       },
       resume: () => Promise.resolve(null),
     } as unknown as ImportEngine;
