@@ -368,6 +368,20 @@
           "path": "tests/db/soft-delete.test.ts"
         }
       ]
+    },
+    {
+      "id": "m10-add-to-album",
+      "wiki": "User-Story-M10-Albums-organization-deletion",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/albums.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/SelectionPill.stories.tsx"
+        }
+      ]
     }
   ]
 }
