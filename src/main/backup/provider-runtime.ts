@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { SafeStorageLike } from '../crypto/keystore.js';
@@ -56,11 +56,20 @@ export class ProviderRuntime {
   libraryId(): string {
     const idPath = join(this.options.dataDir(), 'library-id');
     if (existsSync(idPath)) {
-      return readFileSync(idPath, 'utf8').trim();
+      const stored = readFileSync(idPath, 'utf8').trim();
+      // Only a well-formed ULID names a remote home (PR #260 review): a
+      // truncated/corrupted record would poison every future remote path
+      // (even ''), so it is replaced — it never named a valid home.
+      if (/^[0-9A-HJKMNP-TV-Z]{26}$/u.test(stored)) {
+        return stored;
+      }
     }
     const id = ulid();
     mkdirSync(this.options.dataDir(), { recursive: true });
-    writeFileSync(idPath, id);
+    // Atomic like every other library record — a crash mid-write must not
+    // leave a half-written id behind.
+    writeFileSync(`${idPath}.tmp`, id);
+    renameSync(`${idPath}.tmp`, idPath);
     return id;
   }
 

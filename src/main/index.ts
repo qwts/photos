@@ -363,7 +363,16 @@ function getFullService(): FullService {
 let settingsStore: SettingsStore | undefined;
 
 function getSettingsStore(): SettingsStore {
-  settingsStore ??= new SettingsStore({ filePath: path.join(app.getPath('userData'), 'settings.json') });
+  if (settingsStore === undefined) {
+    settingsStore = new SettingsStore({ filePath: path.join(app.getPath('userData'), 'settings.json') });
+    // Packaged installs have no mock provider (#256): correct a stale or
+    // default 'mock' providerId IN THE STORE, so the renderer's visibility
+    // gates (#239 mirror settings.providerId) agree with main instead of
+    // relying on ProviderRuntime.activeId's mask alone (PR #260 review).
+    if (app.isPackaged && settingsStore.get().providerId === 'mock') {
+      settingsStore.set({ providerId: null });
+    }
+  }
   return settingsStore;
 }
 
