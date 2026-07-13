@@ -128,7 +128,21 @@ const SCHEMA_V2: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2];
+const SCHEMA_V3: Migration = {
+  version: 3,
+  name: 'sort-order-indexes',
+  // #113 (PR #212 review): Name and Size orderings need their own keyset
+  // indexes or a 200K-library sort forces a full scan + temp B-tree before
+  // every limited page. Each matches its ORDER BY expression exactly.
+  up(db) {
+    db.exec(`
+      CREATE INDEX idx_photos_name ON photos (lower(file_name), id);
+      CREATE INDEX idx_photos_size ON photos (bytes DESC, id DESC);
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {
