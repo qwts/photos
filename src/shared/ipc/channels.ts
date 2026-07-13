@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { settingsPatchSchema, settingsSchema } from '../settings/settings.js';
+
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
 // registers handlers and preload exposes invokers for exactly this set —
@@ -175,6 +177,11 @@ export const channels = {
     }),
   ),
   backupRehydrate: defineChannel('backup:rehydrate', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
+  // Settings store (#111): typed get + validated partial patch. The locked
+  // key (thumbnailsOnImport) is a literal, so a patch flipping it rejects
+  // at this boundary.
+  settingsGet: defineChannel('settings:get', z.object({}), z.object({ settings: settingsSchema })),
+  settingsSet: defineChannel('settings:set', z.object({ patch: settingsPatchSchema }), z.object({ settings: settingsSchema })),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
@@ -221,6 +228,9 @@ export const events = {
       manifestUploaded: z.boolean(),
     }),
   ),
+  // Settings changes (#111) push the full snapshot — consumers (dialog,
+  // sidebar, backup engine surface) re-render from one truth.
+  settingsChanged: defineEvent('settings:changed', z.object({ settings: settingsSchema })),
   // Backup progress (#105): per-item + aggregate for the sidebar card.
   backupProgress: defineEvent(
     'backup:progress',

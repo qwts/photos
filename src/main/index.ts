@@ -33,8 +33,11 @@ import {
   registerImportHandlers,
   registerIpcHandlers,
   registerLibraryHandlers,
+  registerSettingsHandlers,
   type ExportFacade,
 } from './ipc.js';
+import { SettingsStore } from './settings/settings-store.js';
+import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
@@ -297,6 +300,13 @@ function getFullService(): FullService {
   return fullService;
 }
 
+let settingsStore: SettingsStore | undefined;
+
+function getSettingsStore(): SettingsStore {
+  settingsStore ??= new SettingsStore({ filePath: path.join(app.getPath('userData'), 'settings.json') });
+  return settingsStore;
+}
+
 let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
 
@@ -322,9 +332,8 @@ function getBackupEngine(): BackupEngine {
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    // Until M09's settings surface exists, defaults apply: unlimited
-    // bandwidth, no Wi-Fi gate, manual backups only. Electron cannot tell
-    // interface types portably — 'unknown' is the recorded heuristic.
+    // Electron cannot tell interface types portably — 'unknown' is the
+    // recorded heuristic (and it deliberately passes the Wi-Fi gate).
     const baseProvider = new MockProvider({ rootDir: path.join(app.getPath('userData'), 'library', 'mock-remote') });
     // Harness hook (#110, OVERLOOK_* family): arm a provider fault for the
     // E2E error-path flows (e.g. OVERLOOK_BACKUP_FAULT=put).
@@ -351,7 +360,16 @@ function getBackupEngine(): BackupEngine {
         return Buffer.concat(chunks);
       },
       manifestRows: () => repo.manifestRows(),
-      settings: () => ({ throttlePercent: null, wifiOnly: false, autoBackupOnImport: false }),
+      // Live reads (#111): every run and every maybeAutoRun sees the
+      // store's current values — no restart needed after a settings change.
+      settings: () => {
+        const current = getSettingsStore().get();
+        return {
+          throttlePercent: throttlePercentOf(current),
+          wifiOnly: current.wifiOnly,
+          autoBackupOnImport: current.autoBackupOnImport,
+        };
+      },
       network: () => 'unknown',
       events: {
         progress: (done, total, photoId) => {
@@ -535,8 +553,19 @@ void app.whenReady().then(async () => {
   registerLibraryHandlers(getLibraryService);
   registerThumbProtocol(getThumbService);
   registerFullProtocol(getFullService);
-  registerImportHandlers(getImportService);
+  registerImportHandlers(getImportService, () => {
+    getBackupEngine().maybeAutoRun();
+  });
   registerExportHandlers(getExportFacade);
+  registerSettingsHandlers(() => getSettingsStore());
+  // Change pushes (#111): the store notifies, every window re-renders from
+  // the same snapshot.
+  const emitSettingsChanged = createEmitter(events.settingsChanged, (name, payload) => {
+    broadcast((win) => win.webContents.send(name, payload));
+  });
+  getSettingsStore().subscribe((settings) => {
+    emitSettingsChanged({ settings });
+  });
   registerBackupHandlers(() => {
     getBackupEngine();
     const offload = offloadService;

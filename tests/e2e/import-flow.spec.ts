@@ -86,8 +86,19 @@ test('Copy import: dialog flow, encrypted at rest, grid + toast + counts', async
     expect(rows.some((row) => row.camera === 'FUJIFILM X-T5')).toBe(true);
     for (const row of rows) {
       expect(row.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/u);
-      expect(row.syncState).toBe('local');
     }
+
+    // Auto-backup-on-import (#105/#111, default on): the batch uploads to
+    // the mock provider in the background and every row lands synced.
+    await expect
+      .poll(
+        async () =>
+          page.evaluate<string[]>(
+            `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => p.syncState))`,
+          ),
+        { timeout: 15_000 },
+      )
+      .toEqual(['synced', 'synced', 'synced']);
 
     // ...and no plaintext fixture bytes anywhere in the profile (blobs and
     // DB encrypted; derivatives strip metadata; no-store protocols).

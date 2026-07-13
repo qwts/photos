@@ -256,6 +256,20 @@
           "path": "tests/backup/backup-engine.test.ts"
         }
       ]
+    },
+    {
+      "id": "m09-settings-store",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/settings/settings-store.test.ts"
+        }
+      ]
     }
   ]
 }
