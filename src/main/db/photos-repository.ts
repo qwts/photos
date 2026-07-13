@@ -149,6 +149,9 @@ export class PhotosRepository {
     if (request.chips?.localOnly === true) {
       filters.push(`p.id IN (SELECT photo_id FROM sync_ledger WHERE status = 'local')`);
     }
+    if (request.albumId !== undefined) {
+      filters.push('p.id IN (SELECT photo_id FROM album_photos WHERE album_id = @albumId)');
+    }
     if (request.query !== undefined && request.query !== '') {
       filters.push(
         `(instr(lower(p.file_name), @query) > 0 OR instr(lower(COALESCE(p.place, '')), @query) > 0 OR instr(lower(COALESCE(p.camera, '')), @query) > 0)`,
@@ -169,6 +172,7 @@ export class PhotosRepository {
         cursorKey: request.cursor?.sortKey ?? null,
         cursorId: request.cursor?.id ?? null,
         query: request.query?.toLowerCase() ?? null,
+        albumId: request.albumId ?? null,
       },
     );
     const last = rows[rows.length - 1];
@@ -230,6 +234,101 @@ export class PhotosRepository {
        FROM albums a LEFT JOIN album_photos ap ON ap.album_id = a.id
        GROUP BY a.id ORDER BY a.position`,
     ).map((row) => ({ id: row.id, name: row.name, count: row.n }));
+  }
+
+  /** Album members — the rows an album edit dirties (manifest-relevant
+   * per ADR-0007). */
+  albumMembers(albumId: string): string[] {
+    return queryAll<{ photo_id: string }>(this.db, 'SELECT photo_id FROM album_photos WHERE album_id = ? ORDER BY position', albumId).map(
+      (row) => row.photo_id,
+    );
+  }
+
+  /** Albums CRUD (#117). Deleting an album NEVER deletes photos — the
+   * CASCADE clears membership only (Clear-vs-Delete language rules). */
+  createAlbum(id: string, name: string): AlbumSummary {
+    runNamed(
+      this.db,
+      `INSERT INTO albums (id, name, created_at, position)
+       VALUES (@id, @name, @createdAt, (SELECT COALESCE(max(position) + 1, 0) FROM albums))`,
+      { id, name, createdAt: new Date().toISOString() },
+    );
+    return { id, name, count: 0 };
+  }
+
+  /** Renames; returns the members to re-manifest. */
+  renameAlbum(albumId: string, name: string): string[] {
+    return this.db.transaction(() => {
+      const updated = queryGet<{ id: string }>(this.db, 'UPDATE albums SET name = ? WHERE id = ? RETURNING id', name, albumId);
+      if (updated === undefined) {
+        throw new Error(`album ${albumId} does not exist`);
+      }
+      const members = this.albumMembers(albumId);
+      for (const photoId of members) {
+        markDirty(this.db, photoId);
+      }
+      return members;
+    })();
+  }
+
+  /** Deletes the album row; membership cascades, photos stay. Returns the
+   * (former) members to re-manifest. */
+  deleteAlbum(albumId: string): string[] {
+    return this.db.transaction(() => {
+      const members = this.albumMembers(albumId);
+      const deleted = queryGet<{ id: string }>(this.db, 'DELETE FROM albums WHERE id = ? RETURNING id', albumId);
+      if (deleted === undefined) {
+        throw new Error(`album ${albumId} does not exist`);
+      }
+      for (const photoId of members) {
+        markDirty(this.db, photoId);
+      }
+      return members;
+    })();
+  }
+
+  /** Adds photos (idempotent — re-adds are ignored); returns the ids that
+   * actually joined, each dirtied for the next manifest. */
+  addToAlbum(albumId: string, photoIds: readonly string[]): string[] {
+    return this.db.transaction(() => {
+      if (queryGet<{ one: number }>(this.db, 'SELECT 1 AS one FROM albums WHERE id = ?', albumId) === undefined) {
+        throw new Error(`album ${albumId} does not exist`);
+      }
+      const added: string[] = [];
+      for (const photoId of photoIds) {
+        const inserted = queryGet<{ photo_id: string }>(
+          this.db,
+          `INSERT OR IGNORE INTO album_photos (album_id, photo_id, position)
+           VALUES (@albumId, @photoId, (SELECT COALESCE(max(position) + 1, 0) FROM album_photos WHERE album_id = @albumId))
+           RETURNING photo_id`,
+          { albumId, photoId },
+        );
+        if (inserted !== undefined) {
+          markDirty(this.db, photoId);
+          added.push(photoId);
+        }
+      }
+      return added;
+    })();
+  }
+
+  /** Removes photos from an album (photos stay in the library). */
+  removeFromAlbum(albumId: string, photoIds: readonly string[]): string[] {
+    return this.db.transaction(() => {
+      const removed: string[] = [];
+      for (const photoId of photoIds) {
+        const gone = queryGet<{ photo_id: string }>(
+          this.db,
+          'DELETE FROM album_photos WHERE album_id = @albumId AND photo_id = @photoId RETURNING photo_id',
+          { albumId, photoId },
+        );
+        if (gone !== undefined) {
+          markDirty(this.db, photoId);
+          removed.push(photoId);
+        }
+      }
+      return removed;
+    })();
   }
 
   /** Shared-hash guard for offload (#107): live photos on this hash. */

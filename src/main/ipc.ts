@@ -38,6 +38,30 @@ export function registerLibraryHandlers(getService: () => LibraryService): void 
   );
 }
 
+export function registerAlbumHandlers(getService: () => LibraryService, newId: () => string): void {
+  ipcMain.handle(channels.albumCreate.name, (_event, request: unknown) =>
+    wrapHandler(channels.albumCreate, ({ name }) => ({ album: getService().createAlbum(newId(), name) }))(request),
+  );
+  ipcMain.handle(channels.albumRename.name, (_event, request: unknown) =>
+    wrapHandler(channels.albumRename, ({ albumId, name }) => {
+      getService().renameAlbum(albumId, name);
+      return {};
+    })(request),
+  );
+  ipcMain.handle(channels.albumDelete.name, (_event, request: unknown) =>
+    wrapHandler(channels.albumDelete, ({ albumId }) => {
+      getService().deleteAlbum(albumId);
+      return {};
+    })(request),
+  );
+  ipcMain.handle(channels.albumAddPhotos.name, (_event, request: unknown) =>
+    wrapHandler(channels.albumAddPhotos, ({ albumId, photoIds }) => getService().addToAlbum(albumId, photoIds))(request),
+  );
+  ipcMain.handle(channels.albumRemovePhotos.name, (_event, request: unknown) =>
+    wrapHandler(channels.albumRemovePhotos, ({ albumId, photoIds }) => getService().removeFromAlbum(albumId, photoIds))(request),
+  );
+}
+
 export interface SettingsFacade {
   get(): AppSettings;
   set(patch: SettingsPatch): AppSettings;

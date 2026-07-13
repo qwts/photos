@@ -54,6 +54,9 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
   // The card's aggregate bar rides backup:progress (#108); it hides again
   // when the run finishes (done === total).
   const [backupRun, setBackupRun] = useState<{ done: number; total: number } | null>(null);
+  // Inline album creation (#117) — the design gives the + affordance but no
+  // flow; an inline name row keeps it keyboard-first (Enter/Escape).
+  const [namingAlbum, setNamingAlbum] = useState(false);
   useEffect(() => {
     const offProgress = window.overlook.backup.onProgress(({ done, total }) => {
       setBackupRun(total === 0 ? null : { done, total });
@@ -77,7 +80,7 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
           icon={icon}
           label={label}
           count={counts === null ? null : counts[key]}
-          active={state.source === key}
+          active={state.album === null && state.source === key}
           onClick={() => {
             dispatch({ type: 'source/set', source: key });
           }}
@@ -85,10 +88,53 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
       ))}
       <div className="ovl-sidebar__heading mono-data">
         <span>Albums</span>
-        <Icon name="plus" size={13} color="var(--text-faint)" />
+        <button
+          type="button"
+          className="ovl-sidebar__gear"
+          aria-label="New album"
+          onClick={() => {
+            setNamingAlbum(true);
+          }}
+        >
+          <Icon name="plus" size={13} color="var(--text-faint)" />
+        </button>
       </div>
+      {namingAlbum ? (
+        <input
+          className="ovl-sidebar__albumname"
+          aria-label="Album name"
+          placeholder="Album name"
+          // The affordance just appeared under the pointer — take focus so
+          // Enter/Escape work immediately.
+          autoFocus
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              setNamingAlbum(false);
+            } else if (event.key === 'Enter') {
+              const name = event.currentTarget.value.trim();
+              if (name !== '') {
+                // The albums list refreshes off the library:changed push.
+                void window.overlook.albums.create({ name }).catch(() => undefined);
+                setNamingAlbum(false);
+              }
+            }
+          }}
+          onBlur={() => {
+            setNamingAlbum(false);
+          }}
+        />
+      ) : null}
       {albums.map((album) => (
-        <SideRow key={album.id} icon="album" label={album.name} count={album.count} />
+        <SideRow
+          key={album.id}
+          icon="album"
+          label={album.name}
+          count={album.count}
+          active={state.album === album.id}
+          onClick={() => {
+            dispatch({ type: 'album/set', albumId: album.id });
+          }}
+        />
       ))}
       <div className="ovl-sidebar__spacer" />
       <div className="ovl-sidebar__card" data-testid="backup-card">

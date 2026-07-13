@@ -103,6 +103,7 @@ export const channels = {
       query: z.string().optional(),
       chips: chipFiltersSchema.optional(),
       order: z.enum(['date', 'name', 'size']).optional(),
+      albumId: z.string().optional(),
     }),
     z.object({ photos: z.array(photoRecordSchema).readonly(), nextCursor: pageCursorSchema.nullable() }),
   ),
@@ -127,6 +128,26 @@ export const channels = {
     'library:albums',
     z.object({}),
     z.object({ albums: z.array(z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() })).readonly() }),
+  ),
+  // Albums CRUD (#117): first-class library objects. Deleting an album
+  // never deletes photos (Clear-vs-Delete rules); membership edits dirty
+  // the ledger (manifest-relevant, ADR-0007).
+  albumCreate: defineChannel(
+    'album:create',
+    z.object({ name: z.string().min(1).max(120) }),
+    z.object({ album: z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() }) }),
+  ),
+  albumRename: defineChannel('album:rename', z.object({ albumId: z.string(), name: z.string().min(1).max(120) }), z.object({})),
+  albumDelete: defineChannel('album:delete', z.object({ albumId: z.string() }), z.object({})),
+  albumAddPhotos: defineChannel(
+    'album:add-photos',
+    z.object({ albumId: z.string(), photoIds: z.array(z.string()).min(1) }),
+    z.object({ added: z.number().int().nonnegative() }),
+  ),
+  albumRemovePhotos: defineChannel(
+    'album:remove-photos',
+    z.object({ albumId: z.string(), photoIds: z.array(z.string()).min(1) }),
+    z.object({ removed: z.number().int().nonnegative() }),
   ),
   // Import sources (#84): discovery + the source-card scan. Copying is #87.
   importListSources: defineChannel('import:list-sources', z.object({}), z.object({ sources: z.array(importSourceSchema).readonly() })),

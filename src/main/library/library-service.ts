@@ -50,6 +50,41 @@ export class LibraryService {
     return this.repo.albums();
   }
 
+  // Albums CRUD (#117): every mutation pushes targeted change events —
+  // membership/rename/delete dirty the affected photos (manifest-relevant
+  // per ADR-0007), so pendingCount rides along.
+  createAlbum(id: string, name: string): AlbumSummary {
+    const album = this.repo.createAlbum(id, name);
+    this.events.libraryChanged([]);
+    return album;
+  }
+
+  renameAlbum(albumId: string, name: string): void {
+    const members = this.repo.renameAlbum(albumId, name);
+    this.events.libraryChanged(members);
+    this.events.pendingCountChanged(this.repo.pendingCount());
+  }
+
+  deleteAlbum(albumId: string): void {
+    const members = this.repo.deleteAlbum(albumId);
+    this.events.libraryChanged(members);
+    this.events.pendingCountChanged(this.repo.pendingCount());
+  }
+
+  addToAlbum(albumId: string, photoIds: readonly string[]): { added: number } {
+    const added = this.repo.addToAlbum(albumId, photoIds);
+    this.events.libraryChanged(added);
+    this.events.pendingCountChanged(this.repo.pendingCount());
+    return { added: added.length };
+  }
+
+  removeFromAlbum(albumId: string, photoIds: readonly string[]): { removed: number } {
+    const removed = this.repo.removeFromAlbum(albumId, photoIds);
+    this.events.libraryChanged(removed);
+    this.events.pendingCountChanged(this.repo.pendingCount());
+    return { removed: removed.length };
+  }
+
   pendingCount(): number {
     return this.repo.pendingCount();
   }

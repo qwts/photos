@@ -19,6 +19,8 @@ export interface AppState {
   readonly chips: ChipFilters;
   /** Mirrors the settings store's sortOrder (#113); the grid query reads it. */
   readonly sortOrder: SortOrder;
+  /** Active album filter (#117) — an album acts as a source; null = none. */
+  readonly album: string | null;
   readonly selection: ReadonlySet<string>;
   readonly lightboxId: string | null;
   readonly inspectorOpen: boolean;
@@ -43,6 +45,7 @@ export const initialAppState: AppState = {
   source: 'all',
   chips: {},
   sortOrder: 'date',
+  album: null,
   selection: new Set<string>(),
   lightboxId: null,
   inspectorOpen: false,
@@ -62,6 +65,7 @@ export type AppAction =
   | { type: 'source/set'; source: SourceFilter }
   | { type: 'chip/toggled'; chip: keyof ChipFilters }
   | { type: 'sortOrder/set'; order: SortOrder }
+  | { type: 'album/set'; albumId: string | null }
   | { type: 'selection/toggled'; photoId: string }
   | { type: 'selection/all'; photoIds: readonly string[] }
   | { type: 'selection/cleared' }
@@ -100,11 +104,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'source/set':
       // Selection is NOT cleared here: the next photos/loaded intersects it
       // with the new visible set (still-visible items survive, #78).
-      return { ...state, source: action.source };
+      return { ...state, source: action.source, album: null };
     case 'chip/toggled': {
       const next = { ...state.chips, [action.chip]: state.chips[action.chip] !== true };
       return { ...state, chips: next };
     }
+    case 'album/set':
+      // An album behaves like a source (design §Sidebar): selecting one
+      // resets the source to 'all'; picking any source clears it below.
+      return { ...state, album: action.albumId, source: 'all' };
     case 'sortOrder/set':
       // Fed by settings:changed pushes (#113) — the query hook refetches
       // and the next photos/loaded intersects the selection as usual.

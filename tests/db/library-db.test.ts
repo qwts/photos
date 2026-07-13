@@ -336,3 +336,97 @@ describe('PhotosRepository', () => {
     db.close();
   });
 });
+
+describe('albums (#117)', () => {
+  function clearDirty(db: Database.Database): void {
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+  }
+
+  function dirtyIds(db: Database.Database): string[] {
+    return queryAll<{ photo_id: string }>(db, 'SELECT photo_id FROM sync_ledger WHERE dirty = 1 ORDER BY photo_id').map(
+      (row) => row.photo_id,
+    );
+  }
+
+  test('EXIT CRITERIA: create → count 0 → membership counts → album filter pages', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(samplePhoto());
+    repo.insert(samplePhoto());
+    const ids = repo.page({ source: 'all', limit: 10 }).photos.map((photo) => photo.id);
+
+    const album = repo.createAlbum('ALB1', 'Kyoto trip');
+    assert.deepEqual(album, { id: 'ALB1', name: 'Kyoto trip', count: 0 });
+    assert.deepEqual(repo.albums().at(-1), { id: 'ALB1', name: 'Kyoto trip', count: 0 });
+
+    repo.addToAlbum('ALB1', [ids[0] ?? '']);
+    assert.equal(repo.albums().at(-1)?.count, 1);
+    const filtered = repo.page({ source: 'all', limit: 10, albumId: 'ALB1' });
+    assert.deepEqual(
+      filtered.photos.map((photo) => photo.id),
+      [ids[0]],
+    );
+    db.close();
+  });
+
+  test('membership edits dirty exactly the affected rows; re-adds are ignored', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(samplePhoto());
+    repo.insert(samplePhoto());
+    const ids = repo
+      .page({ source: 'all', limit: 10 })
+      .photos.map((photo) => photo.id)
+      .sort();
+    repo.createAlbum('ALB1', 'Trip');
+    clearDirty(db);
+
+    assert.deepEqual(repo.addToAlbum('ALB1', ids).sort(), ids, 'both joined');
+    assert.deepEqual(dirtyIds(db), ids, 'members dirtied for the next manifest');
+
+    clearDirty(db);
+    assert.deepEqual(repo.addToAlbum('ALB1', ids), [], 're-add is a no-op');
+    assert.deepEqual(dirtyIds(db), [], 'no-ops never dirty');
+
+    const first = ids[0] ?? '';
+    assert.deepEqual(repo.removeFromAlbum('ALB1', [first]), [first]);
+    assert.deepEqual(dirtyIds(db), [first], 'removal dirties the removed row only');
+    db.close();
+  });
+
+  test('rename persists and dirties members; unknown albums are typed errors', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(samplePhoto());
+    const id = repo.page({ source: 'all', limit: 1 }).photos[0]?.id ?? '';
+    repo.createAlbum('ALB1', 'Old');
+    repo.addToAlbum('ALB1', [id]);
+    clearDirty(db);
+
+    assert.deepEqual(repo.renameAlbum('ALB1', 'New'), [id]);
+    assert.equal(repo.albums().at(-1)?.name, 'New');
+    assert.deepEqual(dirtyIds(db), [id]);
+
+    assert.throws(() => repo.renameAlbum('GHOST', 'X'), /does not exist/);
+    assert.throws(() => repo.deleteAlbum('GHOST'), /does not exist/);
+    assert.throws(() => repo.addToAlbum('GHOST', [id]), /does not exist/);
+    db.close();
+  });
+
+  test('EXIT CRITERIA: deleting an album never deletes photos (Clear-vs-Delete)', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(samplePhoto());
+    const id = repo.page({ source: 'all', limit: 1 }).photos[0]?.id ?? '';
+    repo.createAlbum('ALB1', 'Doomed');
+    repo.addToAlbum('ALB1', [id]);
+    clearDirty(db);
+
+    assert.deepEqual(repo.deleteAlbum('ALB1'), [id]);
+    assert.equal(
+      repo.albums().some((album) => album.id === 'ALB1'),
+      false,
+      'album gone',
+    );
+    assert.equal(repo.page({ source: 'all', limit: 10 }).photos.length, 1, 'photo untouched');
+    assert.equal(queryGet<{ n: number }>(db, 'SELECT count(*) AS n FROM album_photos')?.n, 0, 'membership cascaded');
+    assert.deepEqual(dirtyIds(db), [id], 'former member re-manifests');
+    db.close();
+  });
+});

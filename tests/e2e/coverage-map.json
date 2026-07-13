@@ -340,6 +340,20 @@
           "path": "tests/e2e/settings-restart.spec.ts"
         }
       ]
+    },
+    {
+      "id": "m10-albums-crud",
+      "wiki": "User-Story-M10-Albums-organization-deletion",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/albums.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/db/library-db.test.ts"
+        }
+      ]
     }
   ]
 }

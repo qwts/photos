@@ -234,3 +234,20 @@
   display: flex;
   animation: ovl-spin 1.2s linear infinite;
 }
+
+.ovl-sidebar__albumname {
+  height: 26px;
+  margin: 0 0 2px;
+  padding: 0 var(--space-2);
+  background: var(--gray-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-1);
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-md);
+  outline: none;
+}
+
+.ovl-sidebar__albumname::placeholder {
+  color: var(--text-faint);
+}
