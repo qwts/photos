@@ -94,6 +94,14 @@ async function world(count: number) {
   return { dataDir, db, repo, ledger, store, provider, key, hashes, audits, changed, checker };
 }
 
+/** Back-date a published blob (+thumb) so the age gate treats it as a
+ * leftover, not a live write (PR #223 review). */
+function ageBlob(dataDir: string, hash: string): void {
+  const old = (Date.now() - 2 * 60 * 60 * 1000) / 1000;
+  utimesSync(join(dataDir, 'blobs', hash.slice(0, 2), hash.slice(2, 4), hash), old, old);
+  utimesSync(join(dataDir, 'thumbs', hash.slice(0, 2), `${hash}.thumb`), old, old);
+}
+
 function emptyReport(report: {
   orphanOriginals: readonly string[];
   orphanThumbs: readonly string[];
@@ -160,6 +168,7 @@ describe('consistency scan + repair (#125)', () => {
     // The crash hit after purgeRow, before the blob deletes.
     w.repo.softDelete(['P0']);
     w.repo.purgeRow('P0');
+    ageBlob(w.dataDir, hash);
 
     const report = await w.checker.scan();
     assert.deepEqual(report.orphanOriginals, [hash]);
@@ -180,6 +189,10 @@ describe('consistency scan + repair (#125)', () => {
     // Corruption 2: a purge interrupted after the row delete.
     w.repo.softDelete(['P2']);
     w.repo.purgeRow('P2');
+    ageBlob(w.dataDir, orphanHash);
+    // A FRESH published blob with no row yet (an import mid-flight —
+    // putOriginal lands before repo.insert) must SURVIVE the repair.
+    const liveRef = await w.store.putOriginal(Readable.from([sampleJpeg(777)]), w.key, 'LIVE');
     // Corruption 3: a crash mid-put strands staging ciphertext (old
     // mtime — the age gate must never reap LIVE staging writes).
     const stranded = join(w.dataDir, 'tmp', 'stranded.tmp');
@@ -202,6 +215,7 @@ describe('consistency scan + repair (#125)', () => {
       ['live.tmp'],
       'the in-flight staging write survived the repair (age gate)',
     );
+    assert.equal(w.store.hasOriginal(liveRef.contentHash), true, 'the mid-import published blob survived (age gate)');
     assert.equal(w.ledger.status('P0'), 'error', 'the lost row is surfaced, not hidden');
     assert.notEqual(w.repo.get('P1'), undefined, 'healthy rows untouched');
     assert.equal(w.store.hasOriginal(w.hashes[1] ?? ''), true);

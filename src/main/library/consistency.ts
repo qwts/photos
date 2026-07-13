@@ -8,8 +8,10 @@
 //       remote absent                → status 'error' (surfaced in the UI
 //         as the red glyph — the honest v1 of the repair prompt; recorded)
 
-/** Staged files younger than this are presumed live, never reaped. */
-export const STAGED_LEFTOVER_MIN_AGE_MS = 60 * 60 * 1000;
+/** Anything younger than this is presumed a LIVE write, never reaped —
+ * imports publish blobs before inserting rows, and puts stage in tmp/
+ * (PR #223 review). */
+export const LEFTOVER_MIN_AGE_MS = 60 * 60 * 1000;
 
 export interface LyingRow {
   readonly photoId: string;
@@ -32,8 +34,8 @@ export interface RepairSummary extends ConsistencyReport {
 export interface ConsistencyDeps {
   readonly rows: () => readonly { id: string; contentHash: string; syncState: string }[];
   readonly blobs: {
-    readonly listOriginalHashes: () => Promise<string[]>;
-    readonly listThumbHashes: () => Promise<string[]>;
+    readonly listOriginalHashes: () => Promise<{ hash: string; ageMs: number }[]>;
+    readonly listThumbHashes: () => Promise<{ hash: string; ageMs: number }[]>;
     readonly listStaged: () => Promise<{ name: string; ageMs: number }[]>;
     readonly hasOriginal: (hash: string) => boolean;
     readonly deleteOriginal: (hash: string) => Promise<void>;
@@ -54,12 +56,18 @@ export class ConsistencyChecker {
   async scan(): Promise<ConsistencyReport> {
     const rows = this.deps.rows();
     const owned = new Set(rows.map((row) => row.contentHash));
-    const orphanOriginals = (await this.deps.blobs.listOriginalHashes()).filter((hash) => !owned.has(hash));
-    const orphanThumbs = (await this.deps.blobs.listThumbHashes()).filter((hash) => !owned.has(hash));
+    // Age-gated like staging: a just-published blob whose row hasn't
+    // committed yet is a live import, not an orphan (PR #223 review).
+    const orphanOriginals = (await this.deps.blobs.listOriginalHashes())
+      .filter((entry) => !owned.has(entry.hash) && entry.ageMs > LEFTOVER_MIN_AGE_MS)
+      .map((entry) => entry.hash);
+    const orphanThumbs = (await this.deps.blobs.listThumbHashes())
+      .filter((entry) => !owned.has(entry.hash) && entry.ageMs > LEFTOVER_MIN_AGE_MS)
+      .map((entry) => entry.hash);
     // LIVE puts stage in the same directory — only old strands are
     // leftovers (a startup scan once reaped an in-flight seed write).
     const stagedLeftovers = (await this.deps.blobs.listStaged())
-      .filter((entry) => entry.ageMs > STAGED_LEFTOVER_MIN_AGE_MS)
+      .filter((entry) => entry.ageMs > LEFTOVER_MIN_AGE_MS)
       .map((entry) => entry.name);
     const lyingRows: LyingRow[] = [];
     for (const row of rows) {

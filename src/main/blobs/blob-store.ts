@@ -89,26 +89,35 @@ export class BlobStore {
     return join(this.blobsDir, contentHash.slice(0, 2), contentHash.slice(2, 4), contentHash);
   }
 
-  /** Consistency-scan surface (#125): every original hash on disk. */
-  async listOriginalHashes(): Promise<string[]> {
-    const hashes: string[] = [];
+  /** Consistency-scan surface (#125): every original hash on disk, with
+   * its age — imports publish the blob BEFORE inserting the row, so
+   * callers must age-gate orphan classification (PR #223 review). */
+  async listOriginalHashes(): Promise<{ hash: string; ageMs: number }[]> {
+    const now = Date.now();
+    const out: { hash: string; ageMs: number }[] = [];
     for (const entry of await readdir(this.blobsDir, { recursive: true, withFileTypes: true })) {
       if (entry.isFile()) {
-        hashes.push(entry.name);
+        const info = await stat(join(entry.parentPath, entry.name));
+        out.push({ hash: entry.name, ageMs: now - info.mtimeMs });
       }
     }
-    return hashes;
+    return out;
   }
 
-  /** Original hashes that have at least one thumb on disk. */
-  async listThumbHashes(): Promise<string[]> {
-    const hashes = new Set<string>();
+  /** Original hashes with at least one thumb on disk; age = the NEWEST
+   * file's, so a fresh write protects the whole set. */
+  async listThumbHashes(): Promise<{ hash: string; ageMs: number }[]> {
+    const now = Date.now();
+    const ages = new Map<string, number>();
     for (const entry of await readdir(this.thumbsDir, { recursive: true, withFileTypes: true })) {
       if (entry.isFile()) {
-        hashes.add(entry.name.replace(/\.(thumb|mid)$/u, ''));
+        const hash = entry.name.replace(/\.(thumb|mid)$/u, '');
+        const info = await stat(join(entry.parentPath, entry.name));
+        const ageMs = now - info.mtimeMs;
+        ages.set(hash, Math.min(ages.get(hash) ?? Number.POSITIVE_INFINITY, ageMs));
       }
     }
-    return [...hashes];
+    return [...ages.entries()].map(([hash, ageMs]) => ({ hash, ageMs }));
   }
 
   /** Staging entries with ages — a crash mid-put strands ciphertext in
