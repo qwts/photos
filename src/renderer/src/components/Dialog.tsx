@@ -21,12 +21,18 @@ export interface DialogProps {
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Stacked modals (#240, PR #250 review): every open Dialog registers here;
+// only the TOPMOST one handles Escape and traps Tab, so a dialog layered
+// over another (KeyDialog over Settings) closes alone and keeps focus.
+const dialogStack: symbol[] = [];
+
 // feedback/Dialog.jsx, upgraded per #59: aria-modal + labelled title, Esc
 // closes, and focus is trapped inside while open (the mock only had
 // backdrop-click + stopPropagation, which are kept).
 export function Dialog({ open, title, icon, width = 420, onClose, footer, children }: DialogProps): ReactElement | null {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const stackToken = useRef<symbol>(Symbol('dialog'));
 
   // The key handler reads the latest onClose through a ref so parent
   // rerenders (form state, inline callbacks) never re-run the effects below —
@@ -46,7 +52,13 @@ export function Dialog({ open, title, icon, width = 420, onClose, footer, childr
     if (!open) {
       return;
     }
+    const token = stackToken.current;
+    dialogStack.push(token);
     const onKeyDown = (event: KeyboardEvent): void => {
+      // A dialog layered above owns the keys — stay inert below it.
+      if (dialogStack[dialogStack.length - 1] !== token) {
+        return;
+      }
       const panel = panelRef.current;
       if (event.key === 'Escape') {
         onCloseRef.current?.();
@@ -73,6 +85,10 @@ export function Dialog({ open, title, icon, width = 420, onClose, footer, childr
     };
     document.addEventListener('keydown', onKeyDown);
     return () => {
+      const index = dialogStack.indexOf(token);
+      if (index !== -1) {
+        dialogStack.splice(index, 1);
+      }
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [open]);
