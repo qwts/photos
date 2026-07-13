@@ -99,3 +99,9 @@
   letter-spacing: 0.04em;
   color: var(--text-muted);
 }
+
+/* Inspector docked (#94): the overlay yields the right rail so the truth
+ * panel sits beside the photo, exactly like the mock's flex row. */
+.ovl-lightbox--docked {
+  right: var(--inspector-w);
+}

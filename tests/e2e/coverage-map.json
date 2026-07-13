@@ -184,6 +184,20 @@
           "path": "tests/library/app-state.test.ts"
         }
       ]
+    },
+    {
+      "id": "m06-inspector",
+      "wiki": "User-Story-M06-Lightbox-Inspector",
+      "coverage": [
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/inspector/Inspector.stories.tsx"
+        },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/lightbox.spec.ts"
+        }
+      ]
     }
   ]
 }
