@@ -22,6 +22,8 @@ describe('pCloud loopback capture (#254)', () => {
     assert.equal(page.status, 200);
     const html = await page.text();
     assert.match(html, /location\.hash/u, 'the relay page forwards the fragment (the token never hits the server URL)');
+    assert.match(html, /history\.replaceState/u, 'the relay page scrubs the token from the address bar/history (Codex P1)');
+    assert.ok(html.indexOf('replaceState') < html.indexOf('fetch('), 'scrub happens before the capture round-trip');
 
     // What the relay script does with location.hash:
     const posted = await fetch(`${base}/capture?access_token=tok-1&state=nonce&hostname=eapi.pcloud.com`);
@@ -36,11 +38,16 @@ describe('pCloud loopback capture (#254)', () => {
     await assert.rejects(handle.result, (error: unknown) => error instanceof PCloudOAuthError && error.message.includes('access_denied'));
   });
 
-  test('a forged state never resolves a token', async () => {
+  test('captures without the state nonce cannot resolve OR kill the flow (Codex P2)', async () => {
     const { handle, base } = await capture({ state: 'expected' });
-    const posted = await fetch(`${base}/capture?access_token=tok-1&state=forged`);
-    assert.equal(posted.status, 400);
-    await assert.rejects(handle.result, /unexpected state/u);
+    // Unauthenticated local noise: forged state, missing state, garbage.
+    assert.equal((await fetch(`${base}/capture?access_token=tok-1&state=forged`)).status, 400);
+    assert.equal((await fetch(`${base}/capture?access_token=tok-1`)).status, 400);
+    assert.equal((await fetch(`${base}/capture?garbage`)).status, 400);
+    // The flow is still pending — the genuine browser completes it.
+    const genuine = await fetch(`${base}/capture?access_token=tok-real&state=expected`);
+    assert.equal(genuine.status, 204);
+    assert.deepEqual(await handle.result, { accessToken: 'tok-real', apiHost: 'api.pcloud.com' });
   });
 
   test('single-shot: a second capture after settling gets 409', async () => {
