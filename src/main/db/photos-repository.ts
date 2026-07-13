@@ -267,17 +267,20 @@ export class PhotosRepository {
     return queryAll<{ n: number }>(this.db, 'SELECT count(*) AS n FROM sync_ledger WHERE dirty = 1')[0]?.n ?? 0;
   }
 
+  /** Sidebar counts share page()'s sourceWhere — ONE query truth per
+   * source, so counts and grid results cannot drift (#119; the mock's
+   * fall-through gap, fixed by construction). */
   counts(recentSince: string): SourceCounts {
-    const one = (where: string): number =>
-      queryAll<{ n: number }>(this.db, `SELECT count(*) AS n FROM photos p WHERE ${where}`, {
+    const one = (source: PageRequest['source']): number =>
+      queryAll<{ n: number }>(this.db, `SELECT count(*) AS n FROM photos p WHERE ${sourceWhere(source)}`, {
         recentSince,
       })[0]?.n ?? 0;
     return {
-      all: one('p.deleted_at IS NULL'),
-      favorites: one('p.deleted_at IS NULL AND p.favorite = 1'),
-      recent: one('p.deleted_at IS NULL AND p.imported_at >= @recentSince'),
-      offloaded: one(`p.deleted_at IS NULL AND p.id IN (SELECT photo_id FROM sync_ledger WHERE status = 'offloaded')`),
-      deleted: one('p.deleted_at IS NOT NULL'),
+      all: one('all'),
+      favorites: one('favorites'),
+      recent: one('recent'),
+      offloaded: one('offloaded'),
+      deleted: one('deleted'),
     };
   }
 }
