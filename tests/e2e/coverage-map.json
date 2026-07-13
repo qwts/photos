@@ -232,6 +232,16 @@
           "path": "tests/e2e/export-entry.spec.ts"
         }
       ]
+    },
+    {
+      "id": "m08-backup-choreography",
+      "wiki": "User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/backup.spec.ts"
+        }
+      ]
     }
   ]
 }

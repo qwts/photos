@@ -1,0 +1,44 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { test, expect, _electron as electron } from '@playwright/test';
+
+// #108 exit criteria: the full visual choreography of a mock-provider
+// backup run — amber → green flip, live counts, "JUST NOW" reset, and the
+// button disabling at pendingCount 0.
+test('backup choreography: amber → green, JUST NOW reset, button disables at 0', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '4',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+
+    // Seed 4 starts with one born-dirty local row: amber state, live count,
+    // enabled button, storage split on the card.
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → PCLOUD');
+    const backupButton = page.getByRole('button', { name: 'Back up' });
+    await expect(backupButton).toBeEnabled();
+    await expect(page.getByTestId('backup-card')).toContainText('LOCAL · 0 B PCLOUD');
+
+    // Trigger: the mock's toast pair around the run…
+    await backupButton.click();
+    await expect(page.getByRole('status')).toContainText('BACKUP COMPLETE', { timeout: 20_000 });
+
+    // …then the green flip with the freshly stamped label…
+    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · JUST NOW');
+    // …and the button disables at pendingCount 0.
+    await expect(backupButton).toBeDisabled();
+  } finally {
+    await app.close();
+  }
+});
