@@ -5,6 +5,7 @@ export const BACKUP_MANIFEST_SCHEMA_VERSION = 2 as const;
 const ulidSchema = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u, 'expected a Crockford ULID');
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u, 'expected a lowercase SHA-256 digest');
 const isoTimestampSchema = z.iso.datetime({ offset: true });
+const photoTakenAtSchema = z.iso.datetime({ offset: true, local: true });
 const keyIdSchema = z.number().int().positive();
 
 const legacyPhotoSchema = z.strictObject({
@@ -35,7 +36,7 @@ export const backupManifestPhotoV2Schema = z.strictObject({
   aperture: z.string().nullable(),
   shutter: z.string().nullable(),
   focalLength: z.number().nonnegative().nullable(),
-  takenAt: isoTimestampSchema.nullable(),
+  takenAt: photoTakenAtSchema.nullable(),
   gpsLat: z.number().min(-90).max(90).nullable(),
   gpsLon: z.number().min(-180).max(180).nullable(),
   place: z.string().nullable(),

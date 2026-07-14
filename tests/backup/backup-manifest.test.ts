@@ -115,6 +115,22 @@ describe('backup manifest schema (#289)', () => {
     );
   });
 
+  test('photo capture time accepts the persisted floating EXIF format', () => {
+    const source = manifest();
+    const floatingTakenAt = '2026-06-12T12:34:56';
+    const parsed = parseBackupManifest({
+      ...source,
+      photos: [{ ...source.photos[0], takenAt: floatingTakenAt }],
+    });
+    assert.equal(parsed.restorable, true);
+    if (!parsed.restorable) assert.fail('schema 2 manifest must be restorable');
+    assert.equal(parsed.manifest.photos[0]?.takenAt, floatingTakenAt);
+    assert.throws(
+      () => parseBackupManifest({ ...source, photos: [{ ...source.photos[0], takenAt: '2026-06-12 12:34:56' }] }),
+      /Invalid ISO datetime/u,
+    );
+  });
+
   test('unknown schemas fail closed', () => {
     assert.throws(() => parseBackupManifest({ schema: 3 }), /unsupported manifest schema 3/u);
   });
