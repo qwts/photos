@@ -7,7 +7,7 @@ import { app, BrowserWindow, dialog, safeStorage, shell } from 'electron';
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
-import { KeyStore } from './crypto/keystore.js';
+import { KeyStore, type SafeStorageLike } from './crypto/keystore.js';
 import { pickSafeStorageImpl } from './crypto/safe-storage.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
@@ -26,6 +26,7 @@ import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
 import type { StorageProvider } from './backup/provider.js';
+import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
@@ -59,7 +60,6 @@ import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
 import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
 import { ThumbService } from './thumbs/thumb-service.js';
-import type { SafeStorageLike } from './crypto/keystore.js';
 
 // Test/dev harness hooks (#72): OVERLOOK_USER_DATA isolates profiles (E2E
 // temp profile per run); OVERLOOK_SEED seeds an empty library at startup;
@@ -460,7 +460,10 @@ function getBackupEngine(): BackupEngine {
         });
         return Buffer.concat(chunks);
       },
-      manifestRows: () => repo.manifestRows(),
+      sealRecoveryBootstrap: (generatedAt) =>
+        sealKeyStoreRecoveryBootstrap({ keyStore: parts.keyStore, libraryId: getProviderRuntime().libraryId(), generatedAt }),
+      libraryId: () => getProviderRuntime().libraryId(),
+      manifestSnapshot: () => repo.manifestSnapshot(),
       // Live reads (#111): every run and every maybeAutoRun sees the
       // store's current values — no restart needed after a settings change.
       settings: () => {
@@ -527,7 +530,7 @@ function getBackupEngine(): BackupEngine {
       },
       provider,
       connected: () => getProviderRuntime().activeId() !== null,
-      // Purging changes manifestRows() — same owed-generation rule (and
+      // Purging changes manifestSnapshot() — same owed-generation rule (and
       // quiet push) as soft delete (PR #218 review).
       oweManifest: () => manifestSyncTrigger?.(),
       libraryChanged: (photoIds) => {

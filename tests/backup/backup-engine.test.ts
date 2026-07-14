@@ -76,7 +76,9 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
     dirtyPhotos: () => repo.dirtyPhotos(),
     encryptedStream: (hash) => store.getEncryptedStream(hash),
     sealManifest: (json) => Promise.resolve(Buffer.from(json)),
-    manifestRows: () => repo.manifestRows(),
+    sealRecoveryBootstrap: () => Buffer.from('recovery-bootstrap'),
+    libraryId: () => '01JZZZZZZZZZZZZZZZZZZZZZZZ',
+    manifestSnapshot: () => repo.manifestSnapshot(),
     settings: () => settings,
     network: () => overrides?.network ?? 'wifi',
     events: { progress: (done, total) => progress.push([done, total]) },
@@ -121,8 +123,10 @@ describe('backup engine (#105)', () => {
     // The manifest describes EVERY live photo, not the (now-clean) batch —
     // restore without a local DB depends on it (PR #203 review, P1).
     const sealed = await buffer(await w.provider.getStream('manifest/gen-1.ovlk'));
-    const manifest = JSON.parse(sealed.toString('utf8')) as { rows: { id: string }[] };
-    assert.equal(manifest.rows.length, 3);
+    const manifest = JSON.parse(sealed.toString('utf8')) as { schema: number; photos: { id: string }[] };
+    assert.equal(manifest.schema, 2);
+    assert.equal(manifest.photos.length, 3);
+    assert.equal((await w.provider.list('recovery')).length, 1, 'the fresh-machine key bootstrap landed first');
     // Aggregate progress is ordered 0..3 over the batch.
     assert.deepEqual(w.progress[0], [0, 3]);
     assert.deepEqual(w.progress.at(-1), [3, 3]);
@@ -242,7 +246,7 @@ describe('backup engine (#105)', () => {
     await w.engine.run();
     assert.equal((await w.provider.list('manifest')).length, 1);
 
-    // A soft delete of a synced row changes manifestRows() with pending 0 —
+    // A soft delete of a synced row changes manifestSnapshot() with pending 0 —
     // the owed generation must land or a backup restore resurrects it.
     w.engine.oweManifest();
     const settle = await w.engine.run();

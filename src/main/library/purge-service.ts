@@ -35,7 +35,7 @@ export interface PurgeDeps {
   };
   readonly provider: StorageProvider;
   readonly connected: () => boolean;
-  /** Purging changes manifestRows() — the remote is owed a generation. */
+  /** Purging changes manifestSnapshot() — the remote is owed a generation. */
   readonly oweManifest: () => void;
   readonly libraryChanged: (photoIds: readonly string[]) => void;
   readonly audit: (line: string) => void;
@@ -76,7 +76,7 @@ export class PurgeService {
       changed.push(photoId);
     }
     if (changed.length > 0) {
-      // The purged rows left manifestRows() with nothing dirty — the host
+      // The purged rows left manifestSnapshot() with nothing dirty — the host
       // owes (and quietly pushes) a fresh generation, like soft delete.
       this.deps.oweManifest();
       this.deps.libraryChanged(changed);

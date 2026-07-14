@@ -60,7 +60,7 @@ export const backupManifestV2Schema = z
     libraryId: ulidSchema,
     databaseSchema: z.number().int().positive(),
     generatedAt: isoTimestampSchema,
-    keyIds: z.array(keyIdSchema).min(1).readonly(),
+    keyIds: z.array(keyIdSchema).readonly(),
     totals: z.strictObject({
       photos: z.number().int().nonnegative(),
       bytes: z.number().int().nonnegative(),
@@ -130,13 +130,36 @@ export const backupManifestV2Schema = z
   });
 
 export type BackupManifestV1 = z.infer<typeof backupManifestV1Schema>;
+export type BackupManifestPhotoV2 = z.infer<typeof backupManifestPhotoV2Schema>;
+export type BackupManifestAlbumV2 = z.infer<typeof backupManifestAlbumV2Schema>;
 export type BackupManifestV2 = z.infer<typeof backupManifestV2Schema>;
+
+export interface BackupManifestSnapshot {
+  readonly databaseSchema: number;
+  readonly keyIds: readonly number[];
+  readonly totals: BackupManifestV2['totals'];
+  readonly photos: readonly BackupManifestPhotoV2[];
+  readonly albums: readonly BackupManifestAlbumV2[];
+}
 
 export type ParsedBackupManifest =
   { readonly restorable: false; readonly manifest: BackupManifestV1 } | { readonly restorable: true; readonly manifest: BackupManifestV2 };
 
 export class BackupManifestError extends Error {
   override readonly name = 'BackupManifestError';
+}
+
+export function buildBackupManifestV2(input: {
+  readonly libraryId: string;
+  readonly generatedAt: string;
+  readonly snapshot: BackupManifestSnapshot;
+}): BackupManifestV2 {
+  return backupManifestV2Schema.parse({
+    schema: BACKUP_MANIFEST_SCHEMA_VERSION,
+    libraryId: input.libraryId,
+    generatedAt: input.generatedAt,
+    ...input.snapshot,
+  });
 }
 
 export function parseBackupManifest(input: unknown): ParsedBackupManifest {

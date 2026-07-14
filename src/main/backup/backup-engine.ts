@@ -4,6 +4,7 @@ import { pipeline } from 'node:stream/promises';
 
 import { ProviderError, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
+import { buildBackupManifestV2, type BackupManifestSnapshot } from './backup-manifest.js';
 
 // Backup engine (#105, ADR-0007): dirty photos flow to the provider
 // reliably and politely. The ledger's dirty set IS the queue and the resume
@@ -48,8 +49,11 @@ export interface BackupEngineDeps {
   readonly encryptedStream: (contentHash: string) => Readable;
   /** Seals the manifest JSON (envelope, current key) → ciphertext bytes. */
   readonly sealManifest: (json: string) => Promise<Buffer>;
-  /** Manifest row source: every live photo, not just this batch. */
-  readonly manifestRows: () => readonly BackupItemPhoto[];
+  /** Seals wrapped key records for fresh-machine recovery under the master. */
+  readonly sealRecoveryBootstrap: (generatedAt: string) => Buffer;
+  readonly libraryId: () => string;
+  /** One consistent DB snapshot: photos, metadata, albums, and membership. */
+  readonly manifestSnapshot: () => BackupManifestSnapshot;
   readonly settings: () => BackupSettings;
   readonly network: () => NetworkKind;
   readonly events: {
@@ -99,7 +103,7 @@ export class BackupEngine {
 
   /** The remote is owed a fresh manifest generation even with nothing
    * dirty (#120): soft-deleting an already-SYNCED photo changes
-   * manifestRows() without touching pendingCount, and a restore-from-backup
+   * manifestSnapshot() without touching pendingCount, and a restore-from-backup
    * against the stale manifest would resurrect the deleted photo. */
   oweManifest(): void {
     this.manifestOwed = true;
@@ -236,19 +240,38 @@ export class BackupEngine {
 
   /** Seals and uploads the next manifest generation; prunes past N=2. */
   private async uploadManifest(): Promise<void> {
-    const rows = this.deps.manifestRows();
-    const json = JSON.stringify({ schema: 1, rows });
+    const generatedAt = new Date(this.deps.now()).toISOString();
+    const manifest = buildBackupManifestV2({
+      libraryId: this.deps.libraryId(),
+      generatedAt,
+      snapshot: this.deps.manifestSnapshot(),
+    });
+    const json = JSON.stringify(manifest);
     const sealed = await this.deps.sealManifest(json);
+    // The bootstrap is a superset across rotations and lands first: a crash
+    // can leave an old manifest with newer wrapped keys, never a manifest
+    // whose envelope key cannot be resolved on a fresh machine.
+    const bootstrap = this.deps.sealRecoveryBootstrap(generatedAt);
+    await this.putBufferVerified('recovery/bootstrap.ovrb', bootstrap);
     const existing = await this.deps.provider.list('manifest');
     const generation = existing.reduce((max, entry) => {
       const match = /gen-(\d+)\.ovlk$/u.exec(entry.path);
       return match === null ? max : Math.max(max, Number(match[1]));
     }, 0);
-    await this.deps.provider.put(`manifest/gen-${String(generation + 1)}.ovlk`, Readable.from([sealed]));
+    await this.putBufferVerified(`manifest/gen-${String(generation + 1)}.ovlk`, sealed);
     const all = await this.deps.provider.list('manifest');
     const sorted = [...all].sort((a, b) => a.path.localeCompare(b.path, 'en', { numeric: true }));
     for (const stale of sorted.slice(0, Math.max(0, sorted.length - MANIFEST_KEEP))) {
       await this.deps.provider.delete(stale.path);
+    }
+  }
+
+  private async putBufferVerified(path: string, bytes: Buffer): Promise<void> {
+    await this.deps.provider.put(path, Readable.from([bytes]));
+    const remote = await this.deps.provider.verify(path);
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    if (remote.sha256 !== sha256 || remote.bytes !== bytes.length) {
+      throw new ProviderError(`verify mismatch for ${path}`, 'corrupt');
     }
   }
 }
