@@ -1,5 +1,11 @@
 # photos
 
+## 0.14.0
+
+### Minor Changes
+
+- a7cd8ef: Add a complete encrypted backup manifest and recovery-key bootstrap so cloud backups contain the provider-neutral metadata and wrapped keys required for disaster recovery.
+
 ## 0.13.2
 
 ### Patch Changes
