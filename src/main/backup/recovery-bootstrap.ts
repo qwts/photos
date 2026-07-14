@@ -15,11 +15,14 @@ const MAX_BOOTSTRAP_LENGTH = 1024 * 1024;
 const DERIVATION_INFO = Buffer.from('overlook cloud recovery bootstrap v1', 'utf8');
 
 const ulidSchema = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u, 'expected a Crockford ULID');
-const isoTimestampSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'expected an ISO timestamp');
+const isoTimestampSchema = z.iso.datetime({ offset: true });
 const wrappedKeySchema = z
   .string()
   .min(1)
-  .refine((value) => Buffer.from(value, 'base64').length === NONCE_LENGTH + TAG_LENGTH + KEY_LENGTH, 'invalid wrapped-key length');
+  .refine((value) => {
+    const decoded = Buffer.from(value, 'base64');
+    return decoded.length === NONCE_LENGTH + TAG_LENGTH + KEY_LENGTH && decoded.toString('base64') === value;
+  }, 'invalid wrapped-key encoding');
 
 export const recoveryBootstrapSchema = z
   .strictObject({

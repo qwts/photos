@@ -101,6 +101,20 @@ describe('backup manifest schema (#289)', () => {
     );
   });
 
+  test('timestamps and album ordering are canonical', () => {
+    const source = manifest();
+    assert.throws(() => parseBackupManifest({ ...source, generatedAt: 'next Tuesday' }), /Invalid ISO datetime/u);
+    assert.throws(
+      () =>
+        parseBackupManifest({
+          ...source,
+          totals: { ...source.totals, albums: 2 },
+          albums: [...source.albums, { ...source.albums[0], id: 'A2' }],
+        }),
+      /album positions must be unique/u,
+    );
+  });
+
   test('unknown schemas fail closed', () => {
     assert.throws(() => parseBackupManifest({ schema: 3 }), /unsupported manifest schema 3/u);
   });
