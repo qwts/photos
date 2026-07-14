@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:cr
 
 import { z } from 'zod';
 
-import { unwrapStoredKey, type WrappedKeyRecord } from '../crypto/keystore.js';
+import { unwrapStoredKey, type KeyStore, type WrappedKeyRecord } from '../crypto/keystore.js';
 import type { KeyResolver } from '../crypto/envelope.js';
 
 const MAGIC = Buffer.from('OVRB', 'ascii');
@@ -91,6 +91,29 @@ export function sealRecoveryBootstrap(input: RecoveryBootstrap, masterKey: Buffe
     throw new RecoveryBootstrapError('recovery bootstrap exceeds the size limit');
   }
   return sealed;
+}
+
+/** Composition-root helper that limits the lifetime of the copied master
+ * key and guarantees it is wiped after the bootstrap is sealed. */
+export function sealKeyStoreRecoveryBootstrap(input: {
+  readonly keyStore: Pick<KeyStore, 'exportWrappedKeys' | 'masterKeyBytes'>;
+  readonly libraryId: string;
+  readonly generatedAt: string;
+}): Buffer {
+  const masterKey = input.keyStore.masterKeyBytes();
+  try {
+    return sealRecoveryBootstrap(
+      {
+        schema: 1,
+        libraryId: input.libraryId,
+        generatedAt: input.generatedAt,
+        keys: input.keyStore.exportWrappedKeys(),
+      },
+      masterKey,
+    );
+  } finally {
+    masterKey.fill(0);
+  }
 }
 
 /** Opens and validates a bootstrap using only the recovered master key. */

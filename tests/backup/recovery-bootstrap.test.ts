@@ -12,6 +12,7 @@ import {
   RecoveryBootstrapError,
   openRecoveryBootstrap,
   recoveryBootstrapResolver,
+  sealKeyStoreRecoveryBootstrap,
   sealRecoveryBootstrap,
   type RecoveryBootstrap,
 } from '../../src/main/backup/recovery-bootstrap.js';
@@ -76,6 +77,21 @@ describe('cloud recovery bootstrap (#289)', () => {
     assert.throws(() => openRecoveryBootstrap(sealed, randomBytes(32)), /failed authentication/u);
     sealed[sealed.length - 17] = (sealed[sealed.length - 17] ?? 0) ^ 0xff;
     assert.throws(() => openRecoveryBootstrap(sealed, masterKey), /failed authentication/u);
+  });
+
+  test('the composition helper wipes its temporary master-key copy', () => {
+    const { bootstrap, masterKey, keyStore } = world();
+    const temporary = Buffer.from(masterKey);
+    const sealed = sealKeyStoreRecoveryBootstrap({
+      keyStore: {
+        masterKeyBytes: () => temporary,
+        exportWrappedKeys: () => keyStore.exportWrappedKeys(),
+      },
+      libraryId: bootstrap.libraryId,
+      generatedAt: bootstrap.generatedAt,
+    });
+    assert.ok(temporary.every((byte) => byte === 0));
+    assert.equal(openRecoveryBootstrap(sealed, masterKey).libraryId, bootstrap.libraryId);
   });
 
   test('invalid key sets fail before upload', () => {

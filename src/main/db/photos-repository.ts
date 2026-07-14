@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { markDirty } from '../backup/sync-ledger.js';
+import type { BackupManifestPhotoV2, BackupManifestSnapshot } from '../backup/backup-manifest.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
 import type {
@@ -423,14 +424,61 @@ export class PhotosRepository {
     );
   }
 
-  /** Manifest rows (#105, ADR-0007): EVERY live photo — the remote must be
-   * re-importable without a local DB, not just describe the last batch. */
-  manifestRows(): readonly { id: string; contentHash: string; bytes: number; fileName: string; keyId: number }[] {
-    return queryAll<{ id: string; contentHash: string; bytes: number; fileName: string; keyId: number }>(
-      this.db,
-      `SELECT p.id, p.content_hash AS contentHash, p.bytes, p.file_name AS fileName, p.key_id AS keyId
-         FROM photos p WHERE p.deleted_at IS NULL ORDER BY p.imported_at, p.id`,
-    );
+  /** One read transaction captures every remotely recoverable row plus
+   * album ordering/membership (#289). Deleted rows join only when their
+   * original is already remote; a never-backed-up deleted blob cannot be
+   * promised by a disaster-recovery manifest. */
+  manifestSnapshot(): BackupManifestSnapshot {
+    return this.db.transaction(() => {
+      const recoverable = `(p.deleted_at IS NULL OR (p.deleted_at IS NOT NULL AND l.status IN ('synced', 'offloaded')))`;
+      const photos = queryAll<PhotoRow>(this.db, `${select('date')} WHERE ${recoverable} ORDER BY p.imported_at, p.id`).map(
+        (row): BackupManifestPhotoV2 => {
+          const { syncState: _syncState, ...photo } = toRecord(row);
+          return {
+            ...photo,
+            blobPath: `blobs/${photo.contentHash.slice(0, 2)}/${photo.contentHash}`,
+          };
+        },
+      );
+      const photoIds = new Set(photos.map((photo) => photo.id));
+      const albumRows = queryAll<{ id: string; name: string; createdAt: string; position: number }>(
+        this.db,
+        `SELECT id, name, created_at AS createdAt, position FROM albums ORDER BY position, id`,
+      );
+      const members = queryAll<{ albumId: string; photoId: string }>(
+        this.db,
+        `SELECT ap.album_id AS albumId, ap.photo_id AS photoId
+           FROM album_photos ap
+           JOIN albums a ON a.id = ap.album_id
+           JOIN photos p ON p.id = ap.photo_id
+           JOIN sync_ledger l ON l.photo_id = p.id
+          WHERE ${recoverable}
+          ORDER BY a.position, a.id, ap.position, ap.photo_id`,
+      );
+      const membersByAlbum = new Map<string, string[]>();
+      for (const member of members) {
+        if (!photoIds.has(member.photoId)) {
+          continue;
+        }
+        const existing = membersByAlbum.get(member.albumId) ?? [];
+        existing.push(member.photoId);
+        membersByAlbum.set(member.albumId, existing);
+      }
+      const albums = albumRows.map((album) => ({ ...album, photoIds: membersByAlbum.get(album.id) ?? [] }));
+      const databaseSchema = queryGet<{ version: number }>(this.db, 'SELECT max(version) AS version FROM schema_migrations')?.version ?? 1;
+      const keyIds = [...new Set(photos.map((photo) => photo.keyId))].sort((a, b) => a - b);
+      return {
+        databaseSchema,
+        keyIds,
+        photos,
+        albums,
+        totals: {
+          photos: photos.length,
+          bytes: photos.reduce((sum, photo) => sum + photo.bytes, 0),
+          albums: albums.length,
+        },
+      };
+    })();
   }
 
   /** The backup queue's input (#105): dirty, not-deleted photos. */
