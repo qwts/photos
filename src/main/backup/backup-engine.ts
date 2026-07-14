@@ -113,7 +113,17 @@ export class BackupEngine {
       return { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi' };
     }
 
-    const items = this.deps.dirtyPhotos();
+    // OFFLOADED rows can dirty too (album/favorite edits in the Offloaded
+    // view) — their blob is already remote and the machine rightly forbids
+    // offloaded → syncing, so they are manifest-only debt: excluded from
+    // the upload loop, settled after the manifest generation lands
+    // (PR #274 review — before this they crashed the whole run).
+    const dirty = this.deps.dirtyPhotos();
+    const manifestOnly = dirty.filter((item) => this.deps.ledger.status(item.id) === 'offloaded');
+    if (manifestOnly.length > 0) {
+      this.manifestOwed = true;
+    }
+    const items = dirty.filter((item) => this.deps.ledger.status(item.id) !== 'offloaded');
     const total = items.length;
     let uploaded = 0;
     let failed = 0;
@@ -166,6 +176,15 @@ export class BackupEngine {
       try {
         await this.uploadManifest();
         this.manifestOwed = false;
+        // The fresh generation carries the offloaded rows' edits — their
+        // dirt settles now, with no status change and no backup stamp.
+        if (manifestOnly.length > 0) {
+          for (const item of manifestOnly) {
+            this.deps.ledger.settleManifestOnly(item.id);
+          }
+          this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
+          this.deps.libraryChanged(manifestOnly.map((item) => item.id));
+        }
       } catch (error) {
         // Blobs landed and their rows are TRUTHFULLY synced — but the
         // remote is owed a manifest generation. The debt survives in this

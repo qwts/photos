@@ -71,6 +71,14 @@ export class SyncLedger {
     this.setStatus(photoId, 'error');
   }
 
+  /** An OFFLOADED row's edit is manifest-only debt (PR #274 review): the
+   * blob is already remote, so a fresh manifest generation settles the
+   * dirt without a status transition (offloaded stays offloaded) and
+   * without a backup stamp (no blob traveled). */
+  settleManifestOnly(photoId: string): void {
+    run(this.db, 'UPDATE sync_ledger SET dirty = 0 WHERE photo_id = ?', photoId);
+  }
+
   isDirty(photoId: string): boolean {
     return queryAll<{ dirty: number }>(this.db, 'SELECT dirty FROM sync_ledger WHERE photo_id = @id', { id: photoId })[0]?.dirty === 1;
   }
