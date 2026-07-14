@@ -4,7 +4,7 @@ export const BACKUP_MANIFEST_SCHEMA_VERSION = 2 as const;
 
 const ulidSchema = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u, 'expected a Crockford ULID');
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u, 'expected a lowercase SHA-256 digest');
-const isoTimestampSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'expected an ISO timestamp');
+const isoTimestampSchema = z.iso.datetime({ offset: true });
 const keyIdSchema = z.number().int().positive();
 
 const legacyPhotoSchema = z.strictObject({
@@ -35,7 +35,7 @@ export const backupManifestPhotoV2Schema = z.strictObject({
   aperture: z.string().nullable(),
   shutter: z.string().nullable(),
   focalLength: z.number().nonnegative().nullable(),
-  takenAt: z.string().nullable(),
+  takenAt: isoTimestampSchema.nullable(),
   gpsLat: z.number().min(-90).max(90).nullable(),
   gpsLon: z.number().min(-180).max(180).nullable(),
   place: z.string().nullable(),
@@ -43,7 +43,7 @@ export const backupManifestPhotoV2Schema = z.strictObject({
   importSource: z.string().min(1),
   favorite: z.boolean(),
   keyId: keyIdSchema,
-  deletedAt: z.string().nullable(),
+  deletedAt: isoTimestampSchema.nullable(),
 });
 
 export const backupManifestAlbumV2Schema = z.strictObject({
@@ -93,11 +93,16 @@ export const backupManifestV2Schema = z
     }
 
     const albumIds = new Set<string>();
+    const albumPositions = new Set<number>();
     for (const [albumIndex, album] of manifest.albums.entries()) {
       if (albumIds.has(album.id)) {
         context.addIssue({ code: 'custom', path: ['albums', albumIndex, 'id'], message: 'album IDs must be unique' });
       }
       albumIds.add(album.id);
+      if (albumPositions.has(album.position)) {
+        context.addIssue({ code: 'custom', path: ['albums', albumIndex, 'position'], message: 'album positions must be unique' });
+      }
+      albumPositions.add(album.position);
       const members = new Set<string>();
       for (const [memberIndex, photoId] of album.photoIds.entries()) {
         if (!photoIds.has(photoId)) {

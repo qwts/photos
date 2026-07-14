@@ -97,12 +97,17 @@ describe('cloud recovery bootstrap (#289)', () => {
   test('invalid key sets fail before upload', () => {
     const { bootstrap, masterKey } = world();
     const first = bootstrap.keys[0];
+    const second = bootstrap.keys[1];
     assert.ok(first !== undefined);
+    assert.ok(second !== undefined);
     const duplicate = { ...bootstrap, keys: [first, first] };
     assert.throws(() => sealRecoveryBootstrap(duplicate, masterKey), /key IDs must be unique/u);
 
     const noActive = { ...bootstrap, keys: bootstrap.keys.map((key) => ({ ...key, status: 'retired' as const })) };
     assert.throws(() => sealRecoveryBootstrap(noActive, masterKey), /exactly one key must be active/u);
+
+    const malformed = { ...bootstrap, keys: [{ ...first, wrappedKey: `${first.wrappedKey}!!` }, second] };
+    assert.throws(() => sealRecoveryBootstrap(malformed, masterKey), /invalid wrapped-key encoding/u);
   });
 
   test('invalid outer framing and master-key lengths fail closed', () => {
