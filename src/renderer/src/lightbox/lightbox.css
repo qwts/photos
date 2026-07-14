@@ -53,6 +53,14 @@
   background: linear-gradient(to bottom, oklch(0.1 0.005 250 / 0.75), transparent);
 }
 
+/* The top row overlays the TitleBar's 30px OS drag strip, and Electron drag
+ * regions swallow real clicks regardless of stacking — without this carve-out
+ * only the sub-titlebar sliver of each button is clickable (#270). Scoped to
+ * chrome-on so a hidden row hands window dragging back. */
+.ovl-lightbox__top.ovl-lightbox__chrome--on {
+  -webkit-app-region: no-drag;
+}
+
 .ovl-lightbox__title {
   flex: 1;
   text-align: center;

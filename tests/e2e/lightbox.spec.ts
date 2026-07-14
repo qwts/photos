@@ -56,7 +56,21 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
     await page.keyboard.press('i');
     await expect(inspector).toBeHidden();
 
-    // Esc closes the lightbox FIRST (dual semantics live in the reducer).
+    // NOTE on #270: the top row carves itself out of the TitleBar's OS drag
+    // region via -webkit-app-region: no-drag (lightbox.css). Drag
+    // interception is native and synthetic clicks bypass it, and the
+    // computed style string normalizes to 'no-drag' either way — there is
+    // no honest automated assertion; the fix is owner-verified in the
+    // packaged app. This click DOES prove the button wiring:
+
+    // The explicit ✕ closes back to the gallery (#269)…
+    await page.getByRole('button', { name: 'Close (Esc)' }).click();
+    await expect(lightbox).toBeHidden();
+    await expect(page.getByTestId('virtual-grid')).toBeVisible();
+
+    // …and Esc still closes it too (dual semantics live in the reducer).
+    await page.locator('.ovl-grid__cell').first().click();
+    await expect(lightbox).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(lightbox).toBeHidden();
     await expect(page.getByTestId('virtual-grid')).toBeVisible();
