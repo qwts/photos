@@ -486,6 +486,24 @@
           "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "ux-lightbox-close-and-drag-region",
+      "wiki": "User-Story-M06-Viewing",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/lightbox.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
+        },
+        {
+          "type": "manual",
+          "reason": "The #270 drag-region carve-out has no honest automated assertion (native drag interception; computed style normalizes either way) - owner-verified in the packaged app."
+        }
+      ]
     }
   ]
 }
