@@ -266,4 +266,45 @@ describe('backup engine (#105)', () => {
     }
     assert.equal(on.ledger.pendingCount(), 0);
   });
+
+  test('a dirty OFFLOADED row is manifest-only debt: settled by the generation, never uploaded (PR #274 review)', async () => {
+    const w = await world(2);
+    // Backup everything, then offload P0 the way the offload service leaves
+    // it: synced -> offloaded, clean.
+    await w.engine.run();
+    w.ledger.setStatus('P0', 'offloaded');
+    // An edit in the Offloaded view (album add, favorite) dirties the row.
+    w.ledger.markDirty('P0');
+    assert.equal(w.ledger.pendingCount(), 1);
+
+    const blobsBefore = (await w.provider.list('blobs')).length;
+    const result = await w.engine.run();
+
+    // No blob traveled and nothing failed -- the run did not crash on the
+    // offloaded -> syncing transition (the pre-#274 behavior)...
+    assert.deepEqual(result, { uploaded: 0, failed: 0, manifestUploaded: true, skipped: null });
+    assert.equal((await w.provider.list('blobs')).length, blobsBefore);
+    // ...a fresh manifest generation carried the edit...
+    const manifests = await w.provider.list('manifest');
+    assert.equal(manifests.length, 2);
+    // ...and the dirt settled with the status untouched.
+    assert.equal(w.ledger.pendingCount(), 0);
+    assert.equal(w.ledger.status('P0'), 'offloaded');
+  });
+
+  test('a failed manifest upload keeps offloaded dirt pending -- the next run settles it (debt survives)', async () => {
+    const w = await world(1);
+    await w.engine.run();
+    w.ledger.setStatus('P0', 'offloaded');
+    w.ledger.markDirty('P0');
+    w.faulty.arm('put');
+    const failed = await w.engine.run();
+    assert.equal(failed.manifestUploaded, false);
+    assert.equal(w.ledger.pendingCount(), 1, 'unsettled dirt stays visible');
+    w.faulty.disarm('put');
+    const retried = await w.engine.run();
+    assert.equal(retried.manifestUploaded, true);
+    assert.equal(w.ledger.pendingCount(), 0);
+    assert.equal(w.ledger.status('P0'), 'offloaded');
+  });
 });
