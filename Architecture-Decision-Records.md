@@ -16,7 +16,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0006](ADR-0006-Media-Processing)                         | Media Processing            | Accepted |
 | [ADR-0007](ADR-0007-Backup-Format-And-Offload)                | Backup Format & Offload     | Accepted |
 | [ADR-0008](ADR-0008-Recovery-Key-Format)                      | Recovery-Key Format & KDF   | Accepted |
-| [ADR-0009](ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2) | Cloud Recovery Bootstrap    | Proposed |
+| [ADR-0009](ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2) | Cloud Recovery Bootstrap    | Accepted |
 
 ## Template
 

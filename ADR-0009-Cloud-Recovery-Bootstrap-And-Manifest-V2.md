@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed (2026-07-14 on
-[#289](https://github.com/qwts/photos/issues/289), implemented by draft
-[PR #292](https://github.com/qwts/photos/pull/292)). This ADR extends
+Accepted (2026-07-14 via merged
+[PR #292](https://github.com/qwts/photos/pull/292), closing
+[#289](https://github.com/qwts/photos/issues/289)). This ADR extends
 [ADR-0007](ADR-0007-Backup-Format-And-Offload) and
 [ADR-0008](ADR-0008-Recovery-Key-Format); it does not replace their blob,
 offload, or recovery-file formats.
