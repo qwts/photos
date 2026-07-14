@@ -98,12 +98,11 @@ export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
           />
           <Icon name="grid-2x2" size={15} color="var(--text-faint)" />
         </div>
-        {state.providerConnected ? (
-          <Tooltip label={state.pendingCount > 0 ? 'Back up now' : 'All photos backed up'} side="bottom">
+        {state.providerConnected && state.pendingCount > 0 ? (
+          <Tooltip label="Back up now" side="bottom">
             <IconButton
               icon="cloud-upload"
               label="Back up"
-              disabled={state.pendingCount === 0}
               onClick={() => {
                 // Manual trigger (#108): amber start toast per the mock; the
                 // completion listener shows green/red endings. A disconnected
@@ -117,8 +116,10 @@ export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
               }}
             />
           </Tooltip>
-        ) : // Disconnected hides the button entirely (#239) — a permanently
-        // disabled backup affordance would misstate why it can't run.
+        ) : // Disconnected (#239) or fully backed up (#266) hides the button
+        // entirely — it appears when a change creates work and leaves when
+        // the pending set drains; an idle affordance misstates that there
+        // is something to run.
         null}
         <Button
           variant="primary"
