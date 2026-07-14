@@ -258,7 +258,12 @@ describe('backup engine (#105)', () => {
 
     const on = await world(1, { settings: { autoBackupOnImport: true } });
     on.engine.maybeAutoRun();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // maybeAutoRun is fire-and-forget — poll for the drain instead of racing
+    // it with a fixed sleep (50ms flaked on a loaded CI runner).
+    const deadline = Date.now() + 10_000;
+    while (on.ledger.pendingCount() > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
     assert.equal(on.ledger.pendingCount(), 0);
   });
 });
