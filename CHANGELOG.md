@@ -1,5 +1,12 @@
 # photos
 
+## 0.13.2
+
+### Patch Changes
+
+- e279f66: Edits now back up themselves: favoriting, album changes, and restores trigger the same quiet auto-backup imports use (when "Back up new imports automatically" is on), so the "ENCRYPTING → PCLOUD" indicator no longer sits until a manual backup.
+- 3a4583c: Editing an offloaded photo (album add, favorite) no longer breaks the backup run: its blob is already remote, so the edit rides the next manifest generation and the pending indicator settles without re-uploading anything.
+
 ## 0.13.1
 
 ### Patch Changes
