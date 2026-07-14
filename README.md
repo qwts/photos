@@ -3,6 +3,9 @@
 Overlook — a privacy-first desktop photo library app (Electron + React 18 + Vite;
 see the wiki [ADR-0003](https://github.com/qwts/photos/wiki/ADR-0003-Desktop-Stack)).
 
+<img width="1296" alt="ImageOverlook" src="https://github.com/user-attachments/assets/07ad9814-ebac-4da8-b408-459110ae55fa"/>
+
+
 ## Local development
 
 Requires the Node version pinned in [`.nvmrc`](.nvmrc) (`nvm use` picks it up).
