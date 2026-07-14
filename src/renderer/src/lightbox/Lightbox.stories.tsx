@@ -67,6 +67,16 @@ export const ChromeAutohide: Story = {
   },
 };
 
+// #269: an explicit ✕ closes back to the gallery — the back arrow reads as
+// navigation and Esc is invisible; both still work alongside it.
+export const CloseButton: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Close (Esc)' }));
+    await expect(args.onClose).toHaveBeenCalled();
+  },
+};
+
 export const RawPreviewBadge: Story = {
   args: { photo: { ...PHOTO, fileKind: 'raw', fileName: 'IMG_4021.RAF' } },
   play: async ({ canvasElement }) => {

@@ -154,6 +154,9 @@ export function Lightbox({
           // trash pill's Restore is their action; purge is #121.
           <IconButton icon="trash-2" label="Delete" onClick={onDelete} />
         ) : null}
+        {/* Explicit close at the conventional corner (#269) — the back arrow
+            reads as navigation, not dismissal, and Esc is invisible. */}
+        <IconButton icon="x" label="Close (Esc)" onClick={onClose} />
       </div>
       <div className={`ovl-lightbox__nav ovl-lightbox__chrome${chromeClass}`}>
         <IconButton icon="chevron-left" size="lg" label="Previous (←)" onClick={onPrev} />
