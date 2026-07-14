@@ -4,10 +4,11 @@ import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
 
-// #108 exit criteria: the full visual choreography of a mock-provider
-// backup run — amber → green flip, live counts, "JUST NOW" reset, and the
-// button disabling at pendingCount 0.
-test('backup choreography: amber → green, JUST NOW reset, button disables at 0', async () => {
+// #108 exit criteria (amended by #266): the full visual choreography of a
+// mock-provider backup run — amber → green flip, live counts, "JUST NOW"
+// reset, and the button LEAVING at pendingCount 0 (an idle affordance
+// misstates that there is work; it returns when a change dirties a row).
+test('backup choreography: amber → green, JUST NOW reset, button hides at 0', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup-'));
   const app = await electron.launch({
     args: ['.'],
@@ -36,8 +37,13 @@ test('backup choreography: amber → green, JUST NOW reset, button disables at 0
 
     // …then the green flip with the freshly stamped label…
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · JUST NOW');
-    // …and the button disables at pendingCount 0.
-    await expect(backupButton).toBeDisabled();
+    // …and the button leaves at pendingCount 0 (#266)…
+    await expect(backupButton).toBeHidden();
+    // …returning the moment an edit creates work again.
+    await page.locator('.ovl-grid__cell').nth(1).click();
+    await page.getByTestId('lightbox').getByRole('button', { name: 'Favorite' }).click();
+    await page.keyboard.press('Escape');
+    await expect(backupButton).toBeVisible();
   } finally {
     await app.close();
   }

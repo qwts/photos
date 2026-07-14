@@ -133,7 +133,13 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
       ) : (
         <div className="ovl-sidebar__heading mono-data">Library</div>
       )}
-      {SOURCES.map(({ key, icon, label }) => (
+      {SOURCES.filter(
+        // Offloaded only earns its row once something is actually offloaded
+        // (#268) — no in-app flow drives offload yet, so an always-empty
+        // destination reads as broken. Unknown counts keep it hidden too;
+        // it appears the moment real rows exist.
+        ({ key }) => key !== 'offloaded' || (counts !== null && counts.offloaded > 0),
+      ).map(({ key, icon, label }) => (
         <SideRow
           key={key}
           icon={icon}

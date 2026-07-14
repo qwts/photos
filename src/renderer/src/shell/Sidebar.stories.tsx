@@ -70,6 +70,8 @@ export const Expanded: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('All Photos')).toBeVisible();
+    // Offloaded earns its row here: counts.offloaded is 12 (#268).
+    await expect(canvas.getByText('Offloaded')).toBeVisible();
     await expect(canvas.getByTestId('backup-card')).toBeVisible();
     await expect(canvas.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
   },
@@ -165,5 +167,22 @@ export const Disconnected: Story = {
     });
     await expect(canvas.getByTestId('backup-card')).not.toHaveTextContent('PCLOUD');
     await expect(canvas.getByText('Library encrypted')).toBeVisible();
+  },
+};
+
+// #268: no offload flow exists in-app yet — an always-empty Offloaded
+// destination reads as broken, so the row only appears once rows exist.
+export const OffloadedHiddenWhenEmpty: Story = {
+  args: { counts: { ...counts, offloaded: 0 } },
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('All Photos')).toBeVisible();
+    await expect(canvas.queryByText('Offloaded')).not.toBeInTheDocument();
   },
 };
