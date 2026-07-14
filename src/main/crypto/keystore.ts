@@ -26,7 +26,7 @@ export interface KeyDisplay {
   readonly status: 'active' | 'retired';
 }
 
-interface StoredKeyRecord extends KeyDisplay {
+export interface WrappedKeyRecord extends KeyDisplay {
   /** base64(nonce | tag | ciphertext) — the 32 key bytes GCM-wrapped by the
    * master key with AAD = key id. */
   readonly wrappedKey: string;
@@ -34,7 +34,7 @@ interface StoredKeyRecord extends KeyDisplay {
 
 export interface KeysFile {
   readonly version: 1;
-  readonly keys: readonly StoredKeyRecord[];
+  readonly keys: readonly WrappedKeyRecord[];
 }
 
 const MASTER_FILE = 'master.key';
@@ -106,7 +106,7 @@ export class KeyStore {
   private constructor(
     private readonly options: KeyStoreOptions,
     private readonly masterKey: Buffer,
-    private records: readonly StoredKeyRecord[],
+    private records: readonly WrappedKeyRecord[],
     private keys: Map<number, Buffer>,
   ) {}
 
@@ -136,7 +136,7 @@ export class KeyStore {
     }
 
     const keysPath = join(options.dataDir, KEYS_FILE);
-    let records: readonly StoredKeyRecord[];
+    let records: readonly WrappedKeyRecord[];
     if (existsSync(keysPath)) {
       const parsed = JSON.parse(readFileSync(keysPath, 'utf8')) as KeysFile;
       records = parsed.keys;
@@ -172,7 +172,7 @@ export class KeyStore {
     const id = this.records.reduce((max, record) => Math.max(max, record.id), 0) + 1;
     const keyBytes = randomBytes(32);
     const createdAt = (this.options.now?.() ?? new Date()).toISOString();
-    const record: StoredKeyRecord = {
+    const record: WrappedKeyRecord = {
       id,
       createdAt,
       status: 'active',
@@ -213,6 +213,13 @@ export class KeyStore {
   /** Metadata for the Inspector's "KEY #N" row and future key management. */
   listKeys(): readonly KeyDisplay[] {
     return this.records.map(({ id, createdAt, status }) => ({ id, createdAt, status }));
+  }
+
+  /** Wrapped library-key records for the recovery bootstrap (#289). They
+   * remain AES-GCM sealed by the master key; callers never receive raw data
+   * keys through this export. */
+  exportWrappedKeys(): readonly WrappedKeyRecord[] {
+    return this.records.map((record) => ({ ...record }));
   }
 
   /** Recovery backup material (#240): a copy of the master key for sealing
