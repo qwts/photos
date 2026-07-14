@@ -23,3 +23,9 @@ keychain loss or device migration never costs me my encrypted photos.
 
 Coverage: ledger `m18-recovery-key-backup-import` (e2e + KeyDialog/Settings
 stories); crypto unit suite `tests/crypto/recovery.test.ts`.
+
+Cloud disaster recovery extends this delivered local-file flow through
+[ADR-0009](ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2): the same
+recovered master key opens a provider-hosted wrapped-key bootstrap, which then
+resolves manifest and blob envelope keys without copying the old `keys.json` or
+database. Delivery is tracked by [#287](https://github.com/qwts/photos/issues/287).
