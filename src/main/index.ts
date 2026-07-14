@@ -8,6 +8,7 @@ import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { KeyStore } from './crypto/keystore.js';
+import { pickSafeStorageImpl } from './crypto/safe-storage.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
 import { run } from './db/sql.js';
@@ -20,6 +21,7 @@ import { ImportService } from './import/import-service.js';
 import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
+import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
@@ -84,21 +86,8 @@ if (userDataOverride !== undefined && userDataOverride !== '') {
 // Privileged-scheme registration must precede app ready (#75, #91).
 registerSchemePrivileges();
 
-function devInsecureKeystore(): SafeStorageLike {
-  const pad = 0x5f;
-  console.warn('[overlook] OVERLOOK_INSECURE_KEYSTORE active — dev/test profile only, no real key protection');
-  return {
-    isEncryptionAvailable: () => true,
-    encryptString: (plain) => Buffer.from(Buffer.from(plain, 'utf8').map((byte) => byte ^ pad)),
-    decryptString: (encrypted) => Buffer.from(encrypted.map((byte) => byte ^ pad)).toString('utf8'),
-  };
-}
-
 function pickSafeStorage(): SafeStorageLike {
-  if (process.env['OVERLOOK_INSECURE_KEYSTORE'] === '1' && !app.isPackaged) {
-    return devInsecureKeystore();
-  }
-  return safeStorage;
+  return pickSafeStorageImpl(safeStorage, app.isPackaged);
 }
 
 // Lazy library bootstrap: nothing touches the keychain or the database until
@@ -177,6 +166,12 @@ function getLibraryService(): LibraryService {
       },
       pendingCountChanged: (count) => {
         emitPending({ count });
+        // Dirtying edits (favorite, album membership, restore) behave like
+        // imports (#267): the debounced trigger runs under the same policy
+        // gates (auto-backup setting, connected provider).
+        if (count > 0) {
+          scheduleAutoBackup();
+        }
       },
     });
   }
@@ -400,6 +395,14 @@ function getProviderRuntime(): ProviderRuntime {
 }
 /** Auto-backup entry point (imports + resume) — set by getBackupEngine. */
 let autoBackupTrigger: (() => void) | undefined;
+
+/** Dirtying EDITS auto-backup like imports do (#267) — before this, an
+ * album add or favorite left "ENCRYPTING n → PCLOUD" standing until a
+ * manual run. Trailing debounce; convergence lives in autoBackupTrigger. */
+const scheduleAutoBackup = createAutoBackupScheduler(() => {
+  getBackupEngine();
+  autoBackupTrigger?.();
+});
 /** Manifest-debt push after deletes (#120/PR #218) — quiet, auto-marked. */
 let manifestSyncTrigger: (() => void) | undefined;
 let purgeService: PurgeService | undefined;
@@ -584,7 +587,18 @@ function getBackupEngine(): BackupEngine {
     autoBackupTrigger = () => {
       const current = getSettingsStore().get();
       if (current.autoBackupOnImport && getProviderRuntime().activeId() !== null) {
-        void runAndReport(true).catch(() => undefined);
+        void runAndReport(true)
+          .then((result) => {
+            // An edit landing MID-RUN joins the in-flight run without
+            // uploading (the dirty set is the next run's queue) — re-arm
+            // until clean so edits converge to zero (#267). A failing run
+            // stops the loop: its rows sit in 'error' with the red toast,
+            // and retry stays a user decision.
+            if (result.skipped === null && result.failed === 0 && repo.pendingCount() > 0) {
+              scheduleAutoBackup();
+            }
+          })
+          .catch(() => undefined);
       }
     };
     // Not gated on autoBackupOnImport: this is manifest CORRECTNESS, not a

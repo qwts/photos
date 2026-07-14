@@ -39,11 +39,18 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · JUST NOW');
     // …and the button leaves at pendingCount 0 (#266)…
     await expect(backupButton).toBeHidden();
-    // …returning the moment an edit creates work again.
+    // …returning the moment an edit creates work again…
     await page.locator('.ovl-grid__cell').nth(1).click();
     await page.getByTestId('lightbox').getByRole('button', { name: 'Favorite' }).click();
     await page.keyboard.press('Escape');
     await expect(backupButton).toBeVisible();
+
+    // …and with auto-backup on (the default), the edit drains ITSELF: the
+    // debounced trigger (#267) runs quietly — no manual click — and the
+    // indicator + button leave together. Before #267 this sat at
+    // "ENCRYPTING 1 → PCLOUD" forever.
+    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
+    await expect(backupButton).toBeHidden();
   } finally {
     await app.close();
   }
