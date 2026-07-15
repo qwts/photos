@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -251,5 +251,68 @@ test('corrupt only-generation blob fails without publishing a library (#291)', a
     expect(existsSync(join(target, 'library', 'library.db'))).toBe(false);
   } finally {
     await app.close();
+  }
+});
+
+test('activation failure rolls the existing library back through the full restore path (#291)', async () => {
+  const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-rollback-source-'));
+  const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-rollback-target-'));
+  const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-rollback-key-')), 'overlook-recovery.key');
+  const restoredHashes = await backupSimpleSource(source, keyPath);
+
+  const targetSetup = await launch(target, { OVERLOOK_SEED: '1' });
+  let activeHashes: readonly string[];
+  try {
+    const page = await targetSetup.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    activeHashes = await page.evaluate(async () => {
+      const api = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      return (await api.library.page({ source: 'all', limit: 100 })).photos.map((photo) => photo.contentHash);
+    });
+  } finally {
+    await targetSetup.close();
+  }
+  expect(activeHashes).toHaveLength(1);
+  rmSync(join(target, 'mock-remote'), { recursive: true, force: true });
+  cpSync(join(source, 'mock-remote'), join(target, 'mock-remote'), { recursive: true });
+
+  const failing = await launch(target, {
+    OVERLOOK_KEY_IMPORT_SOURCE: keyPath,
+    OVERLOOK_RESTORE_FAULT: 'activation',
+    OVERLOOK_RESTORE_NO_RELAUNCH: '1',
+  });
+  try {
+    const page = await failing.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    const response = await page.evaluate(
+      async ({ recoveryKeyPath, password }) => {
+        const api = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+        const discovered = await api.restore.discover({ providerId: 'mock', keyPath: recoveryKeyPath, password });
+        const library = discovered.libraries.find((candidate) => candidate.validation === 'valid');
+        if (discovered.sessionId === null || library === undefined) return null;
+        return api.restore.run({ sessionId: discovered.sessionId, libraryId: library.libraryId, allowReplace: true });
+      },
+      { recoveryKeyPath: keyPath, password: PASSWORD },
+    );
+    expect(response?.result).toBeNull();
+    expect(response?.error).toMatchObject({ reason: 'io', message: 'injected activation failure' });
+  } finally {
+    await failing.close();
+  }
+
+  expect(existsSync(join(target, 'library.restore-previous'))).toBe(false);
+  expect(existsSync(join(target, 'library.restore-staging', 'library.db'))).toBe(true);
+  const relaunched = await launch(target);
+  try {
+    const page = await relaunched.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    const currentHashes = await page.evaluate(async () => {
+      const api = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      return (await api.library.page({ source: 'all', limit: 100 })).photos.map((photo) => photo.contentHash);
+    });
+    expect(currentHashes).toEqual(activeHashes);
+    expect(currentHashes).not.toEqual(restoredHashes);
+  } finally {
+    await relaunched.close();
   }
 });

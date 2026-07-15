@@ -28,6 +28,7 @@ import { createBackupFacade } from './backup/backup-facade.js';
 import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
 import { RestoreRuntime } from './backup/restore-runtime.js';
+import { activationOperationsForHarness } from './backup/restore-fault.js';
 import { createRestoreFacade } from './backup/restore-facade.js';
 import { recoverInterruptedActivation, restorePaths } from './backup/restore-staging.js';
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
@@ -758,12 +759,9 @@ function getRestoreRuntime(): RestoreRuntime {
       sessionId: ulid,
       progress: emitProgress,
       beforeActivate: closeLibraryForRestore,
-      workStarted: () => {
-        providerWorkCount += 1;
-      },
-      workFinished: () => {
-        providerWorkCount -= 1;
-      },
+      activationOperations: activationOperationsForHarness(harnessEnv('OVERLOOK_RESTORE_FAULT')),
+      workStarted: () => (providerWorkCount += 1),
+      workFinished: () => (providerWorkCount -= 1),
       activated: () => {
         if (harnessEnv('OVERLOOK_RESTORE_NO_RELAUNCH') === '1') return;
         setTimeout(() => {

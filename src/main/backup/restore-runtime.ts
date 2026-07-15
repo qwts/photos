@@ -5,7 +5,7 @@ import { readRecoveryKeyFile } from '../crypto/recovery-key-facade.js';
 import type { StorageProvider } from './provider.js';
 import { RestoreCoordinator, type RestoreSource } from './restore-coordinator.js';
 import { RestoreEngine, type RestoreRunResult } from './restore-engine.js';
-import { loadCheckpoint, restorePaths } from './restore-staging.js';
+import { loadCheckpoint, restorePaths, type ActivationOperations } from './restore-staging.js';
 import type { RestoreProgress } from './restore-types.js';
 
 export interface RestoreRuntimeOptions {
@@ -16,6 +16,7 @@ export interface RestoreRuntimeOptions {
   readonly sessionId: () => string;
   readonly progress: (value: RestoreProgress) => void;
   readonly beforeActivate: () => Promise<void>;
+  readonly activationOperations?: ActivationOperations | undefined;
   readonly workStarted: () => void;
   readonly workFinished: () => void;
   readonly activated: (result: RestoreRunResult) => void;
@@ -36,6 +37,7 @@ export class RestoreRuntime {
           safeStorage: options.safeStorage(),
           thumbnails: (store) => new ThumbnailService(pool, store),
           beforeActivate: options.beforeActivate,
+          activationOperations: options.activationOperations,
           events: { progress },
         });
         return {

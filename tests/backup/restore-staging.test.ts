@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { mkdir, readFile, rename, rm } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
+import { activationOperationsForHarness } from '../../src/main/backup/restore-fault.js';
 import { activateStagedLibrary, recoverInterruptedActivation, restorePaths } from '../../src/main/backup/restore-staging.js';
 
 test('startup restores the previous library before fresh-profile classification (#290 review)', async () => {
@@ -40,19 +41,11 @@ test('activation failure rolls the previous library back into place (#288)', asy
   await mkdir(paths.stagingDir);
   writeFileSync(join(paths.targetDir, 'old'), 'old library');
   writeFileSync(join(paths.stagingDir, 'new'), 'new library');
-  let renames = 0;
+  assert.equal(activationOperationsForHarness(undefined), undefined);
+  const operations = activationOperationsForHarness('activation');
+  assert.ok(operations);
 
-  await assert.rejects(
-    activateStagedLibrary(paths, {
-      rm,
-      rename: async (from, to) => {
-        renames += 1;
-        if (renames === 2) throw new Error('injected activation failure');
-        await rename(from, to);
-      },
-    }),
-    /injected activation failure/u,
-  );
+  await assert.rejects(activateStagedLibrary(paths, operations), /injected activation failure/u);
 
   assert.equal(await readFile(join(paths.targetDir, 'old'), 'utf8'), 'old library');
   assert.equal(existsSync(paths.previousDir), false);
