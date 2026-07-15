@@ -90,6 +90,29 @@ describe('app state reducer', () => {
     );
   });
 
+  test('1,500 backup status patches preserve the loaded gallery, selection, and lightbox (#295)', () => {
+    const photos = Array.from(
+      { length: 1_500 },
+      (_, index) => ({ id: `photo-${String(index)}`, syncState: 'local' }) as AppState['photos'][number],
+    );
+    const loaded = apply(
+      initialAppState,
+      { type: 'photos/loaded', photos, append: false },
+      { type: 'selection/all', photoIds: ['photo-1200', 'photo-1499'] },
+      { type: 'lightbox/opened', photoId: 'photo-1200' },
+    );
+
+    const patched = apply(loaded, {
+      type: 'photos/sync-state-patched',
+      updates: photos.map((photo) => ({ id: photo.id, syncState: 'synced' })),
+    });
+
+    assert.equal(patched.photos.length, 1_500);
+    assert.ok(patched.photos.every((photo) => photo.syncState === 'synced'));
+    assert.deepEqual([...patched.selection], ['photo-1200', 'photo-1499']);
+    assert.equal(patched.lightboxId, 'photo-1200');
+  });
+
   test('pendingCount and backup label track IPC pushes', () => {
     const state = apply(initialAppState, { type: 'pendingCount/set', count: 42 }, { type: 'backupLabel/set', label: 'JUST NOW' });
     assert.equal(state.pendingCount, 42);
