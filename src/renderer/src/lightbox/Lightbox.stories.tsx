@@ -46,6 +46,7 @@ const meta: Meta<typeof Lightbox> = {
     inspectorOpen: false,
     onToggleInspector: fn(),
     onExport: fn(),
+    onOffload: fn(),
   },
 };
 
@@ -83,5 +84,14 @@ export const RawPreviewBadge: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('PREVIEW')).toBeVisible();
     await expect(canvas.getByText(/IMG_4021\.RAF — 2026-06-12/u)).toBeVisible();
+  },
+};
+
+export const SyncedOriginalCanBeOffloaded: Story = {
+  args: { photo: { ...PHOTO, syncState: 'synced' } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Offload original' }));
+    await expect(args.onOffload).toHaveBeenCalledTimes(1);
   },
 };

@@ -9,6 +9,7 @@ import { PhotoTile } from '../components/PhotoTile';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useLibraryPhotos } from '../state/use-library-photos';
 import { ListRow } from './ListRow';
+import { PhotoContextMenu } from './PhotoContextMenu';
 import { PurgeConfirm } from './PurgeConfirm';
 import { SelectionPill } from './SelectionPill';
 import { VirtualGrid } from './VirtualGrid';
@@ -18,7 +19,13 @@ import { VirtualGrid } from './VirtualGrid';
 // size the plane for unfiltered sets; under query/chips the plane tracks the
 // loaded count (+1 while pages remain) until an exact filtered count lands
 // with #79.
-export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | null }): ReactElement {
+export function LibraryGridView({
+  knownTotal,
+  onOffload,
+}: {
+  readonly knownTotal: number | null;
+  readonly onOffload: (photoIds: readonly string[], clearSelection?: boolean) => void;
+}): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { loadMore, exhausted } = useLibraryPhotos();
@@ -27,6 +34,7 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
   // the modal is open, and the destructive set must be exactly what the
   // user confirmed (PR #220 review).
   const [purgeIds, setPurgeIds] = useState<readonly string[] | null>(null);
+  const [contextPhoto, setContextPhoto] = useState<{ readonly photo: PhotoRecord; readonly x: number; readonly y: number } | null>(null);
 
   // An active album narrows like query/chips do (#117): the sidebar count
   // sized for the source no longer applies — track the loaded set instead.
@@ -54,6 +62,7 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
         onToggleSelect={() => {
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
+        onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
       />
     ) : (
       <PhotoTile
@@ -68,6 +77,7 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
         onToggleSelect={() => {
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
+        onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
       />
     );
 
@@ -83,6 +93,7 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
           onExport={() => {
             dispatch({ type: 'dialog/set', dialog: 'export', open: true });
           }}
+          onOffload={() => onOffload([...state.selection], true)}
           // Soft delete / restore (#120): the visible page refreshes off
           // the change push; the reducer intersects the selection away.
           {...(state.source === 'deleted'
@@ -128,6 +139,15 @@ export function LibraryGridView({ knownTotal }: { readonly knownTotal: number | 
               })}
         />
       ) : null}
+      {contextPhoto === null ? null : (
+        <PhotoContextMenu
+          photo={contextPhoto.photo}
+          x={contextPhoto.x}
+          y={contextPhoto.y}
+          onClose={() => setContextPhoto(null)}
+          onOffload={() => onOffload([contextPhoto.photo.id])}
+        />
+      )}
       {purgeIds !== null && purgeIds.length > 0 ? (
         <PurgeConfirm
           count={purgeIds.length}

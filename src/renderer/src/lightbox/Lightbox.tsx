@@ -26,6 +26,8 @@ export interface LightboxProps {
   readonly onToggleInspector: () => void;
   /** Export dialog arrives with M07 (count=1); stub until then. */
   readonly onExport: () => void;
+  /** Opens verified offload preflight for this photo. */
+  readonly onOffload: () => void;
   /** Rehydrate failed — the host shows the red toast (#107). */
   readonly onRehydrateError?: (() => void) | undefined;
   /** Soft-deletes this photo (#120) — the row leaving the visible set
@@ -54,6 +56,7 @@ export function Lightbox({
   inspectorOpen,
   onToggleInspector,
   onExport,
+  onOffload,
   onRehydrateError,
   onDelete,
 }: LightboxProps): ReactElement {
@@ -148,6 +151,9 @@ export function Lightbox({
         </span>
         <IconButton icon="star" label="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
         <IconButton icon="share" label="Export" onClick={onExport} />
+        {photo.syncState === 'synced' && photo.deletedAt === null ? (
+          <IconButton icon="cloud-upload" label="Offload original" onClick={onOffload} />
+        ) : null}
         <IconButton icon="info" label="Inspector (I)" active={inspectorOpen} onClick={onToggleInspector} />
         {photo.deletedAt === null ? (
           // Already-deleted rows offer no Delete (PR #218 review) — the

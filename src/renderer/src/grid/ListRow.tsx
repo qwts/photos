@@ -26,11 +26,12 @@ export interface ListRowProps {
   readonly onOpen: () => void;
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect: () => void;
+  readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
 }
 
 // Dense 52px row (#77) — the mock's ListRow: same selection contract as
 // PhotoTile (circle toggles, body opens), hover states ride CSS.
-export function ListRow({ photo, src, selected, onOpen, onToggleSelect }: ListRowProps): ReactElement {
+export function ListRow({ photo, src, selected, onOpen, onToggleSelect, onContextAction }: ListRowProps): ReactElement {
   return (
     <div
       role="button"
@@ -38,6 +39,10 @@ export function ListRow({ photo, src, selected, onOpen, onToggleSelect }: ListRo
       aria-label={`Open ${photo.fileName}`}
       className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}
       onClick={onOpen}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onContextAction?.({ x: event.clientX, y: event.clientY });
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {
           onOpen();

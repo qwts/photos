@@ -15,6 +15,7 @@ export interface PhotoTileProps {
   readonly onClick?: () => void;
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect?: () => void;
+  readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
 }
 
 // media/PhotoTile.jsx — hover states ride CSS (:hover/:focus-within) instead
@@ -29,6 +30,7 @@ export function PhotoTile({
   showStatus = true,
   onClick,
   onToggleSelect,
+  onContextAction,
 }: PhotoTileProps): ReactElement {
   const classes = ['ovl-tile', selected ? 'ovl-tile--selected' : undefined, status === 'offloaded' ? 'ovl-tile--offloaded' : undefined]
     .filter(Boolean)
@@ -40,6 +42,10 @@ export function PhotoTile({
       aria-label={alt === '' ? 'Open photo' : `Open ${alt}`}
       className={classes}
       onClick={onClick}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onContextAction?.({ x: event.clientX, y: event.clientY });
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') {
           onClick?.();

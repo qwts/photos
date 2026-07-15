@@ -47,12 +47,14 @@ const onClear = fn();
 // #78 exit criteria: counts render with thousands separators; Export (#100),
 // Delete (#120), and Add to album (#118) are live; clear-× works.
 export const ThousandsSeparatorAndClear: Story = {
-  args: { count: 12_345, onClear, onDelete: fn(), onAddToAlbum: fn() },
+  args: { count: 12_345, onClear, onDelete: fn(), onAddToAlbum: fn(), onOffload: fn() },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await expect(await canvas.findByText('12,345 SELECTED')).toBeInTheDocument();
     await expect(canvas.getByRole('button', { name: /Export/ })).toBeEnabled();
     await expect(canvas.getByRole('button', { name: /Add to album/ })).toBeEnabled();
+    await userEvent.click(canvas.getByRole('button', { name: /Offload/ }));
+    await expect(args.onOffload).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole('button', { name: /Delete/ }));
     await expect(args.onDelete).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole('button', { name: 'Clear selection' }));
