@@ -1,0 +1,56 @@
+import { ProviderError } from './provider.js';
+
+export type RestoreFailure =
+  'auth' | 'offline' | 'disk-space' | 'corrupt' | 'wrong-key' | 'unsupported' | 'destructive-authorization' | 'cancelled' | 'io';
+
+export class RestoreError extends Error {
+  override readonly name = 'RestoreError';
+
+  constructor(
+    readonly reason: RestoreFailure,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export type RestoreStage = 'discovering' | 'downloading' | 'rebuilding' | 'activating' | 'complete';
+
+export interface RestoreProgress {
+  readonly stage: RestoreStage;
+  readonly done: number;
+  readonly total: number;
+  readonly photoId: string | null;
+}
+
+export interface RestoreCheckpoint {
+  readonly version: 1;
+  readonly libraryId: string;
+  readonly manifestPath: string;
+  readonly sealedManifestSha256: string;
+  readonly completedBlobIds: readonly string[];
+  readonly completedThumbnailIds: readonly string[];
+}
+
+export function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'AbortError' || error.message === 'restore cancelled');
+}
+
+export function toRestoreError(error: unknown): RestoreError {
+  if (error instanceof RestoreError) return error;
+  if (isAbortError(error)) return new RestoreError('cancelled', 'restore cancelled');
+  if (error instanceof ProviderError) {
+    switch (error.kind) {
+      case 'auth':
+        return new RestoreError('auth', error.message);
+      case 'transient':
+        return new RestoreError('offline', error.message);
+      case 'quota':
+        return new RestoreError('disk-space', error.message);
+      case 'not-found':
+      case 'corrupt':
+        return new RestoreError('corrupt', error.message);
+    }
+  }
+  return new RestoreError('io', error instanceof Error ? error.message : String(error));
+}
