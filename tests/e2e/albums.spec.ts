@@ -44,7 +44,7 @@ test('albums: inline create, live counts, album-as-source grid filter', async ()
     );
     expect(added.added).toBe(2);
     await expect(albumRow).toContainText('2');
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → PCLOUD');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → LOCAL MOCK');
 
     // Album as active source: the grid narrows to the two members.
     await albumRow.click();

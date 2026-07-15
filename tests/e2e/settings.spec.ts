@@ -28,6 +28,17 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     expect(defaults.settings.sortOrder).toBe('date');
     expect(defaults.settings.bandwidthLimit).toBe(100);
 
+    const providerCatalog = await page.evaluate<{
+      defaultProviderId: string;
+      providers: { id: string; label: string; capabilities: { quota: string; verification: string } }[];
+    }>(`window.overlook.backup.providers()`);
+    expect(providerCatalog.defaultProviderId).toBe('mock');
+    expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['pcloud', 'mock']);
+    expect(providerCatalog.providers.find(({ id }) => id === 'mock')?.capabilities).toMatchObject({
+      quota: 'known',
+      verification: 'server-checksum',
+    });
+
     // Subscribe, patch, and require the push to arrive with the snapshot.
     const pushed = await page.evaluate<{ sortOrder: string; wifiOnly: boolean }>(
       `new Promise((resolve) => {
@@ -86,16 +97,16 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     const blocked = await page.evaluate<{ skipped: string | null }>(`window.overlook.backup.run({})`);
     expect(blocked.skipped).toBe('disconnected');
 
-    // #239: disconnect hides every pCloud surface in the shell — no
+    // #239: disconnect hides every provider surface in the shell — no
     // misleading backed-up states anywhere.
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Back up' })).toBeHidden();
-    await expect(page.getByTestId('sync-state')).toContainText('PCLOUD NOT CONNECTED');
-    await expect(page.getByTestId('backup-card')).not.toContainText('PCLOUD');
+    await expect(page.getByTestId('sync-state')).toContainText('LOCAL MOCK NOT CONNECTED');
+    await expect(page.getByTestId('backup-card')).not.toContainText('LOCAL MOCK');
     // The sidebar's Connect link is the path back — it opens Settings.
     await page.getByTestId('sidebar-connect').click();
     await expect(page.getByTestId('settings-dialog')).toBeVisible();
-    await page.getByRole('button', { name: 'Connect Mock provider' }).click();
+    await page.getByRole('button', { name: 'Connect Local mock' }).click();
     await expect(card).toContainText('Connected');
     await expect(page.getByText('Back up new imports automatically')).toBeVisible();
     // Reconnect restores the shell surfaces live, no restart.

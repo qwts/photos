@@ -10,7 +10,7 @@ export const SYNC_STATES: Record<SyncState, { icon: IconName; color: string; lab
   local: { icon: 'hard-drive', color: 'var(--text-muted)', label: 'Local only' },
   synced: { icon: 'cloud-check', color: 'var(--accent-green)', label: 'Backed up (encrypted)' },
   syncing: { icon: 'refresh-cw', color: 'var(--accent-amber)', label: 'Uploading…' },
-  offloaded: { icon: 'cloud', color: 'var(--accent-amber)', label: 'Offloaded to pCloud' },
+  offloaded: { icon: 'cloud', color: 'var(--accent-amber)', label: 'Offloaded to cloud' },
   error: { icon: 'cloud-alert', color: 'var(--accent-red)', label: 'Sync failed' },
 };
 

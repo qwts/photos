@@ -26,10 +26,10 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
 
     // Seed 4 starts with one born-dirty local row: amber state, live count,
     // enabled button, storage split on the card.
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → PCLOUD');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
     const backupButton = page.getByRole('button', { name: 'Back up' });
     await expect(backupButton).toBeEnabled();
-    await expect(page.getByTestId('backup-card')).toContainText('LOCAL · 0 B PCLOUD');
+    await expect(page.getByTestId('backup-card')).toContainText('LOCAL · 0 B LOCAL MOCK');
 
     // Trigger: the mock's toast pair around the run…
     await backupButton.click();
@@ -48,7 +48,7 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
     // …and with auto-backup on (the default), the edit drains ITSELF: the
     // debounced trigger (#267) runs quietly — no manual click — and the
     // indicator + button leave together. Before #267 this sat at
-    // "ENCRYPTING 1 → PCLOUD" forever.
+    // "ENCRYPTING 1 → LOCAL MOCK" forever.
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
     await expect(backupButton).toBeHidden();
   } finally {
@@ -142,13 +142,13 @@ test('edit re-dirties after a backup; offload → lightbox rehydrate round-trips
     // Edit → amber returns with the exact count.
     await page.locator('.ovl-grid__cell').nth(1).click();
     await page.getByTestId('lightbox').getByRole('button', { name: 'Favorite' }).click();
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → PCLOUD');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
     await page.keyboard.press('Escape');
 
     // Offload photo 0 (synced + clean): the card split shifts.
     const offloaded = await page.evaluate<{ offloaded: number }>(`window.overlook.backup.offload({ photoIds: ['01J8SEEDPHOTO0000'] })`);
     expect(offloaded.offloaded).toBe(1);
-    await expect(page.getByTestId('backup-card')).not.toContainText('· 0 B PCLOUD');
+    await expect(page.getByTestId('backup-card')).not.toContainText('· 0 B LOCAL MOCK');
 
     // Open it in the lightbox: rehydrate fires and the row returns synced.
     await page.locator('.ovl-grid__cell').first().click();

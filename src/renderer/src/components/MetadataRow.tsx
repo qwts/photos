@@ -7,7 +7,7 @@ export interface MetadataRowProps {
   readonly value: string;
   /** Machine data defaults to mono; prose rows opt out. */
   readonly mono?: boolean;
-  /** Color override, e.g. var(--accent-green) for "ENCRYPTED · PCLOUD". */
+  /** Color override, e.g. var(--accent-green) for an encrypted backup. */
   readonly tone?: string;
 }
 

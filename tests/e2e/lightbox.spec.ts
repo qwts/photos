@@ -100,7 +100,7 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
 
     // Seed 4 starts with exactly one dirty row (photo 0 is 'local', and
     // local rows are born dirty) — the favorite must INCREMENT this.
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → PCLOUD');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
     // Photo 1 (IMG_4028.JPG) is not a favorite.
     await expect(page.locator('.ovl-grid__cell').nth(1).locator('.ovl-tile__star')).toHaveCount(0);
 
@@ -111,7 +111,7 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
     await lightbox.getByRole('button', { name: 'Favorite' }).click();
 
     // Ledger dirties → the StatusBar count increments, exactly…
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → PCLOUD');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → LOCAL MOCK');
     // …the lightbox star goes active…
     await expect(lightbox.getByRole('button', { name: 'Favorite' })).toHaveClass(/ovl-icon-button--active/);
 

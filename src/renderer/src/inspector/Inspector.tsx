@@ -14,16 +14,6 @@ import './inspector.css';
 // are OMITTED, never fabricated (Content voice), and the cipher row reads
 // the photo's actual key id.
 
-const STATUS_TEXT: Record<SyncStatus, string> = {
-  local: 'LOCAL ONLY — NOT BACKED UP',
-  // The mock appends "· 2H AGO" — a last-sync timestamp the ledger doesn't
-  // expose yet (M08 adds it); until then the row states only what is true.
-  synced: 'ENCRYPTED · PCLOUD',
-  syncing: 'ENCRYPTING → PCLOUD…',
-  offloaded: 'OFFLOADED — ORIGINAL IN PCLOUD',
-  error: 'SYNC FAILED — WILL RETRY',
-};
-
 const STATUS_TONE: Record<SyncStatus, string> = {
   local: 'var(--text-muted)',
   synced: 'var(--accent-green)',
@@ -44,9 +34,10 @@ function Section({ title, children }: { readonly title: string; readonly childre
 export interface InspectorProps {
   /** The focused photo — lightbox photo, else the single grid selection. */
   readonly photo: PhotoRecord | null;
+  readonly providerLabel?: string | undefined;
 }
 
-export function Inspector({ photo }: InspectorProps): ReactElement {
+export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): ReactElement {
   if (photo === null) {
     return (
       <div className="ovl-inspector ovl-inspector--empty" data-testid="inspector">
@@ -63,6 +54,14 @@ export function Inspector({ photo }: InspectorProps): ReactElement {
   const dateLine = [(photo.takenAt ?? photo.importedAt).slice(0, 10), photo.place?.toUpperCase() ?? null]
     .filter((part) => part !== null)
     .join(' · ');
+  const provider = providerLabel.toUpperCase();
+  const statusText: Record<SyncStatus, string> = {
+    local: 'LOCAL ONLY — NOT BACKED UP',
+    synced: `ENCRYPTED · ${provider}`,
+    syncing: `ENCRYPTING → ${provider}…`,
+    offloaded: `OFFLOADED — ORIGINAL IN ${provider}`,
+    error: 'SYNC FAILED — WILL RETRY',
+  };
 
   return (
     <div className="ovl-inspector" data-testid="inspector">
@@ -99,7 +98,7 @@ export function Inspector({ photo }: InspectorProps): ReactElement {
         <MetadataRow label="Imported" value={`${photo.importedAt.slice(0, 10)} · ${photo.importSource.toUpperCase()}`} />
       </Section>
       <Section title="Backup">
-        <MetadataRow label="State" value={STATUS_TEXT[photo.syncState]} tone={STATUS_TONE[photo.syncState]} />
+        <MetadataRow label="State" value={statusText[photo.syncState]} tone={STATUS_TONE[photo.syncState]} />
         <MetadataRow label="Cipher" value={`AES-256-GCM · KEY #${String(photo.keyId)}`} />
       </Section>
     </div>

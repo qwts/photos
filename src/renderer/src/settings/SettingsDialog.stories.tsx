@@ -14,6 +14,34 @@ import type { OverlookApi } from '../../../shared/ipc/api.js';
 
 function installStub(): void {
   let current: AppSettings = { ...defaultSettings };
+  const mockProvider = {
+    id: 'mock',
+    label: 'Local mock',
+    capabilities: {
+      quota: 'known' as const,
+      verification: 'server-checksum' as const,
+      resumableUpload: false,
+      platforms: ['darwin' as const],
+      interactiveAuth: false,
+      reconnectRequired: false,
+    },
+    available: true,
+    unavailableReason: null,
+  };
+  const archiveProvider = {
+    id: 'archive-cloud',
+    label: 'Archive Cloud',
+    capabilities: {
+      quota: 'unknown' as const,
+      verification: 'download-hash' as const,
+      resumableUpload: false,
+      platforms: ['darwin' as const],
+      interactiveAuth: false,
+      reconnectRequired: false,
+    },
+    available: true,
+    unavailableReason: null,
+  };
   // connect/disconnect (#254) mutate settings OUTSIDE the set() round-trip,
   // exactly like main does — so the stub must deliver change pushes too.
   const listeners = new Set<(payload: { settings: AppSettings }) => void>();
@@ -40,21 +68,26 @@ function installStub(): void {
     onCompleted: () => () => undefined,
     offload: () => Promise.resolve({ offloaded: 0, skipped: 0, freedBytes: 0 }),
     rehydrate: () => Promise.resolve({ ok: true }),
+    providers: () => Promise.resolve({ providers: [mockProvider, archiveProvider], defaultProviderId: 'mock' }),
     // The card's truth follows the stub store's providerId, like main does.
-    providerStatus: () =>
-      Promise.resolve(
-        current.providerId === null
-          ? { provider: 'mock' as const, connected: false, account: null, usedBytes: 0, totalBytes: 0 }
-          : { provider: 'mock' as const, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
-      ),
+    providerStatus: ({ providerId }) => {
+      const provider = providerId === archiveProvider.id ? archiveProvider : mockProvider;
+      return Promise.resolve(
+        current.providerId !== providerId
+          ? { provider, connected: false, account: null, usedBytes: null, totalBytes: null }
+          : providerId === archiveProvider.id
+            ? { provider, connected: true, account: null, usedBytes: null, totalBytes: null }
+            : { provider, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
+      );
+    },
     // Connect/disconnect (#254) mirror main's mock policy: flip providerId.
-    connect: () => {
-      apply({ providerId: 'mock' });
+    connect: ({ providerId }) => {
+      apply({ providerId });
       return Promise.resolve({ ok: true, reason: null });
     },
     disconnect: () => {
       apply({ providerId: null });
-      return Promise.resolve({ ok: true as const });
+      return Promise.resolve({ ok: true, reason: null });
     },
   };
   const keysApi = {
@@ -116,10 +149,22 @@ export const DisconnectHidesBackupControls: Story = {
     await expect(switches[0]).toBeDisabled();
 
     // Reconnect: instant with the mock, quota and the knobs return.
-    await userEvent.click(body.getByRole('button', { name: 'Connect Mock provider' }));
+    await userEvent.click(body.getByRole('button', { name: 'Connect Local mock' }));
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
     await expect(body.getByText('Back up new imports automatically')).toBeVisible();
+  },
+};
+
+export const ProviderSelectionAndUnknownQuota: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+    await userEvent.click(body.getByRole('radio', { name: 'Archive Cloud' }));
+    await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
+    await waitFor(() => expect(body.getByText('THIS DEVICE · STORAGE USAGE NOT REPORTED')).toBeVisible());
+    await expect(body.getByText(/VERIFY BY DOWNLOAD/u)).toBeVisible();
   },
 };
 

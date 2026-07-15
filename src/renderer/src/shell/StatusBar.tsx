@@ -11,6 +11,7 @@ import { useAppState } from '../state/app-state-context';
 export function StatusBar({ stats }: { readonly stats: LibraryStats | null }): ReactElement {
   const state = useAppState();
   const syncing = state.pendingCount > 0;
+  const provider = state.providerLabel.toUpperCase();
   return (
     <footer className="ovl-statusbar">
       <span data-testid="statusbar-left">
@@ -22,14 +23,14 @@ export function StatusBar({ stats }: { readonly stats: LibraryStats | null }): R
         // backed-up state.
         <span className="ovl-statusbar__item" data-testid="sync-state">
           <Icon name="cloud-off" size={12} strokeWidth={2} />
-          PCLOUD NOT CONNECTED
+          {provider} NOT CONNECTED
         </span>
       ) : syncing ? (
         <span className="ovl-statusbar__item ovl-statusbar__item--amber" data-testid="sync-state">
           <span className="ovl-statusbar__spin">
             <Icon name="refresh-cw" size={11} strokeWidth={2} />
           </span>
-          ENCRYPTING {formatCount(state.pendingCount)} → PCLOUD
+          ENCRYPTING {formatCount(state.pendingCount)} → {provider}
         </span>
       ) : (
         <span className="ovl-statusbar__item ovl-statusbar__item--green" data-testid="sync-state">

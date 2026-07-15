@@ -10,6 +10,7 @@ import { Slider } from '../components/Slider';
 import { Switch } from '../components/Switch';
 import { Field } from './Field';
 import type { AppSettings } from '../../../shared/settings/settings.js';
+import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
 
 // Storage & Backup section (#114, updated by #239, #254): the provider
 // connection card + backup knobs. Disconnected now HIDES the backup-specific
@@ -18,19 +19,17 @@ import type { AppSettings } from '../../../shared/settings/settings.js';
 // the locked Encrypt switch remain, per the updated design.
 // Connect/Disconnect goes through backup:connect / backup:disconnect (#254)
 // so main owns the handshake — instant for the mock, the OAuth browser
-// round-trip for pCloud; providerId flips in settings either way and the
+// round-trip for interactive providers; providerId flips in settings and the
 // settings-changed push re-renders this pane. Quota is the provider's own
 // answer, not a cached guess.
 
 export interface ProviderStatus {
-  readonly provider: 'mock' | 'pcloud';
+  readonly provider: ProviderDescriptor;
   readonly connected: boolean;
   readonly account: string | null;
-  readonly usedBytes: number;
-  readonly totalBytes: number;
+  readonly usedBytes: number | null;
+  readonly totalBytes: number | null;
 }
-
-const PROVIDER_NAMES = { mock: 'Mock provider', pcloud: 'pCloud' } as const;
 
 export interface StoragePaneProps {
   readonly settings: AppSettings;
@@ -41,20 +40,30 @@ export interface StoragePaneProps {
 
 export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactElement {
   const [status, setStatus] = useState<ProviderStatus | null>(null);
+  const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
+  const [targetId, setTargetId] = useState<string | null>(settings.providerId);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
-    void window.overlook.backup.providerStatus().then(setStatus);
-  }, []);
+    if (targetId !== null) {
+      void window.overlook.backup.providerStatus({ providerId: targetId }).then(setStatus);
+    }
+  }, [targetId]);
 
   const toggleConnection = useCallback(
     (isConnected: boolean) => {
       setConnecting(true);
       setConnectError(null);
-      void (isConnected ? window.overlook.backup.disconnect() : window.overlook.backup.connect())
+      if (targetId === null) {
+        setConnecting(false);
+        return;
+      }
+      void (
+        isConnected ? window.overlook.backup.disconnect({ providerId: targetId }) : window.overlook.backup.connect({ providerId: targetId })
+      )
         .then((result) => {
-          if ('reason' in result && !result.ok) {
+          if (!result.ok) {
             setConnectError(result.reason ?? 'Connection failed.');
           }
         })
@@ -63,17 +72,29 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
           refresh();
         });
     },
-    [refresh],
+    [refresh, targetId],
   );
 
   // providerId is part of `settings`, so a connect/disconnect patch
   // re-renders this pane and the effect refetches the card's truth.
   useEffect(() => {
-    refresh();
-  }, [refresh, settings.providerId]);
+    void window.overlook.backup.providers().then(({ providers: loaded, defaultProviderId }) => {
+      setProviders(loaded);
+      setTargetId((current) => {
+        const selected = loaded.some((provider) => provider.id === settings.providerId) ? settings.providerId : null;
+        const retained = loaded.some((provider) => provider.id === current) ? current : null;
+        return selected ?? retained ?? defaultProviderId;
+      });
+    });
+  }, [settings.providerId]);
 
-  const connected = settings.providerId !== null && status?.connected === true;
-  const name = PROVIDER_NAMES[status?.provider ?? 'mock'];
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const descriptor = providers.find((provider) => provider.id === targetId) ?? status?.provider ?? null;
+  const connected = settings.providerId === targetId && status?.connected === true;
+  const name = descriptor?.label ?? 'Cloud provider';
   const bandwidth = settings.bandwidthLimit;
 
   return (
@@ -85,7 +106,7 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
             <span className="ovl-settings__providerName">{name}</span>
             {connected ? <Badge tone="green">Connected</Badge> : <Badge tone="neutral">Not connected</Badge>}
           </div>
-          {connected && status !== null ? (
+          {connected && status !== null && status.usedBytes !== null && status.totalBytes !== null ? (
             <>
               <div className="ovl-settings__providerMeta mono-data">
                 {status.account ?? 'THIS DEVICE'} · {formatBytes(status.usedBytes).toUpperCase()} /{' '}
@@ -93,11 +114,20 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
               </div>
               <ProgressBar value={status.usedBytes} max={Math.max(status.totalBytes, 1)} tone="cyan" />
             </>
+          ) : connected ? (
+            <div className="ovl-settings__providerMeta mono-data">{status?.account ?? 'THIS DEVICE'} · STORAGE USAGE NOT REPORTED</div>
           ) : (
             <div className="ovl-settings__providerMeta">
               {connectError === null ? 'Link a provider to store encrypted originals off-device.' : connectError}
             </div>
           )}
+          {descriptor === null ? null : (
+            <div className="ovl-settings__providerMeta mono-data">
+              {descriptor.capabilities.verification === 'server-checksum' ? 'SERVER CHECKSUM' : 'VERIFY BY DOWNLOAD'} ·{' '}
+              {descriptor.capabilities.resumableUpload ? 'RESUMABLE UPLOADS' : 'RESTARTS INTERRUPTED UPLOADS'}
+            </div>
+          )}
+          {connectError === null || !connected ? null : <div className="ovl-settings__providerMeta">{connectError}</div>}
         </div>
         <Button
           variant={connected ? 'secondary' : 'primary'}
@@ -109,6 +139,21 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
           {connecting ? 'Connecting…' : connected ? 'Disconnect' : `Connect ${name}`}
         </Button>
       </div>
+
+      {!connected && providers.length > 1 && targetId !== null ? (
+        <Field label="Backup provider" hint="Choose where encrypted library data is stored.">
+          <Segmented
+            label="Backup provider"
+            value={targetId}
+            options={providers.map((provider) => ({ value: provider.id, label: provider.label, disabled: !provider.available }))}
+            onChange={(providerId) => {
+              setTargetId(providerId);
+              setStatus(null);
+              setConnectError(null);
+            }}
+          />
+        </Field>
+      ) : null}
 
       {connected ? (
         <>

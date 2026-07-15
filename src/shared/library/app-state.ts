@@ -38,6 +38,8 @@ export interface AppState {
   /** Mirrors settings.providerId !== null (#239): disconnected hides every
    * pCloud surface (toolbar backup, status-bar sync, sidebar progress). */
   readonly providerConnected: boolean;
+  /** Descriptor-driven label for the selected/default backup provider. */
+  readonly providerLabel: string;
 }
 
 export const initialAppState: AppState = {
@@ -59,6 +61,7 @@ export const initialAppState: AppState = {
   pendingCount: 0,
   lastBackupLabel: '2H AGO',
   providerConnected: true,
+  providerLabel: 'Cloud',
 };
 
 export type AppAction =
@@ -87,6 +90,7 @@ export type AppAction =
   | { type: 'pendingCount/set'; count: number }
   | { type: 'backupLabel/set'; label: string }
   | { type: 'providerConnected/set'; connected: boolean }
+  | { type: 'provider/set'; connected: boolean; label: string }
   | { type: 'escape' };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -185,6 +189,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, lastBackupLabel: action.label };
     case 'providerConnected/set':
       return { ...state, providerConnected: action.connected };
+    case 'provider/set':
+      return { ...state, providerConnected: action.connected, providerLabel: action.label };
     case 'escape':
       // Mock semantics: Esc exits the lightbox when open, otherwise clears
       // the selection.

@@ -81,15 +81,31 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   // follow changed pushes — a sort change in the dialog re-orders the grid
   // live via the query hook's refetch.
   useEffect(() => {
+    const syncProvider = (selectedId: string | null): void => {
+      void window.overlook.backup.providers().then(({ providers, defaultProviderId }) => {
+        const providerId = providers.some((provider) => provider.id === selectedId) ? (selectedId ?? defaultProviderId) : defaultProviderId;
+        const descriptor = providers.find((provider) => provider.id === providerId);
+        if (descriptor === undefined) {
+          dispatch({ type: 'provider/set', connected: false, label: 'Cloud' });
+          return;
+        }
+        void window.overlook.backup
+          .providerStatus({ providerId })
+          .then(({ connected, provider }) => {
+            dispatch({ type: 'provider/set', connected, label: provider.label });
+          })
+          .catch(() => {
+            dispatch({ type: 'provider/set', connected: false, label: descriptor.label });
+          });
+      });
+    };
     void window.overlook.settings.get().then(({ settings }) => {
       dispatch({ type: 'sortOrder/set', order: settings.sortOrder });
-      dispatch({ type: 'providerConnected/set', connected: settings.providerId !== null });
+      syncProvider(settings.providerId);
     });
     return window.overlook.settings.onChanged(({ settings }) => {
       dispatch({ type: 'sortOrder/set', order: settings.sortOrder });
-      // Disconnect hides every pCloud surface live (#239) — toolbar backup,
-      // status-bar sync line, sidebar backup progress.
-      dispatch({ type: 'providerConnected/set', connected: settings.providerId !== null });
+      syncProvider(settings.providerId);
     });
   }, [dispatch]);
 
@@ -308,7 +324,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
             onRehydrateError={() => {
               dispatch({
                 type: 'toast/shown',
-                toast: { title: 'RESTORE FAILED — STILL IN PCLOUD', tone: 'red', action: 'retry-backup' },
+                toast: { title: `RESTORE FAILED — STILL IN ${state.providerLabel.toUpperCase()}`, tone: 'red', action: 'retry-backup' },
               });
             }}
             onDelete={() => {
@@ -329,6 +345,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
         {state.inspectorOpen ? (
           <aside className="ovl-shell__inspector" aria-label="Inspector">
             <Inspector
+              providerLabel={state.providerLabel}
               photo={
                 // The focused photo (#94): the lightbox photo wins; else a
                 // single grid selection; else the empty hint.

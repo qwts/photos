@@ -290,6 +290,24 @@
       ]
     },
     {
+      "id": "m09-provider-selection-capabilities",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/provider-runtime.test.ts"
+        }
+      ]
+    },
+    {
       "id": "m09-settings-dialog-shell",
       "wiki": "User-Story-M09-Settings-preferences",
       "coverage": [

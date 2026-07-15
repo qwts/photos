@@ -125,6 +125,9 @@ describe('app state reducer', () => {
     assert.equal(off.providerConnected, false);
     const on = apply(off, { type: 'providerConnected/set', connected: true });
     assert.equal(on.providerConnected, true);
+    const selected = apply(on, { type: 'provider/set', connected: false, label: 'Future Cloud' });
+    assert.equal(selected.providerConnected, false);
+    assert.equal(selected.providerLabel, 'Future Cloud');
   });
 
   test('query, view, explicit lightbox close, and toast lifecycle', () => {
