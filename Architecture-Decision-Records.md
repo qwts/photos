@@ -17,7 +17,8 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0007](ADR-0007-Backup-Format-And-Offload)                | Backup Format & Offload     | Accepted |
 | [ADR-0008](ADR-0008-Recovery-Key-Format)                      | Recovery-Key Format & KDF   | Accepted |
 | [ADR-0009](ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2) | Cloud Recovery Bootstrap    | Accepted |
-| [ADR-0010](ADR-0010-Cloud-Restore-Staging-And-Atomic-Activation) | Cloud Restore Activation  | Proposed |
+| [ADR-0010](ADR-0010-Cloud-Restore-Staging-And-Atomic-Activation) | Cloud Restore Activation  | Accepted |
+| [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching) | Provider Catalog & Switching | Proposed |
 
 ## Template
 
