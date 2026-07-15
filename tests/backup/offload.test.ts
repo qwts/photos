@@ -24,7 +24,7 @@ import type { PhotoInsert } from '../../src/shared/library/types.js';
 // needed — over the REAL store/ledger/provider, backed up by the REAL
 // engine first (eligibility trusts #106's verified bit).
 
-async function world(count: number) {
+async function world(count: number, providerConnected = true) {
   const dataDir = mkdtempSync(join(tmpdir(), 'overlook-offload-'));
   const db = openLibraryDatabase({ path: join(dataDir, 'library.db'), dbKey: randomBytes(32) });
   run(db, `INSERT OR IGNORE INTO keys (id, wrapped_key, created_at) VALUES (1, 'test', '2026-07-13T00:00:00.000Z')`);
@@ -87,6 +87,7 @@ async function world(count: number) {
   const changed: string[][] = [];
   const service = new OffloadService({
     provider,
+    providerConnected: () => providerConnected,
     ledger,
     repo: {
       get: (id) => repo.get(id),
@@ -113,6 +114,8 @@ describe('offload + rehydrate (#107)', () => {
 
     const summary = await w.service.offload(['P0']);
     assert.deepEqual({ offloaded: summary.offloaded, skipped: summary.skipped }, { offloaded: 1, skipped: 0 });
+    assert.equal(summary.failed, 0);
+    assert.deepEqual(summary.results, [{ photoId: 'P0', outcome: 'offloaded', reason: null }]);
     assert.equal(summary.freedBytes, photo?.bytes);
     assert.equal(w.ledger.status('P0'), 'offloaded');
     assert.equal(w.store.hasOriginal(photo?.contentHash ?? ''), false, 'original evicted');
@@ -129,6 +132,43 @@ describe('offload + rehydrate (#107)', () => {
     w.ledger.markDirty('P0'); // synced but dirty again — not eligible
     const summary = await w.service.offload(['P0', 'GHOST']);
     assert.deepEqual({ offloaded: summary.offloaded, skipped: summary.skipped }, { offloaded: 0, skipped: 2 });
+    assert.deepEqual(summary.results, [
+      { photoId: 'P0', outcome: 'skipped', reason: 'dirty' },
+      { photoId: 'GHOST', outcome: 'skipped', reason: 'missing-photo' },
+    ]);
+    assert.equal(w.store.hasOriginal(w.repo.get('P0')?.contentHash ?? ''), true);
+  });
+
+  test('preflight is read-only and reports exact eligible, skip reasons, and estimated bytes (#281)', async () => {
+    const w = await world(3);
+    await w.engine.run();
+    w.ledger.markDirty('P1');
+    w.ledger.setStatus('P2', 'offloaded');
+
+    const plan = await w.service.preflight(['P0', 'P1', 'P2', 'GHOST', 'P0']);
+    assert.deepEqual(plan, {
+      eligible: 1,
+      ineligible: 3,
+      estimatedFreedBytes: w.repo.get('P0')?.bytes,
+      items: [
+        { photoId: 'P0', bytes: w.repo.get('P0')?.bytes, eligible: true, reason: null },
+        { photoId: 'P1', bytes: w.repo.get('P1')?.bytes, eligible: false, reason: 'dirty' },
+        { photoId: 'P2', bytes: w.repo.get('P2')?.bytes, eligible: false, reason: 'already-offloaded' },
+        { photoId: 'GHOST', bytes: 0, eligible: false, reason: 'missing-photo' },
+      ],
+    });
+    assert.equal(w.ledger.status('P0'), 'synced');
+    assert.equal(w.store.hasOriginal(w.repo.get('P0')?.contentHash ?? ''), true);
+  });
+
+  test('disconnected provider blocks eviction with an explicit reason (#281)', async () => {
+    const w = await world(1, false);
+    await w.engine.run();
+    const plan = await w.service.preflight(['P0']);
+    assert.deepEqual(plan.items, [{ photoId: 'P0', bytes: w.repo.get('P0')?.bytes, eligible: false, reason: 'provider-disconnected' }]);
+    const result = await w.service.offload(['P0']);
+    assert.equal(result.offloaded, 0);
+    assert.equal(result.skipped, 1);
     assert.equal(w.store.hasOriginal(w.repo.get('P0')?.contentHash ?? ''), true);
   });
 

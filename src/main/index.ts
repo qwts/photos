@@ -514,6 +514,7 @@ function getBackupEngine(): BackupEngine {
     });
     offloadService = new OffloadService({
       provider,
+      providerConnected: () => getProviderRuntime().activeId() !== null,
       ledger,
       repo: {
         get: (id) => repo.get(id),

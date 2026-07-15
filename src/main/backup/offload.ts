@@ -1,6 +1,6 @@
 import type { Readable } from 'node:stream';
 
-import { ProviderError, type StorageProvider } from './provider.js';
+import { ProviderError, type ProviderAuthState, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
 import type { SyncStatus } from '../../shared/library/types.js';
 
@@ -11,10 +11,46 @@ import type { SyncStatus } from '../../shared/library/types.js';
 // decrypt-and-rehash verify, only then flip the ledger; any failure leaves
 // a clean offloaded record, never a half-restored one.
 
+export type OffloadSkipReason =
+  | 'missing-photo'
+  | 'deleted'
+  | 'provider-disconnected'
+  | 'provider-expired'
+  | 'provider-offline'
+  | 'local'
+  | 'syncing'
+  | 'already-offloaded'
+  | 'error'
+  | 'dirty'
+  | 'shared-original'
+  | 'missing-original';
+
+export interface OffloadPreflightItem {
+  readonly photoId: string;
+  readonly bytes: number;
+  readonly eligible: boolean;
+  readonly reason: OffloadSkipReason | null;
+}
+
+export interface OffloadPreflight {
+  readonly eligible: number;
+  readonly ineligible: number;
+  readonly estimatedFreedBytes: number;
+  readonly items: readonly OffloadPreflightItem[];
+}
+
+export interface OffloadResultItem {
+  readonly photoId: string;
+  readonly outcome: 'offloaded' | 'skipped' | 'failed';
+  readonly reason: OffloadSkipReason | 'delete-failed' | null;
+}
+
 export interface OffloadSummary {
   readonly offloaded: number;
   readonly skipped: number;
+  readonly failed: number;
   readonly freedBytes: number;
+  readonly results: readonly OffloadResultItem[];
 }
 
 export class RehydrateError extends Error {
@@ -23,9 +59,12 @@ export class RehydrateError extends Error {
 
 export interface OffloadDeps {
   readonly provider: StorageProvider;
+  /** Settings/provider-registry truth. The active-provider facade has a
+   * fallback target while disconnected, so authState alone is insufficient. */
+  readonly providerConnected: () => boolean;
   readonly ledger: SyncLedger;
   readonly repo: {
-    readonly get: (id: string) => { contentHash: string; bytes: number } | undefined;
+    readonly get: (id: string) => { contentHash: string; bytes: number; deletedAt: string | null } | undefined;
     /** Live photos (not deleted) sharing this content hash. */
     readonly countByContentHash: (hash: string) => number;
   };
@@ -51,38 +90,97 @@ export class OffloadService {
     return this.deps.ledger.status(photoId);
   }
 
-  /** Evicts verified-synced originals; anything else is skipped, never
-   * forced. Thumbs stay (ADR-0007's browsable-offline stance). */
+  /** Read-only, exact plan used by every confirmation surface. */
+  async preflight(photoIds: readonly string[]): Promise<OffloadPreflight> {
+    const providerState = await this.providerState();
+    const items = [...new Set(photoIds)].map((photoId) => this.classify(photoId, providerState));
+    const eligibleItems = items.filter((item) => item.eligible);
+    return {
+      eligible: eligibleItems.length,
+      ineligible: items.length - eligibleItems.length,
+      estimatedFreedBytes: eligibleItems.reduce((sum, item) => sum + item.bytes, 0),
+      items,
+    };
+  }
+
+  /** Evicts verified-synced originals; anything else is reported with an
+   * exact reason, never silently forced. Thumbs stay browsable offline. */
   async offload(photoIds: readonly string[]): Promise<OffloadSummary> {
+    const plan = await this.preflight(photoIds);
+    const providerState = await this.providerState();
     let offloaded = 0;
     let skipped = 0;
+    let failed = 0;
     let freedBytes = 0;
     const changed: string[] = [];
-    for (const photoId of photoIds) {
+    const results: OffloadResultItem[] = [];
+    for (const planned of plan.items) {
+      const photoId = planned.photoId;
+      const current = this.classify(photoId, providerState);
       const photo = this.deps.repo.get(photoId);
-      const status = this.deps.ledger.status(photoId);
-      const eligible = photo !== undefined && status === 'synced' && !this.deps.ledgerDirty(photoId);
-      if (!eligible) {
+      if (!current.eligible || photo === undefined) {
         skipped += 1;
+        results.push({ photoId, outcome: 'skipped', reason: current.reason ?? 'missing-photo' });
         continue;
       }
-      // Content-addressed blobs can back several rows (deleted twins) —
-      // evict only when no OTHER live photo still needs the local copy.
-      if (this.deps.repo.countByContentHash(photo.contentHash) > 1) {
-        skipped += 1;
+      try {
+        await this.deps.blobs.deleteOriginal(photo.contentHash);
+      } catch (error) {
+        failed += 1;
+        results.push({ photoId, outcome: 'failed', reason: 'delete-failed' });
+        this.deps.audit(`OFFLOAD-FAIL photo=${photoId} stage=delete reason=${error instanceof Error ? error.message : String(error)}`);
         continue;
       }
-      await this.deps.blobs.deleteOriginal(photo.contentHash);
       this.deps.ledger.setStatus(photoId, 'offloaded');
       this.deps.audit(`OFFLOAD photo=${photoId} bytes=${String(photo.bytes)}`);
       offloaded += 1;
       freedBytes += photo.bytes;
       changed.push(photoId);
+      results.push({ photoId, outcome: 'offloaded', reason: null });
     }
     if (changed.length > 0) {
       this.deps.libraryChanged(changed);
     }
-    return { offloaded, skipped, freedBytes };
+    return { offloaded, skipped, failed, freedBytes, results };
+  }
+
+  private async providerState(): Promise<ProviderAuthState | 'offline'> {
+    if (!this.deps.providerConnected()) {
+      return 'not-connected';
+    }
+    try {
+      return await this.deps.provider.authState();
+    } catch {
+      return 'offline';
+    }
+  }
+
+  private classify(photoId: string, providerState: ProviderAuthState | 'offline'): OffloadPreflightItem {
+    const photo = this.deps.repo.get(photoId);
+    if (photo === undefined) return { photoId, bytes: 0, eligible: false, reason: 'missing-photo' };
+    if (photo.deletedAt !== null) return { photoId, bytes: photo.bytes, eligible: false, reason: 'deleted' };
+    const status = this.deps.ledger.status(photoId);
+    const statusReason: Partial<Record<SyncStatus, OffloadSkipReason>> = {
+      local: 'local',
+      syncing: 'syncing',
+      offloaded: 'already-offloaded',
+      error: 'error',
+    };
+    const reason = status === undefined ? 'missing-photo' : statusReason[status];
+    if (reason !== undefined) return { photoId, bytes: photo.bytes, eligible: false, reason };
+    if (this.deps.ledgerDirty(photoId)) return { photoId, bytes: photo.bytes, eligible: false, reason: 'dirty' };
+    if (!this.deps.blobs.hasOriginal(photo.contentHash)) {
+      return { photoId, bytes: photo.bytes, eligible: false, reason: 'missing-original' };
+    }
+    if (this.deps.repo.countByContentHash(photo.contentHash) > 1) {
+      return { photoId, bytes: photo.bytes, eligible: false, reason: 'shared-original' };
+    }
+    if (providerState === 'not-connected') {
+      return { photoId, bytes: photo.bytes, eligible: false, reason: 'provider-disconnected' };
+    }
+    if (providerState === 'expired') return { photoId, bytes: photo.bytes, eligible: false, reason: 'provider-expired' };
+    if (providerState === 'offline') return { photoId, bytes: photo.bytes, eligible: false, reason: 'provider-offline' };
+    return { photoId, bytes: photo.bytes, eligible: true, reason: null };
   }
 
   /** Download → staged restore → decrypt-and-rehash verify → synced. */
