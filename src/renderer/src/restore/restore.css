@@ -1,0 +1,172 @@
+.ovl-restore {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  color: var(--text-body);
+}
+
+.ovl-restore__hero {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.ovl-restore__hero h2,
+.ovl-restore__hero p {
+  margin: 0;
+}
+
+.ovl-restore__hero h2 {
+  color: var(--text-strong);
+  font-size: var(--text-lg);
+}
+
+.ovl-restore__hero p,
+.ovl-restore__meta,
+.ovl-restore__date,
+.ovl-restore__notice,
+.ovl-restore__empty {
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+}
+
+.ovl-restore__field {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.ovl-restore__field select,
+.ovl-restore__field input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  background: var(--gray-2);
+  color: var(--text-strong);
+  padding: 0 var(--space-3);
+}
+
+.ovl-restore__connection,
+.ovl-restore__keyrow,
+.ovl-restore__actions,
+.ovl-restore__libraryHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ovl-restore__keyrow {
+  justify-content: flex-start;
+}
+
+.ovl-restore__keyrow .mono-data {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-restore__actions {
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+.ovl-restore__libraries {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 250px;
+  overflow: auto;
+}
+
+.ovl-restore__library {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--gray-2);
+  color: inherit;
+  text-align: left;
+}
+
+.ovl-restore__library:not(:disabled) {
+  cursor: pointer;
+}
+
+.ovl-restore__library--selected {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 1px var(--accent-cyan-dim);
+}
+
+.ovl-restore__library:disabled {
+  opacity: 0.7;
+}
+
+.ovl-restore__libraryId,
+.ovl-restore__sectionTitle {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.ovl-restore__notice {
+  color: var(--accent-amber);
+}
+
+.ovl-restore__warnings,
+.ovl-restore__error {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--accent-amber-dim);
+  border-radius: var(--radius-md);
+  background: var(--accent-amber-subtle);
+}
+
+.ovl-restore__warnings ul {
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-muted);
+}
+
+.ovl-restore__error {
+  border-color: var(--accent-red-dim);
+  background: var(--accent-red-subtle);
+  color: var(--accent-red);
+}
+
+.ovl-restore__error span {
+  color: var(--text-muted);
+}
+
+.ovl-restore__running,
+.ovl-restore__complete {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  text-align: center;
+}
+
+.ovl-restoreOnboarding {
+  min-height: 100vh;
+  background: var(--gray-0);
+}
+
+.ovl-restoreOnboarding__main {
+  min-height: calc(100vh - 30px);
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+}
+
+.ovl-restoreOnboarding__card {
+  width: min(620px, 100%);
+  padding: var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--gray-1);
+  box-shadow: var(--shadow-2);
+}

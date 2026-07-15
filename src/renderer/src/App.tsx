@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import './app.css';
 import { AppStateProvider } from './state/app-state-context';
 import { Shell } from './shell/Shell';
+import { RestoreOnboarding } from './restore/RestoreOnboarding';
 
 // App root (#73): platform lookup + state provider around the composed
 // shell. The token specimen moved to Storybook-only duty with this change.
@@ -11,13 +12,19 @@ export function App(): ReactElement {
   // Until the platform round-trip resolves, render the mac variant: it draws
   // no controls, so a wrong first frame on win/linux flashes nothing broken.
   const [platform, setPlatform] = useState('darwin');
+  const [fresh, setFresh] = useState<boolean | null>(null);
   useEffect(() => {
     void window.overlook.getPlatform().then(setPlatform);
+    void window.overlook.restore.profileStatus().then(({ fresh: value }) => setFresh(value));
   }, []);
 
   return (
     <AppStateProvider>
-      <Shell platform={platform} />
+      {fresh === true ? (
+        <RestoreOnboarding platform={platform} onStartNew={() => setFresh(false)} />
+      ) : fresh === false ? (
+        <Shell platform={platform} />
+      ) : null}
     </AppStateProvider>
   );
 }

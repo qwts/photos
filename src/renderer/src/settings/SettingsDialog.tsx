@@ -6,6 +6,7 @@ import { GeneralPane } from './GeneralPane';
 import { KeyDialog, type KeyDialogMode } from './KeyDialog';
 import { PrivacyPane } from './PrivacyPane';
 import { StoragePane } from './StoragePane';
+import { RestoreWorkflow } from '../restore/RestoreWorkflow';
 import type { AppSettings, SettingsPatch } from '../../../shared/settings/settings.js';
 
 import './settings.css';
@@ -33,6 +34,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Recovery-key dialog (#240): layered over Settings, per the mock.
   const [keyMode, setKeyMode] = useState<KeyDialogMode | null>(null);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -82,7 +84,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
           {settings === null ? null : section === 'general' ? (
             <GeneralPane settings={settings} onPatch={patch} />
           ) : section === 'storage' ? (
-            <StoragePane settings={settings} onPatch={patch} />
+            <StoragePane settings={settings} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
           ) : (
             <PrivacyPane settings={settings} onPatch={patch} onKeyAction={setKeyMode} />
           )}
@@ -96,6 +98,11 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
             setKeyMode(null);
           }}
         />
+      ) : null}
+      {restoreOpen ? (
+        <Dialog open title="Restore from cloud backup" icon="cloud-download" width={640} onClose={() => setRestoreOpen(false)}>
+          <RestoreWorkflow context="settings" />
+        </Dialog>
       ) : null}
     </Dialog>
   );
