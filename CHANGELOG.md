@@ -1,5 +1,11 @@
 # photos
 
+## 0.16.2
+
+### Patch Changes
+
+- 1ae24a6: Audit existing cloud backups in bounded resumable batches, repair missing or corrupt ciphertext when a local encrypted original remains, surface unrecoverable remote-only loss, and regenerate damaged recovery metadata.
+
 ## 0.16.1
 
 ### Patch Changes
