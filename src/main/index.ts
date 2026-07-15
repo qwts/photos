@@ -903,8 +903,8 @@ void app.whenReady().then(async () => {
     createBackupFacade({
       runtime: ensureRestoreProviderRegistry,
       run: () => getBackupEngine().run(),
-      offload: (photoIds) => getOffloadService().offload(photoIds),
-      rehydrate: (photoId) => getOffloadService().rehydrate(photoId),
+      offloadService: getOffloadService,
+      workChanged: (delta) => (providerWorkCount += delta),
     }),
   );
   const seedCount = Number(harnessEnv('OVERLOOK_SEED') ?? '0');

@@ -8,6 +8,7 @@ import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
+import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from './backup/offload.js';
 
 function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
   const win = BrowserWindow.fromWebContents(event.sender);
@@ -230,8 +231,10 @@ export interface BackupFacade {
     skipped: 'wifi' | 'disconnected' | null;
     integrity: { checked: number; repaired: number; unrecoverable: number; recoveryRepaired: boolean; failed: boolean };
   }>;
-  offload(photoIds: readonly string[]): Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
+  offloadPreflight(photoIds: readonly string[]): Promise<OffloadPreflight>;
+  offload(photoIds: readonly string[]): Promise<OffloadSummary>;
   rehydrate(photoId: string): Promise<void>;
+  restoreOriginals(photoIds?: readonly string[]): Promise<RestoreOriginalsSummary>;
   providers(): { providers: readonly ProviderDescriptor[]; defaultProviderId: string };
   providerStatus(providerId: string): Promise<{
     provider: ProviderDescriptor;
@@ -250,6 +253,9 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
   ipcMain.handle(channels.backupRun.name, (_event, request: unknown) =>
     wrapHandler(channels.backupRun, async () => getFacade().run())(request),
   );
+  ipcMain.handle(channels.backupOffloadPreflight.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupOffloadPreflight, async ({ photoIds }) => getFacade().offloadPreflight(photoIds))(request),
+  );
   ipcMain.handle(channels.backupOffload.name, (_event, request: unknown) =>
     wrapHandler(channels.backupOffload, async ({ photoIds }) => getFacade().offload(photoIds))(request),
   );
@@ -258,6 +264,9 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
       await getFacade().rehydrate(photoId);
       return { ok: true };
     })(request),
+  );
+  ipcMain.handle(channels.backupRestoreOriginals.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupRestoreOriginals, async ({ photoIds }) => getFacade().restoreOriginals(photoIds))(request),
   );
   ipcMain.handle(channels.backupProviders.name, (_event, request: unknown) =>
     wrapHandler(channels.backupProviders, () => getFacade().providers())(request),

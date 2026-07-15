@@ -72,8 +72,10 @@ function installStub(): void {
       }),
     onProgress: () => () => undefined,
     onCompleted: () => () => undefined,
-    offload: () => Promise.resolve({ offloaded: 0, skipped: 0, freedBytes: 0 }),
+    offloadPreflight: () => Promise.resolve({ eligible: 0, ineligible: 0, estimatedFreedBytes: 0, items: [] }),
+    offload: () => Promise.resolve({ offloaded: 0, skipped: 0, failed: 0, freedBytes: 0, results: [] }),
     rehydrate: () => Promise.resolve({ ok: true }),
+    restoreOriginals: () => Promise.resolve({ restored: 0, skipped: 0, failed: 0, results: [] }),
     providers: () => Promise.resolve({ providers: [mockProvider, archiveProvider], defaultProviderId: 'mock' }),
     // The card's truth follows the stub store's providerId, like main does.
     providerStatus: ({ providerId }) => {
