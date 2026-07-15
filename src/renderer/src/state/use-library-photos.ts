@@ -118,9 +118,10 @@ export function useLibraryPhotos(): { readonly loadMore: () => void; readonly ex
   // Backup changes only syncState, so patch loaded records instead of
   // replacing the first page (which used to flicker, trim deep selection,
   // and close the lightbox on every uploaded photo). A short window folds
-  // bursty providers into one render. localOnly is the exception because a
-  // sync transition changes query membership there.
-  useSyncStatePatches(chips.localOnly === true, fetchFirstPage);
+  // bursty providers into one render. Status-filtered views are the
+  // exception because offload/restore changes their query membership.
+  const statusFiltered = source === 'offloaded' || chips.localOnly === true || chips.offloaded === true;
+  useSyncStatePatches(statusFiltered, fetchFirstPage);
 
   const loadMore = useCallback(() => {
     const cursor = cursorRef.current;

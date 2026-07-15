@@ -528,9 +528,8 @@ function getBackupEngine(): BackupEngine {
         restoreOriginal: async (hash, ciphertext, photoId) =>
           parts.blobStore.restoreOriginal(hash, ciphertext, parts.keyStore.resolver(), photoId),
       },
-      libraryChanged: (photoIds) => {
-        emitLibraryChanged({ photoIds: [...photoIds] });
-      },
+      syncStateChanged: (updates) => emitSyncStateChanged({ updates: [...updates] }),
+      storageChanged: () => broadcast((win) => win.webContents.send(events.storageChanged.name, {})),
       audit,
     });
     purgeService = new PurgeService({

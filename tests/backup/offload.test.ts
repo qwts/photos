@@ -84,7 +84,8 @@ async function world(count: number, providerConnected = true) {
     integrityScrub: () => Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: true }),
     recoveryGenerationHealthy: () => Promise.resolve(true),
   };
-  const changed: string[][] = [];
+  const changed: { id: string; syncState: string }[][] = [];
+  let storageChanges = 0;
   const service = new OffloadService({
     provider,
     providerConnected: () => providerConnected,
@@ -100,10 +101,24 @@ async function world(count: number, providerConnected = true) {
       hasOriginal: (hash) => store.hasOriginal(hash),
       restoreOriginal: async (hash, ciphertext, photoId) => store.restoreOriginal(hash, ciphertext, () => key.key, photoId),
     },
-    libraryChanged: (ids) => changed.push([...ids]),
+    syncStateChanged: (updates) => changed.push([...updates]),
+    storageChanged: () => (storageChanges += 1),
     audit: (line) => audits.push(line),
   });
-  return { db, repo, store, provider, ledger, key, plaintexts, audits, changed, service, engine: new BackupEngine(engineDeps) };
+  return {
+    db,
+    repo,
+    store,
+    provider,
+    ledger,
+    key,
+    plaintexts,
+    audits,
+    changed,
+    storageChanges: () => storageChanges,
+    service,
+    engine: new BackupEngine(engineDeps),
+  };
 }
 
 describe('offload + rehydrate (#107)', () => {
@@ -124,7 +139,8 @@ describe('offload + rehydrate (#107)', () => {
     const thumb = await buffer(w.store.getThumbStream(photo?.contentHash ?? '', 'thumb', () => w.key.key, 'P0'));
     assert.deepEqual(thumb, w.plaintexts.get('P0'));
     assert.equal(w.repo.stats().offloadedBytes, photo?.bytes, 'the sidebar split sees it');
-    assert.deepEqual(w.changed, [['P0']], 'tiles get their targeted push');
+    assert.deepEqual(w.changed, [[{ id: 'P0', syncState: 'offloaded' }]], 'tiles get their targeted push');
+    assert.equal(w.storageChanges(), 1, 'aggregate storage/count consumers refresh once per batch');
   });
 
   test('ineligible rows are skipped, never forced: dirty, unsynced, unknown', async () => {

@@ -53,6 +53,7 @@ const overlook: OverlookApi = {
     purge: createInvoker(channels.libraryPurge, invokeTransport),
     onChanged: createSubscriber(events.libraryChanged, subscribeTransport),
     onSyncStateChanged: createSubscriber(events.photoSyncStateChanged, subscribeTransport),
+    onStorageChanged: createSubscriber(events.storageChanged, subscribeTransport),
     onPendingCountChanged: createSubscriber(events.pendingCountChanged, subscribeTransport),
   }),
   albums: Object.freeze({

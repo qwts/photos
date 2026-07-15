@@ -70,9 +70,11 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     // summaries for each upload caused 1,500 redundant IPC bursts; completion
     // reconciles stats and the verified-backup stamp once instead.
     const offChanged = window.overlook.library.onChanged(refresh);
+    const offStorageChanged = window.overlook.library.onStorageChanged(refresh);
     const offCompleted = window.overlook.backup.onCompleted(refresh);
     return () => {
       offChanged();
+      offStorageChanged();
       offCompleted();
     };
   }, [dispatch]);

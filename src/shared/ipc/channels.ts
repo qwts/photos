@@ -420,6 +420,7 @@ export const events = {
     'library:sync-state-changed',
     z.object({ updates: z.array(z.object({ id: z.string(), syncState: syncStatusSchema })) }),
   ),
+  storageChanged: defineEvent('library:storage-changed', z.object({})),
   pendingCountChanged: defineEvent('library:pending-count', z.object({ count: z.number().int().nonnegative() })),
   // Progressive scan counts for big cards (#84).
   scanProgress: defineEvent(
