@@ -487,8 +487,9 @@ function getBackupEngine(): BackupEngine {
       pendingCountChanged: (count) => {
         emitPending({ count });
       },
-      libraryChanged: (photoIds) => {
-        emitLibraryChanged({ photoIds: [...photoIds] });
+      syncStateChanged: (updates) => {
+        const payload = events.photoSyncStateChanged.payload.parse({ updates: [...updates] });
+        broadcast((win) => win.webContents.send(events.photoSyncStateChanged.name, payload));
       },
       audit: (line) => {
         void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);

@@ -79,7 +79,7 @@ async function world(count: number) {
     now: () => Date.parse('2026-07-13T03:00:00.000Z'),
     sleep: () => Promise.resolve(),
     pendingCountChanged: () => undefined,
-    libraryChanged: () => undefined,
+    syncStateChanged: () => undefined,
     audit: (line) => audits.push(line),
   };
   const changed: string[][] = [];

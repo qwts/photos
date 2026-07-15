@@ -17,7 +17,7 @@ import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { run } from '../../src/main/db/sql.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
-import type { PhotoInsert } from '../../src/shared/library/types.js';
+import type { PhotoInsert, SyncStatus } from '../../src/shared/library/types.js';
 
 // #105 exit criteria against real components: mock-provider integration —
 // a full backup clears pendingCount, a killed/failed run resumes, and the
@@ -63,6 +63,7 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
   const sleeps: number[] = [];
   const progress: [number, number][] = [];
   const audits: string[] = [];
+  const syncUpdates: { id: string; syncState: SyncStatus }[] = [];
   let clock = 0;
   const settings: BackupSettings = {
     throttlePercent: null,
@@ -88,10 +89,10 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
       return Promise.resolve();
     },
     pendingCountChanged: () => undefined,
-    libraryChanged: () => undefined,
+    syncStateChanged: (updates) => syncUpdates.push(...updates),
     audit: (line) => audits.push(line),
   };
-  return { deps, repo, ledger, store, provider, faulty, sleeps, progress, audits, engine: new BackupEngine(deps) };
+  return { deps, repo, ledger, store, provider, faulty, sleeps, progress, audits, syncUpdates, engine: new BackupEngine(deps) };
 }
 
 describe('backup engine (#105)', () => {
@@ -102,6 +103,11 @@ describe('backup engine (#105)', () => {
     assert.deepEqual(result, { uploaded: 3, failed: 0, manifestUploaded: true, skipped: null });
     assert.equal(w.ledger.pendingCount(), 0);
     assert.equal(w.ledger.status('P0'), 'synced');
+    assert.deepEqual(w.syncUpdates, [
+      { id: 'P0', syncState: 'synced' },
+      { id: 'P1', syncState: 'synced' },
+      { id: 'P2', syncState: 'synced' },
+    ]);
     assert.notEqual(w.ledger.lastBackupAt(), null);
 
     // Remote blob bytes are the LOCAL CIPHERTEXT, byte-for-byte.
@@ -166,6 +172,7 @@ describe('backup engine (#105)', () => {
     assert.deepEqual({ uploaded: result.uploaded, failed: result.failed }, { uploaded: 0, failed: 1 });
     assert.equal(w.ledger.status('P0'), 'error');
     assert.equal(w.ledger.status('P1'), 'local', 'the rest were never attempted');
+    assert.deepEqual(w.syncUpdates, [{ id: 'P0', syncState: 'error' }]);
   });
 
   test('EXIT CRITERIA: the Wi-Fi gate skips on metered; unknown interfaces proceed (recorded heuristic)', async () => {

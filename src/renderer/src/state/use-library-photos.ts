@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { ChipFilters, PageCursor, PageRequest } from '../../../shared/library/types.js';
+import type { ChipFilters, PageCursor, PageRequest, SyncStatus } from '../../../shared/library/types.js';
 import { useAppState, useAppDispatch } from './app-state-context';
 
 const PAGE_SIZE = 500; // channel max — fewest round-trips on deep scrolls
@@ -13,6 +13,41 @@ function recentSinceIso(): string {
 
 function chipsActive(chips: ChipFilters): boolean {
   return Object.values(chips).some(Boolean);
+}
+
+function useSyncStatePatches(localOnly: boolean, fetchFirstPage: () => void): void {
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    const pending = new Map<string, SyncStatus>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = (): void => {
+      timer = null;
+      if (localOnly) {
+        pending.clear();
+        fetchFirstPage();
+        return;
+      }
+      const updates = [...pending].map(([id, syncState]) => ({ id, syncState }));
+      pending.clear();
+      if (updates.length > 0) {
+        dispatch({ type: 'photos/sync-state-patched', updates });
+      }
+    };
+    const unsubscribe = window.overlook.library.onSyncStateChanged(({ updates }) => {
+      for (const update of updates) {
+        pending.set(update.id, update.syncState);
+      }
+      if (timer === null) {
+        timer = setTimeout(flush, 50);
+      }
+    });
+    return () => {
+      unsubscribe();
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+    };
+  }, [dispatch, fetchFirstPage, localOnly]);
 }
 
 // Data windowing for the grid engine (#74): first page per visible set
@@ -79,6 +114,13 @@ export function useLibraryPhotos(): { readonly loadMore: () => void; readonly ex
       fetchFirstPage();
     });
   }, [fetchFirstPage]);
+
+  // Backup changes only syncState, so patch loaded records instead of
+  // replacing the first page (which used to flicker, trim deep selection,
+  // and close the lightbox on every uploaded photo). A short window folds
+  // bursty providers into one render. localOnly is the exception because a
+  // sync transition changes query membership there.
+  useSyncStatePatches(chips.localOnly === true, fetchFirstPage);
 
   const loadMore = useCallback(() => {
     const cursor = cursorRef.current;

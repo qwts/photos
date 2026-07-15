@@ -5,6 +5,7 @@ import { pipeline } from 'node:stream/promises';
 import { ProviderError, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
 import { buildBackupManifestV2, type BackupManifestSnapshot } from './backup-manifest.js';
+import type { SyncStatus } from '../../shared/library/types.js';
 
 // Backup engine (#105, ADR-0007): dirty photos flow to the provider
 // reliably and politely. The ledger's dirty set IS the queue and the resume
@@ -62,8 +63,8 @@ export interface BackupEngineDeps {
   readonly now: () => number;
   readonly sleep: (ms: number) => Promise<void>;
   readonly pendingCountChanged: (count: number) => void;
-  /** Status changes push targeted library updates (tiles re-render). */
-  readonly libraryChanged: (photoIds: readonly string[]) => void;
+  /** Status changes patch loaded tiles without invalidating the gallery. */
+  readonly syncStateChanged: (updates: readonly { readonly id: string; readonly syncState: SyncStatus }[]) => void;
   /** Verify results append to M11's audit trail (#106). */
   readonly audit: (line: string) => void;
 }
@@ -138,6 +139,7 @@ export class BackupEngine {
         break; // dirty rows remain dirty — the next run resumes
       }
       const started = this.deps.now();
+      let syncState: SyncStatus = 'synced';
       try {
         // A row killed mid-upload resumes: it is already 'syncing' and the
         // machine (rightly) rejects syncing → syncing (PR #203 review).
@@ -163,15 +165,16 @@ export class BackupEngine {
       } catch (error) {
         failed += 1;
         this.deps.ledger.markError(item.id);
+        syncState = 'error';
         console.error(`[overlook] backup failed for ${item.fileName}: ${error instanceof Error ? error.message : String(error)}`);
         if (error instanceof ProviderError && (error.kind === 'auth' || error.kind === 'quota')) {
-          this.deps.libraryChanged([item.id]);
+          this.deps.syncStateChanged([{ id: item.id, syncState }]);
           break; // retrying the rest cannot help — surface and stop
         }
       }
       this.deps.events.progress(uploaded + failed, total, item.id);
       this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
-      this.deps.libraryChanged([item.id]);
+      this.deps.syncStateChanged([{ id: item.id, syncState }]);
       await this.throttle(settings, this.deps.now() - started);
     }
 
@@ -187,7 +190,6 @@ export class BackupEngine {
             this.deps.ledger.settleManifestOnly(item.id);
           }
           this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
-          this.deps.libraryChanged(manifestOnly.map((item) => item.id));
         }
       } catch (error) {
         // Blobs landed and their rows are TRUTHFULLY synced — but the

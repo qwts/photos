@@ -42,9 +42,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
 
   useEffect(() => {
-    const refresh = (): void => {
-      const recentSince = new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
-      void window.overlook.library.counts({ recentSince }).then(setCounts);
+    const refreshStats = (): void => {
       void window.overlook.library.stats().then((loaded) => {
         setStats(loaded);
         // Seed the backup state (#79); pushes keep it live afterwards.
@@ -56,6 +54,11 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           label: loaded.lastBackupAt === null ? 'NEVER' : formatRelativeTime(loaded.lastBackupAt, Date.now()),
         });
       });
+    };
+    const refresh = (): void => {
+      const recentSince = new Date(Date.now() - RECENT_WINDOW_MS).toISOString();
+      void window.overlook.library.counts({ recentSince }).then(setCounts);
+      refreshStats();
       void window.overlook.library.albums().then(({ albums: loaded }) => {
         setAlbums(loaded);
       });
@@ -63,14 +66,14 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     refresh();
     // Counts/stats live-update on library mutations (#80 exit criteria) —
     // targeted pushes, never refetch-the-world from the renderer's loops.
-    // Pending pushes ALSO refresh: a completed backup moves pendingCount to
-    // 0 without a library:changed, and the "ALL BACKED UP · …" stamp must
-    // read the freshly written last_backup_at (PR #202 review).
+    // Per-item pending pushes already update AppStateProvider. Refreshing all
+    // summaries for each upload caused 1,500 redundant IPC bursts; completion
+    // reconciles stats and the verified-backup stamp once instead.
     const offChanged = window.overlook.library.onChanged(refresh);
-    const offPending = window.overlook.library.onPendingCountChanged(refresh);
+    const offCompleted = window.overlook.backup.onCompleted(refreshStats);
     return () => {
       offChanged();
-      offPending();
+      offCompleted();
     };
   }, [dispatch]);
 
