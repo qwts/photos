@@ -67,6 +67,13 @@ export class ProviderRuntime {
     return this.registryInstance?.get(id);
   }
 
+  async restoreSources(providerId: string): Promise<readonly { libraryId: string; provider: StorageProvider }[]> {
+    const provider = this.provider(providerId);
+    if (provider === undefined) throw new Error(`provider is not available: ${providerId}`);
+    const libraryIds = await provider.listLibraries();
+    return libraryIds.map((libraryId) => ({ libraryId, provider: provider.forLibrary(libraryId) }));
+  }
+
   async status(providerId: string): Promise<{
     provider: ProviderDescriptor;
     connected: boolean;
@@ -182,7 +189,7 @@ export class ProviderRuntime {
     const registry = new ProviderRegistry();
     registry.register(new PCloudProvider({ auth: () => this.tokenStore().load(), libraryId: this.libraryId() }));
     if (!this.options.isPackaged) {
-      const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir }));
+      const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir, libraryId: this.libraryId() }));
       const fault = build.fault;
       if (fault === 'put' || fault === 'verify-mismatch' || fault === 'auth-expired' || fault === 'transient-get') {
         faulty.arm(fault);

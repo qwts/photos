@@ -77,6 +77,27 @@ describe('pCloud provider adapter (#255)', () => {
     });
   });
 
+  test('discovers safe Overlook library homes and scopes without changing authority', async () => {
+    const { provider, calls } = world({
+      listfolder: () =>
+        ok({
+          metadata: {
+            name: 'Overlook',
+            isfolder: true,
+            contents: [
+              { name: '01JSAFE', isfolder: true },
+              { name: '../escape', isfolder: true },
+              { name: 'file.txt', isfolder: false, size: 2 },
+            ],
+          },
+        }),
+    });
+    assert.deepEqual(await provider.listLibraries(), ['01JSAFE']);
+    assert.equal(calls[0]?.params.get('path'), '/Overlook');
+    assert.equal(provider.forLibrary('01JSAFE').id, 'pcloud');
+    assert.throws(() => provider.forLibrary('../escape'), (error: unknown) => error instanceof ProviderError && error.kind === 'corrupt');
+  });
+
   test('EXIT CRITERIA: put ensures ancestors once, uploads under /Overlook/<libraryId>/, reports recorded size', async () => {
     const { provider, calls } = world({
       createfolderifnotexists: () => ok(),

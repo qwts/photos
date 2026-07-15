@@ -55,6 +55,12 @@ export interface StorageProvider {
   /** UI and policy truth; adapters state limits explicitly. */
   readonly capabilities: ProviderCapabilities;
 
+  /** Enumerates provider-owned Overlook library homes. */
+  listLibraries(): Promise<readonly string[]>;
+
+  /** Returns the same provider authority scoped to one discovered library. */
+  forLibrary(libraryId: string): StorageProvider;
+
   authState(): Promise<ProviderAuthState>;
 
   /** Uploads `plaintext` (already-encrypted envelope bytes) to `path`,

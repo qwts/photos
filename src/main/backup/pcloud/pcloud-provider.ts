@@ -72,14 +72,38 @@ export class PCloudProvider implements StorageProvider {
   private readonly auth: () => PCloudAuthRecord | null;
   private readonly root: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly options: PCloudProviderOptions;
   /** createfolderifnotexists is one round-trip per ancestor — remember what
    * exists so steady-state puts pay zero extra calls. */
   private readonly knownFolders = new Set<string>();
 
   constructor(options: PCloudProviderOptions) {
+    this.options = options;
     this.auth = options.auth;
     this.root = `/Overlook/${options.libraryId}`;
     this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+
+  async listLibraries(): Promise<readonly string[]> {
+    let data: Record<string, unknown>;
+    try {
+      data = await this.api('listfolder', { path: '/Overlook' });
+    } catch (error) {
+      if (error instanceof ProviderError && error.kind === 'not-found') return [];
+      throw error;
+    }
+    const metadata = data['metadata'] as PCloudFileMeta | undefined;
+    return (metadata?.contents ?? [])
+      .filter((entry) => entry.isfolder && /^[A-Za-z0-9_-]{1,64}$/u.test(entry.name))
+      .map((entry) => entry.name)
+      .sort();
+  }
+
+  forLibrary(libraryId: string): StorageProvider {
+    if (!/^[A-Za-z0-9_-]{1,64}$/u.test(libraryId)) {
+      throw new ProviderError(`unsafe library id: ${libraryId}`, 'corrupt');
+    }
+    return new PCloudProvider({ ...this.options, libraryId });
   }
 
   authState(): Promise<ProviderAuthState> {

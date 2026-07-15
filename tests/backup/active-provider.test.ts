@@ -19,6 +19,8 @@ function fake(id: string): StorageProvider {
       interactiveAuth: false,
       reconnectRequired: false,
     },
+    listLibraries: () => Promise.resolve([id]),
+    forLibrary: () => fake(id),
     authState: () => Promise.resolve('connected' as const),
     put: () => Promise.resolve({ bytes: 1 }),
     getStream: () => Promise.reject(new Error('unused')),

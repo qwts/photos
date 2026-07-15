@@ -39,6 +39,10 @@ describe('storage provider contract (#103)', () => {
     const path = 'blobs/ab/abcdef';
     const put = await provider.put(path, Readable.from([PAYLOAD]));
     assert.equal(put.bytes, PAYLOAD.length);
+    assert.deepEqual(await provider.listLibraries(), []);
+    await provider.put('recovery/bootstrap.ovrb', Readable.from([PAYLOAD]));
+    assert.deepEqual(await provider.listLibraries(), ['mock-library']);
+    assert.equal(provider.forLibrary('mock-library'), provider);
 
     const listed = await provider.list('blobs');
     assert.deepEqual(listed, [{ path, bytes: PAYLOAD.length }]);
