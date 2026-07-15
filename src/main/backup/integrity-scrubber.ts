@@ -3,7 +3,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 
 import { ProviderError, type StorageProvider } from './provider.js';
-import { createDecryptStream, type KeyResolver } from '../crypto/envelope.js';
+import { createDecryptStream, EnvelopeError, type KeyResolver } from '../crypto/envelope.js';
 import type { SyncStatus } from '../../shared/library/types.js';
 
 export interface BackupIntegrityItem {
@@ -71,8 +71,11 @@ export async function verifyRemoteOriginalCiphertext(
   const hasher = createHash('sha256');
   try {
     await pipeline(ciphertext, createDecryptStream(resolveKey, { photoId: item.id }), hasher);
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof EnvelopeError) {
+      return false;
+    }
+    throw error;
   }
   return hasher.digest('hex') === item.contentHash;
 }

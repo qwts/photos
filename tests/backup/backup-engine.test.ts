@@ -335,18 +335,21 @@ describe('backup engine (#105)', () => {
     assert.equal(w.ledger.status('P0'), 'offloaded');
   });
 
-  test('a clean backup runs one bounded integrity slice and reports repairs', async () => {
+  test('a clean backup reports integrity repairs and refreshes the manifest after confirmed loss', async () => {
     const w = await world(1);
     (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
       Promise.resolve({ checked: 50, repaired: 2, unrecoverable: 1, cycleComplete: false });
 
-    assert.deepEqual((await w.engine.run()).integrity, {
+    const result = await w.engine.run();
+    assert.deepEqual(result.integrity, {
       checked: 50,
       repaired: 2,
       unrecoverable: 1,
       recoveryRepaired: false,
       failed: false,
     });
+    assert.equal((await w.provider.list('manifest')).length, 2);
+    assert.ok(w.audits.includes('INTEGRITY-MANIFEST-REFRESHED'));
   });
 
   test('an integrity provider failure is audited without losing completed uploads', async () => {
@@ -364,6 +367,27 @@ describe('backup engine (#105)', () => {
       failed: true,
     });
     assert.ok(w.audits.includes('INTEGRITY-CHECK-FAILED reason=provider unavailable'));
+  });
+
+  test('a failed integrity manifest refresh remains debt for the next clean run', async () => {
+    const w = await world(1);
+    await w.engine.run();
+    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () => {
+      w.faulty.arm('put');
+      return Promise.resolve({ checked: 1, repaired: 0, unrecoverable: 1, cycleComplete: true });
+    };
+
+    const failed = await w.engine.run();
+    assert.equal(failed.manifestUploaded, false);
+    assert.equal(failed.integrity.failed, true);
+    assert.equal((await w.provider.list('manifest')).length, 1);
+
+    w.faulty.disarm('put');
+    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
+      Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: false });
+    const retried = await w.engine.run();
+    assert.equal(retried.manifestUploaded, true);
+    assert.equal((await w.provider.list('manifest')).length, 2);
   });
 
   test('a damaged recovery index publishes and verifies a fresh generation', async () => {
