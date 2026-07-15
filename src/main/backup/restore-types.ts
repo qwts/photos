@@ -39,6 +39,12 @@ export function isAbortError(error: unknown): boolean {
 export function toRestoreError(error: unknown): RestoreError {
   if (error instanceof RestoreError) return error;
   if (isAbortError(error)) return new RestoreError('cancelled', 'restore cancelled');
+  if (
+    error instanceof Error &&
+    ((error as NodeJS.ErrnoException).code === 'ENOSPC' || (error as NodeJS.ErrnoException).code === 'EDQUOT')
+  ) {
+    return new RestoreError('disk-space', error.message);
+  }
   if (error instanceof ProviderError) {
     switch (error.kind) {
       case 'auth':
