@@ -277,6 +277,28 @@ export class BlobStore {
     return createReadStream(path).pipe(createDecryptStream(resolveKey, { photoId }));
   }
 
+  hasThumbs(originalHash: string): boolean {
+    assertHash(originalHash);
+    return existsSync(this.thumbPath(originalHash, 'thumb')) && existsSync(this.thumbPath(originalHash, 'mid'));
+  }
+
+  /** Resume validation for restore-generated derivatives (#288). Their
+   * plaintext is derived and has no catalog hash, so GCM authentication of
+   * both complete envelopes is the integrity gate. */
+  async verifyThumbs(originalHash: string, resolveKey: KeyResolver, photoId: string): Promise<boolean> {
+    if (!this.hasThumbs(originalHash)) return false;
+    try {
+      for (const size of ['thumb', 'mid'] as const) {
+        for await (const _chunk of this.getThumbStream(originalHash, size, resolveKey, photoId)) {
+          // Drain every authenticated envelope chunk.
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async deleteOriginal(contentHash: string): Promise<void> {
     assertHash(contentHash);
     await rm(this.originalPath(contentHash), { force: true });
