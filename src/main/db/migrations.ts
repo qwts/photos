@@ -142,7 +142,25 @@ const SCHEMA_V3: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3];
+const SCHEMA_V4: Migration = {
+  version: 4,
+  name: 'backup-integrity-cursors',
+  // #302: each provider resumes its own bounded integrity walk. A library
+  // can switch providers, so one global cursor would skip unaudited objects
+  // on the newly selected remote.
+  up(db) {
+    db.exec(`
+      CREATE TABLE backup_integrity_cursors (
+        provider_id TEXT PRIMARY KEY,
+        version INTEGER NOT NULL CHECK (version = 1),
+        after_photo_id TEXT,
+        completed_at TEXT
+      );
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {
