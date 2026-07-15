@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed (2026-07-14 on
-[#288](https://github.com/qwts/photos/issues/288), implemented by draft
+Accepted (2026-07-14 with merged
+[#288](https://github.com/qwts/photos/issues/288) and
 [PR #294](https://github.com/qwts/photos/pull/294)). This ADR implements the
 restore work deferred by
 [ADR-0009](ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2).
