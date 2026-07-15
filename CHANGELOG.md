@@ -1,5 +1,15 @@
 # photos
 
+## 0.15.0
+
+### Minor Changes
+
+- dc788ec: Add a provider-neutral disaster-recovery engine that resumes authenticated staging, rebuilds encrypted library state, and atomically activates or rolls back a restored cloud library.
+
+### Patch Changes
+
+- 7dc783a: Keep the loaded gallery, selection, and lightbox stable while cloud backup updates photo sync status.
+
 ## 0.14.0
 
 ### Minor Changes
