@@ -307,6 +307,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
       {state.settingsOpen ? (
         <SettingsDialog
           open
+          selectedPhotoIds={[...state.selection]}
           onClose={() => {
             dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
           }}

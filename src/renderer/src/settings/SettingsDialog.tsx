@@ -21,6 +21,7 @@ export type SettingsSection = 'general' | 'storage' | 'privacy';
 export interface SettingsDialogProps {
   readonly open: boolean;
   readonly onClose: () => void;
+  readonly selectedPhotoIds?: readonly string[] | undefined;
 }
 
 const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: string }[] = [
@@ -29,7 +30,7 @@ const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: string }
   { key: 'privacy', icon: 'shield-check', label: 'Privacy' },
 ];
 
-export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactElement | null {
+export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: SettingsDialogProps): ReactElement | null {
   const [section, setSection] = useState<SettingsSection>('storage');
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Recovery-key dialog (#240): layered over Settings, per the mock.
@@ -84,7 +85,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps): ReactEle
           {settings === null ? null : section === 'general' ? (
             <GeneralPane settings={settings} onPatch={patch} />
           ) : section === 'storage' ? (
-            <StoragePane settings={settings} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
+            <StoragePane settings={settings} selectedPhotoIds={selectedPhotoIds} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
           ) : (
             <PrivacyPane settings={settings} onPatch={patch} onKeyAction={setKeyMode} />
           )}

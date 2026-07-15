@@ -111,6 +111,30 @@
   color: var(--text-faint);
 }
 
+.ovl-settings__restoreOriginals {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  max-width: 290px;
+}
+
+.ovl-settings__restoreActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.ovl-settings__restoreState {
+  color: var(--text-faint);
+  font: var(--type-meta);
+}
+
+.ovl-settings__restoreState--error {
+  color: var(--accent-red);
+}
+
 /* Recovery key (#240) — KeyDialog.jsx metrics. */
 .ovl-key__form {
   display: flex;
