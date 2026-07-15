@@ -1,5 +1,12 @@
 # photos
 
+## 0.16.0
+
+### Minor Changes
+
+- cf1914a: Add provider-neutral cloud-library discovery and a staged restore workflow in fresh-profile onboarding and Settings.
+- 9ac6aa8: Add provider-addressed cloud selection, explicit capability reporting, safe switching, and provider-neutral backup UI.
+
 ## 0.15.0
 
 ### Minor Changes
