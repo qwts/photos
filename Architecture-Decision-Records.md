@@ -6,19 +6,20 @@ decision gets a new ADR that links back to the one it replaces.
 
 ## Index
 
-| ADR                                                           | Title                       | Status   |
-| ------------------------------------------------------------- | --------------------------- | -------- |
-| [ADR-0001](ADR-0001-Automation-Check-Governance)              | Automation Check Governance | Accepted |
-| [ADR-0002](ADR-0002-Versioning-Policy)                        | Versioning Policy           | Accepted |
-| [ADR-0003](ADR-0003-Desktop-Stack)                            | Desktop Stack               | Accepted |
-| [ADR-0004](ADR-0004-Encryption-And-Key-Management)            | Encryption & Key Management | Accepted |
-| [ADR-0005](ADR-0005-Library-Data-Model)                       | Library Data Model          | Accepted |
-| [ADR-0006](ADR-0006-Media-Processing)                         | Media Processing            | Accepted |
-| [ADR-0007](ADR-0007-Backup-Format-And-Offload)                | Backup Format & Offload     | Accepted |
-| [ADR-0008](ADR-0008-Recovery-Key-Format)                      | Recovery-Key Format & KDF   | Accepted |
-| [ADR-0009](ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2) | Cloud Recovery Bootstrap    | Accepted |
-| [ADR-0010](ADR-0010-Cloud-Restore-Staging-And-Atomic-Activation) | Cloud Restore Activation  | Accepted |
-| [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching) | Provider Catalog & Switching | Accepted |
+| ADR                                                                  | Title                        | Status   |
+| -------------------------------------------------------------------- | ---------------------------- | -------- |
+| [ADR-0001](ADR-0001-Automation-Check-Governance)                     | Automation Check Governance  | Accepted |
+| [ADR-0002](ADR-0002-Versioning-Policy)                               | Versioning Policy            | Accepted |
+| [ADR-0003](ADR-0003-Desktop-Stack)                                   | Desktop Stack                | Accepted |
+| [ADR-0004](ADR-0004-Encryption-And-Key-Management)                   | Encryption & Key Management  | Accepted |
+| [ADR-0005](ADR-0005-Library-Data-Model)                              | Library Data Model           | Accepted |
+| [ADR-0006](ADR-0006-Media-Processing)                                | Media Processing             | Accepted |
+| [ADR-0007](ADR-0007-Backup-Format-And-Offload)                       | Backup Format & Offload      | Accepted |
+| [ADR-0008](ADR-0008-Recovery-Key-Format)                             | Recovery-Key Format & KDF    | Accepted |
+| [ADR-0009](ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2)        | Cloud Recovery Bootstrap     | Accepted |
+| [ADR-0010](ADR-0010-Cloud-Restore-Staging-And-Atomic-Activation)     | Cloud Restore Activation     | Accepted |
+| [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching)     | Provider Catalog & Switching | Accepted |
+| [ADR-0012](ADR-0012-Continuous-Backup-Integrity-And-Recovery-Repair) | Continuous Backup Integrity  | Accepted |
 
 ## Template
 
