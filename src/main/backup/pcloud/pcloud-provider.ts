@@ -87,14 +87,18 @@ export class PCloudProvider implements StorageProvider {
   async listLibraries(): Promise<readonly string[]> {
     let data: Record<string, unknown>;
     try {
-      data = await this.api('listfolder', { path: '/Overlook' });
+      data = await this.api('listfolder', { path: '/Overlook', recursive: '1' });
     } catch (error) {
       if (error instanceof ProviderError && error.kind === 'not-found') return [];
       throw error;
     }
     const metadata = data['metadata'] as PCloudFileMeta | undefined;
     return (metadata?.contents ?? [])
-      .filter((entry) => entry.isfolder && /^[A-Za-z0-9_-]{1,64}$/u.test(entry.name))
+      .filter((entry) => {
+        if (!entry.isfolder || !/^[A-Za-z0-9_-]{1,64}$/u.test(entry.name)) return false;
+        const recovery = entry.contents?.find((child) => child.isfolder && child.name === 'recovery');
+        return recovery?.contents?.some((child) => !child.isfolder && child.name === 'bootstrap.ovrb') === true;
+      })
       .map((entry) => entry.name)
       .sort();
   }
