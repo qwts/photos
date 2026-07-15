@@ -19,6 +19,8 @@ import { sampleJpeg } from '../../src/main/library/seed.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import type { PhotoInsert, SyncStatus } from '../../src/shared/library/types.js';
 
+const NO_INTEGRITY_FINDINGS = { checked: 0, repaired: 0, unrecoverable: 0, failed: false } as const;
+
 // #105 exit criteria against real components: mock-provider integration —
 // a full backup clears pendingCount, a killed/failed run resumes, and the
 // throttle / Wi-Fi / auto settings are respected (fault-injected).
@@ -91,6 +93,7 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
     pendingCountChanged: () => undefined,
     syncStateChanged: (updates) => syncUpdates.push(...updates),
     audit: (line) => audits.push(line),
+    integrityScrub: () => Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: false }),
   };
   return { deps, repo, ledger, store, provider, faulty, sleeps, progress, audits, syncUpdates, engine: new BackupEngine(deps) };
 }
@@ -100,7 +103,7 @@ describe('backup engine (#105)', () => {
     const w = await world(3);
     assert.equal(w.ledger.pendingCount(), 3);
     const result = await w.engine.run();
-    assert.deepEqual(result, { uploaded: 3, failed: 0, manifestUploaded: true, skipped: null });
+    assert.deepEqual(result, { uploaded: 3, failed: 0, manifestUploaded: true, skipped: null, integrity: NO_INTEGRITY_FINDINGS });
     assert.equal(w.ledger.pendingCount(), 0);
     assert.equal(w.ledger.status('P0'), 'synced');
     assert.deepEqual(w.syncUpdates, [
@@ -177,7 +180,13 @@ describe('backup engine (#105)', () => {
 
   test('EXIT CRITERIA: the Wi-Fi gate skips on metered; unknown interfaces proceed (recorded heuristic)', async () => {
     const gated = await world(1, { settings: { wifiOnly: true }, network: 'other' });
-    assert.deepEqual(await gated.engine.run(), { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi' });
+    assert.deepEqual(await gated.engine.run(), {
+      uploaded: 0,
+      failed: 0,
+      manifestUploaded: true,
+      skipped: 'wifi',
+      integrity: NO_INTEGRITY_FINDINGS,
+    });
     assert.equal(gated.ledger.pendingCount(), 1);
 
     const unknown = await world(1, { settings: { wifiOnly: true }, network: 'unknown' });
@@ -293,7 +302,7 @@ describe('backup engine (#105)', () => {
 
     // No blob traveled and nothing failed -- the run did not crash on the
     // offloaded -> syncing transition (the pre-#274 behavior)...
-    assert.deepEqual(result, { uploaded: 0, failed: 0, manifestUploaded: true, skipped: null });
+    assert.deepEqual(result, { uploaded: 0, failed: 0, manifestUploaded: true, skipped: null, integrity: NO_INTEGRITY_FINDINGS });
     assert.equal((await w.provider.list('blobs')).length, blobsBefore);
     // ...a fresh manifest generation carried the edit...
     const manifests = await w.provider.list('manifest');
@@ -317,5 +326,24 @@ describe('backup engine (#105)', () => {
     assert.equal(retried.manifestUploaded, true);
     assert.equal(w.ledger.pendingCount(), 0);
     assert.equal(w.ledger.status('P0'), 'offloaded');
+  });
+
+  test('a clean backup runs one bounded integrity slice and reports repairs', async () => {
+    const w = await world(1);
+    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
+      Promise.resolve({ checked: 50, repaired: 2, unrecoverable: 1, cycleComplete: false });
+
+    assert.deepEqual((await w.engine.run()).integrity, { checked: 50, repaired: 2, unrecoverable: 1, failed: false });
+  });
+
+  test('an integrity provider failure is audited without losing completed uploads', async () => {
+    const w = await world(1);
+    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
+      Promise.reject(new Error('provider unavailable'));
+
+    const result = await w.engine.run();
+    assert.equal(result.uploaded, 1);
+    assert.deepEqual(result.integrity, { checked: 0, repaired: 0, unrecoverable: 0, failed: true });
+    assert.ok(w.audits.includes('INTEGRITY-CHECK-FAILED reason=provider unavailable'));
   });
 });

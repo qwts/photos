@@ -3,6 +3,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 
 import { ProviderError, type StorageProvider } from './provider.js';
+import { createDecryptStream, type KeyResolver } from '../crypto/envelope.js';
 import type { SyncStatus } from '../../shared/library/types.js';
 
 export interface BackupIntegrityItem {
@@ -58,6 +59,22 @@ async function digest(stream: Readable): Promise<{ readonly sha256: string; read
   });
   await pipeline(stream, hasher);
   return { sha256: hasher.digest('hex'), bytes };
+}
+
+/** Authenticates a remote envelope and proves its plaintext content address
+ * without ever writing plaintext to disk. */
+export async function verifyRemoteOriginalCiphertext(
+  item: BackupIntegrityItem,
+  ciphertext: Readable,
+  resolveKey: KeyResolver,
+): Promise<boolean> {
+  const hasher = createHash('sha256');
+  try {
+    await pipeline(ciphertext, createDecryptStream(resolveKey, { photoId: item.id }), hasher);
+  } catch {
+    return false;
+  }
+  return hasher.digest('hex') === item.contentHash;
 }
 
 /**

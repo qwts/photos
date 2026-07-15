@@ -59,6 +59,12 @@ const scanSummarySchema = z.object({
 });
 
 const syncStatusSchema = z.enum(['local', 'syncing', 'synced', 'offloaded', 'error']);
+const backupIntegritySchema = z.object({
+  checked: z.number().int().nonnegative(),
+  repaired: z.number().int().nonnegative(),
+  unrecoverable: z.number().int().nonnegative(),
+  failed: z.boolean(),
+});
 
 const photoRecordSchema = z.object({
   id: z.string(),
@@ -270,6 +276,7 @@ export const channels = {
       uploaded: z.number().int().nonnegative(),
       failed: z.number().int().nonnegative(),
       skipped: z.enum(['wifi', 'disconnected']).nullable(),
+      integrity: backupIntegritySchema,
     }),
   ),
   // Offload / rehydrate (#107).
@@ -373,6 +380,7 @@ export const events = {
       failed: z.number().int().nonnegative(),
       manifestUploaded: z.boolean(),
       auto: z.boolean(),
+      integrity: backupIntegritySchema,
     }),
   ),
   // Settings changes (#111) push the full snapshot — consumers (dialog,

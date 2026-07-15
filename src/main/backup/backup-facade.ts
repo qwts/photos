@@ -2,7 +2,12 @@ import type { ProviderRuntime } from './provider-runtime.js';
 
 export interface BackupFacadeOptions {
   readonly runtime: () => ProviderRuntime;
-  readonly run: () => Promise<{ uploaded: number; failed: number; skipped: 'wifi' | null }>;
+  readonly run: () => Promise<{
+    uploaded: number;
+    failed: number;
+    skipped: 'wifi' | null;
+    integrity: { checked: number; repaired: number; unrecoverable: number; failed: boolean };
+  }>;
   readonly offload: (photoIds: readonly string[]) => Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
   readonly rehydrate: (photoId: string) => Promise<void>;
 }
@@ -11,7 +16,12 @@ export function createBackupFacade(options: BackupFacadeOptions) {
   return {
     run: () => {
       if (options.runtime().activeId() === null) {
-        return Promise.resolve({ uploaded: 0, failed: 0, skipped: 'disconnected' as const });
+        return Promise.resolve({
+          uploaded: 0,
+          failed: 0,
+          skipped: 'disconnected' as const,
+          integrity: { checked: 0, repaired: 0, unrecoverable: 0, failed: false },
+        });
       }
       return options.run();
     },
