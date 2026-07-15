@@ -48,6 +48,7 @@ export interface BackupRunIntegrity {
   readonly checked: number;
   readonly repaired: number;
   readonly unrecoverable: number;
+  readonly recoveryRepaired: boolean;
   readonly failed: boolean;
 }
 
@@ -77,13 +78,20 @@ export interface BackupEngineDeps {
   /** Verify results append to M11's audit trail (#106). */
   readonly audit: (line: string) => void;
   readonly integrityScrub: () => Promise<BackupIntegritySummary>;
+  readonly recoveryGenerationHealthy: () => Promise<boolean>;
 }
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_BASE_MS = 500;
 /** Manifest generations retained remotely (ADR-0007). */
 const MANIFEST_KEEP = 2;
-const EMPTY_INTEGRITY: BackupRunIntegrity = { checked: 0, repaired: 0, unrecoverable: 0, failed: false };
+const EMPTY_INTEGRITY: BackupRunIntegrity = {
+  checked: 0,
+  repaired: 0,
+  unrecoverable: 0,
+  recoveryRepaired: false,
+  failed: false,
+};
 
 function blobPath(contentHash: string): string {
   return `blobs/${contentHash.slice(0, 2)}/${contentHash}`;
@@ -216,10 +224,16 @@ export class BackupEngine {
     if (failed === 0 && manifestUploaded) {
       try {
         const summary = await this.deps.integrityScrub();
+        const recoveryRepaired = !(await this.deps.recoveryGenerationHealthy());
+        if (recoveryRepaired) {
+          await this.uploadManifest();
+          this.deps.audit('INTEGRITY-RECOVERY-REPAIRED');
+        }
         integrity = {
           checked: summary.checked,
           repaired: summary.repaired,
           unrecoverable: summary.unrecoverable,
+          recoveryRepaired,
           failed: false,
         };
       } catch (error) {

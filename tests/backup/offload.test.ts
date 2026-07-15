@@ -82,6 +82,7 @@ async function world(count: number) {
     syncStateChanged: () => undefined,
     audit: (line) => audits.push(line),
     integrityScrub: () => Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: true }),
+    recoveryGenerationHealthy: () => Promise.resolve(true),
   };
   const changed: string[][] = [];
   const service = new OffloadService({

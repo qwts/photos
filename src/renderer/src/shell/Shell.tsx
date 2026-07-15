@@ -135,6 +135,8 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           type: 'toast/shown',
           toast: { title: `BACKUP DAMAGED: ${formatCount(integrity.unrecoverable)} ORIGINALS MISSING`, tone: 'red' },
         });
+      } else if (integrity.recoveryRepaired) {
+        dispatch({ type: 'toast/shown', toast: { title: 'BACKUP RECOVERY INDEX REPAIRED', tone: 'green' } });
       } else if (integrity.repaired > 0) {
         dispatch({
           type: 'toast/shown',

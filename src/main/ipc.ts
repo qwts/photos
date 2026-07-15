@@ -228,7 +228,7 @@ export interface BackupFacade {
     uploaded: number;
     failed: number;
     skipped: 'wifi' | 'disconnected' | null;
-    integrity: { checked: number; repaired: number; unrecoverable: number; failed: boolean };
+    integrity: { checked: number; repaired: number; unrecoverable: number; recoveryRepaired: boolean; failed: boolean };
   }>;
   offload(photoIds: readonly string[]): Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
   rehydrate(photoId: string): Promise<void>;

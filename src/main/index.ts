@@ -28,6 +28,7 @@ import { createBackupAuditLogger } from './backup/backup-audit.js';
 import { createBackupFacade } from './backup/backup-facade.js';
 import { createBackupIntegrityRuntime } from './backup/integrity-runtime.js';
 import { sealManifestJson } from './backup/manifest-sealer.js';
+import { createRecoveryHealthCheck } from './backup/recovery-health.js';
 import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
 import { RestoreRuntime } from './backup/restore-runtime.js';
@@ -509,6 +510,7 @@ function getBackupEngine(): BackupEngine {
       syncStateChanged: (updates) => emitSyncStateChanged({ updates: [...updates] }),
       audit,
       integrityScrub: () => integrityScrubber.scrub(),
+      recoveryGenerationHealthy: createRecoveryHealthCheck(provider, () => getProviderRuntime().libraryId(), parts.keyStore),
     });
     offloadService = new OffloadService({
       provider,

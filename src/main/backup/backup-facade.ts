@@ -6,7 +6,7 @@ export interface BackupFacadeOptions {
     uploaded: number;
     failed: number;
     skipped: 'wifi' | null;
-    integrity: { checked: number; repaired: number; unrecoverable: number; failed: boolean };
+    integrity: { checked: number; repaired: number; unrecoverable: number; recoveryRepaired: boolean; failed: boolean };
   }>;
   readonly offload: (photoIds: readonly string[]) => Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
   readonly rehydrate: (photoId: string) => Promise<void>;
@@ -20,7 +20,7 @@ export function createBackupFacade(options: BackupFacadeOptions) {
           uploaded: 0,
           failed: 0,
           skipped: 'disconnected' as const,
-          integrity: { checked: 0, repaired: 0, unrecoverable: 0, failed: false },
+          integrity: { checked: 0, repaired: 0, unrecoverable: 0, recoveryRepaired: false, failed: false },
         });
       }
       return options.run();

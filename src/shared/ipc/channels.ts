@@ -63,6 +63,7 @@ const backupIntegritySchema = z.object({
   checked: z.number().int().nonnegative(),
   repaired: z.number().int().nonnegative(),
   unrecoverable: z.number().int().nonnegative(),
+  recoveryRepaired: z.boolean(),
   failed: z.boolean(),
 });
 

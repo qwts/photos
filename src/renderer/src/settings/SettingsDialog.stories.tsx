@@ -68,7 +68,7 @@ function installStub(): void {
         uploaded: 0,
         failed: 0,
         skipped: null,
-        integrity: { checked: 0, repaired: 0, unrecoverable: 0, failed: false },
+        integrity: { checked: 0, repaired: 0, unrecoverable: 0, recoveryRepaired: false, failed: false },
       }),
     onProgress: () => () => undefined,
     onCompleted: () => () => undefined,

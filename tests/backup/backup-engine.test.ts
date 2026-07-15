@@ -19,7 +19,13 @@ import { sampleJpeg } from '../../src/main/library/seed.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import type { PhotoInsert, SyncStatus } from '../../src/shared/library/types.js';
 
-const NO_INTEGRITY_FINDINGS = { checked: 0, repaired: 0, unrecoverable: 0, failed: false } as const;
+const NO_INTEGRITY_FINDINGS = {
+  checked: 0,
+  repaired: 0,
+  unrecoverable: 0,
+  recoveryRepaired: false,
+  failed: false,
+} as const;
 
 // #105 exit criteria against real components: mock-provider integration —
 // a full backup clears pendingCount, a killed/failed run resumes, and the
@@ -94,6 +100,7 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
     syncStateChanged: (updates) => syncUpdates.push(...updates),
     audit: (line) => audits.push(line),
     integrityScrub: () => Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: false }),
+    recoveryGenerationHealthy: () => Promise.resolve(true),
   };
   return { deps, repo, ledger, store, provider, faulty, sleeps, progress, audits, syncUpdates, engine: new BackupEngine(deps) };
 }
@@ -333,7 +340,13 @@ describe('backup engine (#105)', () => {
     (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
       Promise.resolve({ checked: 50, repaired: 2, unrecoverable: 1, cycleComplete: false });
 
-    assert.deepEqual((await w.engine.run()).integrity, { checked: 50, repaired: 2, unrecoverable: 1, failed: false });
+    assert.deepEqual((await w.engine.run()).integrity, {
+      checked: 50,
+      repaired: 2,
+      unrecoverable: 1,
+      recoveryRepaired: false,
+      failed: false,
+    });
   });
 
   test('an integrity provider failure is audited without losing completed uploads', async () => {
@@ -343,7 +356,24 @@ describe('backup engine (#105)', () => {
 
     const result = await w.engine.run();
     assert.equal(result.uploaded, 1);
-    assert.deepEqual(result.integrity, { checked: 0, repaired: 0, unrecoverable: 0, failed: true });
+    assert.deepEqual(result.integrity, {
+      checked: 0,
+      repaired: 0,
+      unrecoverable: 0,
+      recoveryRepaired: false,
+      failed: true,
+    });
     assert.ok(w.audits.includes('INTEGRITY-CHECK-FAILED reason=provider unavailable'));
+  });
+
+  test('a damaged recovery index publishes and verifies a fresh generation', async () => {
+    const w = await world(1);
+    (w.deps as { recoveryGenerationHealthy: BackupEngineDeps['recoveryGenerationHealthy'] }).recoveryGenerationHealthy = () =>
+      Promise.resolve(false);
+
+    const result = await w.engine.run();
+    assert.equal(result.integrity.recoveryRepaired, true);
+    assert.equal((await w.provider.list('manifest')).length, 2);
+    assert.ok(w.audits.includes('INTEGRITY-RECOVERY-REPAIRED'));
   });
 });
