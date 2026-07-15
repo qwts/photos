@@ -28,6 +28,7 @@ export interface OverlookApi {
     readonly onSyncStateChanged: (
       listener: (payload: { updates: { id: string; syncState: 'local' | 'syncing' | 'synced' | 'offloaded' | 'error' }[] }) => void,
     ) => () => void;
+    readonly onStorageChanged: (listener: () => void) => () => void;
     readonly onPendingCountChanged: (listener: (payload: { count: number }) => void) => () => void;
   };
   readonly albums: {

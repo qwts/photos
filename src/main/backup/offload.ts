@@ -99,7 +99,8 @@ export interface OffloadDeps {
     /** Atomic restore of raw ciphertext; must verify before publishing. */
     readonly restoreOriginal: (contentHash: string, ciphertext: Readable, photoId: string) => Promise<void>;
   };
-  readonly libraryChanged: (photoIds: readonly string[]) => void;
+  readonly syncStateChanged: (updates: readonly { readonly id: string; readonly syncState: SyncStatus }[]) => void;
+  readonly storageChanged: () => void;
   readonly audit: (line: string) => void;
 }
 
@@ -163,7 +164,8 @@ export class OffloadService {
       results.push({ photoId, outcome: 'offloaded', reason: null });
     }
     if (changed.length > 0) {
-      this.deps.libraryChanged(changed);
+      this.deps.syncStateChanged(changed.map((id) => ({ id, syncState: 'offloaded' })));
+      this.deps.storageChanged();
     }
     return { offloaded, skipped, failed, freedBytes, results };
   }
@@ -232,7 +234,8 @@ export class OffloadService {
     }
     this.deps.ledger.setStatus(photoId, 'synced');
     this.deps.audit(`REHYDRATE-OK photo=${photoId}`);
-    this.deps.libraryChanged([photoId]);
+    this.deps.syncStateChanged([{ id: photoId, syncState: 'synced' }]);
+    this.deps.storageChanged();
   }
 
   /** Batch restore for selection and Settings. Omit ids to restore every
