@@ -426,6 +426,18 @@ export class PhotosRepository {
     );
   }
 
+  /** Live originals managed from Settings; deleted rows retain their
+   * existing recovery policy and are not silently resurrected. */
+  offloadedPhotoIds(): string[] {
+    return queryAll<{ id: string }>(
+      this.db,
+      `SELECT p.id
+         FROM photos p JOIN sync_ledger l ON l.photo_id = p.id
+        WHERE p.deleted_at IS NULL AND l.status = 'offloaded'
+        ORDER BY p.imported_at, p.id`,
+    ).map(({ id }) => id);
+  }
+
   /** One read transaction captures every remotely recoverable row plus
    * album ordering/membership (#289). Deleted rows join only when their
    * original is already remote; a never-backed-up deleted blob cannot be

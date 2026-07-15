@@ -519,6 +519,7 @@ function getBackupEngine(): BackupEngine {
       repo: {
         get: (id) => repo.get(id),
         countByContentHash: (hash) => repo.countByContentHash(hash),
+        offloadedIds: () => repo.offloadedPhotoIds(),
       },
       ledgerDirty: (photoId) => ledger.isDirty(photoId),
       blobs: {

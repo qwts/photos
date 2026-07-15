@@ -53,8 +53,31 @@ export interface OffloadSummary {
   readonly results: readonly OffloadResultItem[];
 }
 
+export type RestoreOriginalFailureReason =
+  'not-offloaded' | 'provider-disconnected' | 'provider-expired' | 'provider-offline' | 'download-failed' | 'verify-failed';
+
+export interface RestoreOriginalResultItem {
+  readonly photoId: string;
+  readonly outcome: 'restored' | 'skipped' | 'failed';
+  readonly reason: RestoreOriginalFailureReason | null;
+}
+
+export interface RestoreOriginalsSummary {
+  readonly restored: number;
+  readonly skipped: number;
+  readonly failed: number;
+  readonly results: readonly RestoreOriginalResultItem[];
+}
+
 export class RehydrateError extends Error {
   override readonly name = 'RehydrateError';
+
+  constructor(
+    message: string,
+    readonly reason: RestoreOriginalFailureReason,
+  ) {
+    super(message);
+  }
 }
 
 export interface OffloadDeps {
@@ -67,6 +90,7 @@ export interface OffloadDeps {
     readonly get: (id: string) => { contentHash: string; bytes: number; deletedAt: string | null } | undefined;
     /** Live photos (not deleted) sharing this content hash. */
     readonly countByContentHash: (hash: string) => number;
+    readonly offloadedIds: () => readonly string[];
   };
   readonly ledgerDirty: (photoId: string) => boolean;
   readonly blobs: {
@@ -187,26 +211,61 @@ export class OffloadService {
   async rehydrate(photoId: string): Promise<void> {
     const photo = this.deps.repo.get(photoId);
     if (photo === undefined || this.deps.ledger.status(photoId) !== 'offloaded') {
-      throw new RehydrateError(`photo ${photoId} is not offloaded`);
+      throw new RehydrateError(`photo ${photoId} is not offloaded`, 'not-offloaded');
     }
+    await this.assertProviderAvailable();
     if (!this.deps.blobs.hasOriginal(photo.contentHash)) {
       let ciphertext: Readable;
       try {
         ciphertext = await this.deps.provider.getStream(blobPath(photo.contentHash));
       } catch (error) {
         this.deps.audit(`REHYDRATE-FAIL photo=${photoId} stage=download`);
-        throw new RehydrateError(error instanceof ProviderError ? error.message : 'download failed');
+        throw new RehydrateError(error instanceof ProviderError ? error.message : 'download failed', 'download-failed');
       }
       // restoreOriginal verifies (decrypt + re-hash against the content
       // address) BEFORE publishing; a bad download never becomes local
       // truth and the record stays cleanly offloaded.
       await this.deps.blobs.restoreOriginal(photo.contentHash, ciphertext, photoId).catch((error: unknown) => {
         this.deps.audit(`REHYDRATE-FAIL photo=${photoId} stage=verify`);
-        throw new RehydrateError(error instanceof Error ? error.message : 'restore failed');
+        throw new RehydrateError(error instanceof Error ? error.message : 'restore failed', 'verify-failed');
       });
     }
     this.deps.ledger.setStatus(photoId, 'synced');
     this.deps.audit(`REHYDRATE-OK photo=${photoId}`);
     this.deps.libraryChanged([photoId]);
+  }
+
+  /** Batch restore for selection and Settings. Omit ids to restore every
+   * live offloaded original. Failures are isolated and exactly reported. */
+  async restoreOriginals(photoIds?: readonly string[]): Promise<RestoreOriginalsSummary> {
+    const ids = [...new Set(photoIds ?? this.deps.repo.offloadedIds())];
+    let restored = 0;
+    let skipped = 0;
+    let failed = 0;
+    const results: RestoreOriginalResultItem[] = [];
+    for (const photoId of ids) {
+      try {
+        await this.rehydrate(photoId);
+        restored += 1;
+        results.push({ photoId, outcome: 'restored', reason: null });
+      } catch (error) {
+        const reason = error instanceof RehydrateError ? error.reason : 'verify-failed';
+        if (reason === 'not-offloaded') {
+          skipped += 1;
+          results.push({ photoId, outcome: 'skipped', reason });
+        } else {
+          failed += 1;
+          results.push({ photoId, outcome: 'failed', reason });
+        }
+      }
+    }
+    return { restored, skipped, failed, results };
+  }
+
+  private async assertProviderAvailable(): Promise<void> {
+    const state = await this.providerState();
+    if (state === 'connected') return;
+    const reason = state === 'expired' ? 'provider-expired' : state === 'offline' ? 'provider-offline' : 'provider-disconnected';
+    throw new RehydrateError(`cannot restore ${reason.replace('provider-', '')}`, reason);
   }
 }

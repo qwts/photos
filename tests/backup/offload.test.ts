@@ -92,6 +92,7 @@ async function world(count: number, providerConnected = true) {
     repo: {
       get: (id) => repo.get(id),
       countByContentHash: (hash) => repo.countByContentHash(hash),
+      offloadedIds: () => repo.offloadedPhotoIds(),
     },
     ledgerDirty: (photoId) => ledger.isDirty(photoId),
     blobs: {
@@ -205,6 +206,40 @@ describe('offload + rehydrate (#107)', () => {
 
   test('rehydrating a non-offloaded photo is a typed error', async () => {
     const w = await world(1);
-    await assert.rejects(w.service.rehydrate('P0'), RehydrateError);
+    await assert.rejects(
+      w.service.rehydrate('P0'),
+      (error: unknown) => error instanceof RehydrateError && error.reason === 'not-offloaded',
+    );
+  });
+
+  test('batch restore isolates failures and restore-all discovers live offloaded rows (#281)', async () => {
+    const w = await world(3);
+    await w.engine.run();
+    await w.service.offload(['P0', 'P1']);
+    const p1 = w.repo.get('P1');
+    await w.provider.delete(`blobs/${p1?.contentHash.slice(0, 2) ?? ''}/${p1?.contentHash ?? ''}`);
+
+    const summary = await w.service.restoreOriginals();
+    assert.deepEqual(summary, {
+      restored: 1,
+      skipped: 0,
+      failed: 1,
+      results: [
+        { photoId: 'P0', outcome: 'restored', reason: null },
+        { photoId: 'P1', outcome: 'failed', reason: 'download-failed' },
+      ],
+    });
+    assert.equal(w.ledger.status('P0'), 'synced');
+    assert.equal(w.ledger.status('P1'), 'offloaded');
+  });
+
+  test('batch restore reports disconnected provider and never flips status (#281)', async () => {
+    const w = await world(1);
+    await w.engine.run();
+    await w.service.offload(['P0']);
+    w.provider.setConnected(false);
+    const summary = await w.service.restoreOriginals(['P0']);
+    assert.deepEqual(summary.results, [{ photoId: 'P0', outcome: 'failed', reason: 'provider-disconnected' }]);
+    assert.equal(w.ledger.status('P0'), 'offloaded');
   });
 });
