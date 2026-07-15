@@ -23,6 +23,8 @@ export interface RestoreCandidate {
 export interface RestoreDiscovery {
   readonly bootstrap: RecoveryBootstrap;
   readonly resolveKey: KeyResolver;
+  /** Highest advertised generation, even when its manifest is invalid. */
+  readonly newestGeneration: number;
   readonly candidates: readonly RestoreCandidate[];
 }
 
@@ -133,7 +135,9 @@ export async function discoverRestore(provider: StorageProvider, masterKey: Buff
       }
     }
     if (candidates.length === 0) throw new RestoreError('corrupt', 'no valid restorable manifest generation was found');
-    return { bootstrap, resolveKey, candidates };
+    const newestGeneration = entries[0]?.generation;
+    if (newestGeneration === undefined) throw new RestoreError('corrupt', 'no manifest generation was found');
+    return { bootstrap, resolveKey, newestGeneration, candidates };
   } catch (error) {
     throw toRestoreError(error);
   }

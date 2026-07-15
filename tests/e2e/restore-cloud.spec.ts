@@ -1,8 +1,8 @@
-import { cpSync, existsSync, mkdtempSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
+import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
 import type { PhotoRecord } from '../../src/shared/library/types.js';
 
@@ -51,6 +51,38 @@ function launch(userData: string, extra: Record<string, string> = {}): Promise<E
       ...extra,
     },
   });
+}
+
+async function backupSimpleSource(source: string, keyPath: string): Promise<readonly string[]> {
+  const app = await launch(source, { OVERLOOK_SEED: '2', OVERLOOK_KEY_EXPORT_DESTINATION: keyPath });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    const hashes = await page.evaluate<readonly string[]>(async () => {
+      const api = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      const { photos } = await api.library.page({ source: 'all', limit: 100 });
+      for (const photo of photos) await api.library.toggleFavorite({ id: photo.id });
+      return photos.map((photo) => photo.contentHash);
+    });
+    await page.evaluate((password) => (globalThis as unknown as { overlook: OverlookApi }).overlook.keys.export({ password }), PASSWORD);
+    const backup = await page.evaluate(() => (globalThis as unknown as { overlook: OverlookApi }).overlook.backup.run({}));
+    expect(backup).toMatchObject({ failed: 0, skipped: null });
+    return hashes;
+  } finally {
+    await app.close();
+  }
+}
+
+async function discoverOnboarding(page: Page): Promise<void> {
+  await expect(page.getByTestId('restore-onboarding')).toBeVisible();
+  await page.getByRole('button', { name: 'Choose recovery key' }).click();
+  await page.getByLabel('Recovery-key password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Discover backups' }).click();
+  await expect(page.getByTestId('restore-library-card')).toBeVisible();
+}
+
+function highestManifestGeneration(remoteDir: string): number {
+  return Math.max(...readdirSync(join(remoteDir, 'manifest')).map((name) => Number(/^gen-(\d+)\.ovlk$/u.exec(name)?.[1] ?? Number.NaN)));
 }
 
 test('fresh profile restores complete state; wrong password is isolated and cancellation resumes (#291)', async () => {
@@ -156,5 +188,68 @@ test('fresh profile restores complete state; wrong password is isolated and canc
     expect(viewable).toEqual({ status: 200, jpeg: true });
   } finally {
     await relaunched.close();
+  }
+});
+
+test('corrupt newest manifest falls back and reports the rejected generation (#291)', async () => {
+  const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-fallback-source-'));
+  const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-fallback-target-'));
+  const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-fallback-key-')), 'overlook-recovery.key');
+  await backupSimpleSource(source, keyPath);
+  cpSync(join(source, 'mock-remote'), join(target, 'mock-remote'), { recursive: true });
+  const remote = join(target, 'mock-remote');
+  const validGeneration = highestManifestGeneration(remote);
+  const rejectedGeneration = validGeneration + 1;
+  writeFileSync(join(remote, 'manifest', `gen-${String(rejectedGeneration)}.ovlk`), 'corrupt newest manifest');
+
+  const app = await launch(target, { OVERLOOK_KEY_IMPORT_SOURCE: keyPath, OVERLOOK_RESTORE_NO_RELAUNCH: '1' });
+  try {
+    const page = await app.firstWindow();
+    await discoverOnboarding(page);
+    await page.getByRole('button', { name: 'Review restore' }).click();
+    await page.getByRole('button', { name: 'Restore 2 photos' }).click();
+    await expect(page.getByText('Restore complete')).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByText(`Generation ${String(rejectedGeneration)} failed validation; restored generation ${String(validGeneration)}.`),
+    ).toBeVisible();
+    expect(existsSync(join(target, 'library', 'library.db'))).toBe(true);
+  } finally {
+    await app.close();
+  }
+});
+
+test('corrupt only-generation blob fails without publishing a library (#291)', async () => {
+  const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-corrupt-source-'));
+  const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-corrupt-target-'));
+  const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-corrupt-key-')), 'overlook-recovery.key');
+  const hashes = await backupSimpleSource(source, keyPath);
+  cpSync(join(source, 'mock-remote'), join(target, 'mock-remote'), { recursive: true });
+  const firstHash = hashes[0];
+  expect(firstHash).toBeDefined();
+  writeFileSync(join(target, 'mock-remote', 'blobs', firstHash?.slice(0, 2) ?? '', firstHash ?? ''), 'corrupt blob');
+
+  const app = await launch(target, { OVERLOOK_KEY_IMPORT_SOURCE: keyPath, OVERLOOK_RESTORE_NO_RELAUNCH: '1' });
+  try {
+    const page = await app.firstWindow();
+    const response = await page.evaluate(
+      async ({ recoveryKeyPath, password }) => {
+        const api = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+        const discovered = await api.restore.discover({ providerId: 'mock', keyPath: recoveryKeyPath, password });
+        if (discovered.error !== null || discovered.sessionId === null) return { discoveryError: discovered.error, run: null };
+        const library = discovered.libraries.find((candidate) => candidate.validation === 'valid');
+        if (library === undefined) return { discoveryError: { reason: 'corrupt', message: 'no valid library' }, run: null };
+        return {
+          discoveryError: null,
+          run: await api.restore.run({ sessionId: discovered.sessionId, libraryId: library.libraryId, allowReplace: false }),
+        };
+      },
+      { recoveryKeyPath: keyPath, password: PASSWORD },
+    );
+    expect(response.discoveryError).toBeNull();
+    expect(response.run?.result).toBeNull();
+    expect(response.run?.error).toMatchObject({ reason: 'corrupt' });
+    expect(existsSync(join(target, 'library', 'library.db'))).toBe(false);
+  } finally {
+    await app.close();
   }
 });

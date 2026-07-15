@@ -95,6 +95,7 @@ describe('restore discovery (#288)', () => {
 
     const found = await discoverRestore(w.provider, w.masterKey);
     assert.equal(found.bootstrap.libraryId, LIBRARY_ID);
+    assert.equal(found.newestGeneration, 2, 'the UI can report that generation 2 was rejected');
     assert.deepEqual(
       found.candidates.map((candidate) => candidate.generation),
       [1],
