@@ -79,38 +79,42 @@ describe('pCloud provider adapter (#255)', () => {
 
   test('discovers only completed recovery homes; ignores in-progress backups and empty scratch folders (#291)', async () => {
     const { provider, calls } = world({
-      listfolder: () =>
-        ok({
-          metadata: {
-            name: 'Overlook',
-            isfolder: true,
-            contents: [
-              {
-                name: '01JSAFE',
-                isfolder: true,
-                contents: [
-                  {
-                    name: 'recovery',
-                    isfolder: true,
-                    contents: [{ name: 'bootstrap.ovrb', isfolder: false, size: 123 }],
-                  },
-                ],
-              },
-              { name: '01JUPLOADING', isfolder: true, contents: [{ name: 'blobs', isfolder: true, contents: [] }] },
-              { name: 'contract-scratch-01JEMPTY', isfolder: true, contents: [] },
-              {
-                name: '../escape',
-                isfolder: true,
-                contents: [{ name: 'recovery', isfolder: true, contents: [{ name: 'bootstrap.ovrb', isfolder: false, size: 1 }] }],
-              },
-              { name: 'file.txt', isfolder: false, size: 2 },
-            ],
-          },
-        }),
+      listfolder: (params) => {
+        const path = params.get('path');
+        if (path === '/Overlook') {
+          return ok({
+            metadata: {
+              name: 'Overlook',
+              isfolder: true,
+              contents: [
+                { name: '01JSAFE', isfolder: true },
+                { name: '01JUPLOADING', isfolder: true },
+                { name: 'contract-scratch-01JEMPTY', isfolder: true },
+                { name: '../escape', isfolder: true },
+                { name: 'file.txt', isfolder: false, size: 2 },
+              ],
+            },
+          });
+        }
+        if (path === '/Overlook/01JSAFE/recovery') {
+          return ok({
+            metadata: {
+              name: 'recovery',
+              isfolder: true,
+              contents: [{ name: 'bootstrap.ovrb', isfolder: false, size: 123 }],
+            },
+          });
+        }
+        return { result: 2005, error: 'Directory does not exist.' };
+      },
     });
     assert.deepEqual(await provider.listLibraries(), ['01JSAFE']);
     assert.equal(calls[0]?.params.get('path'), '/Overlook');
-    assert.equal(calls[0]?.params.get('recursive'), '1');
+    assert.equal(calls[0]?.params.has('recursive'), false, 'the root listing never enumerates every backup object');
+    assert.deepEqual(
+      calls.slice(1).map((call) => call.params.get('path')),
+      ['/Overlook/01JSAFE/recovery', '/Overlook/01JUPLOADING/recovery', '/Overlook/contract-scratch-01JEMPTY/recovery'],
+    );
     assert.equal(provider.forLibrary('01JSAFE').id, 'pcloud');
     assert.throws(
       () => provider.forLibrary('../escape'),

@@ -87,20 +87,29 @@ export class PCloudProvider implements StorageProvider {
   async listLibraries(): Promise<readonly string[]> {
     let data: Record<string, unknown>;
     try {
-      data = await this.api('listfolder', { path: '/Overlook', recursive: '1' });
+      data = await this.api('listfolder', { path: '/Overlook' });
     } catch (error) {
       if (error instanceof ProviderError && error.kind === 'not-found') return [];
       throw error;
     }
     const metadata = data['metadata'] as PCloudFileMeta | undefined;
-    return (metadata?.contents ?? [])
-      .filter((entry) => {
-        if (!entry.isfolder || !/^[A-Za-z0-9_-]{1,64}$/u.test(entry.name)) return false;
-        const recovery = entry.contents?.find((child) => child.isfolder && child.name === 'recovery');
-        return recovery?.contents?.some((child) => !child.isfolder && child.name === 'bootstrap.ovrb') === true;
-      })
+    const candidates = (metadata?.contents ?? [])
+      .filter((entry) => entry.isfolder && /^[A-Za-z0-9_-]{1,64}$/u.test(entry.name))
       .map((entry) => entry.name)
       .sort();
+    const libraries: string[] = [];
+    for (const libraryId of candidates) {
+      try {
+        const marker = await this.api('listfolder', { path: `/Overlook/${libraryId}/recovery` });
+        const recovery = marker['metadata'] as PCloudFileMeta | undefined;
+        if (recovery?.contents?.some((entry) => !entry.isfolder && entry.name === 'bootstrap.ovrb') === true) {
+          libraries.push(libraryId);
+        }
+      } catch (error) {
+        if (!(error instanceof ProviderError && error.kind === 'not-found')) throw error;
+      }
+    }
+    return libraries;
   }
 
   forLibrary(libraryId: string): StorageProvider {
