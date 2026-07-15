@@ -5,6 +5,7 @@ import { channels } from '../shared/ipc/channels.js';
 import { wrapHandler } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
 import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js';
+import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
 
@@ -161,6 +162,39 @@ export function registerKeysHandlers(getFacade: () => KeysFacade): void {
   );
   ipcMain.handle(channels.keysImport.name, (_event, request: unknown) =>
     wrapHandler(channels.keysImport, async ({ path, password }) => getFacade().importKey(path, password))(request),
+  );
+}
+
+export interface RestoreFacade {
+  profileStatus(): { fresh: boolean };
+  pickKey(): Promise<string | null>;
+  discover(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse>;
+  run(sessionId: string, libraryId: string, allowReplace: boolean): Promise<RestoreRunResponse>;
+  cancel(): void;
+}
+
+export function registerRestoreHandlers(getFacade: () => RestoreFacade): void {
+  ipcMain.handle(channels.restoreProfileStatus.name, (_event, request: unknown) =>
+    wrapHandler(channels.restoreProfileStatus, () => getFacade().profileStatus())(request),
+  );
+  ipcMain.handle(channels.restorePickKey.name, (_event, request: unknown) =>
+    wrapHandler(channels.restorePickKey, async () => ({ path: await getFacade().pickKey() }))(request),
+  );
+  ipcMain.handle(channels.restoreDiscover.name, (_event, request: unknown) =>
+    wrapHandler(channels.restoreDiscover, ({ providerId, keyPath, password }) => getFacade().discover(providerId, keyPath, password))(
+      request,
+    ),
+  );
+  ipcMain.handle(channels.restoreRun.name, (_event, request: unknown) =>
+    wrapHandler(channels.restoreRun, ({ sessionId, libraryId, allowReplace }) => getFacade().run(sessionId, libraryId, allowReplace))(
+      request,
+    ),
+  );
+  ipcMain.handle(channels.restoreCancel.name, (_event, request: unknown) =>
+    wrapHandler(channels.restoreCancel, () => {
+      getFacade().cancel();
+      return {};
+    })(request),
   );
 }
 

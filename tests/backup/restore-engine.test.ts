@@ -213,6 +213,7 @@ test('restore engine: fresh staging rebuilds keys, catalog, originals, thumbnail
   assert.deepEqual(result, { libraryId: LIBRARY_ID, generation: 1, photos: 2, resumed: false });
   assert.equal(existsSync(`${world.targetDir}.restore-staging`), false);
   assert.equal(existsSync(`${world.targetDir}.restore-previous`), false);
+  assert.equal((await readFile(join(world.targetDir, 'library-id'), 'utf8')).trim(), LIBRARY_ID);
 
   const restoredKeys = KeyStore.open({ safeStorage: fakeSafeStorage, dataDir: world.targetDir });
   const dbKey = restoredKeys.resolver()(1);

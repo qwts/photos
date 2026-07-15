@@ -35,6 +35,7 @@ export interface RestoreEngineDeps {
   readonly thumbnails: (store: BlobStore) => Pick<ThumbnailService, 'generateFor'>;
   readonly availableBytes?: ((path: string) => Promise<number>) | undefined;
   readonly activationOperations?: ActivationOperations | undefined;
+  readonly beforeActivate?: (() => Promise<void>) | undefined;
   readonly events: { progress(progress: RestoreProgress): void };
 }
 
@@ -134,6 +135,7 @@ export class RestoreEngine {
     await this.rebuildCatalog(paths, store, discovery, candidate, request.masterKey);
     assertNotAborted(request.signal);
     this.emit('activating', 0, 1, null);
+    await this.deps.beforeActivate?.();
     await activateStagedLibrary(paths, this.deps.activationOperations);
     await rm(join(paths.targetDir, 'restore-checkpoint.json'), { force: true });
     this.emit('complete', 1, 1, null);
@@ -261,6 +263,9 @@ export class RestoreEngine {
     candidate: RestoreCandidate,
     masterKey: Buffer,
   ): Promise<void> {
+    const libraryIdPath = join(paths.stagingDir, 'library-id');
+    await writeFile(`${libraryIdPath}.tmp`, candidate.manifest.libraryId);
+    await rename(`${libraryIdPath}.tmp`, libraryIdPath);
     const keysPath = join(paths.stagingDir, 'keys.json');
     const temporaryKeysPath = `${keysPath}.tmp`;
     await writeFile(temporaryKeysPath, JSON.stringify({ version: 1, keys: discovery.bootstrap.keys }, null, 2));

@@ -95,7 +95,10 @@ describe('pCloud provider adapter (#255)', () => {
     assert.deepEqual(await provider.listLibraries(), ['01JSAFE']);
     assert.equal(calls[0]?.params.get('path'), '/Overlook');
     assert.equal(provider.forLibrary('01JSAFE').id, 'pcloud');
-    assert.throws(() => provider.forLibrary('../escape'), (error: unknown) => error instanceof ProviderError && error.kind === 'corrupt');
+    assert.throws(
+      () => provider.forLibrary('../escape'),
+      (error: unknown) => error instanceof ProviderError && error.kind === 'corrupt',
+    );
   });
 
   test('EXIT CRITERIA: put ensures ancestors once, uploads under /Overlook/<libraryId>/, reports recorded size', async () => {

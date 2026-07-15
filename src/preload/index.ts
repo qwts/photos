@@ -35,6 +35,8 @@ const importListSources = createInvoker(channels.importListSources, invokeTransp
 const importPickFolder = createInvoker(channels.importPickFolder, invokeTransport);
 const keysStatus = createInvoker(channels.keysStatus, invokeTransport);
 const keysPickFile = createInvoker(channels.keysPickFile, invokeTransport);
+const restoreProfileStatus = createInvoker(channels.restoreProfileStatus, invokeTransport);
+const restorePickKey = createInvoker(channels.restorePickKey, invokeTransport);
 
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
@@ -82,6 +84,14 @@ const overlook: OverlookApi = {
     export: createInvoker(channels.keysExport, invokeTransport),
     pickFile: async () => keysPickFile({}),
     import: createInvoker(channels.keysImport, invokeTransport),
+  }),
+  restore: Object.freeze({
+    profileStatus: async () => restoreProfileStatus({}),
+    pickKey: async () => restorePickKey({}),
+    discover: createInvoker(channels.restoreDiscover, invokeTransport),
+    run: createInvoker(channels.restoreRun, invokeTransport),
+    cancel: createInvoker(channels.restoreCancel, invokeTransport),
+    onProgress: createSubscriber(events.restoreProgress, subscribeTransport),
   }),
   settings: Object.freeze({
     get: async () => settingsGet({}),
