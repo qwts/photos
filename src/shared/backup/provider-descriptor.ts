@@ -6,7 +6,10 @@ export const providerCapabilitiesSchema = z.object({
   quota: z.enum(['known', 'unknown']),
   verification: z.enum(['server-checksum', 'download-hash']),
   resumableUpload: z.boolean(),
-  platforms: z.array(z.enum(['darwin', 'win32', 'linux'])).min(1),
+  platforms: z
+    .array(z.enum(['darwin', 'win32', 'linux']))
+    .min(1)
+    .readonly(),
   interactiveAuth: z.boolean(),
   reconnectRequired: z.boolean(),
 });

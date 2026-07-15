@@ -10,6 +10,7 @@ import { buffer } from 'node:stream/consumers';
 
 import { FaultInjectingProvider, MockProvider, ProviderRegistry } from '../../src/main/backup/mock-provider.js';
 import { ProviderError } from '../../src/main/backup/provider.js';
+import { providerDescriptorSchema } from '../../src/shared/backup/provider-descriptor.js';
 
 // #103 exit criteria: the contract suite runs green against the mock, and
 // fault injection produces each error path the engine must handle. The same
@@ -25,6 +26,16 @@ const PAYLOAD = Buffer.from('OVLK-envelope-bytes-already-encrypted');
 describe('storage provider contract (#103)', () => {
   test('EXIT CRITERIA: put → list → get → verify → delete round-trip', async () => {
     const { provider } = world();
+    assert.equal(
+      providerDescriptorSchema.safeParse({
+        id: provider.id,
+        label: provider.label,
+        capabilities: provider.capabilities,
+        available: true,
+        unavailableReason: null,
+      }).success,
+      true,
+    );
     const path = 'blobs/ab/abcdef';
     const put = await provider.put(path, Readable.from([PAYLOAD]));
     assert.equal(put.bytes, PAYLOAD.length);

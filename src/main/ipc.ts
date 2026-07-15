@@ -4,6 +4,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { channels } from '../shared/ipc/channels.js';
 import { wrapHandler } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
+import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
 
@@ -192,17 +193,18 @@ export interface BackupFacade {
   run(): Promise<{ uploaded: number; failed: number; skipped: 'wifi' | 'disconnected' | null }>;
   offload(photoIds: readonly string[]): Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
   rehydrate(photoId: string): Promise<void>;
-  providerStatus(): Promise<{
-    provider: 'mock' | 'pcloud';
+  providers(): { providers: readonly ProviderDescriptor[]; defaultProviderId: string };
+  providerStatus(providerId: string): Promise<{
+    provider: ProviderDescriptor;
     connected: boolean;
     account: string | null;
-    usedBytes: number;
-    totalBytes: number;
+    usedBytes: number | null;
+    totalBytes: number | null;
   }>;
   /** Runs the registered provider's handshake (#254): instant for the mock,
    * the OAuth loopback flow for pCloud. */
-  connect(): Promise<{ ok: boolean; reason: string | null }>;
-  disconnect(): Promise<void>;
+  connect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;
+  disconnect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;
 }
 
 export function registerBackupHandlers(getFacade: () => BackupFacade): void {
@@ -218,17 +220,17 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
       return { ok: true };
     })(request),
   );
+  ipcMain.handle(channels.backupProviders.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupProviders, () => getFacade().providers())(request),
+  );
   ipcMain.handle(channels.backupProviderStatus.name, (_event, request: unknown) =>
-    wrapHandler(channels.backupProviderStatus, async () => getFacade().providerStatus())(request),
+    wrapHandler(channels.backupProviderStatus, async ({ providerId }) => getFacade().providerStatus(providerId))(request),
   );
   ipcMain.handle(channels.backupConnect.name, (_event, request: unknown) =>
-    wrapHandler(channels.backupConnect, async () => getFacade().connect())(request),
+    wrapHandler(channels.backupConnect, async ({ providerId }) => getFacade().connect(providerId))(request),
   );
   ipcMain.handle(channels.backupDisconnect.name, (_event, request: unknown) =>
-    wrapHandler(channels.backupDisconnect, async () => {
-      await getFacade().disconnect();
-      return { ok: true as const };
-    })(request),
+    wrapHandler(channels.backupDisconnect, async ({ providerId }) => getFacade().disconnect(providerId))(request),
   );
 }
 

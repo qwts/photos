@@ -74,26 +74,40 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(runtime({ providerId: () => 'mock' }).runtime.activeId(), 'mock');
     assert.equal(runtime({ providerId: () => 'pcloud', isPackaged: true }).runtime.activeId(), 'pcloud');
     assert.equal(runtime({ providerId: () => null }).runtime.activeId(), null);
+    const { runtime: unavailable } = runtime({ providerId: () => 'missing-provider' });
+    unavailable.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
+    assert.equal(unavailable.activeId(), null, 'an unavailable id never falls through to another remote authority');
   });
 
-  test('connect wires the handshake to custody + providerId flip', async () => {
+  test('provider-addressed connect flips selection only after success', async () => {
     let flipped: string | null = null;
-    let opened: string | null = null;
     const { runtime: r } = runtime({
-      openExternal: (url) => {
-        opened = url;
-        // Abandon the flow — the loopback machinery has its own tests; here
-        // only the wiring matters.
-        throw new Error('browser stub stops here');
-      },
       setProviderId: (id) => {
         flipped = id;
       },
     });
-    const result = await r.connect();
-    assert.equal(result.ok, false);
-    assert.match(opened ?? '', /my\.pcloud\.com\/oauth2\/authorize/u, 'the system browser gets the authorize URL');
-    assert.equal(flipped, null, 'providerId never flips on a failed handshake');
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
+    assert.equal((await r.connect('missing-provider')).ok, false);
+    assert.equal(flipped, null, 'an unavailable provider never changes remote authority');
+    assert.equal((await r.connect('mock')).ok, true);
+    assert.equal(flipped, 'mock');
+  });
+
+  test('descriptors expose capabilities and switching is blocked during active work', async () => {
+    let active = true;
+    const { runtime: r } = runtime({ isWorkActive: () => active });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
+    assert.deepEqual(
+      r.descriptors().map(({ id, capabilities }) => ({ id, quota: capabilities.quota })),
+      [
+        { id: 'pcloud', quota: 'known' },
+        { id: 'mock', quota: 'known' },
+      ],
+    );
+    assert.equal((await r.connect('mock')).ok, false);
+    assert.equal(r.disconnect('mock').ok, false);
+    active = false;
+    assert.equal((await r.connect('mock')).ok, true);
   });
 });
 

@@ -43,9 +43,10 @@ export interface OverlookApi {
     readonly onCompleted: (listener: (payload: z.output<typeof events.backupCompleted.payload>) => void) => () => void;
     readonly offload: (request: Req<typeof channels.backupOffload>) => Promise<Res<typeof channels.backupOffload>>;
     readonly rehydrate: (request: Req<typeof channels.backupRehydrate>) => Promise<Res<typeof channels.backupRehydrate>>;
-    readonly providerStatus: () => Promise<Res<typeof channels.backupProviderStatus>>;
-    readonly connect: () => Promise<Res<typeof channels.backupConnect>>;
-    readonly disconnect: () => Promise<Res<typeof channels.backupDisconnect>>;
+    readonly providers: () => Promise<Res<typeof channels.backupProviders>>;
+    readonly providerStatus: (request: Req<typeof channels.backupProviderStatus>) => Promise<Res<typeof channels.backupProviderStatus>>;
+    readonly connect: (request: Req<typeof channels.backupConnect>) => Promise<Res<typeof channels.backupConnect>>;
+    readonly disconnect: (request: Req<typeof channels.backupDisconnect>) => Promise<Res<typeof channels.backupDisconnect>>;
   };
   readonly export: {
     readonly pickDestination: (request: Req<typeof channels.exportPickDestination>) => Promise<Res<typeof channels.exportPickDestination>>;

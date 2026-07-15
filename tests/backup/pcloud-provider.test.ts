@@ -65,6 +65,18 @@ function world(script: Script, downloads: Record<string, string | number> = {}) 
 const ok = (extra: Record<string, unknown> = {}) => ({ result: 0, ...extra });
 
 describe('pCloud provider adapter (#255)', () => {
+  test('declares the conservative capability contract used by generic UI', () => {
+    const { provider } = world({});
+    assert.deepEqual(provider.capabilities, {
+      quota: 'known',
+      verification: 'download-hash',
+      resumableUpload: false,
+      platforms: ['darwin', 'win32', 'linux'],
+      interactiveAuth: true,
+      reconnectRequired: true,
+    });
+  });
+
   test('EXIT CRITERIA: put ensures ancestors once, uploads under /Overlook/<libraryId>/, reports recorded size', async () => {
     const { provider, calls } = world({
       createfolderifnotexists: () => ok(),

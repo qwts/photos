@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { providerIdSchema } from '../backup/provider-descriptor.js';
 
 // Typed app settings (#111, epic #44): one source of truth for every knob
 // the SettingsDialog surfaces (design SettingsDialog.jsx = the control
@@ -19,7 +20,7 @@ export const settingsSchema = z.object({
   bandwidthLimit: z.number().int().min(10).max(100),
   shareDiagnostics: z.boolean(),
   /** Connected provider; null = disconnected (backup controls disable). */
-  providerId: z.enum(['mock', 'pcloud']).nullable(),
+  providerId: providerIdSchema.nullable(),
 });
 
 /** The settings:set request shape — every key optional, same rules. */

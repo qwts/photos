@@ -92,10 +92,12 @@ describe('settings store (#111)', () => {
     await assert.rejects(handler({ patch: { bandwidthLimit: 5 } }), 'below the slider floor');
     await assert.rejects(handler({ patch: { bandwidthLimit: 101 } }), 'above unlimited');
     await assert.rejects(handler({ patch: { sortOrder: 'random' } }), 'unknown enum value');
+    await assert.rejects(handler({ patch: { providerId: '../cloud' } }), 'unsafe provider registry key');
 
-    const ok = await handler({ patch: { bandwidthLimit: 10, wifiOnly: false } });
+    const ok = await handler({ patch: { bandwidthLimit: 10, wifiOnly: false, providerId: 'future-cloud' } });
     assert.equal(ok.settings.bandwidthLimit, 10);
     assert.equal(store.get().wifiOnly, false);
+    assert.equal(store.get().providerId, 'future-cloud', 'new adapters need no settings enum edit');
   });
 
   test('throttle mapping: 100 = unlimited (null), anything lower passes through', () => {

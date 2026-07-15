@@ -25,7 +25,6 @@ import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
-import type { StorageProvider } from './backup/provider.js';
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
@@ -373,11 +372,8 @@ function getSettingsStore(): SettingsStore {
 
 let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
-/** The active provider (a delegator over the registry, #256) — the
- * connection card reads its quota. */
-let backupProvider: StorageProvider | undefined;
-
 let providerRuntime: ProviderRuntime | undefined;
+let providerWorkCount = 0;
 
 /** Provider selection + pCloud custody policy (#256) — logic lives in
  * backup/provider-runtime.ts; only the Electron seams are wired here. */
@@ -388,6 +384,7 @@ function getProviderRuntime(): ProviderRuntime {
     openExternal: async (url) => shell.openExternal(url),
     setProviderId: (id) => getSettingsStore().set({ providerId: id }),
     providerId: () => getSettingsStore().get().providerId,
+    isWorkActive: () => providerWorkCount > 0,
     isPackaged: app.isPackaged,
     harnessEnv,
   });
@@ -443,7 +440,6 @@ function getBackupEngine(): BackupEngine {
       mockRootDir: path.join(app.getPath('userData'), 'library', 'mock-remote'),
       fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),
     });
-    backupProvider = provider;
     backupEngine = new BackupEngine({
       provider,
       ledger,
@@ -579,11 +575,16 @@ function getBackupEngine(): BackupEngine {
     const engine = backupEngine;
     const originalRun = engine.run.bind(engine);
     const runAndReport = async (auto: boolean, signal?: AbortSignal): Promise<BackupRunResult> => {
-      const result = await originalRun(signal);
-      if (result.skipped === null) {
-        emitCompleted({ uploaded: result.uploaded, failed: result.failed, manifestUploaded: result.manifestUploaded, auto });
+      providerWorkCount += 1;
+      try {
+        const result = await originalRun(signal);
+        if (result.skipped === null) {
+          emitCompleted({ uploaded: result.uploaded, failed: result.failed, manifestUploaded: result.manifestUploaded, auto });
+        }
+        return result;
+      } finally {
+        providerWorkCount -= 1;
       }
-      return result;
     };
     engine.run = (signal?: AbortSignal) => runAndReport(false, signal);
     // The auto-backup trigger (#105/#111): same single-flight run, marked
@@ -890,36 +891,13 @@ void app.whenReady().then(async () => {
       // Connection card truth (#114): connected = the user's providerId
       // setting; quota comes live from the provider. A data-call failure
       // (e.g. simulated auth expiry) reports as disconnected, not a crash.
-      providerStatus: async () => {
-        const providerId = getProviderRuntime().activeId();
-        if (providerId === null || backupProvider === undefined) {
-          // Disconnected: the card still needs to know WHO Connect targets
-          // ("Connect pCloud" in packaged builds, the mock in dev).
-          return { provider: getProviderRuntime().defaultTarget(), connected: false, account: null, usedBytes: 0, totalBytes: 0 };
-        }
-        try {
-          const quota = await backupProvider.quota();
-          return { provider: providerId, connected: true, account: null, usedBytes: quota.usedBytes, totalBytes: quota.totalBytes };
-        } catch {
-          return { provider: providerId, connected: false, account: null, usedBytes: 0, totalBytes: 0 };
-        }
-      },
-      // Connect/disconnect (#254): policy lives here, not in the renderer.
-      // The mock keeps its instant connect; pCloud runs the OAuth loopback
-      // flow (registered by #256 — until then the mock path is the live one).
-      connect: async () => {
-        if (backupProvider?.id === 'pcloud') {
-          return getProviderRuntime().connect();
-        }
-        getSettingsStore().set({ providerId: 'mock' });
-        return { ok: true, reason: null };
-      },
-      disconnect: () => {
-        getSettingsStore().set({ providerId: null });
-        // Detaching drops custody too — reconnecting is a fresh handshake.
-        getProviderRuntime().tokenStore().clear();
-        return Promise.resolve();
-      },
+      providers: () => ({
+        providers: getProviderRuntime().descriptors(),
+        defaultProviderId: getProviderRuntime().defaultTarget(),
+      }),
+      providerStatus: (providerId) => getProviderRuntime().status(providerId),
+      connect: (providerId) => getProviderRuntime().connect(providerId),
+      disconnect: (providerId) => Promise.resolve(getProviderRuntime().disconnect(providerId)),
     };
   });
   const seedCount = Number(harnessEnv('OVERLOOK_SEED') ?? '0');
