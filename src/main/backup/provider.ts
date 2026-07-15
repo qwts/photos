@@ -1,5 +1,5 @@
 import type { Readable } from 'node:stream';
-import type { ProviderCapabilities } from '../../shared/backup/provider-descriptor.js';
+import type { ProviderCapabilities, ProviderId } from '../../shared/backup/provider-descriptor.js';
 
 // Storage-provider seam (#103, ADR-0007): the ONE interface both the mock
 // and the pCloud adapter (#109) implement. Engine code imports only this —
@@ -49,7 +49,7 @@ export function assertSafeRemotePath(path: string): void {
 
 export interface StorageProvider {
   /** Stable id ('mock', 'pcloud') — the registry + settings key. */
-  readonly id: string;
+  readonly id: ProviderId;
   /** Human label for the settings card ("pCloud", "Local mock"). */
   readonly label: string;
   /** UI and policy truth; adapters state limits explicitly. */
