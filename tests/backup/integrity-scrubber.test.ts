@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +8,9 @@ import { buffer } from 'node:stream/consumers';
 import { test } from 'node:test';
 
 import { BackupIntegrityScrubber, type BackupIntegrityCursor, type BackupIntegrityItem } from '../../src/main/backup/integrity-scrubber.js';
+import { BackupIntegrityCursorStore } from '../../src/main/backup/integrity-cursor.js';
 import { MockProvider } from '../../src/main/backup/mock-provider.js';
+import { openLibraryDatabase } from '../../src/main/db/database.js';
 
 const HASH_A = 'aa'.repeat(32);
 const HASH_B = 'bb'.repeat(32);
@@ -94,4 +97,25 @@ test('remote-only missing or corrupt objects become explicit unrecoverable error
 
   assert.deepEqual(await scrubber.scrub(), { checked: 2, repaired: 0, unrecoverable: 2, cycleComplete: true });
   assert.deepEqual(marked, ['P1', 'P2']);
+});
+
+test('cursor progress survives restart and remains provider-scoped (#302)', async () => {
+  const db = openLibraryDatabase({
+    path: join(mkdtempSync(join(tmpdir(), 'overlook-integrity-cursor-')), 'library.db'),
+    dbKey: randomBytes(32),
+  });
+  const pcloud = new BackupIntegrityCursorStore(db, 'pcloud');
+  await pcloud.save({ version: 1, afterId: 'P1500', completedAt: null });
+
+  assert.deepEqual(await new BackupIntegrityCursorStore(db, 'pcloud').load(), {
+    version: 1,
+    afterId: 'P1500',
+    completedAt: null,
+  });
+  assert.deepEqual(await new BackupIntegrityCursorStore(db, 'mock').load(), {
+    version: 1,
+    afterId: null,
+    completedAt: null,
+  });
+  db.close();
 });
