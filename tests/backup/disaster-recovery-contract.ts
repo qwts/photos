@@ -13,10 +13,12 @@ import { BlobStore } from '../../src/main/blobs/blob-store.js';
 import { createEncryptStream } from '../../src/main/crypto/envelope.js';
 import { KeyStore, type SafeStorageLike } from '../../src/main/crypto/keystore.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
+import { MIGRATIONS } from '../../src/main/db/migrations.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 
 const GENERATED_AT = '2026-07-15T02:00:00.000Z';
+const CURRENT_DATABASE_SCHEMA = Math.max(...MIGRATIONS.map((migration) => migration.version));
 
 const fakeSafeStorage: SafeStorageLike = {
   isEncryptionAvailable: () => true,
@@ -92,7 +94,7 @@ export async function exerciseDisasterRecoveryContract(
       libraryId,
       generatedAt: GENERATED_AT,
       snapshot: {
-        databaseSchema: 3,
+        databaseSchema: CURRENT_DATABASE_SCHEMA,
         keyIds: [keyStore.currentKey().id],
         totals: { photos: 2, bytes: photos.reduce((sum, photo) => sum + photo.bytes, 0), albums: 1 },
         photos,

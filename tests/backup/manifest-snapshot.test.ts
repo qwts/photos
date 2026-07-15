@@ -8,9 +8,12 @@ import { join } from 'node:path';
 import { buildBackupManifestV2 } from '../../src/main/backup/backup-manifest.js';
 import { SyncLedger } from '../../src/main/backup/sync-ledger.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
+import { MIGRATIONS } from '../../src/main/db/migrations.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { run } from '../../src/main/db/sql.js';
 import type { PhotoInsert } from '../../src/shared/library/types.js';
+
+const CURRENT_DATABASE_SCHEMA = Math.max(...MIGRATIONS.map((migration) => migration.version));
 
 function photo(id: string, hashByte: string, favorite = false): PhotoInsert {
   return {
@@ -63,7 +66,7 @@ describe('recoverable manifest snapshot (#289)', () => {
       snapshot: repo.manifestSnapshot(),
     });
 
-    assert.equal(manifest.databaseSchema, 3);
+    assert.equal(manifest.databaseSchema, CURRENT_DATABASE_SCHEMA);
     assert.deepEqual(manifest.keyIds, [1]);
     assert.deepEqual(
       manifest.photos.map(({ id, favorite, deletedAt, blobPath }) => ({ id, favorite, deletedAt: deletedAt !== null, blobPath })),
