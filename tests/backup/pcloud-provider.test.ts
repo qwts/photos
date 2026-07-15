@@ -77,7 +77,7 @@ describe('pCloud provider adapter (#255)', () => {
     });
   });
 
-  test('discovers safe Overlook library homes and scopes without changing authority', async () => {
+  test('discovers only completed recovery homes; ignores in-progress backups and empty scratch folders (#291)', async () => {
     const { provider, calls } = world({
       listfolder: () =>
         ok({
@@ -85,8 +85,24 @@ describe('pCloud provider adapter (#255)', () => {
             name: 'Overlook',
             isfolder: true,
             contents: [
-              { name: '01JSAFE', isfolder: true },
-              { name: '../escape', isfolder: true },
+              {
+                name: '01JSAFE',
+                isfolder: true,
+                contents: [
+                  {
+                    name: 'recovery',
+                    isfolder: true,
+                    contents: [{ name: 'bootstrap.ovrb', isfolder: false, size: 123 }],
+                  },
+                ],
+              },
+              { name: '01JUPLOADING', isfolder: true, contents: [{ name: 'blobs', isfolder: true, contents: [] }] },
+              { name: 'contract-scratch-01JEMPTY', isfolder: true, contents: [] },
+              {
+                name: '../escape',
+                isfolder: true,
+                contents: [{ name: 'recovery', isfolder: true, contents: [{ name: 'bootstrap.ovrb', isfolder: false, size: 1 }] }],
+              },
               { name: 'file.txt', isfolder: false, size: 2 },
             ],
           },
@@ -94,6 +110,7 @@ describe('pCloud provider adapter (#255)', () => {
     });
     assert.deepEqual(await provider.listLibraries(), ['01JSAFE']);
     assert.equal(calls[0]?.params.get('path'), '/Overlook');
+    assert.equal(calls[0]?.params.get('recursive'), '1');
     assert.equal(provider.forLibrary('01JSAFE').id, 'pcloud');
     assert.throws(
       () => provider.forLibrary('../escape'),
