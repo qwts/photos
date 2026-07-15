@@ -43,8 +43,7 @@ export async function exerciseRestoreProviderContract(browser: StorageProvider, 
     }
     assert.deepEqual(await discovered.list('manifest'), [{ path: 'manifest/gen-1.ovlk', bytes: objects[1]?.bytes.length }]);
   } finally {
-    for (const object of [...objects].reverse()) {
-      await scoped.delete(object.path).catch(() => undefined);
-    }
+    const cleanup = await Promise.allSettled([...objects].reverse().map((object) => scoped.delete(object.path)));
+    assert.equal(cleanup.filter((result) => result.status === 'rejected').length, 0, 'provider contract removes every scratch object');
   }
 }
