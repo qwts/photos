@@ -11,6 +11,7 @@ import { buffer } from 'node:stream/consumers';
 import { FaultInjectingProvider, MockProvider, ProviderRegistry } from '../../src/main/backup/mock-provider.js';
 import { ProviderError } from '../../src/main/backup/provider.js';
 import { providerDescriptorSchema } from '../../src/shared/backup/provider-descriptor.js';
+import { exerciseRestoreProviderContract } from './restore-provider-contract.js';
 
 // #103 exit criteria: the contract suite runs green against the mock, and
 // fault injection produces each error path the engine must handle. The same
@@ -24,6 +25,12 @@ function world(totalBytes?: number) {
 const PAYLOAD = Buffer.from('OVLK-envelope-bytes-already-encrypted');
 
 describe('storage provider contract (#103)', () => {
+  test('restore contract: discover → scope → read bootstrap, manifest, and blob → cleanup (#291)', async () => {
+    const { provider } = world();
+    await exerciseRestoreProviderContract(provider, 'mock-library');
+    assert.deepEqual(await provider.listLibraries(), [], 'cleanup removes the bootstrap discovery marker');
+  });
+
   test('EXIT CRITERIA: put → list → get → verify → delete round-trip', async () => {
     const { provider } = world();
     assert.equal(
