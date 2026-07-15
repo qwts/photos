@@ -33,12 +33,13 @@ export interface ProviderStatus {
 
 export interface StoragePaneProps {
   readonly settings: AppSettings;
+  readonly onRestore?: (() => void) | undefined;
   readonly onPatch: (
     patch: Partial<Pick<AppSettings, 'autoBackupOnImport' | 'importMode' | 'wifiOnly' | 'bandwidthLimit' | 'providerId'>>,
   ) => void;
 }
 
-export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactElement {
+export function StoragePane({ settings, onPatch, onRestore }: StoragePaneProps): ReactElement {
   const [status, setStatus] = useState<ProviderStatus | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
@@ -154,6 +155,12 @@ export function StoragePane({ settings, onPatch }: StoragePaneProps): ReactEleme
           />
         </Field>
       ) : null}
+
+      <Field label="Restore from cloud backup" hint="Recover a complete library with its separately saved recovery key.">
+        <Button icon="cloud-download" onClick={onRestore}>
+          Restore library…
+        </Button>
+      </Field>
 
       {connected ? (
         <>

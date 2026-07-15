@@ -96,7 +96,49 @@ function installStub(): void {
     pickFile: () => Promise.resolve({ path: null }),
     import: () => Promise.resolve({ installed: false, fingerprint: null, reason: 'invalid' as const }),
   } as unknown as OverlookApi['keys'];
-  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { settings: settingsApi, backup: backupApi, keys: keysApi };
+  const restoreApi: OverlookApi['restore'] = {
+    profileStatus: () => Promise.resolve({ fresh: false }),
+    pickKey: () => Promise.resolve({ path: '/Users/ansel/Desktop/overlook-recovery.key' }),
+    discover: () =>
+      Promise.resolve({
+        sessionId: 'story-session',
+        libraries: [
+          {
+            libraryId: '01JZZZZZZZZZZZZZZZZZZZZZZZ',
+            generation: 7,
+            generatedAt: '2026-07-14T23:00:00.000Z',
+            photos: 1542,
+            totalBytes: 48_000_000_000,
+            albums: 12,
+            compatibility: 'compatible',
+            validation: 'valid',
+            fallbackGenerations: 1,
+            resumable: true,
+          },
+        ],
+        error: null,
+      }),
+    run: () =>
+      Promise.resolve({
+        result: {
+          libraryId: '01JZZZZZZZZZZZZZZZZZZZZZZZ',
+          generation: 7,
+          photos: 1542,
+          resumed: true,
+          fallbackFromGeneration: null,
+          relaunching: true,
+        },
+        error: null,
+      }),
+    cancel: () => Promise.resolve({}),
+    onProgress: () => () => undefined,
+  };
+  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = {
+    settings: settingsApi,
+    backup: backupApi,
+    keys: keysApi,
+    restore: restoreApi,
+  };
 }
 
 const meta: Meta<typeof SettingsDialog> = {
@@ -165,6 +207,26 @@ export const ProviderSelectionAndUnknownQuota: Story = {
     await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · STORAGE USAGE NOT REPORTED')).toBeVisible());
     await expect(body.getByText(/VERIFY BY DOWNLOAD/u)).toBeVisible();
+  },
+};
+
+export const RestoreDiscoveryAndWarnings: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const restoreButton = await waitFor(() => body.getByRole('button', { name: 'Restore library…' }));
+    await userEvent.click(restoreButton);
+    await expect(body.getByRole('dialog', { name: 'Restore from cloud backup' })).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Choose recovery key' }));
+    await userEvent.type(body.getByLabelText('Recovery-key password'), 'correct horse battery staple');
+    await userEvent.click(body.getByRole('button', { name: 'Discover backups' }));
+    await waitFor(() => expect(body.getByTestId('restore-library-card')).toHaveTextContent('1,542 PHOTOS'));
+    await expect(body.getByText('1 retained fallback generation available')).toBeVisible();
+    await expect(body.getByText('Verified staged work is ready to resume')).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Review restore' }));
+    await expect(body.getByText('This replaces the active library.')).toBeVisible();
+    await expect(body.getByRole('button', { name: 'Restore 1,542 photos' })).toBeDisabled();
+    await userEvent.click(body.getByRole('checkbox'));
+    await expect(body.getByRole('button', { name: 'Restore 1,542 photos' })).toBeEnabled();
   },
 };
 

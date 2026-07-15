@@ -524,6 +524,20 @@
       ]
     },
     {
+      "id": "m18-cloud-disaster-recovery-workflow",
+      "wiki": "User-Story-M18-Recovery-key",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/restore-cloud.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        }
+      ]
+    },
+    {
       "id": "ux-lightbox-close-and-drag-region",
       "wiki": "User-Story-M06-Viewing",
       "coverage": [

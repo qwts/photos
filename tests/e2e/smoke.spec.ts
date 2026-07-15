@@ -24,6 +24,9 @@ test('opens a window rendering the React shell', async () => {
   });
   try {
     const page = await app.firstWindow();
+    await expect(page.getByTestId('restore-onboarding')).toBeVisible();
+    await expect(page.getByText('Restore from cloud backup')).toBeVisible();
+    await page.getByRole('button', { name: 'Start a new library' }).click();
     // An empty library renders the mock's empty state (#76).
     await expect(page.getByTestId('empty-state')).toBeVisible();
     await expect(page.getByText('Nothing matches')).toBeVisible();
