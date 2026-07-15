@@ -29,6 +29,7 @@ import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
 import { RestoreRuntime } from './backup/restore-runtime.js';
 import { createRestoreFacade } from './backup/restore-facade.js';
+import { recoverInterruptedActivation, restorePaths } from './backup/restore-staging.js';
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
@@ -422,9 +423,7 @@ let consistencyChecker: ConsistencyChecker | undefined;
 
 function getPurgeService(): PurgeService {
   getBackupEngine();
-  if (purgeService === undefined) {
-    throw new Error('backup bootstrap failed; purge unavailable');
-  }
+  if (purgeService === undefined) throw new Error('backup bootstrap failed; purge unavailable');
   return purgeService;
 }
 
@@ -830,6 +829,8 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(async () => {
+  // Recover the activation rename crash window before IPC can classify/open the library.
+  await recoverInterruptedActivation(restorePaths(path.join(app.getPath('userData'), 'library')));
   registerIpcHandlers();
   registerLibraryHandlers(getLibraryService, () => {
     // Soft delete of a synced row leaves pendingCount at 0 with a STALE
