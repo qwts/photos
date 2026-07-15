@@ -63,7 +63,13 @@ function installStub(): void {
     },
   };
   const backupApi: OverlookApi['backup'] = {
-    run: () => Promise.resolve({ uploaded: 0, failed: 0, skipped: null }),
+    run: () =>
+      Promise.resolve({
+        uploaded: 0,
+        failed: 0,
+        skipped: null,
+        integrity: { checked: 0, repaired: 0, unrecoverable: 0, failed: false },
+      }),
     onProgress: () => () => undefined,
     onCompleted: () => () => undefined,
     offload: () => Promise.resolve({ offloaded: 0, skipped: 0, freedBytes: 0 }),

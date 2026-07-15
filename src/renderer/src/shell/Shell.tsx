@@ -70,7 +70,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
     // summaries for each upload caused 1,500 redundant IPC bursts; completion
     // reconciles stats and the verified-backup stamp once instead.
     const offChanged = window.overlook.library.onChanged(refresh);
-    const offCompleted = window.overlook.backup.onCompleted(refreshStats);
+    const offCompleted = window.overlook.backup.onCompleted(refresh);
     return () => {
       offChanged();
       offCompleted();
@@ -112,13 +112,8 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
   // Backup completion (#106): failures surface as the red toast with a
   // Retry action; the pending/count refresh rides the existing pushes.
   useEffect(() => {
-    return window.overlook.backup.onCompleted(({ uploaded, failed, manifestUploaded, auto }) => {
-      if (failed === 0 && manifestUploaded && uploaded > 0 && !auto) {
-        // Green completion per the mock (#108) — MANUAL runs only. An
-        // automatic success stays quiet (the status bar flips anyway):
-        // its toast was racing the import-complete toast (#116).
-        dispatch({ type: 'toast/shown', toast: { title: 'BACKUP COMPLETE', tone: 'green' } });
-      } else if (failed > 0) {
+    return window.overlook.backup.onCompleted(({ uploaded, failed, manifestUploaded, auto, integrity }) => {
+      if (failed > 0) {
         dispatch({
           type: 'toast/shown',
           toast: { title: `BACKUP: ${formatCount(failed)} FAILED — WILL RETRY`, tone: 'red', action: 'retry-backup' },
@@ -130,6 +125,26 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           type: 'toast/shown',
           toast: { title: 'BACKUP INDEX PENDING — WILL RETRY', tone: 'red', action: 'retry-backup' },
         });
+      } else if (integrity.failed) {
+        dispatch({
+          type: 'toast/shown',
+          toast: { title: 'BACKUP CHECK INCOMPLETE — WILL RETRY', tone: 'red', action: 'retry-backup' },
+        });
+      } else if (integrity.unrecoverable > 0) {
+        dispatch({
+          type: 'toast/shown',
+          toast: { title: `BACKUP DAMAGED: ${formatCount(integrity.unrecoverable)} ORIGINALS MISSING`, tone: 'red' },
+        });
+      } else if (integrity.repaired > 0) {
+        dispatch({
+          type: 'toast/shown',
+          toast: { title: `BACKUP REPAIRED: ${formatCount(integrity.repaired)} CLOUD COPIES`, tone: 'green' },
+        });
+      } else if (uploaded > 0 && !auto) {
+        // Green completion per the mock (#108) — MANUAL runs only. An
+        // automatic success stays quiet (the status bar flips anyway):
+        // its toast was racing the import-complete toast (#116).
+        dispatch({ type: 'toast/shown', toast: { title: 'BACKUP COMPLETE', tone: 'green' } });
       }
     });
   }, [dispatch]);

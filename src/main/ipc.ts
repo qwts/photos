@@ -224,7 +224,12 @@ export function registerExportHandlers(getFacade: () => ExportFacade): void {
 }
 
 export interface BackupFacade {
-  run(): Promise<{ uploaded: number; failed: number; skipped: 'wifi' | 'disconnected' | null }>;
+  run(): Promise<{
+    uploaded: number;
+    failed: number;
+    skipped: 'wifi' | 'disconnected' | null;
+    integrity: { checked: number; repaired: number; unrecoverable: number; failed: boolean };
+  }>;
   offload(photoIds: readonly string[]): Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
   rehydrate(photoId: string): Promise<void>;
   providers(): { providers: readonly ProviderDescriptor[]; defaultProviderId: string };

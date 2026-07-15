@@ -1,4 +1,4 @@
-import { access, appendFile, readFile, statfs, unlink } from 'node:fs/promises';
+import { access, readFile, statfs, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
@@ -24,7 +24,10 @@ import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
 import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
+import { createBackupAuditLogger } from './backup/backup-audit.js';
 import { createBackupFacade } from './backup/backup-facade.js';
+import { createBackupIntegrityRuntime } from './backup/integrity-runtime.js';
+import { sealManifestJson } from './backup/manifest-sealer.js';
 import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
 import { RestoreRuntime } from './backup/restore-runtime.js';
@@ -35,7 +38,6 @@ import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
-import { createEncryptStream } from './crypto/envelope.js';
 import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
@@ -453,6 +455,7 @@ function getBackupEngine(): BackupEngine {
       broadcast((win) => win.webContents.send(name, payload));
     });
     const auditPath = path.join(app.getPath('userData'), 'library', 'backup-audit.log');
+    const audit = createBackupAuditLogger(auditPath);
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -461,22 +464,27 @@ function getBackupEngine(): BackupEngine {
       mockRootDir: path.join(app.getPath('userData'), 'mock-remote'),
       fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),
     });
+    const emitSyncStateChanged = createEmitter(events.photoSyncStateChanged, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const integrityScrubber = createBackupIntegrityRuntime({
+      db: parts.db,
+      provider,
+      repo,
+      blobs: parts.blobStore,
+      resolveKey: parts.keyStore.resolver(),
+      markUnrecoverable: (photoId) => {
+        ledger.repairStatus(photoId, 'error');
+        emitSyncStateChanged({ updates: [{ id: photoId, syncState: 'error' }] });
+      },
+      audit,
+    });
     backupEngine = new BackupEngine({
       provider,
       ledger,
       dirtyPhotos: () => repo.dirtyPhotos(),
       encryptedStream: (hash) => parts.blobStore.getEncryptedStream(hash),
-      sealManifest: async (json) => {
-        const chunks: Buffer[] = [];
-        const encrypt = createEncryptStream(parts.keyStore.currentKey(), { photoId: 'manifest' });
-        encrypt.on('data', (chunk: Buffer) => chunks.push(chunk));
-        await new Promise<void>((resolve, reject) => {
-          encrypt.on('end', resolve);
-          encrypt.on('error', reject);
-          encrypt.end(Buffer.from(json));
-        });
-        return Buffer.concat(chunks);
-      },
+      sealManifest: (json) => sealManifestJson(json, parts.keyStore.currentKey()),
       sealRecoveryBootstrap: (generatedAt) =>
         sealKeyStoreRecoveryBootstrap({ keyStore: parts.keyStore, libraryId: getProviderRuntime().libraryId(), generatedAt }),
       libraryId: () => getProviderRuntime().libraryId(),
@@ -494,23 +502,13 @@ function getBackupEngine(): BackupEngine {
         };
       },
       network: () => 'unknown',
-      events: {
-        progress: (done, total, photoId) => {
-          emitProgress({ done, total, photoId });
-        },
-      },
+      events: { progress: (done, total, photoId) => emitProgress({ done, total, photoId }) },
       now: () => Date.now(),
       sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-      pendingCountChanged: (count) => {
-        emitPending({ count });
-      },
-      syncStateChanged: (updates) => {
-        const payload = events.photoSyncStateChanged.payload.parse({ updates: [...updates] });
-        broadcast((win) => win.webContents.send(events.photoSyncStateChanged.name, payload));
-      },
-      audit: (line) => {
-        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
-      },
+      pendingCountChanged: (count) => emitPending({ count }),
+      syncStateChanged: (updates) => emitSyncStateChanged({ updates: [...updates] }),
+      audit,
+      integrityScrub: () => integrityScrubber.scrub(),
     });
     offloadService = new OffloadService({
       provider,
@@ -529,9 +527,7 @@ function getBackupEngine(): BackupEngine {
       libraryChanged: (photoIds) => {
         emitLibraryChanged({ photoIds: [...photoIds] });
       },
-      audit: (line) => {
-        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
-      },
+      audit,
     });
     purgeService = new PurgeService({
       repo: {
@@ -554,9 +550,7 @@ function getBackupEngine(): BackupEngine {
       libraryChanged: (photoIds) => {
         emitLibraryChanged({ photoIds: [...photoIds] });
       },
-      audit: (line) => {
-        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
-      },
+      audit,
       now: () => Date.now(),
       sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     });
@@ -585,9 +579,7 @@ function getBackupEngine(): BackupEngine {
       libraryChanged: (photoIds) => {
         emitLibraryChanged({ photoIds: [...photoIds] });
       },
-      audit: (line) => {
-        void appendFile(auditPath, `${new Date().toISOString()} ${line}\n`).catch(() => undefined);
-      },
+      audit,
     });
     // Completion events drive the toasts (#106) and the card's bar clear
     // (#108). `auto` rides along so the renderer keeps automatic successes
@@ -600,7 +592,13 @@ function getBackupEngine(): BackupEngine {
       try {
         const result = await originalRun(signal);
         if (result.skipped === null) {
-          emitCompleted({ uploaded: result.uploaded, failed: result.failed, manifestUploaded: result.manifestUploaded, auto });
+          emitCompleted({
+            uploaded: result.uploaded,
+            failed: result.failed,
+            manifestUploaded: result.manifestUploaded,
+            auto,
+            integrity: result.integrity,
+          });
         }
         return result;
       } finally {

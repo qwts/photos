@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,10 +7,21 @@ import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 import { test } from 'node:test';
 
-import { BackupIntegrityScrubber, type BackupIntegrityCursor, type BackupIntegrityItem } from '../../src/main/backup/integrity-scrubber.js';
+import {
+  BackupIntegrityScrubber,
+  verifyRemoteOriginalCiphertext,
+  type BackupIntegrityCursor,
+  type BackupIntegrityItem,
+} from '../../src/main/backup/integrity-scrubber.js';
 import { BackupIntegrityCursorStore } from '../../src/main/backup/integrity-cursor.js';
+import { createBackupIntegrityRuntime } from '../../src/main/backup/integrity-runtime.js';
 import { MockProvider } from '../../src/main/backup/mock-provider.js';
+import { createEncryptStream, type EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
+import { PhotosRepository } from '../../src/main/db/photos-repository.js';
+import { run } from '../../src/main/db/sql.js';
+import { SyncLedger } from '../../src/main/backup/sync-ledger.js';
+import type { PhotoInsert } from '../../src/shared/library/types.js';
 
 const HASH_A = 'aa'.repeat(32);
 const HASH_B = 'bb'.repeat(32);
@@ -117,5 +128,88 @@ test('cursor progress survives restart and remains provider-scoped (#302)', asyn
     afterId: null,
     completedAt: null,
   });
+  db.close();
+});
+
+test('remote-only verification authenticates the envelope and plaintext content address (#302)', async () => {
+  const plaintext = Buffer.from('remote-only original');
+  const contentHash = createHash('sha256').update(plaintext).digest('hex');
+  const key: EnvelopeKey = { id: 1, key: randomBytes(32) };
+  const ciphertext = await buffer(Readable.from([plaintext]).pipe(createEncryptStream(key, { photoId: 'P1' })));
+  const item: BackupIntegrityItem = { id: 'P1', contentHash, syncState: 'offloaded' };
+
+  assert.equal(await verifyRemoteOriginalCiphertext(item, Readable.from([ciphertext]), () => key.key), true);
+  assert.equal(await verifyRemoteOriginalCiphertext({ ...item, id: 'P2' }, Readable.from([ciphertext]), () => key.key), false);
+  assert.equal(await verifyRemoteOriginalCiphertext({ ...item, contentHash: HASH_A }, Readable.from([ciphertext]), () => key.key), false);
+});
+
+test('catalog paging includes only stable synced and offloaded recovery claims (#302)', () => {
+  const db = openLibraryDatabase({
+    path: join(mkdtempSync(join(tmpdir(), 'overlook-integrity-items-')), 'library.db'),
+    dbKey: randomBytes(32),
+  });
+  const repo = new PhotosRepository(db);
+  const ledger = new SyncLedger(db);
+  run(db, `INSERT INTO keys (id, wrapped_key, created_at) VALUES (1, 'test', '2026-07-15T00:00:00.000Z')`);
+  for (const [index, id] of ['P1', 'P2', 'P3'].entries()) {
+    repo.insert({
+      id,
+      fileName: `${id}.jpg`,
+      fileKind: 'jpeg',
+      width: 1,
+      height: 1,
+      bytes: 1,
+      contentHash: String(index + 1).repeat(64),
+      camera: null,
+      lens: null,
+      iso: null,
+      aperture: null,
+      shutter: null,
+      focalLength: null,
+      takenAt: null,
+      gpsLat: null,
+      gpsLon: null,
+      place: null,
+      importedAt: '2026-07-15T00:00:00.000Z',
+      importSource: 'test',
+      keyId: 1,
+    } satisfies PhotoInsert);
+  }
+  for (const id of ['P1', 'P2']) {
+    ledger.setStatus(id, 'syncing');
+    ledger.markBackedUp(id, '2026-07-15T00:00:00.000Z');
+  }
+  ledger.setStatus('P2', 'offloaded');
+
+  assert.deepEqual(repo.integrityItems({ afterId: null, limit: 1 }), [{ id: 'P1', contentHash: '1'.repeat(64), syncState: 'synced' }]);
+  assert.deepEqual(repo.integrityItems({ afterId: 'P1', limit: 10 }), [{ id: 'P2', contentHash: '2'.repeat(64), syncState: 'offloaded' }]);
+  db.close();
+});
+
+test('runtime composition persists progress and marks missing remote-only rows (#302)', async () => {
+  const db = openLibraryDatabase({
+    path: join(mkdtempSync(join(tmpdir(), 'overlook-integrity-runtime-')), 'library.db'),
+    dbKey: randomBytes(32),
+  });
+  const provider = new MockProvider({ rootDir: mkdtempSync(join(tmpdir(), 'overlook-integrity-runtime-remote-')) });
+  const marked: string[] = [];
+  const runtime = createBackupIntegrityRuntime({
+    db,
+    provider,
+    repo: { integrityItems: () => [{ id: 'P1', contentHash: HASH_A, syncState: 'offloaded' }] },
+    blobs: {
+      hasOriginal: () => false,
+      getEncryptedStream: () => {
+        throw new Error('remote-only row has no local envelope');
+      },
+    },
+    resolveKey: () => undefined,
+    markUnrecoverable: (photoId) => marked.push(photoId),
+    audit: () => undefined,
+  });
+
+  assert.deepEqual(await runtime.scrub(), { checked: 1, repaired: 0, unrecoverable: 1, cycleComplete: true });
+  assert.deepEqual(marked, ['P1']);
+  assert.notEqual((await new BackupIntegrityCursorStore(db, provider.id).load()).completedAt, null);
   db.close();
 });

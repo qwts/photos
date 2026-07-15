@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { markDirty } from '../backup/sync-ledger.js';
+import type { BackupIntegrityItem } from '../backup/integrity-scrubber.js';
 import type { BackupManifestPhotoV2, BackupManifestSnapshot, BackupManifestV2 } from '../backup/backup-manifest.js';
 import type { WrappedKeyRecord } from '../crypto/keystore.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
@@ -547,6 +548,23 @@ export class PhotosRepository {
          FROM photos p JOIN sync_ledger l ON l.photo_id = p.id
         WHERE l.dirty = 1 AND p.deleted_at IS NULL
         ORDER BY p.imported_at, p.id`,
+    );
+  }
+
+  /** Stable keyset page over rows whose remote-copy claim must remain true.
+   * Deleted-but-retained photos are included because recovery still promises
+   * their original until permanent purge. */
+  integrityItems(page: { readonly afterId: string | null; readonly limit: number }): readonly BackupIntegrityItem[] {
+    return queryAll<BackupIntegrityItem>(
+      this.db,
+      `SELECT p.id, p.content_hash AS contentHash, l.status AS syncState
+         FROM photos p
+         JOIN sync_ledger l ON l.photo_id = p.id
+        WHERE l.status IN ('synced', 'offloaded')
+          AND (@afterId IS NULL OR p.id > @afterId)
+        ORDER BY p.id
+        LIMIT @limit`,
+      { afterId: page.afterId, limit: page.limit },
     );
   }
 

@@ -6,6 +6,7 @@ import { ProviderError, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
 import { buildBackupManifestV2, type BackupManifestSnapshot } from './backup-manifest.js';
 import type { SyncStatus } from '../../shared/library/types.js';
+import type { BackupIntegritySummary } from './integrity-scrubber.js';
 
 // Backup engine (#105, ADR-0007): dirty photos flow to the provider
 // reliably and politely. The ledger's dirty set IS the queue and the resume
@@ -40,6 +41,14 @@ export interface BackupRunResult {
   readonly manifestUploaded: boolean;
   /** 'wifi' when the gate skipped the run entirely. */
   readonly skipped: 'wifi' | null;
+  readonly integrity: BackupRunIntegrity;
+}
+
+export interface BackupRunIntegrity {
+  readonly checked: number;
+  readonly repaired: number;
+  readonly unrecoverable: number;
+  readonly failed: boolean;
 }
 
 export interface BackupEngineDeps {
@@ -67,12 +76,14 @@ export interface BackupEngineDeps {
   readonly syncStateChanged: (updates: readonly { readonly id: string; readonly syncState: SyncStatus }[]) => void;
   /** Verify results append to M11's audit trail (#106). */
   readonly audit: (line: string) => void;
+  readonly integrityScrub: () => Promise<BackupIntegritySummary>;
 }
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_BASE_MS = 500;
 /** Manifest generations retained remotely (ADR-0007). */
 const MANIFEST_KEEP = 2;
+const EMPTY_INTEGRITY: BackupRunIntegrity = { checked: 0, repaired: 0, unrecoverable: 0, failed: false };
 
 function blobPath(contentHash: string): string {
   return `blobs/${contentHash.slice(0, 2)}/${contentHash}`;
@@ -115,7 +126,7 @@ export class BackupEngine {
     if (settings.wifiOnly && this.deps.network() === 'other') {
       // The Wi-Fi gate. 'unknown' (platform can't tell) deliberately does
       // NOT block — the unmetered heuristic recorded by ADR-0007/#105.
-      return { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi' };
+      return { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi', integrity: EMPTY_INTEGRITY };
     }
 
     // OFFLOADED rows can dirty too (album/favorite edits in the Offloaded
@@ -201,7 +212,24 @@ export class BackupEngine {
         console.error(`[overlook] manifest upload failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    return { uploaded, failed, manifestUploaded, skipped: null };
+    let integrity = EMPTY_INTEGRITY;
+    if (failed === 0 && manifestUploaded) {
+      try {
+        const summary = await this.deps.integrityScrub();
+        integrity = {
+          checked: summary.checked,
+          repaired: summary.repaired,
+          unrecoverable: summary.unrecoverable,
+          failed: false,
+        };
+      } catch (error) {
+        integrity = { ...EMPTY_INTEGRITY, failed: true };
+        const reason = error instanceof Error ? error.message : String(error);
+        this.deps.audit(`INTEGRITY-CHECK-FAILED reason=${reason}`);
+        console.error(`[overlook] integrity check failed: ${reason}`);
+      }
+    }
+    return { uploaded, failed, manifestUploaded, skipped: null, integrity };
   }
 
   /** Politeness (#105): at p percent, rest (100-p)/p of each item's upload
