@@ -24,6 +24,8 @@ export interface MockProviderOptions {
   readonly rootDir: string;
   /** Simulated quota total. Default 10 GiB. */
   readonly totalBytes?: number | undefined;
+  /** Stable identity represented by this filesystem root. */
+  readonly libraryId?: string | undefined;
 }
 
 const DEFAULT_TOTAL = 10 * 1024 * 1024 * 1024;
@@ -41,11 +43,30 @@ export class MockProvider implements StorageProvider {
   } as const;
   private readonly rootDir: string;
   private readonly totalBytes: number;
+  private readonly libraryId: string;
   private connected = true;
 
   constructor(options: MockProviderOptions) {
     this.rootDir = options.rootDir;
     this.totalBytes = options.totalBytes ?? DEFAULT_TOTAL;
+    this.libraryId = options.libraryId ?? 'mock-library';
+  }
+
+  async listLibraries(): Promise<readonly string[]> {
+    this.assertAuth();
+    try {
+      await stat(this.resolve('recovery/bootstrap.ovrb'));
+      return [this.libraryId];
+    } catch {
+      return [];
+    }
+  }
+
+  forLibrary(libraryId: string): StorageProvider {
+    if (libraryId !== this.libraryId) {
+      throw new ProviderError(`no mock library ${libraryId}`, 'not-found');
+    }
+    return this;
   }
 
   /** Test hook: simulate the user disconnecting/reconnecting the provider. */
@@ -157,6 +178,14 @@ export class FaultInjectingProvider implements StorageProvider {
     this.id = inner.id;
     this.label = inner.label;
     this.capabilities = inner.capabilities;
+  }
+
+  listLibraries(): Promise<readonly string[]> {
+    return this.inner.listLibraries();
+  }
+
+  forLibrary(libraryId: string): StorageProvider {
+    return new FaultInjectingProvider(this.inner.forLibrary(libraryId));
   }
 
   arm(fault: FaultKind): void {

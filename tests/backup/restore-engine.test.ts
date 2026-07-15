@@ -42,6 +42,14 @@ class CountingProvider implements StorageProvider {
     this.label = inner.label;
   }
 
+  listLibraries(): Promise<readonly string[]> {
+    return this.inner.listLibraries();
+  }
+
+  forLibrary(libraryId: string): StorageProvider {
+    return new CountingProvider(this.inner.forLibrary(libraryId));
+  }
+
   authState(): Promise<ProviderAuthState> {
     return this.inner.authState();
   }
@@ -156,7 +164,7 @@ async function restoreWorld(count = 1): Promise<RestoreWorld> {
       deletedAt: null,
     });
   }
-  const provider = new MockProvider({ rootDir: mkdtempSync(join(tmpdir(), 'overlook-restore-remote-')) });
+  const provider = new MockProvider({ rootDir: mkdtempSync(join(tmpdir(), 'overlook-restore-remote-')), libraryId: LIBRARY_ID });
   for (const photo of photos) await put(provider, photo.blobPath, await buffer(sourceStore.getEncryptedStream(photo.contentHash)));
   await put(
     provider,

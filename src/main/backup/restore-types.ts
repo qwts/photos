@@ -1,7 +1,7 @@
 import { ProviderError } from './provider.js';
+import type { RestoreFailure } from '../../shared/backup/restore-contract.js';
 
-export type RestoreFailure =
-  'auth' | 'offline' | 'disk-space' | 'corrupt' | 'wrong-key' | 'unsupported' | 'destructive-authorization' | 'cancelled' | 'io';
+export type { RestoreFailure } from '../../shared/backup/restore-contract.js';
 
 export class RestoreError extends Error {
   override readonly name = 'RestoreError';
