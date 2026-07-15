@@ -1,4 +1,5 @@
-import { access, appendFile, readFile, rename, stat, statfs, unlink, writeFile } from 'node:fs/promises';
+import { access, appendFile, readFile, statfs, unlink } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
@@ -23,21 +24,18 @@ import { ThumbnailService } from './import/thumbnail-service.js';
 import { ulid } from './import/ulid.js';
 import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
+import { createBackupFacade } from './backup/backup-facade.js';
 import { OffloadService } from './backup/offload.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
+import { RestoreRuntime } from './backup/restore-runtime.js';
+import { createRestoreFacade } from './backup/restore-facade.js';
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createEncryptStream } from './crypto/envelope.js';
-import {
-  RECOVERY_FILE_LENGTH,
-  fingerprintOf,
-  installRecoveredMaster,
-  openRecoveryKey,
-  RecoveryError,
-  sealRecoveryKey,
-} from './crypto/recovery.js';
+import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
+import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
 import { transcodeToJpeg } from './export/transcode.js';
 import {
@@ -49,6 +47,7 @@ import {
   registerKeysHandlers,
   registerLibraryHandlers,
   registerPurgeHandlers,
+  registerRestoreHandlers,
   registerSettingsHandlers,
   type ExportFacade,
 } from './ipc.js';
@@ -380,6 +379,7 @@ let providerWorkCount = 0;
 function getProviderRuntime(): ProviderRuntime {
   providerRuntime ??= new ProviderRuntime({
     dataDir: () => path.join(app.getPath('userData'), 'library'),
+    credentialDir: () => path.join(app.getPath('userData'), 'provider-auth', 'pcloud'),
     safeStorage: pickSafeStorage,
     openExternal: async (url) => shell.openExternal(url),
     setProviderId: (id) => getSettingsStore().set({ providerId: id }),
@@ -389,6 +389,21 @@ function getProviderRuntime(): ProviderRuntime {
     harnessEnv,
   });
   return providerRuntime;
+}
+
+/** Fresh-profile onboarding must enumerate/connect providers without
+ * bootstrapping an empty local library first. The browser scope is never
+ * used for backup writes; discovered homes are re-scoped before restore. */
+function ensureRestoreProviderRegistry(): ProviderRuntime {
+  const runtime = getProviderRuntime();
+  if (runtime.descriptors().length === 0) {
+    runtime.buildProvider({
+      mockRootDir: path.join(app.getPath('userData'), 'mock-remote'),
+      fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),
+      libraryId: 'restore-browser',
+    });
+  }
+  return runtime;
 }
 /** Auto-backup entry point (imports + resume) — set by getBackupEngine. */
 let autoBackupTrigger: (() => void) | undefined;
@@ -411,6 +426,12 @@ function getPurgeService(): PurgeService {
     throw new Error('backup bootstrap failed; purge unavailable');
   }
   return purgeService;
+}
+
+function getOffloadService(): OffloadService {
+  getBackupEngine();
+  if (offloadService === undefined) throw new Error('backup bootstrap failed; offload unavailable');
+  return offloadService;
 }
 
 function getBackupEngine(): BackupEngine {
@@ -437,7 +458,7 @@ function getBackupEngine(): BackupEngine {
     });
     // Provider selection + fault harness live in ProviderRuntime (#256).
     const provider = getProviderRuntime().buildProvider({
-      mockRootDir: path.join(app.getPath('userData'), 'library', 'mock-remote'),
+      mockRootDir: path.join(app.getPath('userData'), 'mock-remote'),
       fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),
     });
     backupEngine = new BackupEngine({
@@ -703,6 +724,59 @@ function getExportFacade(): ExportFacade {
   return exportFacade;
 }
 
+async function closeLibraryForRestore(): Promise<void> {
+  importService?.cancel();
+  exportFacade?.cancel();
+  await thumbnailPool?.close();
+  libraryParts?.db.close();
+  libraryService = undefined;
+  libraryParts = undefined;
+  importService = undefined;
+  thumbnailPool = undefined;
+  thumbService = undefined;
+  fullService = undefined;
+  backupEngine = undefined;
+  offloadService = undefined;
+  autoBackupTrigger = undefined;
+  manifestSyncTrigger = undefined;
+  purgeService = undefined;
+  consistencyChecker = undefined;
+  exportFacade = undefined;
+}
+
+let restoreRuntime: RestoreRuntime | undefined;
+
+function getRestoreRuntime(): RestoreRuntime {
+  if (restoreRuntime === undefined) {
+    const emitProgress = createEmitter(events.restoreProgress, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    restoreRuntime = new RestoreRuntime({
+      targetDir: path.join(app.getPath('userData'), 'library'),
+      workerUrl: new URL('./thumbnail-worker.js', import.meta.url),
+      safeStorage: pickSafeStorage,
+      sources: (providerId) => ensureRestoreProviderRegistry().restoreSources(providerId),
+      sessionId: ulid,
+      progress: emitProgress,
+      beforeActivate: closeLibraryForRestore,
+      workStarted: () => {
+        providerWorkCount += 1;
+      },
+      workFinished: () => {
+        providerWorkCount -= 1;
+      },
+      activated: () => {
+        if (harnessEnv('OVERLOOK_RESTORE_NO_RELAUNCH') === '1') return;
+        setTimeout(() => {
+          app.relaunch();
+          app.exit(0);
+        }, 250);
+      },
+    });
+  }
+  return restoreRuntime;
+}
+
 function createWindow(): void {
   // Dev runs use the raw Electron binary whose stock icon would sit in the
   // dock/taskbar; point it at the product icon (#236). Packaged builds get
@@ -786,79 +860,32 @@ void app.whenReady().then(async () => {
     },
   );
   registerExportHandlers(getExportFacade);
-  // Recovery key (#240): export needs the opened keystore; IMPORT must work
-  // even when the library cannot bootstrap — the restore scenario is
-  // exactly the one where KeyStore.open fails on the copied dir.
-  registerKeysHandlers(() => ({
-    fingerprint: () => {
-      getLibraryService();
-      const keyStore = libraryParts?.keyStore;
-      if (keyStore === undefined) {
-        throw new Error('library bootstrap failed; no key to fingerprint');
-      }
-      return fingerprintOf(keyStore.masterKeyBytes());
-    },
-    exportKey: async (password) => {
-      getLibraryService();
-      const keyStore = libraryParts?.keyStore;
-      if (keyStore === undefined) {
-        throw new Error('library bootstrap failed; no key to export');
-      }
-      // Harness hook (#240, OVERLOOK_* family): fixed destination instead
-      // of the save dialog, mirroring the export/import seams.
-      const fixture = harnessEnv('OVERLOOK_KEY_EXPORT_DESTINATION');
-      const destination =
-        fixture !== undefined && fixture !== ''
-          ? fixture
-          : await dialog.showSaveDialog({ defaultPath: 'overlook-recovery.key' }).then((r) => (r.canceled ? null : (r.filePath ?? null)));
-      if (destination === null) {
-        return null;
-      }
-      // Tiny file, atomic publish: temp + rename (the save dialog already
-      // confirmed any overwrite).
-      const temp = `${destination}.tmp`;
-      await writeFile(temp, sealRecoveryKey(keyStore.masterKeyBytes(), password));
-      await rename(temp, destination);
-      return destination;
-    },
-    pickFile: async () => {
-      const fixture = harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE');
-      if (fixture !== undefined && fixture !== '') {
-        return fixture;
-      }
-      const result = await dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [{ name: 'Overlook recovery key', extensions: ['key'] }],
-      });
-      return result.canceled ? null : (result.filePaths[0] ?? null);
-    },
-    importKey: async (importPath, password) => {
-      let data: Buffer;
-      try {
-        // Exact-size gate BEFORE buffering (security review P2-1): the
-        // renderer supplies the path; never allocate an arbitrary file.
-        const stats = await stat(importPath);
-        if (!stats.isFile() || stats.size !== RECOVERY_FILE_LENGTH) {
-          return { installed: false, fingerprint: null, reason: 'invalid' as const };
-        }
-        data = await readFile(importPath);
-      } catch {
-        return { installed: false, fingerprint: null, reason: 'invalid' as const };
-      }
-      try {
-        const master = openRecoveryKey(data, password);
-        const dataDir = path.join(app.getPath('userData'), 'library');
-        const result = installRecoveredMaster(dataDir, pickSafeStorage(), master);
-        if (result === 'mismatch' || result === 'no-library') {
-          return { installed: false, fingerprint: null, reason: result };
-        }
-        return { installed: true, fingerprint: fingerprintOf(master), reason: null };
-      } catch (error) {
-        const reason = error instanceof RecoveryError ? error.reason : ('invalid' as const);
-        return { installed: false, fingerprint: null, reason };
-      }
-    },
-  }));
+  registerKeysHandlers(() =>
+    createRecoveryKeyFacade({
+      keyStore: () => {
+        getLibraryService();
+        if (libraryParts === undefined) throw new Error('library bootstrap failed; no key available');
+        return libraryParts.keyStore;
+      },
+      safeStorage: pickSafeStorage,
+      dataDir: () => path.join(app.getPath('userData'), 'library'),
+      pickExportDestination: async () => {
+        const fixture = harnessEnv('OVERLOOK_KEY_EXPORT_DESTINATION');
+        if (fixture !== undefined && fixture !== '') return fixture;
+        const result = await dialog.showSaveDialog({ defaultPath: 'overlook-recovery.key' });
+        return result.canceled ? null : (result.filePath ?? null);
+      },
+      pickImportSource: () => pickRecoveryKeyPath(harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
+    }),
+  );
+  registerRestoreHandlers(() =>
+    createRestoreFacade({
+      coordinator: () => getRestoreRuntime().coordinator,
+      fresh: () => !existsSync(path.join(app.getPath('userData'), 'library', 'library.db')),
+      pickKey: () => pickRecoveryKeyPath(harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
+      busy: () => providerWorkCount > 0,
+    }),
+  );
   registerPurgeHandlers(() => ({
     purge: async (photoIds) => getPurgeService().purge(photoIds),
   }));
@@ -871,35 +898,14 @@ void app.whenReady().then(async () => {
   getSettingsStore().subscribe((settings) => {
     emitSettingsChanged({ settings });
   });
-  registerBackupHandlers(() => {
-    getBackupEngine();
-    const offload = offloadService;
-    if (offload === undefined) {
-      throw new Error('backup bootstrap failed');
-    }
-    return {
-      // Disconnected blocks MANUAL runs too (PR #213 review) — the toolbar
-      // and retry action must not upload to a provider the user detached.
-      run: async () => {
-        if (getProviderRuntime().activeId() === null) {
-          return { uploaded: 0, failed: 0, skipped: 'disconnected' as const };
-        }
-        return getBackupEngine().run();
-      },
-      offload: async (photoIds) => offload.offload(photoIds),
-      rehydrate: async (photoId) => offload.rehydrate(photoId),
-      // Connection card truth (#114): connected = the user's providerId
-      // setting; quota comes live from the provider. A data-call failure
-      // (e.g. simulated auth expiry) reports as disconnected, not a crash.
-      providers: () => ({
-        providers: getProviderRuntime().descriptors(),
-        defaultProviderId: getProviderRuntime().defaultTarget(),
-      }),
-      providerStatus: (providerId) => getProviderRuntime().status(providerId),
-      connect: (providerId) => getProviderRuntime().connect(providerId),
-      disconnect: (providerId) => Promise.resolve(getProviderRuntime().disconnect(providerId)),
-    };
-  });
+  registerBackupHandlers(() =>
+    createBackupFacade({
+      runtime: ensureRestoreProviderRegistry,
+      run: () => getBackupEngine().run(),
+      offload: (photoIds) => getOffloadService().offload(photoIds),
+      rehydrate: (photoId) => getOffloadService().rehydrate(photoId),
+    }),
+  );
   const seedCount = Number(harnessEnv('OVERLOOK_SEED') ?? '0');
   if (Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();
@@ -935,5 +941,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  restoreRuntime?.dispose();
   void thumbnailPool?.close();
 });

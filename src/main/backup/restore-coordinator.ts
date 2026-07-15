@@ -3,11 +3,7 @@ import { discoverRestore, type RestoreCandidate, type RestoreDiscovery } from '.
 import type { RestoreRequest, RestoreRunResult } from './restore-engine.js';
 import type { StorageProvider } from './provider.js';
 import { RestoreError, toRestoreError, type RestoreProgress } from './restore-types.js';
-import type {
-  RestoreDiscoverResponse,
-  RestoreLibrarySummary,
-  RestoreRunResponse,
-} from '../../shared/backup/restore-contract.js';
+import type { RestoreDiscoverResponse, RestoreLibrarySummary, RestoreRunResponse } from '../../shared/backup/restore-contract.js';
 
 export interface RestoreSource {
   readonly libraryId: string;
@@ -53,8 +49,7 @@ function errorResult(error: unknown): { reason: RestoreError['reason']; message:
 }
 
 function invalidSummary(libraryId: string, error: RestoreError): RestoreLibrarySummary {
-  const validation =
-    error.reason === 'wrong-key' ? 'wrong-key' : error.reason === 'unsupported' ? 'unsupported' : 'corrupt';
+  const validation = error.reason === 'wrong-key' ? 'wrong-key' : error.reason === 'unsupported' ? 'unsupported' : 'corrupt';
   return {
     libraryId,
     generation: null,
@@ -105,9 +100,10 @@ export class RestoreCoordinator {
           const discovery = await discoverRestore(source.provider, masterKey);
           const candidate = discovery.candidates[0];
           if (candidate === undefined) throw new RestoreError('corrupt', 'No valid restore generation was found.');
-          valid.set(source.libraryId, { ...source, discovery });
+          const discoveredLibraryId = discovery.bootstrap.libraryId;
+          valid.set(discoveredLibraryId, { ...source, libraryId: discoveredLibraryId, discovery });
           libraries.push({
-            libraryId: source.libraryId,
+            libraryId: discoveredLibraryId,
             generation: candidate.generation,
             generatedAt: candidate.manifest.generatedAt,
             photos: candidate.manifest.totals.photos,
@@ -116,7 +112,7 @@ export class RestoreCoordinator {
             compatibility: 'compatible',
             validation: 'valid',
             fallbackGenerations: Math.max(0, discovery.candidates.length - 1),
-            resumable: (await this.deps.resumeAvailable?.(source.libraryId, candidate)) ?? false,
+            resumable: (await this.deps.resumeAvailable?.(discoveredLibraryId, candidate)) ?? false,
           });
         } catch (error) {
           const mapped = toRestoreError(error);
@@ -154,8 +150,7 @@ export class RestoreCoordinator {
       return {
         result: {
           ...result,
-          fallbackFromGeneration:
-            expectedGeneration !== null && expectedGeneration !== result.generation ? expectedGeneration : null,
+          fallbackFromGeneration: expectedGeneration !== null && expectedGeneration !== result.generation ? expectedGeneration : null,
           relaunching: true,
         },
         error: null,

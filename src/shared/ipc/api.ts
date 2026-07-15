@@ -60,6 +60,14 @@ export interface OverlookApi {
     readonly pickFile: () => Promise<Res<typeof channels.keysPickFile>>;
     readonly import: (request: Req<typeof channels.keysImport>) => Promise<Res<typeof channels.keysImport>>;
   };
+  readonly restore: {
+    readonly profileStatus: () => Promise<Res<typeof channels.restoreProfileStatus>>;
+    readonly pickKey: () => Promise<Res<typeof channels.restorePickKey>>;
+    readonly discover: (request: Req<typeof channels.restoreDiscover>) => Promise<Res<typeof channels.restoreDiscover>>;
+    readonly run: (request: Req<typeof channels.restoreRun>) => Promise<Res<typeof channels.restoreRun>>;
+    readonly cancel: (request: Req<typeof channels.restoreCancel>) => Promise<Res<typeof channels.restoreCancel>>;
+    readonly onProgress: (listener: (payload: z.output<typeof events.restoreProgress.payload>) => void) => () => void;
+  };
   readonly settings: {
     readonly get: () => Promise<Res<typeof channels.settingsGet>>;
     readonly set: (request: Req<typeof channels.settingsSet>) => Promise<Res<typeof channels.settingsSet>>;

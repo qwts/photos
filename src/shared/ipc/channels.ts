@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { settingsPatchSchema, settingsSchema } from '../settings/settings.js';
 import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
+import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -232,6 +233,21 @@ export const channels = {
       reason: z.enum(['invalid', 'wrong-password', 'mismatch', 'no-library']).nullable(),
     }),
   ),
+  // Disaster recovery (#290): recovery material stays in main behind an
+  // opaque discovery session; renderer receives metadata and typed errors.
+  restoreProfileStatus: defineChannel('restore:profile-status', z.object({}), z.object({ fresh: z.boolean() })),
+  restorePickKey: defineChannel('restore:pick-key', z.object({}), z.object({ path: z.string().nullable() })),
+  restoreDiscover: defineChannel(
+    'restore:discover',
+    z.object({ providerId: providerIdSchema, keyPath: z.string().min(1), password: z.string().min(1).max(1024) }),
+    restoreDiscoverResponseSchema,
+  ),
+  restoreRun: defineChannel(
+    'restore:run',
+    z.object({ sessionId: z.string().min(1), libraryId: z.string().min(1), allowReplace: z.boolean() }),
+    restoreRunResponseSchema,
+  ),
+  restoreCancel: defineChannel('restore:cancel', z.object({}), z.object({})),
   // Export engine (#97): decrypt-on-export to a chosen folder.
   exportPickDestination: defineChannel('export:pick-destination', z.object({}), z.object({ path: z.string().nullable() })),
   exportRun: defineChannel(
@@ -367,6 +383,7 @@ export const events = {
     'backup:progress',
     z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative(), photoId: z.string().nullable() }),
   ),
+  restoreProgress: defineEvent('restore:progress', restoreProgressSchema),
 } as const;
 
 export type PingRequest = z.output<typeof channels.ping.request>;

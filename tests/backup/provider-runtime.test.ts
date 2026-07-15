@@ -1,11 +1,12 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ProviderRuntime, type ProviderRuntimeOptions } from '../../src/main/backup/provider-runtime.js';
+import { PCloudTokenStore } from '../../src/main/backup/pcloud/token-store.js';
 import type { SafeStorageLike } from '../../src/main/crypto/keystore.js';
 
 // #256: provider-selection policy — packaged vs dev targets, the stale-mock
@@ -108,6 +109,24 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(r.disconnect('mock').ok, false);
     active = false;
     assert.equal((await r.connect('mock')).ok, true);
+  });
+
+  test('pCloud custody migrates out of the replaceable library directory', () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-custody-'));
+    const dataDir = join(root, 'library');
+    const credentialDir = join(root, 'provider-auth', 'pcloud');
+    const record = {
+      accessToken: 'legacy-token',
+      apiHost: 'api.pcloud.com',
+      connectedAt: '2026-07-14T00:00:00.000Z',
+    } as const;
+    new PCloudTokenStore({ safeStorage: fakeSafeStorage, dataDir }).save(record);
+
+    const { runtime: r } = runtime({ dataDir: () => dataDir, credentialDir: () => credentialDir });
+
+    assert.deepEqual(r.tokenStore().load(), record);
+    assert.equal(existsSync(join(credentialDir, 'pcloud-auth.bin')), true);
+    assert.equal(existsSync(join(dataDir, 'pcloud-auth.bin')), false, 'legacy token is removed after migration');
   });
 });
 

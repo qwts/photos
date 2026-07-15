@@ -18,6 +18,9 @@ import type { ProviderDescriptor } from '../../shared/backup/provider-descriptor
 
 export interface ProviderRuntimeOptions {
   readonly dataDir: () => string;
+  /** Profile-level provider credential custody; unlike library data this
+   * directory survives atomic library replacement during restore. */
+  readonly credentialDir?: (() => string) | undefined;
   readonly safeStorage: () => SafeStorageLike;
   readonly openExternal: (url: string) => Promise<void>;
   readonly setProviderId: (id: string | null) => void;
@@ -38,7 +41,19 @@ export class ProviderRuntime {
   }
 
   tokenStore(): PCloudTokenStore {
-    this.tokenStoreInstance ??= new PCloudTokenStore({ safeStorage: this.options.safeStorage(), dataDir: this.options.dataDir() });
+    if (this.tokenStoreInstance === undefined) {
+      const safeStorage = this.options.safeStorage();
+      const credentialDir = this.options.credentialDir?.() ?? this.options.dataDir();
+      this.tokenStoreInstance = new PCloudTokenStore({ safeStorage, dataDir: credentialDir });
+      if (credentialDir !== this.options.dataDir() && this.tokenStoreInstance.load() === null) {
+        const legacy = new PCloudTokenStore({ safeStorage, dataDir: this.options.dataDir() });
+        const record = legacy.load();
+        if (record !== null) {
+          this.tokenStoreInstance.save(record);
+          legacy.clear();
+        }
+      }
+    }
     return this.tokenStoreInstance;
   }
 
@@ -185,11 +200,12 @@ export class ProviderRuntime {
    * outside packaged builds (dev + e2e, where it stays the default Connect
    * target so every harness flow is unchanged), optionally fault-armed via
    * the #110 harness hook. */
-  buildProvider(build: { mockRootDir: string; fault: string | undefined }): StorageProvider {
+  buildProvider(build: { mockRootDir: string; fault: string | undefined; libraryId?: string | undefined }): StorageProvider {
     const registry = new ProviderRegistry();
-    registry.register(new PCloudProvider({ auth: () => this.tokenStore().load(), libraryId: this.libraryId() }));
+    const libraryId = build.libraryId ?? this.libraryId();
+    registry.register(new PCloudProvider({ auth: () => this.tokenStore().load(), libraryId }));
     if (!this.options.isPackaged) {
-      const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir, libraryId: this.libraryId() }));
+      const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir, libraryId }));
       const fault = build.fault;
       if (fault === 'put' || fault === 'verify-mismatch' || fault === 'auth-expired' || fault === 'transient-get') {
         faulty.arm(fault);
