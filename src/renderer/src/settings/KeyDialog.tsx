@@ -15,7 +15,7 @@ import './settings.css';
 // heuristic), the explicit cannot-be-reset acknowledgment gating export,
 // then the saved-file card + store-it-safely warning. Import: a .key
 // file (picker or drop) + password → unlock & install. Local key
-// management, independent of pCloud (README §7b).
+// management, independent of the selected cloud provider (README §7b).
 
 export type KeyDialogMode = 'backup' | 'import';
 

@@ -251,7 +251,7 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
             {stats === null
               ? '—'
               : state.providerConnected
-                ? `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} PCLOUD`
+                ? `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} ${state.providerLabel.toUpperCase()}`
                 : `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL`}
           </div>
           {state.providerConnected ? null : (
@@ -267,7 +267,7 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
             >
               <Icon name="cloud-off" size={12} color="var(--text-faint)" />
               <span>
-                pCloud not connected — <span className="ovl-sidebar__connect-cta">Connect</span>
+                {state.providerLabel} not connected — <span className="ovl-sidebar__connect-cta">Connect</span>
               </span>
             </button>
           )}

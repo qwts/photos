@@ -165,7 +165,7 @@ export const Disconnected: Story = {
     await waitFor(async () => {
       await expect(canvas.getByTestId('sidebar-connect')).toBeVisible();
     });
-    await expect(canvas.getByTestId('backup-card')).not.toHaveTextContent('PCLOUD');
+    await expect(canvas.getByTestId('backup-card')).not.toHaveTextContent('CLOUD');
     await expect(canvas.getByText('Library encrypted')).toBeVisible();
   },
 };

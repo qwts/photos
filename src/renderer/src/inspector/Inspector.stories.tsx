@@ -49,7 +49,7 @@ export default meta;
 type Story = StoryObj<typeof Inspector>;
 
 export const RafFavorite: Story = {
-  args: { photo: PHOTO },
+  args: { photo: PHOTO, providerLabel: 'Local mock' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('RAW')).toBeVisible();
@@ -62,7 +62,7 @@ export const RafFavorite: Story = {
     await expect(canvas.getByText('2026-07-02 · SD CARD')).toBeVisible();
     // Real key metadata + the honest synced copy (no fabricated timestamp).
     await expect(canvas.getByText('AES-256-GCM · KEY #2')).toBeVisible();
-    await expect(canvas.getByText('ENCRYPTED · PCLOUD')).toBeVisible();
+    await expect(canvas.getByText('ENCRYPTED · LOCAL MOCK')).toBeVisible();
   },
 };
 
