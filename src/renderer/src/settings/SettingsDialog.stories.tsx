@@ -75,7 +75,18 @@ function installStub(): void {
     offloadPreflight: () => Promise.resolve({ eligible: 0, ineligible: 0, estimatedFreedBytes: 0, items: [] }),
     offload: () => Promise.resolve({ offloaded: 0, skipped: 0, failed: 0, freedBytes: 0, results: [] }),
     rehydrate: () => Promise.resolve({ ok: true }),
-    restoreOriginals: () => Promise.resolve({ restored: 0, skipped: 0, failed: 0, results: [] }),
+    restoreOriginals: ({ photoIds }) =>
+      Promise.resolve({
+        restored: photoIds?.length ?? 2,
+        skipped: 0,
+        failed: 0,
+        results: (photoIds ?? ['offloaded-1', 'offloaded-2']).map((photoId) => ({
+          photoId,
+          outcome: 'restored' as const,
+          bytes: 6_300_000_000,
+          reason: null,
+        })),
+      }),
     providers: () => Promise.resolve({ providers: [mockProvider, archiveProvider], defaultProviderId: 'mock' }),
     // The card's truth follows the stub store's providerId, like main does.
     providerStatus: ({ providerId }) => {
@@ -146,13 +157,17 @@ function installStub(): void {
     backup: backupApi,
     keys: keysApi,
     restore: restoreApi,
+    library: {
+      stats: () => Promise.resolve({ photos: 1542, bytes: 48_000_000_000, pending: 0, lastBackupAt: null, offloadedBytes: 12_600_000_000 }),
+      onStorageChanged: () => () => undefined,
+    } as unknown as OverlookApi['library'],
   };
 }
 
 const meta: Meta<typeof SettingsDialog> = {
   title: 'App/SettingsDialog',
   component: SettingsDialog,
-  args: { open: true, onClose: fn() },
+  args: { open: true, onClose: fn(), selectedPhotoIds: ['offloaded-1', 'offloaded-2'] },
   decorators: [
     (Story) => {
       installStub();
@@ -174,6 +189,9 @@ export const StorageOpensByDefault: Story = {
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
     await expect(body.getByText('Back up new imports automatically')).toBeVisible();
+    await expect(body.getByText('12.6 GB stored only in your verified cloud backup. Thumbnails remain on this Mac.')).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Restore selected (2)' }));
+    await waitFor(() => expect(body.getByText('2 restored')).toBeVisible());
   },
 };
 

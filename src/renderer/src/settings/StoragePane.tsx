@@ -9,6 +9,7 @@ import { Segmented } from '../components/Segmented';
 import { Slider } from '../components/Slider';
 import { Switch } from '../components/Switch';
 import { Field } from './Field';
+import { OffloadedStorage } from './OffloadedStorage';
 import type { AppSettings } from '../../../shared/settings/settings.js';
 import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
 
@@ -33,13 +34,14 @@ export interface ProviderStatus {
 
 export interface StoragePaneProps {
   readonly settings: AppSettings;
+  readonly selectedPhotoIds: readonly string[];
   readonly onRestore?: (() => void) | undefined;
   readonly onPatch: (
     patch: Partial<Pick<AppSettings, 'autoBackupOnImport' | 'importMode' | 'wifiOnly' | 'bandwidthLimit' | 'providerId'>>,
   ) => void;
 }
 
-export function StoragePane({ settings, onPatch, onRestore }: StoragePaneProps): ReactElement {
+export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: StoragePaneProps): ReactElement {
   const [status, setStatus] = useState<ProviderStatus | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
@@ -161,6 +163,8 @@ export function StoragePane({ settings, onPatch, onRestore }: StoragePaneProps):
           Restore library…
         </Button>
       </Field>
+
+      <OffloadedStorage connected={connected} selectedPhotoIds={selectedPhotoIds} />
 
       {connected ? (
         <>
