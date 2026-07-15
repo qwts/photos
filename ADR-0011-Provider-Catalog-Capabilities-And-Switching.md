@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed (2026-07-14 on
-[#280](https://github.com/qwts/photos/issues/280), implemented by draft
+Accepted (2026-07-14 on
+[#280](https://github.com/qwts/photos/issues/280), implemented by merged
 [PR #298](https://github.com/qwts/photos/pull/298)).
 
 ## Context
