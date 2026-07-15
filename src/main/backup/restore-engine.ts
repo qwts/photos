@@ -153,7 +153,8 @@ export class RestoreEngine {
     checkpoint: RestoreCheckpoint,
     signal?: AbortSignal,
   ): Promise<RestoreCheckpoint> {
-    const completed = new Set(checkpoint.completedBlobIds);
+    const manifestIds = new Set(candidate.manifest.photos.map((photo) => photo.id));
+    const completed = new Set(checkpoint.completedBlobIds.filter((id) => manifestIds.has(id)));
     for (const photo of candidate.manifest.photos) {
       if (completed.has(photo.id) && !(await store.verifyOriginal(photo.contentHash, discovery.resolveKey, photo.id))) {
         completed.delete(photo.id);
@@ -208,7 +209,8 @@ export class RestoreEngine {
     signal?: AbortSignal,
   ): Promise<RestoreCheckpoint> {
     const thumbnails = this.deps.thumbnails(store);
-    const completed = new Set(checkpoint.completedThumbnailIds);
+    const manifestIds = new Set(candidate.manifest.photos.map((photo) => photo.id));
+    const completed = new Set(checkpoint.completedThumbnailIds.filter((id) => manifestIds.has(id)));
     for (const photo of candidate.manifest.photos) {
       if (completed.has(photo.id) && !(await store.verifyThumbs(photo.contentHash, discovery.resolveKey, photo.id))) {
         completed.delete(photo.id);
