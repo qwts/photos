@@ -5,7 +5,32 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { activateStagedLibrary, restorePaths } from '../../src/main/backup/restore-staging.js';
+import { activateStagedLibrary, recoverInterruptedActivation, restorePaths } from '../../src/main/backup/restore-staging.js';
+
+test('startup restores the previous library before fresh-profile classification (#290 review)', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'overlook-activation-recovery-'));
+  const paths = restorePaths(join(root, 'library'));
+  await mkdir(paths.previousDir);
+  writeFileSync(join(paths.previousDir, 'library.db'), 'previous library');
+
+  await recoverInterruptedActivation(paths);
+
+  assert.equal(await readFile(join(paths.targetDir, 'library.db'), 'utf8'), 'previous library');
+  assert.equal(existsSync(paths.previousDir), false);
+});
+
+test('startup removes a stale previous directory after successful activation', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'overlook-activation-cleanup-'));
+  const paths = restorePaths(join(root, 'library'));
+  await mkdir(paths.targetDir);
+  await mkdir(paths.previousDir);
+  writeFileSync(join(paths.targetDir, 'library.db'), 'active library');
+
+  await recoverInterruptedActivation(paths);
+
+  assert.equal(await readFile(join(paths.targetDir, 'library.db'), 'utf8'), 'active library');
+  assert.equal(existsSync(paths.previousDir), false);
+});
 
 test('activation failure rolls the previous library back into place (#288)', async () => {
   const root = mkdtempSync(join(tmpdir(), 'overlook-activation-'));
