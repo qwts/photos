@@ -84,8 +84,8 @@ to see only already-encrypted envelopes and authenticated metadata objects.
   replacement. Provider credentials and the development mock remote live at
   profile scope so atomic library replacement cannot delete the authority or
   remote bytes needed to finish restore. This is delivered by
-  [#290](https://github.com/qwts/photos/issues/290); the live pCloud
-  disaster-recovery contract remains
+  [#290](https://github.com/qwts/photos/issues/290). Reusable mock and live
+  pCloud disaster-recovery proof is delivered by
   [#291](https://github.com/qwts/photos/issues/291).
 
 ## Verification
@@ -98,9 +98,15 @@ to see only already-encrypted envelopes and authenticated metadata objects.
   reconstruction, and replacement cleanup.
 - `tests/backup/restore-staging.test.ts`: injected activation failure restores
   the previous library and preserves staging for retry.
+- `tests/backup/disaster-recovery-contract.test.ts`: provider-neutral encrypted
+  backup to exact fresh-profile reconstruction, reused verbatim by live pCloud.
 - `tests/backup/restore-coordinator.test.ts`: opaque recovery-key sessions,
   validated discovery summaries, wrong-password isolation, and cancellable
   resumable runs.
-- `tests/e2e/restore-cloud.spec.ts`: cross-profile backup, wrong-password
-  non-destruction, cancellation, resume, atomic activation, relaunch, and
-  restored photo count.
+- `tests/e2e/restore-cloud.spec.ts`: exact cross-profile metadata/favorite/
+  album/original recovery, wrong-password non-destruction, cancellation/resume,
+  corrupt-newest fallback reporting, corrupt-blob non-publication, injected
+  activation rollback, and relaunch.
+- `npm run test:pcloud:live`: owner-only shared provider and complete
+  disaster-recovery contracts with isolated object cleanup; see
+  [Manual Test — M18 Cloud Disaster Recovery](Manual-Test-M18-Cloud-Disaster-Recovery).

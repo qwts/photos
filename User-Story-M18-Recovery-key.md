@@ -45,4 +45,10 @@ into the restored catalog.
 Coverage: ledger `m18-cloud-disaster-recovery-workflow`; cross-profile Electron
 acceptance in `tests/e2e/restore-cloud.spec.ts`; discovery/session and atomic
 engine unit suites; Settings restore Storybook interaction. The live pCloud
-disaster-recovery contract remains [#291](https://github.com/qwts/photos/issues/291).
+disaster-recovery extension is delivered by
+[#291](https://github.com/qwts/photos/issues/291): reusable mock/pCloud
+contracts prove exact fresh-profile reconstruction, corrupt-generation
+fallback, corrupt-blob rejection, interruption/resume, and activation rollback.
+The owner-only pCloud procedure and pass status live in
+[Manual Test — M18 Cloud Disaster Recovery](Manual-Test-M18-Cloud-Disaster-Recovery)
+and the [Cloud Provider Contract Matrix](Provider-Contract-Matrix).

@@ -36,9 +36,16 @@ tests; engines and unrelated renderer surfaces remain unchanged.
 ## Consequences
 
 - Restore onboarding can enumerate providers through the same contract.
+- Discovery exposes only completed recovery homes; blob-only uploads and empty
+  scratch folders are not mislabeled as corrupt libraries.
 - Google Drive and iCloud Drive can report honest platform and capability
   differences without special-case UI branches.
 - Providers without quota or server checksum support remain usable but must
   disclose the limitation and use download-hash verification.
 - Switching requires an explicit disconnect/connect sequence and waits for
   active work to settle.
+
+Implementation and live-validation status is canonical in the
+[Cloud Provider Contract Matrix](Provider-Contract-Matrix). Every new adapter
+must pass both shared restore contracts before its restore capability is marked
+available.

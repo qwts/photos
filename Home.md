@@ -16,6 +16,8 @@ instructions or entrypoints (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, root
 - [Architecture Decision Records](Architecture-Decision-Records) — ADR index + template
 - [Security Review M11](Security-Review-M11) — crypto/IPC/plaintext audit (#129) + accepted deviations
 - [User Stories](User-Stories) — milestone / user-story planning home
+- [Cloud Provider Contract Matrix](Provider-Contract-Matrix) — adapter backup/restore readiness and live evidence
+- [Manual Test — M18 Cloud Disaster Recovery](Manual-Test-M18-Cloud-Disaster-Recovery) — isolated owner-run pCloud procedure
 
 ## Maintenance Convention
 
