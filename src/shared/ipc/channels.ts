@@ -56,6 +56,8 @@ const scanSummarySchema = z.object({
   newOther: z.number().int().nonnegative(),
 });
 
+const syncStatusSchema = z.enum(['local', 'syncing', 'synced', 'offloaded', 'error']);
+
 const photoRecordSchema = z.object({
   id: z.string(),
   fileName: z.string(),
@@ -79,7 +81,7 @@ const photoRecordSchema = z.object({
   favorite: z.boolean(),
   keyId: z.number(),
   deletedAt: z.string().nullable(),
-  syncState: z.enum(['local', 'syncing', 'synced', 'offloaded', 'error']),
+  syncState: syncStatusSchema,
 });
 
 export const channels = {
@@ -309,6 +311,10 @@ export const events = {
   focusChanged: defineEvent('window:focus-changed', z.object({ focused: z.boolean() })),
   // Targeted library pushes (#71) — never refetch-the-world signals.
   libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
+  photoSyncStateChanged: defineEvent(
+    'library:sync-state-changed',
+    z.object({ updates: z.array(z.object({ id: z.string(), syncState: syncStatusSchema })) }),
+  ),
   pendingCountChanged: defineEvent('library:pending-count', z.object({ count: z.number().int().nonnegative() })),
   // Progressive scan counts for big cards (#84).
   scanProgress: defineEvent(

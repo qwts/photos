@@ -25,6 +25,9 @@ export interface OverlookApi {
     readonly restore: (request: Req<typeof channels.libraryRestore>) => Promise<Res<typeof channels.libraryRestore>>;
     readonly purge: (request: Req<typeof channels.libraryPurge>) => Promise<Res<typeof channels.libraryPurge>>;
     readonly onChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
+    readonly onSyncStateChanged: (
+      listener: (payload: { updates: { id: string; syncState: 'local' | 'syncing' | 'synced' | 'offloaded' | 'error' }[] }) => void,
+    ) => () => void;
     readonly onPendingCountChanged: (listener: (payload: { count: number }) => void) => () => void;
   };
   readonly albums: {

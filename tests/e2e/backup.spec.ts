@@ -56,6 +56,67 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
   }
 });
 
+// #295 regression: backup status changes are not structural invalidations.
+// Keep two deep-page UI anchors alive while hundreds of dirty rows settle.
+test('large backup preserves deep selection and an open lightbox', async () => {
+  test.setTimeout(90_000);
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup-stability-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '504',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    const grid = page.getByTestId('virtual-grid');
+    await grid.waitFor();
+    await grid.locator('.ovl-tile__img').first().waitFor({ timeout: 30_000 });
+    await expect
+      .poll(
+        () =>
+          grid.evaluate((node) => {
+            const element = node as unknown as { readonly scrollHeight: number; readonly clientHeight: number };
+            return element.scrollHeight - element.clientHeight;
+          }),
+        { timeout: 30_000 },
+      )
+      .toBeGreaterThan(0);
+    await grid.evaluate((node) => {
+      const element = node as unknown as { readonly scrollHeight: number; scrollTo: (options: { top: number }) => void };
+      element.scrollTo({ top: element.scrollHeight });
+    });
+
+    const selectedCell = page.locator('.ovl-grid__cell[data-index="501"]');
+    // Seed index 502 is offloaded and opening it intentionally emits a
+    // structural rehydrate refresh; use a synced neighbor so this test
+    // isolates backup-only status traffic.
+    const openedCell = page.locator('.ovl-grid__cell[data-index="503"]');
+    await selectedCell.locator('.ovl-tile__img').waitFor({ timeout: 30_000 });
+    await selectedCell.getByRole('button', { name: 'Select' }).click();
+    await openedCell.click();
+
+    const lightbox = page.getByTestId('lightbox');
+    const openedName = await lightbox.locator('.ovl-lightbox__img').getAttribute('alt');
+    expect(openedName).not.toBeNull();
+    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+
+    const backup = page.evaluate<{ uploaded: number }>(`window.overlook.backup.run({})`);
+    await expect(lightbox).toBeVisible();
+    await backup;
+
+    await expect(lightbox).toBeVisible();
+    await expect(lightbox.locator('.ovl-lightbox__img')).toHaveAttribute('alt', openedName ?? '');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+  } finally {
+    await app.close();
+  }
+});
+
 // #110: edits re-dirty (amber returns) and the offloaded → rehydrate
 // journey — the tile dims, the card split shifts, and the lightbox brings
 // the original back.
