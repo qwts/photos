@@ -79,9 +79,13 @@ to see only already-encrypted envelopes and authenticated metadata objects.
 - Falling back can recover from a corrupt newest manifest or generation-only
   blob set, but never disguises authentication, connectivity, or local-resource
   failures.
-- Renderer/onboarding, destructive confirmation copy, and provider selection
-  are owned by [#290](https://github.com/qwts/photos/issues/290). Mock and live
-  disaster-recovery contracts are owned by
+- Fresh-profile onboarding and Settings expose the same provider-neutral
+  discovery/run/cancel workflow, with an explicit destructive confirmation for
+  replacement. Provider credentials and the development mock remote live at
+  profile scope so atomic library replacement cannot delete the authority or
+  remote bytes needed to finish restore. This is delivered by
+  [#290](https://github.com/qwts/photos/issues/290); the live pCloud
+  disaster-recovery contract remains
   [#291](https://github.com/qwts/photos/issues/291).
 
 ## Verification
@@ -94,3 +98,9 @@ to see only already-encrypted envelopes and authenticated metadata objects.
   reconstruction, and replacement cleanup.
 - `tests/backup/restore-staging.test.ts`: injected activation failure restores
   the previous library and preserves staging for retry.
+- `tests/backup/restore-coordinator.test.ts`: opaque recovery-key sessions,
+  validated discovery summaries, wrong-password isolation, and cancellable
+  resumable runs.
+- `tests/e2e/restore-cloud.spec.ts`: cross-profile backup, wrong-password
+  non-destruction, cancellation, resume, atomic activation, relaunch, and
+  restored photo count.

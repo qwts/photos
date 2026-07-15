@@ -103,9 +103,10 @@ any local library is activated.
   this adds one provider object operation but removes the key-resolution cycle.
 - Retained manifests are forward-only versioned documents. A future schema
   adds a parser/migration path rather than weakening strict schema-2 checks.
-- Full staging, blob download, atomic activation, cancellation/resume, and UI
-  remain owned by [#288](https://github.com/qwts/photos/issues/288) and
-  [#290](https://github.com/qwts/photos/issues/290). The end-to-end/live
+- Full staging, blob download, atomic activation, cancellation/resume, and the
+  fresh-profile/Settings workflow are delivered by
+  [#288](https://github.com/qwts/photos/issues/288) and
+  [#290](https://github.com/qwts/photos/issues/290). The live pCloud
   disaster-recovery contract remains
   [#291](https://github.com/qwts/photos/issues/291).
 
