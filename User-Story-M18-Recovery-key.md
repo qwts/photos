@@ -29,3 +29,9 @@ Cloud disaster recovery extends this delivered local-file flow through
 recovered master key opens a provider-hosted wrapped-key bootstrap, which then
 resolves manifest and blob envelope keys without copying the old `keys.json` or
 database. Delivery is tracked by [#287](https://github.com/qwts/photos/issues/287).
+
+The provider-neutral staging, resume, verification, and atomic-activation
+contract is recorded by
+[ADR-0010](ADR-0010-Cloud-Restore-Staging-And-Atomic-Activation) and delivered
+by [#288](https://github.com/qwts/photos/issues/288); renderer onboarding and
+the live provider contract remain #290 and #291.
