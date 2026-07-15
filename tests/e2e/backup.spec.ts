@@ -1,8 +1,15 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+function remoteBlobFiles(userData: string): string[] {
+  const root = join(userData, 'mock-remote', 'blobs');
+  return readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name));
+}
 
 // #108 exit criteria (amended by #266): the full visual choreography of a
 // mock-provider backup run — amber → green flip, live counts, "JUST NOW"
@@ -194,6 +201,47 @@ test('forced upload error: red retry toast + error glyph', async () => {
       `window.overlook.library.get({ id: '01J8SEEDPHOTO0000' }).then((r) => r.photo?.syncState ?? '?')`,
     );
     expect(state).toBe('error');
+  } finally {
+    await app.close();
+  }
+});
+
+test('integrity repair and remote-only loss update in place without clearing selection', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-integrity-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '1',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+    await page.getByRole('button', { name: 'Back up' }).click();
+    await expect(page.getByRole('status')).toContainText('BACKUP COMPLETE', { timeout: 20_000 });
+
+    const [remoteBlob] = remoteBlobFiles(userData);
+    if (remoteBlob === undefined) throw new Error('backup did not publish a remote blob');
+    const originalCiphertext = readFileSync(remoteBlob);
+    writeFileSync(remoteBlob, 'corrupt remote ciphertext');
+    await page.evaluate(`window.overlook.backup.run({})`);
+    await expect(page.getByRole('status')).toContainText('BACKUP REPAIRED: 1 CLOUD COPIES');
+    expect(readFileSync(remoteBlob)).toEqual(originalCiphertext);
+
+    const offloaded = await page.evaluate<{ offloaded: number }>(`window.overlook.backup.offload({ photoIds: ['01J8SEEDPHOTO0000'] })`);
+    expect(offloaded.offloaded).toBe(1);
+    rmSync(remoteBlob);
+    await page.locator('.ovl-grid__cell').first().getByRole('button', { name: 'Select' }).click();
+    await page.evaluate(`window.overlook.backup.run({})`);
+    await expect(page.getByRole('status')).toContainText('BACKUP DAMAGED: 1 ORIGINALS MISSING');
+    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+    await expect
+      .poll(() => page.evaluate(`window.overlook.library.get({ id: '01J8SEEDPHOTO0000' }).then((r) => r.photo?.syncState)`))
+      .toBe('error');
   } finally {
     await app.close();
   }

@@ -276,6 +276,24 @@
       ]
     },
     {
+      "id": "m08-continuous-backup-integrity",
+      "wiki": "User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/backup.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/integrity-disaster-recovery.test.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/integrity-scrubber.test.ts"
+        }
+      ]
+    },
+    {
       "id": "m09-settings-store",
       "wiki": "User-Story-M09-Settings-preferences",
       "coverage": [

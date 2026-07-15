@@ -135,6 +135,13 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           type: 'toast/shown',
           toast: { title: `BACKUP DAMAGED: ${formatCount(integrity.unrecoverable)} ORIGINALS MISSING`, tone: 'red' },
         });
+      } else if (uploaded > 0 && !auto) {
+        const detail = integrity.recoveryRepaired
+          ? ' · RECOVERY INDEX REPAIRED'
+          : integrity.repaired > 0
+            ? ` · ${formatCount(integrity.repaired)} CLOUD COPIES REPAIRED`
+            : '';
+        dispatch({ type: 'toast/shown', toast: { title: `BACKUP COMPLETE${detail}`, tone: 'green' } });
       } else if (integrity.recoveryRepaired) {
         dispatch({ type: 'toast/shown', toast: { title: 'BACKUP RECOVERY INDEX REPAIRED', tone: 'green' } });
       } else if (integrity.repaired > 0) {
@@ -142,11 +149,6 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           type: 'toast/shown',
           toast: { title: `BACKUP REPAIRED: ${formatCount(integrity.repaired)} CLOUD COPIES`, tone: 'green' },
         });
-      } else if (uploaded > 0 && !auto) {
-        // Green completion per the mock (#108) — MANUAL runs only. An
-        // automatic success stays quiet (the status bar flips anyway):
-        // its toast was racing the import-complete toast (#116).
-        dispatch({ type: 'toast/shown', toast: { title: 'BACKUP COMPLETE', tone: 'green' } });
       }
     });
   }, [dispatch]);
