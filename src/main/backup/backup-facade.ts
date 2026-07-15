@@ -1,4 +1,5 @@
 import type { ProviderRuntime } from './provider-runtime.js';
+import type { OffloadService } from './offload.js';
 
 export interface BackupFacadeOptions {
   readonly runtime: () => ProviderRuntime;
@@ -8,11 +9,19 @@ export interface BackupFacadeOptions {
     skipped: 'wifi' | null;
     integrity: { checked: number; repaired: number; unrecoverable: number; recoveryRepaired: boolean; failed: boolean };
   }>;
-  readonly offload: (photoIds: readonly string[]) => Promise<{ offloaded: number; skipped: number; freedBytes: number }>;
-  readonly rehydrate: (photoId: string) => Promise<void>;
+  readonly offloadService: () => OffloadService;
+  readonly workChanged: (delta: 1 | -1) => void;
 }
 
 export function createBackupFacade(options: BackupFacadeOptions) {
+  const withProviderWork = async <T>(operation: () => Promise<T>): Promise<T> => {
+    options.workChanged(1);
+    try {
+      return await operation();
+    } finally {
+      options.workChanged(-1);
+    }
+  };
   return {
     run: () => {
       if (options.runtime().activeId() === null) {
@@ -25,8 +34,10 @@ export function createBackupFacade(options: BackupFacadeOptions) {
       }
       return options.run();
     },
-    offload: options.offload,
-    rehydrate: options.rehydrate,
+    offloadPreflight: (photoIds: readonly string[]) => options.offloadService().preflight(photoIds),
+    offload: (photoIds: readonly string[]) => withProviderWork(() => options.offloadService().offload(photoIds)),
+    rehydrate: (photoId: string) => withProviderWork(() => options.offloadService().rehydrate(photoId)),
+    restoreOriginals: (photoIds?: readonly string[]) => withProviderWork(() => options.offloadService().restoreOriginals(photoIds)),
     providers: () => ({ providers: options.runtime().descriptors(), defaultProviderId: options.runtime().defaultTarget() }),
     providerStatus: (providerId: string) => options.runtime().status(providerId),
     connect: (providerId: string) => options.runtime().connect(providerId),

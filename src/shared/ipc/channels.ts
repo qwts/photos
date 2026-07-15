@@ -66,6 +66,40 @@ const backupIntegritySchema = z.object({
   recoveryRepaired: z.boolean(),
   failed: z.boolean(),
 });
+const offloadSkipReasonSchema = z.enum([
+  'missing-photo',
+  'deleted',
+  'provider-disconnected',
+  'provider-expired',
+  'provider-offline',
+  'local',
+  'syncing',
+  'already-offloaded',
+  'error',
+  'dirty',
+  'shared-original',
+  'missing-original',
+]);
+const offloadPreflightItemSchema = z.object({
+  photoId: z.string(),
+  bytes: z.number().nonnegative(),
+  eligible: z.boolean(),
+  reason: offloadSkipReasonSchema.nullable(),
+});
+const offloadPreflightSchema = z.object({
+  eligible: z.number().int().nonnegative(),
+  ineligible: z.number().int().nonnegative(),
+  estimatedFreedBytes: z.number().nonnegative(),
+  items: z.array(offloadPreflightItemSchema).readonly(),
+});
+const restoreOriginalFailureReasonSchema = z.enum([
+  'not-offloaded',
+  'provider-disconnected',
+  'provider-expired',
+  'provider-offline',
+  'download-failed',
+  'verify-failed',
+]);
 
 const photoRecordSchema = z.object({
   id: z.string(),
@@ -280,17 +314,50 @@ export const channels = {
       integrity: backupIntegritySchema,
     }),
   ),
-  // Offload / rehydrate (#107).
+  // Offload / verified restore (#107, user workflow #281).
+  backupOffloadPreflight: defineChannel(
+    'backup:offload-preflight',
+    z.object({ photoIds: z.array(z.string()).min(1) }),
+    offloadPreflightSchema,
+  ),
   backupOffload: defineChannel(
     'backup:offload',
     z.object({ photoIds: z.array(z.string()).min(1) }),
     z.object({
       offloaded: z.number().int().nonnegative(),
       skipped: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
       freedBytes: z.number().nonnegative(),
+      results: z
+        .array(
+          z.object({
+            photoId: z.string(),
+            outcome: z.enum(['offloaded', 'skipped', 'failed']),
+            reason: z.union([offloadSkipReasonSchema, z.literal('delete-failed')]).nullable(),
+          }),
+        )
+        .readonly(),
     }),
   ),
   backupRehydrate: defineChannel('backup:rehydrate', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
+  backupRestoreOriginals: defineChannel(
+    'backup:restore-originals',
+    z.object({ photoIds: z.array(z.string()).min(1).optional() }),
+    z.object({
+      restored: z.number().int().nonnegative(),
+      skipped: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      results: z
+        .array(
+          z.object({
+            photoId: z.string(),
+            outcome: z.enum(['restored', 'skipped', 'failed']),
+            reason: restoreOriginalFailureReasonSchema.nullable(),
+          }),
+        )
+        .readonly(),
+    }),
+  ),
   backupProviders: defineChannel(
     'backup:providers',
     z.object({}),

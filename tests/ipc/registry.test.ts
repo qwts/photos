@@ -9,6 +9,30 @@ describe('channel registry', () => {
     const names = [...Object.values(channels).map((c) => c.name), ...Object.values(events).map((e) => e.name)];
     assert.equal(new Set(names).size, names.length);
   });
+
+  test('offload workflow schemas preserve exact preflight and partial-result details (#281)', () => {
+    assert.deepEqual(
+      channels.backupOffloadPreflight.response.parse({
+        eligible: 1,
+        ineligible: 1,
+        estimatedFreedBytes: 42,
+        items: [
+          { photoId: 'P1', bytes: 42, eligible: true, reason: null },
+          { photoId: 'P2', bytes: 9, eligible: false, reason: 'dirty' },
+        ],
+      }),
+      {
+        eligible: 1,
+        ineligible: 1,
+        estimatedFreedBytes: 42,
+        items: [
+          { photoId: 'P1', bytes: 42, eligible: true, reason: null },
+          { photoId: 'P2', bytes: 9, eligible: false, reason: 'dirty' },
+        ],
+      },
+    );
+    assert.throws(() => channels.backupOffload.response.parse({ offloaded: 1, skipped: 0, freedBytes: 42 }));
+  });
 });
 
 describe('createInvoker', () => {
