@@ -61,9 +61,9 @@ test('restore coordinator discovers validated metadata and runs through an opaqu
   const progress = [];
   let activated = false;
   const runner: RestoreRunner = {
-    run: async ({ signal }) => {
+    run: ({ signal }) => {
       assert.equal(signal?.aborted, false);
-      return { libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false };
+      return Promise.resolve({ libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false });
     },
   };
   const coordinator = new RestoreCoordinator({
