@@ -13,8 +13,12 @@ interface CursorRow {
 export class BackupIntegrityCursorStore {
   constructor(
     private readonly db: BetterSqlite3.Database,
-    private readonly providerId: string,
+    private readonly providerId: string | (() => string),
   ) {}
+
+  private activeProviderId(): string {
+    return typeof this.providerId === 'string' ? this.providerId : this.providerId();
+  }
 
   load(): Promise<BackupIntegrityCursor> {
     const row = queryGet<CursorRow>(
@@ -22,7 +26,7 @@ export class BackupIntegrityCursorStore {
       `SELECT version, after_photo_id AS afterPhotoId, completed_at AS completedAt
          FROM backup_integrity_cursors
         WHERE provider_id = ?`,
-      this.providerId,
+      this.activeProviderId(),
     );
     return Promise.resolve(
       row === undefined
@@ -40,7 +44,7 @@ export class BackupIntegrityCursorStore {
          version = excluded.version,
          after_photo_id = excluded.after_photo_id,
          completed_at = excluded.completed_at`,
-      this.providerId,
+      this.activeProviderId(),
       cursor.version,
       cursor.afterId,
       cursor.completedAt,

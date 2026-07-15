@@ -131,6 +131,22 @@ test('cursor progress survives restart and remains provider-scoped (#302)', asyn
   db.close();
 });
 
+test('cursor provider scope is resolved for each scrub-time load and save (#302 review)', async () => {
+  const db = openLibraryDatabase({
+    path: join(mkdtempSync(join(tmpdir(), 'overlook-integrity-dynamic-cursor-')), 'library.db'),
+    dbKey: randomBytes(32),
+  });
+  let providerId = 'mock';
+  const cursor = new BackupIntegrityCursorStore(db, () => providerId);
+  await cursor.save({ version: 1, afterId: 'P10', completedAt: null });
+  providerId = 'pcloud';
+  assert.deepEqual(await cursor.load(), { version: 1, afterId: null, completedAt: null });
+  await cursor.save({ version: 1, afterId: 'P20', completedAt: null });
+  providerId = 'mock';
+  assert.deepEqual(await cursor.load(), { version: 1, afterId: 'P10', completedAt: null });
+  db.close();
+});
+
 test('remote-only verification authenticates the envelope and plaintext content address (#302)', async () => {
   const plaintext = Buffer.from('remote-only original');
   const contentHash = createHash('sha256').update(plaintext).digest('hex');
@@ -141,6 +157,21 @@ test('remote-only verification authenticates the envelope and plaintext content 
   assert.equal(await verifyRemoteOriginalCiphertext(item, Readable.from([ciphertext]), () => key.key), true);
   assert.equal(await verifyRemoteOriginalCiphertext({ ...item, id: 'P2' }, Readable.from([ciphertext]), () => key.key), false);
   assert.equal(await verifyRemoteOriginalCiphertext({ ...item, contentHash: HASH_A }, Readable.from([ciphertext]), () => key.key), false);
+
+  let interruptedOnce = false;
+  const interrupted = new Readable({
+    read() {
+      if (interruptedOnce) return;
+      interruptedOnce = true;
+      this.push(ciphertext.subarray(0, 8));
+      this.destroy(new Error('connection reset during download'));
+    },
+  });
+  await assert.rejects(
+    verifyRemoteOriginalCiphertext(item, interrupted, () => key.key),
+    /connection reset during download/u,
+    'transport failures propagate for retry instead of becoming corruption',
+  );
 });
 
 test('catalog paging includes only stable synced and offloaded recovery claims (#302)', () => {

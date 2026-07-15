@@ -28,7 +28,7 @@ export function createBackupIntegrityRuntime(deps: BackupIntegrityRuntimeDeps): 
     encryptedStream: (hash) => deps.blobs.getEncryptedStream(hash),
     verifyRemoteCiphertext: (item, ciphertext) => verifyRemoteOriginalCiphertext(item, ciphertext, deps.resolveKey),
     markUnrecoverable: deps.markUnrecoverable,
-    cursor: new BackupIntegrityCursorStore(deps.db, deps.provider.id),
+    cursor: new BackupIntegrityCursorStore(deps.db, () => deps.provider.id),
     audit: deps.audit,
     now: () => new Date(),
   });

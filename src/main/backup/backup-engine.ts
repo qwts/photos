@@ -225,9 +225,24 @@ export class BackupEngine {
       try {
         const summary = await this.deps.integrityScrub();
         const recoveryRepaired = !(await this.deps.recoveryGenerationHealthy());
-        if (recoveryRepaired) {
-          await this.uploadManifest();
-          this.deps.audit('INTEGRITY-RECOVERY-REPAIRED');
+        if (summary.unrecoverable > 0 || recoveryRepaired) {
+          // A remote-only loss can change which deleted rows are honestly
+          // recoverable. Publish that state now; if it fails, preserve the
+          // manifest debt for the next clean run.
+          this.manifestOwed = true;
+          try {
+            await this.uploadManifest();
+            this.manifestOwed = false;
+            if (summary.unrecoverable > 0) {
+              this.deps.audit('INTEGRITY-MANIFEST-REFRESHED');
+            }
+            if (recoveryRepaired) {
+              this.deps.audit('INTEGRITY-RECOVERY-REPAIRED');
+            }
+          } catch (error) {
+            manifestUploaded = false;
+            throw error;
+          }
         }
         integrity = {
           checked: summary.checked,
