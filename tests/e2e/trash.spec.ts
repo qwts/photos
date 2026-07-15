@@ -111,6 +111,7 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     // Back up, then target a photo whose blob VERIFIABLY reached the
     // remote (seed profiles settle some rows without uploading them).
     await page.getByRole('button', { name: 'Back up' }).click();
+    await expect(page.getByRole('status')).toContainText('BACKUP COMPLETE', { timeout: 20_000 });
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
     const remoteBlobs = join(userData, 'mock-remote', 'blobs');
     const photos = await page.evaluate<{ id: string; contentHash: string; fileName: string }[]>(
