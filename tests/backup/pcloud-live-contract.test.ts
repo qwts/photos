@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { Readable } from 'node:stream';
 
+import { BackupIntegrityScrubber, type BackupIntegrityCursor, type BackupIntegrityItem } from '../../src/main/backup/integrity-scrubber.js';
 import { startLoopbackCapture } from '../../src/main/backup/pcloud/loopback.js';
 import { buildAuthorizeUrl } from '../../src/main/backup/pcloud/oauth.js';
 import { PCloudProvider } from '../../src/main/backup/pcloud/pcloud-provider.js';
@@ -61,6 +62,43 @@ test('LIVE pCloud provider and fresh-profile disaster-recovery contracts (#291)'
     await provider.delete(blobPath);
   }
 
+  const integrityBytes = Buffer.from('OVLK-live-integrity-ciphertext');
+  const integrityHash = createHash('sha256').update(integrityBytes).digest('hex');
+  const integrityPath = `blobs/${integrityHash.slice(0, 2)}/${integrityHash}`;
+  let integrityItem: BackupIntegrityItem = { id: 'LIVE-P1', contentHash: integrityHash, syncState: 'synced' };
+  let localExists = true;
+  let cursor: BackupIntegrityCursor = { version: 1, afterId: null, completedAt: null };
+  const marked: string[] = [];
+  const scrubber = new BackupIntegrityScrubber({
+    provider,
+    batchSize: 10,
+    items: () => [integrityItem],
+    hasLocal: () => localExists,
+    encryptedStream: () => Readable.from([integrityBytes]),
+    verifyRemoteCiphertext: () => Promise.resolve(false),
+    markUnrecoverable: (photoId) => marked.push(photoId),
+    cursor: {
+      load: () => Promise.resolve(cursor),
+      save: (next) => {
+        cursor = next;
+        return Promise.resolve();
+      },
+    },
+    audit: () => undefined,
+    now: () => new Date(),
+  });
+  try {
+    await provider.put(integrityPath, Readable.from([Buffer.from('corrupt remote ciphertext')]));
+    assert.equal((await scrubber.scrub()).repaired, 1, 'pCloud corruption is replaced from local ciphertext');
+    await provider.delete(integrityPath);
+    integrityItem = { ...integrityItem, syncState: 'offloaded' };
+    localExists = false;
+    assert.equal((await scrubber.scrub()).unrecoverable, 1, 'missing pCloud-only ciphertext fails closed');
+    assert.deepEqual(marked, ['LIVE-P1']);
+  } finally {
+    await provider.delete(integrityPath);
+  }
+
   await assert.rejects(
     provider.getStream(blobPath),
     (error: unknown) => error instanceof ProviderError && error.kind === 'not-found',
@@ -71,5 +109,5 @@ test('LIVE pCloud provider and fresh-profile disaster-recovery contracts (#291)'
     (error: unknown) => error instanceof ProviderError && error.kind === 'corrupt',
     'unsafe paths are rejected before any network',
   );
-  console.log('  ✓ live provider + disaster-recovery contracts green — record this run on #291\n');
+  console.log('  ✓ live provider + integrity + disaster-recovery contracts green — record this run on #291 and #302\n');
 });
