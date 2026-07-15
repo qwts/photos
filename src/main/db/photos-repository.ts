@@ -1,7 +1,8 @@
 import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { markDirty } from '../backup/sync-ledger.js';
-import type { BackupManifestPhotoV2, BackupManifestSnapshot } from '../backup/backup-manifest.js';
+import type { BackupManifestPhotoV2, BackupManifestSnapshot, BackupManifestV2 } from '../backup/backup-manifest.js';
+import type { WrappedKeyRecord } from '../crypto/keystore.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
 import type {
@@ -478,6 +479,63 @@ export class PhotosRepository {
           albums: albums.length,
         },
       };
+    })();
+  }
+
+  /** Rebuilds a fresh catalog from a verified manifest (#288). The staged
+   * DB must be empty: merge semantics could retain local-only rows and turn
+   * disaster recovery into silent data loss. All restored originals are
+   * already verified remote copies, so their ledgers start clean + synced. */
+  restoreManifest(manifest: BackupManifestV2, keys: readonly WrappedKeyRecord[]): void {
+    this.db.transaction(() => {
+      const occupied = queryGet<{ count: number }>(
+        this.db,
+        `SELECT (SELECT count(*) FROM photos) + (SELECT count(*) FROM albums) + (SELECT count(*) FROM keys) AS count`,
+      );
+      if ((occupied?.count ?? 0) !== 0) throw new Error('restore requires an empty staged catalog');
+      for (const key of keys) {
+        runNamed(
+          this.db,
+          `INSERT INTO keys (id, wrapped_key, created_at, retired_at)
+           VALUES (@id, @wrappedKey, @createdAt, @retiredAt)`,
+          {
+            id: key.id,
+            wrappedKey: key.wrappedKey,
+            createdAt: key.createdAt,
+            retiredAt: key.status === 'retired' ? manifest.generatedAt : null,
+          },
+        );
+      }
+      for (const photo of manifest.photos) {
+        runNamed(
+          this.db,
+          `INSERT INTO photos (
+             id, file_name, file_kind, width, height, bytes, content_hash,
+             camera, lens, iso, aperture, shutter, focal_length, taken_at,
+             gps_lat, gps_lon, place, imported_at, import_source, favorite,
+             key_id, deleted_at
+           ) VALUES (
+             @id, @fileName, @fileKind, @width, @height, @bytes, @contentHash,
+             @camera, @lens, @iso, @aperture, @shutter, @focalLength, @takenAt,
+             @gpsLat, @gpsLon, @place, @importedAt, @importSource, @favorite,
+             @keyId, @deletedAt
+           )`,
+          { ...photo, favorite: photo.favorite ? 1 : 0 },
+        );
+        run(
+          this.db,
+          `INSERT INTO sync_ledger (photo_id, status, last_backup_at, dirty)
+           VALUES (?, 'synced', ?, 0)`,
+          photo.id,
+          manifest.generatedAt,
+        );
+      }
+      for (const album of manifest.albums) {
+        runNamed(this.db, `INSERT INTO albums (id, name, created_at, position) VALUES (@id, @name, @createdAt, @position)`, album);
+        for (const [position, photoId] of album.photoIds.entries()) {
+          run(this.db, `INSERT INTO album_photos (album_id, photo_id, position) VALUES (?, ?, ?)`, album.id, photoId, position);
+        }
+      }
     })();
   }
 
