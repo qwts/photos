@@ -142,7 +142,7 @@ export class RestoreCoordinator {
     this.controller = controller;
     this.deps.workStarted?.();
     try {
-      const expectedGeneration = source.discovery.candidates[0]?.generation ?? null;
+      const expectedGeneration = source.discovery.newestGeneration;
       const runner = this.deps.createRunner(source.provider, this.deps.progress);
       const result = await runner.run({ masterKey: session.masterKey, allowReplace, signal: controller.signal });
       this.deps.activated?.(result);
@@ -150,7 +150,7 @@ export class RestoreCoordinator {
       return {
         result: {
           ...result,
-          fallbackFromGeneration: expectedGeneration !== null && expectedGeneration !== result.generation ? expectedGeneration : null,
+          fallbackFromGeneration: expectedGeneration !== result.generation ? expectedGeneration : null,
           relaunching: true,
         },
         error: null,
