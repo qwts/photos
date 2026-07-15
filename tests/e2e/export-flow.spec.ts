@@ -23,6 +23,9 @@ async function launch(destination: string, extraEnv: Record<string, string> = {}
     },
   });
   const page = await app.firstWindow();
+  if (extraEnv['OVERLOOK_SEED'] === '0') {
+    await page.getByRole('button', { name: 'Start a new library' }).click();
+  }
   // Callers wait for their own start state (a seeded grid vs empty library).
   await page.getByRole('button', { name: 'Import', exact: true }).waitFor();
   return { app, page };

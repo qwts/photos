@@ -47,6 +47,8 @@ async function launch(card: string) {
       OVERLOOK_IMPORT_SOURCE: card,
     },
   });
+  const page = await app.firstWindow();
+  await page.getByRole('button', { name: 'Start a new library' }).click();
   return { app, userData };
 }
 
@@ -148,6 +150,7 @@ test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for 
   });
   try {
     const page = await app.firstWindow();
+    await page.getByRole('button', { name: 'Start a new library' }).click();
     await page.getByRole('button', { name: 'Import', exact: true }).click();
 
     // Source picker (#237): switch to Local folder and pick through the
