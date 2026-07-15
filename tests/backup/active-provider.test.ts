@@ -11,6 +11,14 @@ function fake(id: string): StorageProvider {
   return {
     id,
     label: id,
+    capabilities: {
+      quota: 'known',
+      verification: 'server-checksum',
+      resumableUpload: false,
+      platforms: ['darwin'],
+      interactiveAuth: false,
+      reconnectRequired: false,
+    },
     authState: () => Promise.resolve('connected' as const),
     put: () => Promise.resolve({ bytes: 1 }),
     getStream: () => Promise.reject(new Error('unused')),

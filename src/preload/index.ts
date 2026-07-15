@@ -26,6 +26,7 @@ const closeWindow = createInvoker(channels.windowClose, invokeTransport);
 
 const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
 const settingsGet = createInvoker(channels.settingsGet, invokeTransport);
+const backupProviders = createInvoker(channels.backupProviders, invokeTransport);
 const backupProviderStatus = createInvoker(channels.backupProviderStatus, invokeTransport);
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
@@ -65,9 +66,10 @@ const overlook: OverlookApi = {
     onCompleted: createSubscriber(events.backupCompleted, subscribeTransport),
     offload: createInvoker(channels.backupOffload, invokeTransport),
     rehydrate: createInvoker(channels.backupRehydrate, invokeTransport),
-    providerStatus: async () => backupProviderStatus({}),
-    connect: async () => backupConnect({}),
-    disconnect: async () => backupDisconnect({}),
+    providers: async () => backupProviders({}),
+    providerStatus: backupProviderStatus,
+    connect: backupConnect,
+    disconnect: backupDisconnect,
   }),
   export: Object.freeze({
     pickDestination: createInvoker(channels.exportPickDestination, invokeTransport),

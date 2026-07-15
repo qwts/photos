@@ -31,11 +31,13 @@ const fakeSafeStorage: SafeStorageLike = {
 };
 
 class CountingProvider implements StorageProvider {
+  readonly capabilities;
   readonly id: string;
   readonly label: string;
   readonly gets: string[] = [];
 
   constructor(private readonly inner: StorageProvider) {
+    this.capabilities = inner.capabilities;
     this.id = inner.id;
     this.label = inner.label;
   }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { settingsPatchSchema, settingsSchema } from '../settings/settings.js';
+import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -266,27 +267,40 @@ export const channels = {
     }),
   ),
   backupRehydrate: defineChannel('backup:rehydrate', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
-  // Provider connection card (#114): the registered provider, whether the
-  // user is connected to it (settings.providerId), and its live quota.
+  backupProviders: defineChannel(
+    'backup:providers',
+    z.object({}),
+    z.object({ providers: z.array(providerDescriptorSchema).readonly(), defaultProviderId: providerIdSchema }),
+  ),
+  // Provider connection card (#114): addressed provider, connection truth,
+  // and nullable quota for providers that do not expose it.
   backupProviderStatus: defineChannel(
     'backup:provider-status',
-    z.object({}),
+    z.object({ providerId: providerIdSchema }),
     z.object({
-      provider: z.enum(['mock', 'pcloud']),
+      provider: providerDescriptorSchema,
       connected: z.boolean(),
       /** Account label when the provider knows one (pCloud email); the mock
        * has no account and reports null. */
       account: z.string().nullable(),
-      usedBytes: z.number().nonnegative(),
-      totalBytes: z.number().nonnegative(),
+      usedBytes: z.number().nonnegative().nullable(),
+      totalBytes: z.number().nonnegative().nullable(),
     }),
   ),
   // Provider connect/disconnect (#254): connect runs whatever handshake the
   // registered provider needs — the mock connects instantly, pCloud opens
   // the system browser for the OAuth loopback flow. The token never crosses
   // this boundary; the renderer only learns ok/reason.
-  backupConnect: defineChannel('backup:connect', z.object({}), z.object({ ok: z.boolean(), reason: z.string().nullable() })),
-  backupDisconnect: defineChannel('backup:disconnect', z.object({}), z.object({ ok: z.literal(true) })),
+  backupConnect: defineChannel(
+    'backup:connect',
+    z.object({ providerId: providerIdSchema }),
+    z.object({ ok: z.boolean(), reason: z.string().nullable() }),
+  ),
+  backupDisconnect: defineChannel(
+    'backup:disconnect',
+    z.object({ providerId: providerIdSchema }),
+    z.object({ ok: z.boolean(), reason: z.string().nullable() }),
+  ),
   // Settings store (#111): typed get + validated partial patch. The locked
   // key (thumbnailsOnImport) is a literal, so a patch flipping it rejects
   // at this boundary.

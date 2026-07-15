@@ -31,6 +31,9 @@ export function createActiveProvider(options: ActiveProviderOptions): StoragePro
     get label() {
       return delegate().label;
     },
+    get capabilities() {
+      return delegate().capabilities;
+    },
     authState: () => delegate().authState(),
     put: (path, bytes) => delegate().put(path, bytes),
     getStream: (path) => delegate().getStream(path),

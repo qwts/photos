@@ -1,4 +1,5 @@
 import type { Readable } from 'node:stream';
+import type { ProviderCapabilities } from '../../shared/backup/provider-descriptor.js';
 
 // Storage-provider seam (#103, ADR-0007): the ONE interface both the mock
 // and the pCloud adapter (#109) implement. Engine code imports only this —
@@ -51,6 +52,8 @@ export interface StorageProvider {
   readonly id: string;
   /** Human label for the settings card ("pCloud", "Local mock"). */
   readonly label: string;
+  /** UI and policy truth; adapters state limits explicitly. */
+  readonly capabilities: ProviderCapabilities;
 
   authState(): Promise<ProviderAuthState>;
 

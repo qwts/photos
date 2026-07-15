@@ -61,6 +61,14 @@ export interface PCloudProviderOptions {
 export class PCloudProvider implements StorageProvider {
   readonly id = 'pcloud';
   readonly label = 'pCloud';
+  readonly capabilities = {
+    quota: 'known',
+    verification: 'download-hash',
+    resumableUpload: false,
+    platforms: ['darwin', 'win32', 'linux'],
+    interactiveAuth: true,
+    reconnectRequired: true,
+  } as const;
   private readonly auth: () => PCloudAuthRecord | null;
   private readonly root: string;
   private readonly fetchImpl: typeof fetch;

@@ -31,6 +31,14 @@ const DEFAULT_TOTAL = 10 * 1024 * 1024 * 1024;
 export class MockProvider implements StorageProvider {
   readonly id = 'mock';
   readonly label = 'Local mock';
+  readonly capabilities = {
+    quota: 'known',
+    verification: 'server-checksum',
+    resumableUpload: false,
+    platforms: ['darwin', 'win32', 'linux'],
+    interactiveAuth: false,
+    reconnectRequired: false,
+  } as const;
   private readonly rootDir: string;
   private readonly totalBytes: number;
   private connected = true;
@@ -142,11 +150,13 @@ export type FaultKind = 'put' | 'verify-mismatch' | 'auth-expired' | 'transient-
 export class FaultInjectingProvider implements StorageProvider {
   readonly id: string;
   readonly label: string;
+  readonly capabilities;
   private readonly faults = new Set<FaultKind>();
 
   constructor(private readonly inner: StorageProvider) {
     this.id = inner.id;
     this.label = inner.label;
+    this.capabilities = inner.capabilities;
   }
 
   arm(fault: FaultKind): void {
@@ -215,6 +225,10 @@ export class ProviderRegistry {
 
   get(id: string): StorageProvider | undefined {
     return this.providers.get(id);
+  }
+
+  list(): readonly StorageProvider[] {
+    return [...this.providers.values()];
   }
 
   async connectionStates(): Promise<readonly { id: string; label: string; state: ProviderAuthState }[]> {
