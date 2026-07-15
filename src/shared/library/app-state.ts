@@ -63,6 +63,10 @@ export const initialAppState: AppState = {
 
 export type AppAction =
   | { type: 'photos/loaded'; photos: readonly PhotoRecord[]; append: boolean }
+  | {
+      type: 'photos/sync-state-patched';
+      updates: readonly { readonly id: string; readonly syncState: PhotoRecord['syncState'] }[];
+    }
   | { type: 'query/set'; query: string }
   | { type: 'zoom/set'; zoom: number }
   | { type: 'view/set'; view: ViewMode }
@@ -99,6 +103,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const selection = new Set([...state.selection].filter((id) => visible.has(id)));
       const lightboxId = state.lightboxId !== null && visible.has(state.lightboxId) ? state.lightboxId : null;
       return { ...state, photos: action.photos, selection, lightboxId };
+    }
+    case 'photos/sync-state-patched': {
+      const updates = new Map(action.updates.map((update) => [update.id, update.syncState]));
+      return {
+        ...state,
+        photos: state.photos.map((photo) => {
+          const syncState = updates.get(photo.id);
+          return syncState === undefined || syncState === photo.syncState ? photo : { ...photo, syncState };
+        }),
+      };
     }
     case 'query/set':
       return { ...state, query: action.query };
