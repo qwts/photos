@@ -1,0 +1,124 @@
+import { useEffect, useState, type ReactElement } from 'react';
+
+import type { OverlookApi } from '../../../shared/ipc/api.js';
+import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { Button } from '../components/Button';
+import { Dialog } from '../components/Dialog';
+
+import './offload.css';
+
+type Preflight = Awaited<ReturnType<OverlookApi['backup']['offloadPreflight']>>;
+type OffloadResult = Awaited<ReturnType<OverlookApi['backup']['offload']>>;
+type SkipReason = NonNullable<Preflight['items'][number]['reason']>;
+
+const REASON_COPY: Record<SkipReason, string> = {
+  'missing-photo': 'No longer in this library',
+  deleted: 'Recently deleted',
+  'provider-disconnected': 'Cloud provider is disconnected',
+  'provider-expired': 'Cloud connection has expired',
+  'provider-offline': 'Cloud provider is offline',
+  local: 'Not backed up yet',
+  syncing: 'Backup is still in progress',
+  'already-offloaded': 'Already offloaded',
+  error: 'Backup needs attention',
+  dirty: 'Changed since the last verified backup',
+  'shared-original': 'Original is shared by another live photo',
+  'missing-original': 'Local original is missing',
+};
+
+export interface OffloadDialogProps {
+  readonly photoIds: readonly string[];
+  readonly onClose: () => void;
+  readonly onComplete: (result: OffloadResult) => void;
+}
+
+export function OffloadDialog({ photoIds, onClose, onComplete }: OffloadDialogProps): ReactElement {
+  const [plan, setPlan] = useState<Preflight | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void window.overlook.backup
+      .offloadPreflight({ photoIds: [...photoIds] })
+      .then((loaded) => {
+        if (active) setPlan(loaded);
+      })
+      .catch(() => {
+        if (active) setError('Could not check cloud originals. Try again.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [photoIds]);
+
+  const reasons = new Map<SkipReason, number>();
+  for (const item of plan?.items ?? []) {
+    if (item.reason !== null) reasons.set(item.reason, (reasons.get(item.reason) ?? 0) + 1);
+  }
+
+  return (
+    <Dialog
+      open
+      title="Offload originals"
+      icon="cloud-upload"
+      {...(running ? {} : { onClose })}
+      footer={
+        <>
+          <Button variant="secondary" disabled={running} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            icon="cloud-upload"
+            disabled={plan === null || plan.eligible === 0 || running}
+            onClick={() => {
+              setRunning(true);
+              setError(null);
+              void window.overlook.backup
+                .offload({ photoIds: [...photoIds] })
+                .then(onComplete)
+                .catch(() => {
+                  setRunning(false);
+                  setError('Offload failed before any confirmed result. Your originals remain local.');
+                });
+            }}
+          >
+            {running ? 'Offloading…' : `Offload ${formatCount(plan?.eligible ?? 0)}`}
+          </Button>
+        </>
+      }
+    >
+      <div className="ovl-offload" aria-live="polite">
+        {plan === null && error === null ? <div className="ovl-offload__loading mono-data">CHECKING VERIFIED BACKUPS…</div> : null}
+        {plan === null ? null : (
+          <>
+            <div className="ovl-offload__summary">
+              <strong>
+                {formatCount(plan.eligible)} {plan.eligible === 1 ? 'original' : 'originals'}
+              </strong>{' '}
+              can be removed from this Mac after confirmation.
+            </div>
+            <div className="ovl-offload__freed mono-data">
+              ESTIMATED SPACE FREED · {formatBytes(plan.estimatedFreedBytes).toUpperCase()}
+            </div>
+            <div className="ovl-offload__safety">Encrypted cloud copies stay untouched. Thumbnails remain available offline.</div>
+            {reasons.size === 0 ? null : (
+              <div className="ovl-offload__skips">
+                <div className="mono-data">{formatCount(plan.ineligible)} WILL BE SKIPPED</div>
+                <ul>
+                  {[...reasons].map(([reason, count]) => (
+                    <li key={reason}>
+                      {formatCount(count)} · {REASON_COPY[reason]}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+        {error === null ? null : <div className="ovl-offload__error">{error}</div>}
+      </div>
+    </Dialog>
+  );
+}

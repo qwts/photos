@@ -12,6 +12,7 @@ export interface SelectionPillProps {
   readonly onClear: () => void;
   /** Opens the ExportDialog with the selection set (#100). */
   readonly onExport?: (() => void) | undefined;
+  readonly onOffload?: (() => void) | undefined;
   /** Soft-deletes the selection (#120) — "Delete" per the language rules
    * because the photos leave the library view (restorable in trash). */
   readonly onDelete?: (() => void) | undefined;
@@ -25,8 +26,18 @@ export interface SelectionPillProps {
 
 // Floating selection pill (#78) — the mock's bottom-center bar. Export
 // (#100), Delete/Restore/purge (#120/#121), and Add to album (#118) live.
-export function SelectionPill({ count, onClear, onExport, onDelete, onRestore, onAddToAlbum, onPurge }: SelectionPillProps): ReactElement {
+export function SelectionPill({
+  count,
+  onClear,
+  onExport,
+  onOffload,
+  onDelete,
+  onRestore,
+  onAddToAlbum,
+  onPurge,
+}: SelectionPillProps): ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   return (
     <div className="ovl-pill-anchor">
       <div className="ovl-pill" data-testid="selection-pill">
@@ -55,22 +66,50 @@ export function SelectionPill({ count, onClear, onExport, onDelete, onRestore, o
           </>
         ) : (
           <>
-            <Button size="sm" variant="secondary" icon="share" onClick={onExport}>
-              Export
+            <Button size="sm" variant="secondary" icon="cloud-upload" onClick={onOffload}>
+              Offload
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              icon="album"
-              onClick={() => {
-                setPickerOpen((open) => !open);
-              }}
-            >
-              Add to album
-            </Button>
-            <Button size="sm" variant="danger" icon="trash-2" onClick={onDelete}>
-              Delete
-            </Button>
+            <div className="ovl-pill__wide-actions">
+              <Button size="sm" variant="secondary" icon="share" onClick={onExport}>
+                Export
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon="album"
+                onClick={() => {
+                  setPickerOpen((open) => !open);
+                }}
+              >
+                Add to album
+              </Button>
+              <Button size="sm" variant="danger" icon="trash-2" onClick={onDelete}>
+                Delete
+              </Button>
+            </div>
+            <div className="ovl-pill__more">
+              <IconButton icon="sliders-horizontal" label="More selection actions" size="sm" onClick={() => setMoreOpen((open) => !open)} />
+              {moreOpen ? (
+                <div className="ovl-pill__menu" role="menu">
+                  <button type="button" role="menuitem" onClick={onExport}>
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setPickerOpen(true);
+                    }}
+                  >
+                    Add to album
+                  </button>
+                  <button type="button" role="menuitem" className="ovl-pill__menuDanger" onClick={onDelete}>
+                    Delete
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </>
         )}
         <IconButton icon="x" label="Clear selection" size="sm" onClick={onClear} />

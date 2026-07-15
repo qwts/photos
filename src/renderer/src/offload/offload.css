@@ -1,0 +1,36 @@
+.ovl-offload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: var(--text-body);
+}
+
+.ovl-offload__loading,
+.ovl-offload__freed,
+.ovl-offload__skips {
+  color: var(--text-muted);
+  letter-spacing: var(--tracking-wide);
+}
+
+.ovl-offload__summary {
+  font-size: var(--text-lg);
+}
+
+.ovl-offload__safety {
+  padding: var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+  color: var(--text-muted);
+}
+
+.ovl-offload__skips ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  color: var(--text-body);
+  letter-spacing: normal;
+}
+
+.ovl-offload__error {
+  color: var(--accent-red);
+}

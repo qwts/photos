@@ -20,6 +20,8 @@ import { useGlobalKeys } from '../state/use-global-keys';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
+import { ToastAction } from './ToastAction';
+import { useOffloadWorkflow } from '../offload/use-offload-workflow';
 import { Toolbar } from './Toolbar';
 
 // 4s per the design's ToastHost (#89 exit criteria).
@@ -31,6 +33,7 @@ const TOAST_DISMISS_MS = 4000;
 export function Shell({ platform }: { readonly platform: string }): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const offload = useOffloadWorkflow();
   useGlobalKeys();
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
@@ -300,6 +303,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
           }}
         />
       ) : null}
+      {offload.dialog}
       {state.settingsOpen ? (
         <SettingsDialog
           open
@@ -342,6 +346,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
               // Lightbox entry point (#100): count=1, the focused photo.
               dispatch({ type: 'dialog/set', dialog: 'export', open: true });
             }}
+            onOffload={() => offload.open([current.id])}
             onRehydrateError={() => {
               dispatch({
                 type: 'toast/shown',
@@ -361,7 +366,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
       <div className="ovl-shell__body">
         <Sidebar counts={counts} stats={stats} albums={albums} />
         <main className="ovl-shell__content" data-testid="content-region">
-          <LibraryGridView knownTotal={counts === null ? null : counts[state.source]} />
+          <LibraryGridView knownTotal={counts === null ? null : counts[state.source]} onOffload={offload.open} />
         </main>
         {state.inspectorOpen ? (
           <aside className="ovl-shell__inspector" aria-label="Inspector">
@@ -379,39 +384,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
       </div>
       {toast === null ? null : (
         <div className="ovl-shell__toast">
-          <Toast
-            tone={toast.tone}
-            title={toast.title}
-            action={
-              toast.action === 'show-recent' ? (
-                <button
-                  type="button"
-                  className="ovl-toast__action"
-                  onClick={() => {
-                    dispatch({ type: 'source/set', source: 'recent' });
-                    dispatch({ type: 'toast/dismissed' });
-                  }}
-                >
-                  Show
-                </button>
-              ) : toast.action === 'retry-backup' ? (
-                <button
-                  type="button"
-                  className="ovl-toast__action"
-                  onClick={() => {
-                    void window.overlook.backup.run({}).then(({ skipped }) => {
-                      if (skipped === 'disconnected') {
-                        dispatch({ type: 'toast/shown', toast: { title: 'BACKUP OFF — NOT CONNECTED', tone: 'neutral' } });
-                      }
-                    });
-                    dispatch({ type: 'toast/dismissed' });
-                  }}
-                >
-                  Retry
-                </button>
-              ) : undefined
-            }
-          />
+          <Toast tone={toast.tone} title={toast.title} action={<ToastAction toast={toast} />} />
         </div>
       )}
       <StatusBar stats={stats} />

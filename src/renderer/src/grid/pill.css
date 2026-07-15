@@ -28,6 +28,61 @@
   padding: 0 var(--space-1);
 }
 
+.ovl-pill__wide-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ovl-pill__more {
+  position: relative;
+  display: none;
+}
+
+.ovl-pill__menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-2));
+  z-index: 2;
+  min-width: 160px;
+  padding: var(--space-1);
+  background: var(--gray-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-1);
+  box-shadow: var(--shadow-2);
+}
+
+.ovl-pill__menu button {
+  display: block;
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--text-body);
+  text-align: left;
+}
+
+.ovl-pill__menu button:hover,
+.ovl-pill__menu button:focus-visible {
+  background: var(--gray-4);
+  outline: none;
+}
+
+.ovl-pill__menu .ovl-pill__menuDanger {
+  color: var(--accent-red);
+}
+
+@media (max-width: 860px) {
+  .ovl-pill__wide-actions {
+    display: none;
+  }
+
+  .ovl-pill__more {
+    display: block;
+  }
+}
+
 .ovl-albumpicker {
   position: absolute;
   bottom: calc(100% + var(--space-2));
