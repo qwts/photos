@@ -133,18 +133,18 @@ describe('migrations', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 7, name: 'seven', up: () => order.push(7) },
       { version: 6, name: 'six', up: () => order.push(6) },
-      { version: 5, name: 'five', up: () => order.push(5) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [5, 6]);
+    assert.deepEqual(order, [6, 7]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 5,
+      version: 6,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -153,7 +153,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 4);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 5);
     db.close();
   });
 });
