@@ -237,6 +237,7 @@ export interface BackupFacade {
   keepDownloaded(photoId: string): Promise<void>;
   releaseEphemeral(photoId: string): Promise<void>;
   ephemeralStatus(photoId: string): 'fetching' | 'verifying' | 'ready' | 'released' | 'error' | null;
+  prepareEphemeral(photoId: string): Promise<'durable' | 'ephemeral'>;
   restoreOriginals(photoIds?: readonly string[]): Promise<RestoreOriginalsSummary>;
   providers(): { providers: readonly ProviderDescriptor[]; defaultProviderId: string };
   providerStatus(providerId: string): Promise<{
@@ -282,6 +283,11 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
   );
   ipcMain.handle(channels.backupEphemeralStatus.name, (_event, request: unknown) =>
     wrapHandler(channels.backupEphemeralStatus, ({ photoId }) => ({ stage: getFacade().ephemeralStatus(photoId) }))(request),
+  );
+  ipcMain.handle(channels.backupPrepareEphemeral.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupPrepareEphemeral, async ({ photoId }) => ({ custody: await getFacade().prepareEphemeral(photoId) }))(
+      request,
+    ),
   );
   ipcMain.handle(channels.backupRestoreOriginals.name, (_event, request: unknown) =>
     wrapHandler(channels.backupRestoreOriginals, async ({ photoIds }) => getFacade().restoreOriginals(photoIds))(request),

@@ -517,7 +517,8 @@ function getBackupEngine(): BackupEngine {
       workChanged: (delta) => (providerWorkCount += delta),
       syncStateChanged: (updates) => emitSyncStateChanged({ updates: [...updates] }),
       storageChanged: () => broadcast((win) => win.webContents.send(events.storageChanged.name, {})),
-      stateChanged: (state) => emitEphemeralState(state),
+      stateChanged: emitEphemeralState,
+      invalidateFull: (photoId) => fullService?.invalidate(photoId),
       audit,
     });
     offloadService = custody.offload;

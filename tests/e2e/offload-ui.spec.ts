@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -84,14 +84,33 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
 
     // Lightbox entry stays open through preflight, then closes after the
     // confirmed offload instead of immediately rehydrating its own photo.
+    await page.setViewportSize({ width: 960, height: 640 });
     await firstCell.click();
     const lightbox = page.getByTestId('lightbox');
     await lightbox.getByRole('button', { name: 'Offload original' }).click();
     await expect(lightbox).toBeVisible();
     await confirmOffload(page);
     await expect(lightbox).toBeHidden();
-    await page.getByRole('button', { name: 'Undo' }).click();
+
+    // Default-on policy streams from verified encrypted temporary custody,
+    // keeps the durable ledger offloaded, and clears both encrypted and
+    // plaintext caches on close.
+    await firstCell.click();
+    await expect(lightbox.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible();
+    await expect(lightbox.getByRole('button', { name: 'Keep downloaded' })).toBeVisible();
+    await expect.poll(() => syncState(page)).toBe('offloaded');
+    await lightbox.getByRole('button', { name: 'Close (Esc)' }).click();
+    await expect
+      .poll(() => readdirSync(join(userData, 'library', 'ephemeral')).length, { message: 'close releases encrypted temporary custody' })
+      .toBe(0);
+
+    // A new view fetches again after close. Explicit promotion verifies and
+    // atomically restores durable bytes before the ledger becomes synced.
+    await firstCell.click();
+    await expect(lightbox.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible();
+    await lightbox.getByRole('button', { name: 'Keep downloaded' }).click();
     await expect.poll(() => syncState(page)).toBe('synced');
+    await lightbox.getByRole('button', { name: 'Close (Esc)' }).click();
   } finally {
     await app.close();
   }

@@ -21,10 +21,19 @@ export interface OriginalCustodyRuntimeOptions {
   readonly syncStateChanged: (updates: readonly { readonly id: string; readonly syncState: SyncStatus }[]) => void;
   readonly storageChanged: () => void;
   readonly stateChanged: (state: { readonly photoId: string; readonly stage: EphemeralStage }) => void;
+  readonly invalidateFull: (photoId: string) => void;
   readonly audit: (line: string) => void;
 }
 
 export function createOriginalCustodyRuntime(options: OriginalCustodyRuntimeOptions) {
+  const syncStateChanged: OriginalCustodyRuntimeOptions['syncStateChanged'] = (updates) => {
+    for (const update of updates) if (update.syncState === 'offloaded') options.invalidateFull(update.id);
+    options.syncStateChanged(updates);
+  };
+  const stateChanged: OriginalCustodyRuntimeOptions['stateChanged'] = (state) => {
+    if (state.stage === 'released') options.invalidateFull(state.photoId);
+    options.stateChanged(state);
+  };
   const offload = new OffloadService({
     provider: options.provider,
     providerConnected: options.connected,
@@ -41,7 +50,7 @@ export function createOriginalCustodyRuntime(options: OriginalCustodyRuntimeOpti
       encryptedStream: (hash) => options.blobs.getEncryptedStream(hash),
       restoreOriginal: (hash, ciphertext, photoId) => options.blobs.restoreOriginal(hash, ciphertext, options.resolveKey, photoId),
     },
-    syncStateChanged: options.syncStateChanged,
+    syncStateChanged,
     storageChanged: options.storageChanged,
     audit: options.audit,
   });
@@ -56,9 +65,9 @@ export function createOriginalCustodyRuntime(options: OriginalCustodyRuntimeOpti
     reOffloadAfterViewing: options.reOffloadAfterViewing,
     permanentRestore: (photoId) => offload.rehydrate(photoId),
     workChanged: options.workChanged,
-    syncStateChanged: options.syncStateChanged,
+    syncStateChanged,
     storageChanged: options.storageChanged,
-    stateChanged: options.stateChanged,
+    stateChanged,
     audit: options.audit,
   });
   return { offload, ephemeral };

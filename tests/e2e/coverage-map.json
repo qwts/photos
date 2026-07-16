@@ -612,6 +612,24 @@
           "path": "src/renderer/src/shell/Sidebar.stories.tsx"
         }
       ]
+    },
+    {
+      "id": "m19-ephemeral-cloud-original-custody",
+      "wiki": "User-Story-M19-Cloud-workflows",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/offload-ui.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/ephemeral-originals.test.ts"
+        }
+      ]
     }
   ]
 }

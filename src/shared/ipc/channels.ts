@@ -350,6 +350,11 @@ export const channels = {
     z.object({ photoId: z.string() }),
     z.object({ stage: z.enum(['fetching', 'verifying', 'ready', 'released', 'error']).nullable() }),
   ),
+  backupPrepareEphemeral: defineChannel(
+    'backup:prepare-ephemeral',
+    z.object({ photoId: z.string() }),
+    z.object({ custody: z.enum(['durable', 'ephemeral']) }),
+  ),
   backupRestoreOriginals: defineChannel(
     'backup:restore-originals',
     z.object({ photoIds: z.array(z.string()).min(1).optional() }),

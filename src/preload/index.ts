@@ -73,6 +73,7 @@ const overlook: OverlookApi = {
     keepDownloaded: createInvoker(channels.backupKeepDownloaded, invokeTransport),
     releaseEphemeral: createInvoker(channels.backupReleaseEphemeral, invokeTransport),
     ephemeralStatus: createInvoker(channels.backupEphemeralStatus, invokeTransport),
+    prepareEphemeral: createInvoker(channels.backupPrepareEphemeral, invokeTransport),
     onEphemeralState: createSubscriber(events.ephemeralOriginalState, subscribeTransport),
     restoreOriginals: createInvoker(channels.backupRestoreOriginals, invokeTransport),
     providers: async () => backupProviders({}),

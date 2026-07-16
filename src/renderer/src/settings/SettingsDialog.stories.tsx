@@ -78,6 +78,7 @@ function installStub(): void {
     keepDownloaded: () => Promise.resolve({ ok: true }),
     releaseEphemeral: () => Promise.resolve({ ok: true }),
     ephemeralStatus: () => Promise.resolve({ stage: null }),
+    prepareEphemeral: () => Promise.resolve({ custody: 'ephemeral' }),
     onEphemeralState: () => () => undefined,
     restoreOriginals: ({ photoIds }) =>
       Promise.resolve({

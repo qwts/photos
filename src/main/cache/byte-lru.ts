@@ -68,6 +68,16 @@ export class ByteLru<V extends ByteSized> {
     return this.cache.has(key) || this.inFlight.has(key);
   }
 
+  /** Drops a completed value immediately. In-flight work is left to finish;
+   * callers use this when external custody closes and cached plaintext must
+   * not outlive that lifecycle. */
+  delete(key: string): void {
+    const value = this.cache.get(key);
+    if (value === undefined) return;
+    this.cache.delete(key);
+    this.cacheBytes -= value.bytes.length;
+  }
+
   /** {cachedBytes, peakConcurrent} — observability for tests and M11. */
   stats(): { readonly cachedBytes: number; readonly peakConcurrent: number } {
     return { cachedBytes: this.cacheBytes, peakConcurrent: this.peak };

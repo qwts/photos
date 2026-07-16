@@ -20,7 +20,7 @@
 
 .ovl-lightbox__preview {
   position: absolute;
-  top: var(--space-3);
+  top: calc(64px + var(--space-2));
   right: var(--space-3);
   color: var(--text-faint);
   font: var(--type-meta);
@@ -94,18 +94,51 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 46px;
+  min-height: 54px;
   display: flex;
   align-items: flex-end;
-  justify-content: center;
-  padding-bottom: calc(var(--space-2) + var(--space-1) / 2);
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) calc(var(--space-2) + var(--space-1) / 2);
   background: var(--protect-grad);
+}
+
+.ovl-lightbox__exif {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-lightbox__custody {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
 }
 
 .ovl-lightbox__strip .mono-data {
   font: var(--type-meta);
   letter-spacing: 0.04em;
   color: var(--text-muted);
+}
+
+@media (max-width: 860px) {
+  .ovl-lightbox__title {
+    display: none;
+  }
+
+  .ovl-lightbox__strip {
+    align-items: center;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: var(--space-1);
+    min-height: 82px;
+  }
+
+  .ovl-lightbox__custody {
+    order: -1;
+  }
 }
 
 /* Inspector docked (#94): the overlay yields the right rail so the truth
