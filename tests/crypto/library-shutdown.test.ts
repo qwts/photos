@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { drainBeforeDeadline, drainWithCancellationFence } from '../../src/main/crypto/library-shutdown.js';
+import { CustodyWorkTracker, drainBeforeDeadline, drainWithCancellationFence } from '../../src/main/crypto/library-shutdown.js';
 
 describe('library shutdown barrier (#311)', () => {
   test('waits for active work before resolving', async () => {
@@ -46,5 +46,31 @@ describe('library shutdown barrier (#311)', () => {
     await draining;
     assert.equal(scheduled, false);
     assert.equal(cancellations, 2);
+  });
+
+  test('custody work added during a drain also finishes before closure', async () => {
+    const tracker = new CustodyWorkTracker();
+    let releaseFirst: (() => void) | undefined;
+    let releaseSecond: (() => void) | undefined;
+    const first = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const second = new Promise<void>((resolve) => {
+      releaseSecond = resolve;
+    });
+    void tracker.track(first);
+    let drained = false;
+    const draining = tracker.drain().then(() => {
+      drained = true;
+    });
+
+    void tracker.track(second);
+    releaseFirst?.();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(drained, false);
+
+    releaseSecond?.();
+    await draining;
+    assert.equal(drained, true);
   });
 });

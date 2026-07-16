@@ -67,9 +67,12 @@ export class AppLockController {
       this.publish({ ...this.current, state: 'unlocking' });
       const result = await this.options.credentials.unlock(password);
       if (!result.ok) {
-        const retryAfterMs = result.reason === 'wrong-password' ? this.options.throttle?.recordFailure() : undefined;
-        this.publish({ ...this.current, state: result.reason === 'recovery-required' ? 'recovery-required' : 'locked' });
-        return { ...result, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) };
+        try {
+          const retryAfterMs = result.reason === 'wrong-password' ? this.options.throttle?.recordFailure() : undefined;
+          return { ...result, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) };
+        } finally {
+          this.publish({ ...this.current, state: result.reason === 'recovery-required' ? 'recovery-required' : 'locked' });
+        }
       }
       try {
         this.options.throttle?.reset();
