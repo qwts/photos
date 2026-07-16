@@ -54,6 +54,8 @@ export interface PCloudProviderOptions {
   readonly auth: () => PCloudAuthRecord | null;
   /** Names this library's remote home: /Overlook/<libraryId>/… (ADR-0007). */
   readonly libraryId: string;
+  /** Separate top-level roots prevent backup and interoperability enumeration. */
+  readonly rootName?: string;
   /** Test seam; production uses global fetch. */
   readonly fetchImpl?: typeof fetch;
 }
@@ -80,14 +82,16 @@ export class PCloudProvider implements StorageProvider {
   constructor(options: PCloudProviderOptions) {
     this.options = options;
     this.auth = options.auth;
-    this.root = `/Overlook/${options.libraryId}`;
+    const rootName = options.rootName ?? 'Overlook';
+    if (!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$/u.test(rootName)) throw new ProviderError('unsafe pCloud root name', 'corrupt');
+    this.root = `/${rootName}/${options.libraryId}`;
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
   async listLibraries(): Promise<readonly string[]> {
     let data: Record<string, unknown>;
     try {
-      data = await this.api('listfolder', { path: '/Overlook' });
+      data = await this.api('listfolder', { path: this.root.slice(0, this.root.lastIndexOf('/')) });
     } catch (error) {
       if (error instanceof ProviderError && error.kind === 'not-found') return [];
       throw error;
@@ -100,7 +104,8 @@ export class PCloudProvider implements StorageProvider {
     const libraries: string[] = [];
     for (const libraryId of candidates) {
       try {
-        const marker = await this.api('listfolder', { path: `/Overlook/${libraryId}/recovery` });
+        const root = this.root.slice(0, this.root.lastIndexOf('/'));
+        const marker = await this.api('listfolder', { path: `${root}/${libraryId}/recovery` });
         const recovery = marker['metadata'] as PCloudFileMeta | undefined;
         if (recovery?.contents?.some((entry) => !entry.isfolder && entry.name === 'bootstrap.ovrb') === true) {
           libraries.push(libraryId);

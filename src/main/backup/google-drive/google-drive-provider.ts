@@ -18,7 +18,7 @@ const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const BINARY_MIME = 'application/octet-stream';
-const OWNER = 'qwts-photos';
+const BACKUP_OWNER = 'qwts-photos';
 const CHUNK_BYTES = 8 * 1024 * 1024;
 const FILE_FIELDS = 'id,name,mimeType,size,sha256Checksum,appProperties,trashed';
 
@@ -41,6 +41,8 @@ export interface GoogleDriveProviderOptions {
   readonly auth: GoogleDriveAuthClient;
   readonly paths: GoogleDrivePathStore;
   readonly libraryId: string;
+  readonly rootName?: string;
+  readonly owner?: string;
   readonly fetchImpl?: typeof fetch;
 }
 
@@ -99,12 +101,19 @@ export class GoogleDriveProvider implements StorageProvider {
   } as const;
 
   private readonly fetchImpl: typeof fetch;
+  private readonly rootName: string;
+  private readonly owner: string;
 
   constructor(
     private readonly options: GoogleDriveProviderOptions,
     private readonly validatedIds = new Set<string>(),
   ) {
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.rootName = options.rootName ?? 'Overlook';
+    this.owner = options.owner ?? BACKUP_OWNER;
+    if (!/^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$/u.test(this.rootName) || !/^[a-z0-9-]{3,64}$/u.test(this.owner)) {
+      throw new ProviderError('unsafe Google Drive namespace identity', 'corrupt');
+    }
   }
 
   authState(): Promise<ProviderAuthState> {
@@ -251,7 +260,7 @@ export class GoogleDriveProvider implements StorageProvider {
   }
 
   private properties(identity: string): Record<string, string> {
-    return { overlookOwner: OWNER, overlookPathHash: pathHash(identity) };
+    return { overlookOwner: this.owner, overlookPathHash: pathHash(identity) };
   }
 
   private async walk(folderId: string, relativePath: string, out: RemoteEntry[]): Promise<void> {
@@ -279,7 +288,7 @@ export class GoogleDriveProvider implements StorageProvider {
     if (cached !== null) this.options.paths.setOverlookFolderId(null);
     const identity = 'overlook-root';
     const found = await this.findOne([
-      `name = 'Overlook'`,
+      `name = '${quoteQuery(this.rootName)}'`,
       `mimeType = '${FOLDER_MIME}'`,
       `'root' in parents`,
       `trashed = false`,
@@ -292,7 +301,7 @@ export class GoogleDriveProvider implements StorageProvider {
       return foundId;
     }
     if (!create) return null;
-    const id = await this.createFolder('Overlook', 'root', identity);
+    const id = await this.createFolder(this.rootName, 'root', identity);
     this.options.paths.setOverlookFolderId(id);
     return id;
   }
@@ -365,7 +374,7 @@ export class GoogleDriveProvider implements StorageProvider {
   }
 
   private propertyQuery(identity: string): string {
-    return `appProperties has { key='overlookOwner' and value='${OWNER}' } and appProperties has { key='overlookPathHash' and value='${pathHash(identity)}' }`;
+    return `appProperties has { key='overlookOwner' and value='${this.owner}' } and appProperties has { key='overlookPathHash' and value='${pathHash(identity)}' }`;
   }
 
   private async validFolder(id: string): Promise<boolean> {
