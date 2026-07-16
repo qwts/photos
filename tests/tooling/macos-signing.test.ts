@@ -32,8 +32,10 @@ describe('macOS release signing safety (#357)', () => {
 
   test('the package workflow validates that the packaged app can start', () => {
     const workflow = source('.github/workflows/package.yml');
+    const knip = source('knip.json');
     assert.match(workflow, /verify-macos-app-launch\.mjs/u);
     assert.match(workflow, /\*-mac\.zip/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
+    for (const binary of ['ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
   });
 });

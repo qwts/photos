@@ -3,5 +3,6 @@
   "entry": ["tests/**/*.test.ts", "tests/e2e/**/*.spec.ts", "scripts/*.mjs"],
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.mjs"],
   "ignoreExportsUsedInFile": true,
+  "ignoreBinaries": ["ditto", "plutil", "security"],
   "ignoreDependencies": ["node-addon-api", "node-test-github-reporter", "prebuildify"]
 }
