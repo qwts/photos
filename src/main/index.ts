@@ -3,15 +3,15 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
-import { app, BrowserWindow, dialog, shell } from 'electron';
+import { app, BrowserWindow, dialog, session, shell } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
-import { createWindow, relaunchLocked } from './app-window.js';
+import { createWindow, reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
-import { drainBeforeDeadline } from './crypto/library-shutdown.js';
+import { drainWithCancellationFence } from './crypto/library-shutdown.js';
 import { TestFileCredentialAnchorStore } from './crypto/test-credential-anchor.js';
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
 import { openLibraryDatabase } from './db/database.js';
@@ -688,22 +688,24 @@ function getExportFacade(): DrainableExportFacade {
 }
 
 async function closeLibrary(drainRestore: boolean): Promise<void> {
-  scheduleAutoBackup.cancel();
   autoBackupTrigger = undefined;
   manifestSyncTrigger = undefined;
   importService?.cancel();
   exportFacade?.cancel();
   for (const controller of activeBackupControllers) controller.abort();
-  await drainBeforeDeadline([
-    importService?.drain() ?? Promise.resolve(),
-    exportFacade?.drain() ?? Promise.resolve(),
-    Promise.allSettled([...activeBackupRuns]),
-    drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
-    drainRestore ? providerIdle() : Promise.resolve(),
-    thumbService?.close() ?? Promise.resolve(),
-    fullService?.close() ?? Promise.resolve(),
-    thumbnailPool?.close() ?? Promise.resolve(),
-  ]);
+  await drainWithCancellationFence(
+    () => scheduleAutoBackup.cancel(),
+    [
+      importService?.drain() ?? Promise.resolve(),
+      exportFacade?.drain() ?? Promise.resolve(),
+      Promise.allSettled([...activeBackupRuns]),
+      drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
+      drainRestore ? providerIdle() : Promise.resolve(),
+      Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),
+      thumbnailPool?.close() ?? Promise.resolve(),
+      ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
+    ],
+  );
   libraryParts?.db.close();
   libraryParts?.keyStore.close();
   libraryService = undefined;

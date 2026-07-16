@@ -9,3 +9,15 @@ export async function drainBeforeDeadline(tasks: readonly Promise<unknown>[], ti
     clearTimeout(timer);
   }
 }
+
+/** Cancel before and after draining: an in-flight completion callback may
+ * re-arm scheduled work while the barrier is waiting. */
+export async function drainWithCancellationFence(
+  cancelScheduled: () => void,
+  tasks: readonly Promise<unknown>[],
+  timeoutMs = 10_000,
+): Promise<void> {
+  cancelScheduled();
+  await drainBeforeDeadline(tasks, timeoutMs);
+  cancelScheduled();
+}

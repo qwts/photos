@@ -69,14 +69,20 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     })()`);
     expect(ipcBypasses).toHaveLength(4);
     for (const result of ipcBypasses) expect(result).not.toBe('allowed');
-    const protocolStatus = await page.evaluate(async (url) => {
-      try {
-        return (await fetch(url)).status;
-      } catch {
-        return 0;
-      }
+    const cachedThumbBypass = await page.evaluate((url) => {
+      const ImageConstructor = (
+        globalThis as unknown as {
+          Image: new () => { onload: () => void; onerror: () => void; src: string };
+        }
+      ).Image;
+      return new Promise<boolean>((resolve) => {
+        const image = new ImageConstructor();
+        image.onload = () => resolve(true);
+        image.onerror = () => resolve(false);
+        image.src = url;
+      });
     }, thumbUrl as string);
-    expect(protocolStatus).not.toBe(200);
+    expect(cachedThumbBypass).toBe(false);
   } finally {
     await first.close();
   }
