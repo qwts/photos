@@ -9,6 +9,8 @@ import type { SafeStorageLike } from './keystore.js';
 
 const MAGIC = Buffer.from('OVLK', 'ascii');
 const MASTER_FILE = 'master.key';
+const CONFIGURED_MARKER_FILE = 'app-lock.configured';
+const CONFIGURED_MARKER = Buffer.from('OVLK1\n', 'ascii');
 const VERSION = 1;
 const KEY_BYTES = 32;
 const NONCE_BYTES = 12;
@@ -182,30 +184,38 @@ async function createRecord(input: ConfigureAppLockInput, generation: number): P
 export class AppLockCredentialStore {
   private readonly masterPath: string;
   private readonly pendingPath: string;
+  private readonly configuredMarkerPath: string;
 
   constructor(private readonly options: AppLockCredentialStoreOptions) {
     this.masterPath = join(options.dataDir, MASTER_FILE);
     this.pendingPath = `${this.masterPath}.pending`;
+    this.configuredMarkerPath = join(options.dataDir, CONFIGURED_MARKER_FILE);
   }
 
   status(): AppLockStatus {
     this.reconcilePendingTransition();
     if (!existsSync(this.masterPath)) {
       const pendingExists = existsSync(this.pendingPath);
+      const configuredBefore = existsSync(this.configuredMarkerPath);
       if (!this.options.anchorStore.isAvailable()) {
-        return pendingExists ? { state: 'recovery-required', reason: 'anchor-unavailable' } : { state: 'unconfigured' };
+        return pendingExists || configuredBefore ? { state: 'recovery-required', reason: 'anchor-unavailable' } : { state: 'unconfigured' };
       }
       const anchor = this.options.anchorStore.read();
       if (anchor !== null) return { state: 'recovery-required', reason: 'anchor-mismatch' };
-      return pendingExists ? { state: 'recovery-required', reason: 'anchor-missing' } : { state: 'unconfigured' };
+      return pendingExists || configuredBefore ? { state: 'recovery-required', reason: 'anchor-missing' } : { state: 'unconfigured' };
     }
     const raw = readFileSync(this.masterPath);
     if (!raw.subarray(0, MAGIC.length).equals(MAGIC)) {
-      if (!this.options.anchorStore.isAvailable()) return { state: 'unconfigured' };
+      const configuredBefore = existsSync(this.configuredMarkerPath);
+      if (!this.options.anchorStore.isAvailable()) {
+        return configuredBefore ? { state: 'recovery-required', reason: 'anchor-unavailable' } : { state: 'unconfigured' };
+      }
       const anchor = this.options.anchorStore.read();
-      if (anchor === null) return { state: 'unconfigured' };
+      if (anchor === null) {
+        return configuredBefore ? { state: 'recovery-required', reason: 'anchor-missing' } : { state: 'unconfigured' };
+      }
       if (anchor.recordHash === recordHash(raw)) {
-        this.clearAnchorOrThrow();
+        this.completeRemoval();
         return { state: 'unconfigured' };
       }
       return { state: 'recovery-required', reason: 'anchor-mismatch' };
@@ -218,6 +228,7 @@ export class AppLockCredentialStore {
     if (anchor.libraryId !== record.libraryId || anchor.generation !== record.generation || anchor.recordHash !== recordHash(raw)) {
       return { state: 'recovery-required', reason: 'anchor-mismatch' };
     }
+    this.writeConfiguredMarker();
     return { state: 'locked', libraryId: record.libraryId };
   }
 
@@ -282,7 +293,7 @@ export class AppLockCredentialStore {
       writeFileAtomic(this.pendingPath, legacy);
       this.options.anchorStore.write(anchor);
       renameSync(this.pendingPath, this.masterPath);
-      this.clearAnchorOrThrow();
+      this.completeRemoval();
       return true;
     } finally {
       unlocked.masterKey.fill(0);
@@ -302,6 +313,7 @@ export class AppLockCredentialStore {
     mkdirSync(this.options.dataDir, { recursive: true });
     writeFileAtomic(this.pendingPath, raw);
     this.options.anchorStore.write({ libraryId: record.libraryId, generation: record.generation, recordHash: recordHash(raw) });
+    this.writeConfiguredMarker();
     renameSync(this.pendingPath, this.masterPath);
   }
 
@@ -314,8 +326,9 @@ export class AppLockCredentialStore {
       if (pendingRecord !== null && (pendingRecord.libraryId !== anchor.libraryId || pendingRecord.generation !== anchor.generation)) {
         return;
       }
+      if (pendingRecord !== null) this.writeConfiguredMarker();
       renameSync(this.pendingPath, this.masterPath);
-      if (pendingRecord === null) this.clearAnchorOrThrow();
+      if (pendingRecord === null) this.completeRemoval();
       return;
     }
     if (!existsSync(this.masterPath)) return;
@@ -333,5 +346,15 @@ export class AppLockCredentialStore {
   private clearAnchorOrThrow(): void {
     this.options.anchorStore.clear();
     if (this.options.anchorStore.read() !== null) throw new Error('OS credential store refused to clear the app-lock anchor');
+  }
+
+  private writeConfiguredMarker(): void {
+    if (existsSync(this.configuredMarkerPath) && readFileSync(this.configuredMarkerPath).equals(CONFIGURED_MARKER)) return;
+    writeFileAtomic(this.configuredMarkerPath, CONFIGURED_MARKER);
+  }
+
+  private completeRemoval(): void {
+    if (existsSync(this.configuredMarkerPath)) unlinkSync(this.configuredMarkerPath);
+    this.clearAnchorOrThrow();
   }
 }

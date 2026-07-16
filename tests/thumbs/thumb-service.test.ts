@@ -38,13 +38,17 @@ describe('thumb URL contract', () => {
 
   test('protocol responses never let Chromium cache decrypted thumbs across lock', async () => {
     const service = new ThumbService({ loadThumb: () => Promise.resolve(loaded(3)) });
-    const success = await handleThumbRequest(service, () => undefined, new Request(thumbUrl('a')));
+    const success = await handleThumbRequest(
+      () => service,
+      () => undefined,
+      new Request(thumbUrl('a')),
+    );
     assert.equal(success.status, 200);
     assert.equal(success.headers.get('cache-control'), 'no-store');
     assert.deepEqual(Buffer.from(await success.arrayBuffer()), Buffer.alloc(3, 1));
 
     const denied = await handleThumbRequest(
-      service,
+      () => service,
       () => {
         throw new Error('locked');
       },
@@ -52,6 +56,23 @@ describe('thumb URL contract', () => {
     );
     assert.equal(denied.status, 404);
     assert.equal(denied.headers.get('cache-control'), 'no-store');
+  });
+
+  test('locked requests cannot construct the thumbnail service', async () => {
+    let serviceLookups = 0;
+    const denied = await handleThumbRequest(
+      () => {
+        serviceLookups += 1;
+        return new ThumbService({ loadThumb: () => Promise.resolve(loaded(3)) });
+      },
+      () => {
+        throw new Error('locked');
+      },
+      new Request(thumbUrl('a')),
+    );
+
+    assert.equal(denied.status, 404);
+    assert.equal(serviceLookups, 0);
   });
 });
 

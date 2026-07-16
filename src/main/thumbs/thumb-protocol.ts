@@ -13,5 +13,5 @@ import { handleThumbRequest } from './thumb-response.js';
 
 /** Call once after app ready; the service is created lazily like the library. */
 export function registerThumbProtocol(getService: () => ThumbService, admit: () => void = () => undefined): void {
-  protocol.handle(THUMB_SCHEME, (request) => handleThumbRequest(getService(), admit, request));
+  protocol.handle(THUMB_SCHEME, (request) => handleThumbRequest(getService, admit, request));
 }
