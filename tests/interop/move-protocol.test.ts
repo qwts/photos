@@ -255,7 +255,7 @@ describe('MoveProtocolService', () => {
     source.db.close();
   });
 
-  test('derives exact review counts from durable items instead of replay increments', () => {
+  test('derives exact review counts from durable items instead of replay increments', async () => {
     const base = fixture('valid-record-message');
     assert.equal(base.payload.kind, 'record');
     if (base.payload.kind !== 'record') return assert.fail('record expected');
@@ -312,6 +312,35 @@ describe('MoveProtocolService', () => {
     source = openProtocol({ path, key: SOURCE_KEY, localProduct: 'image-trail', now });
     assert.deepEqual(source.journals.getJournal(base.header.transferId)?.counts, expected);
     assert.equal(source.journals.pendingOutbox(base.header.transferId).length, 3);
+    const first = requests[0];
+    assert.ok(first);
+    assert.equal(first.payload.kind, 'record');
+    if (first.payload.kind !== 'record') return assert.fail('record expected');
+    const acknowledgement = interopEnvelopeSchema.parse({
+      header: {
+        ...first.header,
+        messageId: FIRST_ACK_ID,
+        sourceProduct: first.header.targetProduct,
+        targetProduct: first.header.sourceProduct,
+        kind: 'acknowledgement',
+      },
+      payload: {
+        kind: 'acknowledgement',
+        schemaVersion: 1,
+        status: 'accepted',
+        recordInteropId: first.payload.record.identity.interopId,
+        targetLocalId: null,
+        metadataPersisted: true,
+        originalVerification: 'metadata-only',
+        acknowledgedMessageIds: [first.header.messageId],
+        errors: [],
+      },
+    });
+    assert.equal(source.service.acknowledge(acknowledgement).phase, 'awaiting-acknowledgement');
+    const partial = await source.service.resumeFinalization(base.header.transferId, { finalize: () => Promise.resolve() });
+    assert.equal(partial.journal.phase, 'awaiting-acknowledgement');
+    assert.equal(partial.journal.counts.finalized, 1);
+    assert.equal(partial.journal.counts.acknowledged, 1);
     source.db.close();
   });
 
