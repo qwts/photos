@@ -9,12 +9,16 @@ import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
+import type { EphemeralOriginalService } from '../../src/main/backup/ephemeral-originals.js';
+import type { PhotosRepository } from '../../src/main/db/photos-repository.js';
+import { createFullRuntime } from '../../src/main/fullres/full-runtime.js';
 import { FullService, type LoadedOriginal } from '../../src/main/fullres/full-service.js';
 import { embeddedJpegFromRaf, looksLikeJpeg } from '../../src/main/import/raf-preview.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import { FULL_SCHEME, fullUrl, parseFullUrl } from '../../src/shared/library/full-url.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import type { FileKind } from '../../src/shared/library/types.js';
+import type { PhotoRecord } from '../../src/shared/library/types.js';
 
 function original(bytes: Buffer, fileKind: FileKind, hash = 'h'): LoadedOriginal {
   return { bytes, contentHash: hash, fileKind };
@@ -72,6 +76,37 @@ describe('RAF preview extraction', () => {
 });
 
 describe('FullService (#91)', () => {
+  test('runtime reads durable and offloaded originals through their distinct custody paths (#306)', async () => {
+    const bytes = sampleJpeg(42);
+    let offloaded = false;
+    const photo = {
+      id: 'P0',
+      contentHash: 'hash',
+      fileKind: 'jpeg',
+      syncState: 'local',
+    } as PhotoRecord;
+    const runtime = createFullRuntime({
+      repo: {
+        get: (photoId: string) => (photoId === photo.id ? { ...photo, syncState: offloaded ? 'offloaded' : 'local' } : undefined),
+      } as unknown as PhotosRepository,
+      blobs: {
+        getStream: () => Readable.from([bytes]),
+      } as unknown as BlobStore,
+      resolveKey: () => undefined,
+      ephemeral: () =>
+        ({
+          open: () => Promise.resolve({ stream: Readable.from([bytes]), custody: 'ephemeral' }),
+        }) as unknown as EphemeralOriginalService,
+      cacheMb: '1',
+    });
+
+    assert.deepEqual((await runtime.getFull('P0'))?.bytes, bytes);
+    runtime.invalidate('P0');
+    offloaded = true;
+    assert.deepEqual((await runtime.getFull('P0'))?.bytes, bytes);
+    assert.equal(await runtime.getFull('missing'), null);
+  });
+
   test('EXIT CRITERIA: RAW records resolve to a preview-marked viewable payload', async () => {
     const jpeg = sampleJpeg(1);
     const service = new FullService({
