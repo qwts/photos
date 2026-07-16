@@ -55,6 +55,11 @@ function world(): {
 }
 
 describe('app-lock credential custody (#311, ADR-0013)', () => {
+  test('creation rejects weak credentials in the main process', async () => {
+    const { store, masterKey } = world();
+    await assert.rejects(store.configure({ libraryId: 'library-a', password: 'password', masterKey }), /too weak/);
+  });
+
   test('configure withholds the master behind password and unlock key slots', async () => {
     const { dataDir, masterKey, store } = world();
     await store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey });
@@ -76,13 +81,17 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     await store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey });
     const path = join(dataDir, 'master.key');
     const raw = readFileSync(path);
-    raw[raw.length - 1] = (raw[raw.length - 1] ?? 0) ^ 0xff;
-    writeFileSync(path, raw);
-    assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'anchor-mismatch' });
+    const tampered = Buffer.from(raw);
+    tampered[tampered.length - 1] = (tampered[tampered.length - 1] ?? 0) ^ 0xff;
+    writeFileSync(path, tampered);
+    assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'invalid-record' });
 
-    writeFileSync(path, raw.subarray(0, raw.length - 1));
+    writeFileSync(path, raw);
     anchors.clear();
     assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'anchor-missing' });
+
+    anchors.write({ libraryId: 'library-a', generation: 0, recordHash: '0'.repeat(64) });
+    assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'anchor-mismatch' });
   });
 
   test('password change rotates custody and revokes the old password', async () => {

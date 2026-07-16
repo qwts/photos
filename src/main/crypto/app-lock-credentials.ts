@@ -1,4 +1,23 @@
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { z } from 'zod';
+
+import { strengthOf } from '../../shared/crypto/password-strength.js';
 import type { SafeStorageLike } from './keystore.js';
+
+const MAGIC = Buffer.from('OVLK', 'ascii');
+const MASTER_FILE = 'master.key';
+const VERSION = 1;
+const KEY_BYTES = 32;
+const NONCE_BYTES = 12;
+const TAG_BYTES = 16;
+const SALT_BYTES = 16;
+const SCRYPT_N = 2 ** 17;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_MAXMEM = 160 * 1024 * 1024;
 
 export interface CredentialAnchor {
   readonly libraryId: string;
@@ -32,42 +51,220 @@ export interface ConfigureAppLockInput {
   readonly masterKey: Buffer;
 }
 
-/** ADR-0013 credential-custody scaffold. The contract tests land first; the
- * implementation follows in the next commit on the draft PR. */
-export class AppLockCredentialStore {
-  constructor(private readonly options: AppLockCredentialStoreOptions) {}
+const canonicalBase64 = z.string().refine((value) => {
+  try {
+    return Buffer.from(value, 'base64').toString('base64') === value;
+  } catch {
+    return false;
+  }
+}, 'must be canonical base64');
 
-  configure(input: ConfigureAppLockInput): Promise<void> {
-    void input;
-    return Promise.reject(new Error('app-lock credential storage is not implemented'));
+const slotSchema = z
+  .object({
+    algorithm: z.literal('AES-256-GCM'),
+    nonce: canonicalBase64.refine((value) => Buffer.from(value, 'base64').length === NONCE_BYTES),
+    ciphertextAndTag: canonicalBase64.refine((value) => Buffer.from(value, 'base64').length === KEY_BYTES + TAG_BYTES),
+  })
+  .strict();
+
+const recordSchema = z
+  .object({
+    version: z.literal(VERSION),
+    libraryId: z.string().min(1).max(256),
+    generation: z.number().int().positive(),
+    kdf: z
+      .object({
+        name: z.literal('scrypt'),
+        N: z.literal(SCRYPT_N),
+        r: z.literal(SCRYPT_R),
+        p: z.literal(SCRYPT_P),
+        salt: canonicalBase64.refine((value) => Buffer.from(value, 'base64').length === SALT_BYTES),
+      })
+      .strict(),
+    passwordSlot: slotSchema,
+    masterSlot: slotSchema,
+  })
+  .strict();
+
+type AppLockRecord = z.output<typeof recordSchema>;
+type SealedSlot = z.output<typeof slotSchema>;
+
+function writeFileAtomic(path: string, data: Buffer): void {
+  const temp = `${path}.tmp`;
+  writeFileSync(temp, data);
+  renameSync(temp, path);
+}
+
+function recordBytes(record: AppLockRecord): Buffer {
+  return Buffer.concat([MAGIC, Buffer.from(JSON.stringify(record), 'utf8')]);
+}
+
+function recordHash(raw: Buffer): string {
+  return createHash('sha256').update(raw).digest('hex');
+}
+
+function parseRecord(raw: Buffer): AppLockRecord | null {
+  if (raw.length <= MAGIC.length || !raw.subarray(0, MAGIC.length).equals(MAGIC)) return null;
+  try {
+    const json = raw.subarray(MAGIC.length).toString('utf8');
+    const parsed = recordSchema.parse(JSON.parse(json) as unknown);
+    return JSON.stringify(parsed) === json ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function aad(record: Pick<AppLockRecord, 'libraryId' | 'generation'>, slot: 'password' | 'master'): Buffer {
+  return Buffer.from(`OVLK|${String(VERSION)}|${record.libraryId}|${String(record.generation)}|${slot}|AES-256-GCM`, 'utf8');
+}
+
+function seal(key: Buffer, plaintext: Buffer, associatedData: Buffer): SealedSlot {
+  const nonce = randomBytes(NONCE_BYTES);
+  const cipher = createCipheriv('aes-256-gcm', key, nonce);
+  cipher.setAAD(associatedData);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
+  return { algorithm: 'AES-256-GCM', nonce: nonce.toString('base64'), ciphertextAndTag: ciphertext.toString('base64') };
+}
+
+function open(key: Buffer, slot: SealedSlot, associatedData: Buffer): Buffer {
+  const nonce = Buffer.from(slot.nonce, 'base64');
+  const sealed = Buffer.from(slot.ciphertextAndTag, 'base64');
+  const ciphertext = sealed.subarray(0, -TAG_BYTES);
+  const decipher = createDecipheriv('aes-256-gcm', key, nonce);
+  decipher.setAAD(associatedData);
+  decipher.setAuthTag(sealed.subarray(-TAG_BYTES));
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+}
+
+function derivePasswordKey(password: string, salt: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, KEY_BYTES, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: SCRYPT_MAXMEM }, (error, key) => {
+      if (error !== null) reject(error);
+      else resolve(key);
+    });
+  });
+}
+
+function validateInput({ libraryId, password, masterKey }: ConfigureAppLockInput): void {
+  if (libraryId.length < 1 || libraryId.length > 256) throw new Error('library id is invalid');
+  if (password.length < 8 || password.length > 1024) throw new Error('password length is invalid');
+  if (strengthOf(password).score < 3) throw new Error('password is too weak');
+  if (masterKey.length !== KEY_BYTES) throw new Error('master key must be 32 bytes');
+}
+
+async function createRecord(input: ConfigureAppLockInput, generation: number): Promise<AppLockRecord> {
+  validateInput(input);
+  const salt = randomBytes(SALT_BYTES);
+  const passwordKey = await derivePasswordKey(input.password, salt);
+  const unlockKey = randomBytes(KEY_BYTES);
+  const header = { libraryId: input.libraryId, generation };
+  try {
+    return {
+      version: VERSION,
+      libraryId: input.libraryId,
+      generation,
+      kdf: { name: 'scrypt', N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, salt: salt.toString('base64') },
+      passwordSlot: seal(passwordKey, unlockKey, aad(header, 'password')),
+      masterSlot: seal(unlockKey, input.masterKey, aad(header, 'master')),
+    };
+  } finally {
+    passwordKey.fill(0);
+    unlockKey.fill(0);
+  }
+}
+
+/** Versioned password custody for ADR-0013. The anchor adapter is injected so
+ * the runtime can use a real OS credential store and tests remain deterministic. */
+export class AppLockCredentialStore {
+  private readonly masterPath: string;
+
+  constructor(private readonly options: AppLockCredentialStoreOptions) {
+    this.masterPath = join(options.dataDir, MASTER_FILE);
   }
 
   status(): AppLockStatus {
-    throw new Error('app-lock credential storage is not implemented');
+    if (!existsSync(this.masterPath)) return { state: 'unconfigured' };
+    const raw = readFileSync(this.masterPath);
+    if (!raw.subarray(0, MAGIC.length).equals(MAGIC)) return { state: 'unconfigured' };
+    const record = parseRecord(raw);
+    if (record === null) return { state: 'recovery-required', reason: 'invalid-record' };
+    const anchor = this.options.anchorStore.read();
+    if (anchor === null) return { state: 'recovery-required', reason: 'anchor-missing' };
+    if (anchor.libraryId !== record.libraryId || anchor.generation !== record.generation || anchor.recordHash !== recordHash(raw)) {
+      return { state: 'recovery-required', reason: 'anchor-mismatch' };
+    }
+    return { state: 'locked', libraryId: record.libraryId };
   }
 
-  unlock(password: string): Promise<UnlockResult> {
-    void password;
-    return Promise.reject(new Error('app-lock credential storage is not implemented'));
+  async configure(input: ConfigureAppLockInput): Promise<void> {
+    if (this.status().state !== 'unconfigured') throw new Error('app lock is already configured');
+    await this.replaceRecord(input);
   }
 
-  changePassword(currentPassword: string, nextPassword: string): Promise<boolean> {
-    void currentPassword;
-    void nextPassword;
-    return Promise.reject(new Error('app-lock credential storage is not implemented'));
+  async unlock(password: string): Promise<UnlockResult> {
+    if (this.status().state !== 'locked') return { ok: false, reason: 'recovery-required' };
+    if (password.length < 1 || password.length > 1024) return { ok: false, reason: 'wrong-password' };
+    const record = parseRecord(readFileSync(this.masterPath));
+    if (record === null) return { ok: false, reason: 'recovery-required' };
+    const passwordKey = await derivePasswordKey(password, Buffer.from(record.kdf.salt, 'base64'));
+    let unlockKey: Buffer | undefined;
+    try {
+      unlockKey = open(passwordKey, record.passwordSlot, aad(record, 'password'));
+      const masterKey = open(unlockKey, record.masterSlot, aad(record, 'master'));
+      return masterKey.length === KEY_BYTES ? { ok: true, masterKey } : { ok: false, reason: 'recovery-required' };
+    } catch {
+      return { ok: false, reason: 'wrong-password' };
+    } finally {
+      passwordKey.fill(0);
+      unlockKey?.fill(0);
+    }
   }
 
-  recover(input: ConfigureAppLockInput): Promise<void> {
-    void input;
-    return Promise.reject(new Error('app-lock credential storage is not implemented'));
+  async changePassword(currentPassword: string, nextPassword: string): Promise<boolean> {
+    const unlocked = await this.unlock(currentPassword);
+    if (!unlocked.ok) return false;
+    const record = parseRecord(readFileSync(this.masterPath));
+    if (record === null) {
+      unlocked.masterKey.fill(0);
+      return false;
+    }
+    try {
+      await this.replaceRecord({ libraryId: record.libraryId, password: nextPassword, masterKey: unlocked.masterKey });
+      return true;
+    } finally {
+      unlocked.masterKey.fill(0);
+    }
   }
 
-  remove(password: string): Promise<boolean> {
-    void password;
-    return Promise.reject(new Error('app-lock credential storage is not implemented'));
+  async recover(input: ConfigureAppLockInput): Promise<void> {
+    await this.replaceRecord(input);
+  }
+
+  async remove(password: string): Promise<boolean> {
+    const unlocked = await this.unlock(password);
+    if (!unlocked.ok) return false;
+    try {
+      if (!this.options.safeStorage.isEncryptionAvailable()) throw new Error('OS keychain is unavailable');
+      mkdirSync(this.options.dataDir, { recursive: true });
+      writeFileAtomic(this.masterPath, this.options.safeStorage.encryptString(unlocked.masterKey.toString('base64')));
+      this.options.anchorStore.clear();
+      return true;
+    } finally {
+      unlocked.masterKey.fill(0);
+    }
   }
 
   anchor(): CredentialAnchor | null {
     return this.options.anchorStore.read();
+  }
+
+  private async replaceRecord(input: ConfigureAppLockInput): Promise<void> {
+    const current = parseRecord(existsSync(this.masterPath) ? readFileSync(this.masterPath) : Buffer.alloc(0));
+    const generation = Math.max(current?.generation ?? 0, this.options.anchorStore.read()?.generation ?? 0) + 1;
+    const record = await createRecord(input, generation);
+    const raw = recordBytes(record);
+    mkdirSync(this.options.dataDir, { recursive: true });
+    writeFileAtomic(this.masterPath, raw);
+    this.options.anchorStore.write({ libraryId: record.libraryId, generation: record.generation, recordHash: recordHash(raw) });
   }
 }
