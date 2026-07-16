@@ -61,6 +61,8 @@ export function Dialog({ open, title, icon, width = 420, onClose, footer, childr
       }
       const panel = panelRef.current;
       if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
         onCloseRef.current?.();
         return;
       }

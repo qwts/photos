@@ -30,6 +30,8 @@ export interface LightboxProps {
   readonly onOffload: () => void;
   /** Rehydrate failed — the host shows the red toast (#107). */
   readonly onRehydrateError?: (() => void) | undefined;
+  /** An offload for this photo is being confirmed or executed. */
+  readonly suppressRehydrate?: boolean | undefined;
   /** Soft-deletes this photo (#120) — the row leaving the visible set
    * closes the lightbox via the reducer's intersection rule. */
   readonly onDelete: () => void;
@@ -58,6 +60,7 @@ export function Lightbox({
   onExport,
   onOffload,
   onRehydrateError,
+  suppressRehydrate = false,
   onDelete,
 }: LightboxProps): ReactElement {
   const [chrome, setChrome] = useState(true);
@@ -119,12 +122,12 @@ export function Lightbox({
   });
   const rehydrateRequestedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!offloaded || rehydrateRequestedFor.current === photo.id) {
+    if (!offloaded || suppressRehydrate || rehydrateRequestedFor.current === photo.id) {
       return;
     }
     rehydrateRequestedFor.current = photo.id;
     void window.overlook.backup.rehydrate({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
-  }, [offloaded, photo.id]);
+  }, [offloaded, photo.id, suppressRehydrate]);
 
   const taken = photo.takenAt ?? photo.importedAt;
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';

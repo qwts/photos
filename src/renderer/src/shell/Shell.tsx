@@ -347,7 +347,10 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
               // Lightbox entry point (#100): count=1, the focused photo.
               dispatch({ type: 'dialog/set', dialog: 'export', open: true });
             }}
-            onOffload={() => offload.open([current.id])}
+            onOffload={() => {
+              offload.open([current.id], false, () => dispatch({ type: 'lightbox/closed' }));
+            }}
+            suppressRehydrate={offload.activePhotoIds?.includes(current.id) === true}
             onRehydrateError={() => {
               dispatch({
                 type: 'toast/shown',
