@@ -15,7 +15,7 @@ import { createFullRuntime } from '../../src/main/fullres/full-runtime.js';
 import { FullService, type LoadedOriginal } from '../../src/main/fullres/full-service.js';
 import { embeddedJpegFromRaf, looksLikeJpeg } from '../../src/main/import/raf-preview.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
-import { FULL_SCHEME, fullUrl, parseFullUrl } from '../../src/shared/library/full-url.js';
+import { FULL_SCHEME, fullUrl, parseFullUrl, parseProtectedFullUrl, protectedFullUrl } from '../../src/shared/library/full-url.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import type { FileKind } from '../../src/shared/library/types.js';
 import type { PhotoRecord } from '../../src/shared/library/types.js';
@@ -46,6 +46,11 @@ describe('full-res URL contract (#91)', () => {
     assert.equal(url, `${FULL_SCHEME}://library/01J8SEEDPHOTO0001`);
     assert.deepEqual(parseFullUrl(url), { photoId: '01J8SEEDPHOTO0001', prefetch: false });
     assert.deepEqual(parseFullUrl(fullUrl('AbC', { prefetch: true })), { photoId: 'AbC', prefetch: true });
+    assert.deepEqual(parseProtectedFullUrl(protectedFullUrl('Album A', 'AbC', { prefetch: true })), {
+      albumId: 'Album A',
+      photoId: 'AbC',
+      prefetch: true,
+    });
   });
 
   test('rejects malformed urls', () => {
@@ -54,6 +59,9 @@ describe('full-res URL contract (#91)', () => {
     assert.equal(parseFullUrl(`${FULL_SCHEME}://other/01J8`), null);
     assert.equal(parseFullUrl(`${FULL_SCHEME}://library/a/b`), null);
     assert.equal(parseFullUrl(`${FULL_SCHEME}://library/`), null);
+    assert.equal(parseFullUrl(`${FULL_SCHEME}://library/%ZZ`), null);
+    assert.equal(parseProtectedFullUrl(`${FULL_SCHEME}://protected/album-only`), null);
+    assert.equal(parseProtectedFullUrl(`${FULL_SCHEME}://protected/album/%ZZ`), null);
   });
 });
 

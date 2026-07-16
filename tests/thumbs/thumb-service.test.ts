@@ -13,7 +13,7 @@ import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import { ThumbService, type LoadedThumb } from '../../src/main/thumbs/thumb-service.js';
 import { handleThumbRequest } from '../../src/main/thumbs/thumb-response.js';
-import { parseThumbUrl, thumbUrl, THUMB_SCHEME } from '../../src/shared/library/thumb-url.js';
+import { parseProtectedThumbUrl, parseThumbUrl, protectedThumbUrl, thumbUrl, THUMB_SCHEME } from '../../src/shared/library/thumb-url.js';
 
 function loaded(size: number, hash = 'h'): LoadedThumb {
   return { bytes: Buffer.alloc(size, 1), contentHash: hash };
@@ -25,6 +25,11 @@ describe('thumb URL contract', () => {
     assert.equal(url, `${THUMB_SCHEME}://library/01J8SEEDPHOTO0001?size=thumb`);
     assert.deepEqual(parseThumbUrl(url), { photoId: '01J8SEEDPHOTO0001', size: 'thumb' });
     assert.deepEqual(parseThumbUrl(thumbUrl('AbC', 'mid')), { photoId: 'AbC', size: 'mid' });
+    assert.deepEqual(parseProtectedThumbUrl(protectedThumbUrl('Album A', 'AbC', 'mid')), {
+      albumId: 'Album A',
+      photoId: 'AbC',
+      size: 'mid',
+    });
   });
 
   test('rejects malformed urls', () => {
@@ -34,6 +39,9 @@ describe('thumb URL contract', () => {
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/a/b?size=thumb`), null);
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/01J8?size=huge`), null);
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/?size=thumb`), null);
+    assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/%ZZ?size=thumb`), null);
+    assert.equal(parseProtectedThumbUrl(`${THUMB_SCHEME}://protected/album-only?size=thumb`), null);
+    assert.equal(parseProtectedThumbUrl(`${THUMB_SCHEME}://protected/album/%ZZ?size=thumb`), null);
   });
 
   test('protocol responses never let Chromium cache decrypted thumbs across lock', async () => {

@@ -124,6 +124,28 @@ export class ProtectedPhotoMigrationRepository {
     );
   }
 
+  replaceMetadata(input: {
+    readonly albumId: string;
+    readonly photoId: string;
+    readonly expected: Buffer;
+    readonly sealedMetadata: Buffer;
+    readonly now?: string;
+  }): boolean {
+    return (
+      queryGet<{ photoId: string }>(
+        this.db,
+        `UPDATE protected_photo_records
+            SET sealed_metadata = @sealedMetadata, updated_at = @now
+          WHERE album_id = @albumId AND photo_id = @photoId AND sealed_metadata = @expected
+            AND NOT EXISTS (
+              SELECT 1 FROM protected_photo_migration_items item WHERE item.photo_id = protected_photo_records.photo_id
+            )
+          RETURNING photo_id AS photoId`,
+        { ...input, now: input.now ?? new Date().toISOString() },
+      ) !== undefined
+    );
+  }
+
   countOrdinaryBlobOwners(contentHash: string): number {
     return queryGet<{ count: number }>(this.db, 'SELECT count(*) AS count FROM photos WHERE content_hash = ?', contentHash)?.count ?? 0;
   }
