@@ -241,6 +241,10 @@ export class MoveJournalRepository {
         },
       );
       this.assertSameQueuedRequest(request);
+      const queuedItem = this.requireItem(request.header.transferId, request.payload.record.identity.interopId);
+      if (queuedItem.state === 'queued') {
+        this.updateJournal(request.header.transferId, 'awaiting-acknowledgement', request.header.sequence, at);
+      }
       this.putOutbox(request, at);
       this.putAudit({
         eventKey: `${request.header.messageId}:queued`,
@@ -360,6 +364,12 @@ export class MoveJournalRepository {
         details: { acknowledgementMessageId: acknowledgementResponse.header.messageId },
         at,
       });
+      this.updateJournal(
+        recordRequest.header.transferId,
+        accepted ? 'acknowledged' : 'failed',
+        acknowledgementResponse.header.sequence,
+        at,
+      );
     })();
     return this.requireJournal(recordRequest.header.transferId);
   }
@@ -472,7 +482,18 @@ export class MoveJournalRepository {
          WHERE transfer_id = ? AND acknowledged_at IS NOT NULL AND finalized_at IS NULL`,
         transferId,
       )?.count;
-      this.updateJournal(transferId, remaining === 0 ? 'completed' : 'finalizing', undefined, at);
+      const failures = queryGet<{ count: number }>(
+        this.db,
+        `SELECT count(*) AS count FROM interop_move_items
+         WHERE transfer_id = ? AND state IN ('rejected', 'failed')`,
+        transferId,
+      )?.count;
+      this.updateJournal(
+        transferId,
+        failures === 0 && remaining === 0 ? 'completed' : failures === 0 ? 'finalizing' : 'failed',
+        undefined,
+        at,
+      );
     })();
   }
 
@@ -631,7 +652,6 @@ export class MoveJournalRepository {
     ) {
       throw new MoveJournalError('Move message does not match the durable transfer identity.');
     }
-    this.updateJournal(envelope.header.transferId, phase, envelope.header.sequence, at);
   }
 
   private assertSameQueuedRequest(envelope: RecordEnvelope): void {
