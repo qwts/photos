@@ -504,6 +504,28 @@
       ]
     },
     {
+      "id": "m10-album-photo-drag-drop",
+      "wiki": "User-Story-M10-Albums-organization-deletion",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/album-drag-drop.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/Sidebar.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/library/photo-drag.test.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/db/library-db.test.ts"
+        }
+      ]
+    },
+    {
       "id": "m10-purge-retention",
       "wiki": "User-Story-M10-Albums-organization-deletion",
       "coverage": [
