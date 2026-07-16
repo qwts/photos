@@ -11,6 +11,13 @@ directories:
   output: release
 files:
   - out/**
+  # The workspace is linked during packaging, so electron-builder otherwise
+  # copies native build inputs and a duplicate node-gyp output. Runtime needs
+  # only index.cjs, package metadata, and the N-API prebuild.
+  - '!node_modules/@overlook/touch-id/build/**'
+  - '!node_modules/@overlook/touch-id/install.cjs'
+  - '!node_modules/@overlook/touch-id/prepare-prebuild.cjs'
+  - '!node_modules/@overlook/touch-id/touch_id.mm'
 # Everything ships bundled by electron-vite (no runtime node_modules yet);
 # native modules must land in "dependencies" so npmRebuild picks them up
 # (ADR-0006's prebuilt-only policy — better-sqlite3/sharp arrive with M03).
@@ -28,8 +35,14 @@ mac:
     - dmg
     - zip
   # Notarization requires the hardened runtime; entitlements come from
-  # electron-builder's default Electron template (allow-jit etc.).
+  # our pinned copy of electron-builder's Electron template plus the owner
+  # release team's private Data Protection Keychain application identifier.
+  # No Keychain sharing entitlement is requested.
   hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  # Helpers/native children get only Electron's runtime allowances; Keychain
+  # custody stays on the main executable's signing identity.
+  entitlementsInherit: build/entitlements.mac.inherit.plist
   # Runs only after a successful signing pass, and skips with a warning when
   # the APPLE_API_* env vars are absent — so unsigned builds are unaffected.
   notarize: true
