@@ -264,7 +264,12 @@ export class PhotosRepository {
       this.db,
       'SELECT count(*) AS n, sum(bytes) AS b FROM ordinary_visible_photos p WHERE p.deleted_at IS NULL',
     )[0];
-    const lastBackupAt = queryAll<{ at: string | null }>(this.db, 'SELECT max(last_backup_at) AS at FROM sync_ledger')[0]?.at ?? null;
+    const lastBackupAt =
+      queryAll<{ at: string | null }>(
+        this.db,
+        `SELECT max(l.last_backup_at) AS at
+           FROM sync_ledger l JOIN ordinary_visible_photos p ON p.id = l.photo_id`,
+      )[0]?.at ?? null;
     const offloadedBytes =
       queryAll<{ b: number | null }>(
         this.db,
