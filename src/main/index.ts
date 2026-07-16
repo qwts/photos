@@ -827,6 +827,7 @@ void app.whenReady().then(async () => {
       },
       safeStorage: pickSafeStorage,
       dataDir: () => path.join(app.getPath('userData'), 'library'),
+      allowImport: () => lock.snapshot().state === 'unconfigured-unlocked',
       pickExportDestination: async () => {
         const fixture = harnessEnv('OVERLOOK_KEY_EXPORT_DESTINATION');
         if (fixture !== undefined && fixture !== '') return fixture;

@@ -109,6 +109,8 @@ test('app lock withholds content across configuration, bypass attempts, restart,
 
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('button', { name: 'Privacy' }).click();
+    await expect(page.getByRole('button', { name: 'Import…' })).toBeDisabled();
+    await expect(page.getByTestId('recovery-key-row')).toContainText('Remove the app password before importing');
     await page.getByRole('button', { name: 'Change…' }).click();
     const changeDialog = page.getByRole('dialog', { name: 'Change app password' });
     await changeDialog.getByLabel('Current app password').fill('wrong password');

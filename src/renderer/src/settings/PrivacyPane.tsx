@@ -108,7 +108,9 @@ export function PrivacyPane({
         <div>
           <div className="ovl-settings__keytitle">Recovery key</div>
           <div className="ovl-settings__keyhint">
-            Back up your library key to unlock photos on another device. Store it safely — it can't be reset.
+            {appLockConfigured
+              ? 'Back up your library key here. Remove the app password before importing a different key; recovery remains available from the lock screen when required.'
+              : "Back up your library key to unlock photos on another device. Store it safely — it can't be reset."}
           </div>
           <div className="ovl-settings__keyfp">
             <Icon name="fingerprint" size={13} color="var(--text-faint)" />
@@ -128,6 +130,7 @@ export function PrivacyPane({
           <Button
             variant="ghost"
             icon="upload"
+            disabled={appLockConfigured}
             onClick={() => {
               onKeyAction('import');
             }}
