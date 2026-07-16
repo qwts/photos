@@ -23,6 +23,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums)       | App Lock & Protected Albums  | Accepted |
 | [ADR-0014](ADR-0014-Image-Trail-Bidirectional-Interoperability)      | Image Trail Interoperability | Accepted |
 | [ADR-0015](ADR-0015-Deterministic-Reviewed-Sync-Journals)            | Deterministic Sync Journals  | Accepted |
+| [ADR-0016](ADR-0016-Isolated-Encrypted-Interop-Transports)           | Isolated Interop Transports  | Accepted |
 
 ## Template
 
