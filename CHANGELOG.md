@@ -1,5 +1,11 @@
 # photos
 
+## 0.17.0
+
+### Minor Changes
+
+- e05eb99: Add verified manual offload controls to selections, photo context menus, and the lightbox, with exact preflight results, responsive actions, Undo, and Settings controls to restore selected or all offloaded originals.
+
 ## 0.16.2
 
 ### Patch Changes
