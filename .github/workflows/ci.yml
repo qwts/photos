@@ -256,15 +256,13 @@ jobs:
       - name: Check this run is for the PR's current head
         id: freshness
         if: ${{ steps.download.outcome == 'success' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          current=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq .head.sha)
+          current=$(git ls-remote "https://github.com/${{ github.repository }}.git" "refs/heads/${{ github.head_ref }}" | cut -f1)
           if [ "$current" = "${{ github.event.pull_request.head.sha }}" ]; then
             echo "fresh=true" >> "$GITHUB_OUTPUT"
           else
             echo "fresh=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping deploy: this run is for ${{ github.event.pull_request.head.sha }} but the PR head is now $current."
+            echo "Skipping deploy: this run is for ${{ github.event.pull_request.head.sha }} but the branch head is ${current:-unavailable}."
           fi
 
       - name: Deploy report to GitHub Pages
