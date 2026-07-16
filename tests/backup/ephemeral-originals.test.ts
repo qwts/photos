@@ -9,13 +9,22 @@ import { buffer } from 'node:stream/consumers';
 
 import { EphemeralOriginalError, EphemeralOriginalService } from '../../src/main/backup/ephemeral-originals.js';
 import { MockProvider } from '../../src/main/backup/mock-provider.js';
+import { ProviderError } from '../../src/main/backup/provider.js';
 import type { SyncStatus } from '../../src/shared/library/types.js';
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
 const HASH_C = 'c'.repeat(64);
 
-async function world(options: { readonly maxCacheBytes?: number; readonly policy?: boolean } = {}) {
+async function world(
+  options: {
+    readonly maxCacheBytes?: number;
+    readonly policy?: boolean;
+    readonly stageGate?: Promise<void>;
+    readonly stageStarted?: (() => void) | undefined;
+    readonly stageError?: Error;
+  } = {},
+) {
   const provider = new MockProvider({ rootDir: mkdtempSync(join(tmpdir(), 'overlook-ephemeral-')) });
   const remote = new Map([
     [HASH_A, Buffer.from('encrypted-a')],
@@ -44,9 +53,10 @@ async function world(options: { readonly maxCacheBytes?: number; readonly policy
   let storageChanges = 0;
   let permanentRestores = 0;
   let policy = options.policy ?? true;
+  let providerConnected = true;
   const service = new EphemeralOriginalService({
     provider,
-    providerConnected: () => true,
+    providerConnected: () => providerConnected,
     ledger: {
       status: (id) => statuses.get(id),
       setStatus: (id, status) => statuses.set(id, status),
@@ -57,6 +67,9 @@ async function world(options: { readonly maxCacheBytes?: number; readonly policy
       durableStream: (hash) => Readable.from([Buffer.from(`durable-${hash}`)]),
       hasEphemeral: (hash) => ephemeral.has(hash),
       stageEphemeral: async (hash, ciphertext) => {
+        options.stageStarted?.();
+        if (options.stageGate !== undefined) await options.stageGate;
+        if (options.stageError !== undefined) throw options.stageError;
         const bytes = await buffer(ciphertext);
         ephemeral.set(hash, bytes);
         return bytes.length;
@@ -99,6 +112,7 @@ async function world(options: { readonly maxCacheBytes?: number; readonly policy
     storageChanges: () => storageChanges,
     permanentRestores: () => permanentRestores,
     setPolicy: (next: boolean) => (policy = next),
+    setProviderConnected: (next: boolean) => (providerConnected = next),
   };
 }
 
@@ -160,5 +174,80 @@ describe('ephemeral originals (#306)', () => {
     );
     assert.equal(missing.ephemeral.size, 0);
     assert.equal(missing.states.at(-1)?.stage, 'error');
+  });
+
+  test('close during verification cannot publish abandoned custody or evict a shared viewer', async () => {
+    let unlock: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      unlock = resolve;
+    });
+    let stageStarted: (() => void) | undefined;
+    const enteredStage = new Promise<void>((resolve) => {
+      stageStarted = resolve;
+    });
+    const shared = await world({ stageGate: gate, stageStarted });
+    const abandoned = shared.service.prepare('P0', 'view');
+    const retained = shared.service.prepare('P1', 'view');
+    await enteredStage;
+    await shared.service.release('P0');
+    unlock?.();
+    await Promise.all([abandoned, retained]);
+    assert.equal(shared.ephemeral.has(HASH_A), true, 'the second viewer retains shared custody');
+    await shared.service.release('P1');
+    assert.equal(shared.ephemeral.has(HASH_A), false);
+
+    let finishSingle: (() => void) | undefined;
+    const singleGate = new Promise<void>((resolve) => {
+      finishSingle = resolve;
+    });
+    let singleStarted: (() => void) | undefined;
+    const singleEntered = new Promise<void>((resolve) => {
+      singleStarted = resolve;
+    });
+    const single = await world({ stageGate: singleGate, stageStarted: singleStarted });
+    const opening = single.service.prepare('P2', 'view');
+    await singleEntered;
+    await single.service.release('P2');
+    finishSingle?.();
+    await opening;
+    assert.equal(single.ephemeral.has(HASH_B), false, 'an abandoned fetch is removed immediately after verification');
+    assert.equal(single.states.at(-1)?.stage, 'released');
+  });
+
+  test('disconnected, expired, offline, transient, and corrupt providers fail closed', async () => {
+    const disconnected = await world();
+    disconnected.setProviderConnected(false);
+    await assert.rejects(
+      disconnected.service.open('P0', 'view'),
+      (error: unknown) => error instanceof EphemeralOriginalError && error.reason === 'provider-unavailable',
+    );
+
+    const expired = await world();
+    expired.provider.authState = () => Promise.resolve('expired');
+    await assert.rejects(
+      expired.service.open('P0', 'view'),
+      (error: unknown) => error instanceof EphemeralOriginalError && error.reason === 'provider-unavailable',
+    );
+
+    const offline = await world();
+    offline.provider.authState = () => Promise.reject(new Error('network offline'));
+    await assert.rejects(
+      offline.service.open('P0', 'view'),
+      (error: unknown) => error instanceof EphemeralOriginalError && error.reason === 'provider-unavailable',
+    );
+
+    const transient = await world();
+    transient.provider.getStream = () => Promise.reject(new ProviderError('connection reset', 'transient'));
+    await assert.rejects(
+      transient.service.open('P0', 'view'),
+      (error: unknown) => error instanceof EphemeralOriginalError && error.reason === 'provider-unavailable',
+    );
+
+    const corrupt = await world({ stageError: new Error('authentication failed') });
+    await assert.rejects(
+      corrupt.service.open('P0', 'view'),
+      (error: unknown) => error instanceof EphemeralOriginalError && error.reason === 'verify-failed',
+    );
+    assert.equal(corrupt.ephemeral.size, 0);
   });
 });

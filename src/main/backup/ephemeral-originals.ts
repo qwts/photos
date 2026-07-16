@@ -63,6 +63,8 @@ function remotePath(contentHash: string): string {
 export class EphemeralOriginalService {
   private readonly cache = new Map<string, CacheEntry>();
   private readonly inFlight = new Map<string, Promise<CacheEntry>>();
+  private readonly activeByHash = new Map<string, Set<string>>();
+  private readonly releasedWhilePreparing = new Set<string>();
   private readonly states = new Map<string, EphemeralStage>();
   private readonly maxCacheBytes: number;
   private cachedBytes = 0;
@@ -98,8 +100,20 @@ export class EphemeralOriginalService {
       return 'durable';
     }
 
-    const entry = await this.ensure(photoId, photo.contentHash);
-    if (purpose !== 'prefetch') entry.activePhotoIds.add(photoId);
+    const activePhotoIds = this.activeOwners(photo.contentHash);
+    if (purpose !== 'prefetch') activePhotoIds.add(photoId);
+    let entry: CacheEntry;
+    try {
+      entry = await this.ensure(photoId, photo.contentHash);
+    } catch (error) {
+      activePhotoIds.delete(photoId);
+      this.dropEmptyOwners(photo.contentHash, activePhotoIds);
+      throw error;
+    }
+    if (this.releasedWhilePreparing.delete(photoId) && activePhotoIds.size === 0) {
+      await this.remove(photo.contentHash, entry);
+      this.changeState(photoId, 'released');
+    }
     this.touch(photo.contentHash, entry);
     return 'ephemeral';
   }
@@ -128,9 +142,14 @@ export class EphemeralOriginalService {
   async release(photoId: string): Promise<void> {
     const photo = this.deps.repo.get(photoId);
     if (photo === undefined) return;
+    const activePhotoIds = this.activeByHash.get(photo.contentHash);
+    activePhotoIds?.delete(photoId);
     const entry = this.cache.get(photo.contentHash);
-    if (entry === undefined) return;
-    entry.activePhotoIds.delete(photoId);
+    if (entry === undefined) {
+      if (this.inFlight.has(photo.contentHash)) this.releasedWhilePreparing.add(photoId);
+      this.dropEmptyOwners(photo.contentHash, activePhotoIds);
+      return;
+    }
     if (entry.activePhotoIds.size > 0) return;
     await this.remove(photo.contentHash, entry);
     this.changeState(photoId, 'released');
@@ -187,7 +206,7 @@ export class EphemeralOriginalService {
         throw new EphemeralOriginalError('original exceeds the temporary cache limit', 'cache-full');
       }
       await this.makeRoom(bytes);
-      const entry = { bytes, activePhotoIds: new Set<string>() };
+      const entry = { bytes, activePhotoIds: this.activeOwners(contentHash) };
       this.cache.set(contentHash, entry);
       this.cachedBytes += bytes;
       published = true;
@@ -235,6 +254,7 @@ export class EphemeralOriginalService {
   }
 
   private touch(contentHash: string, entry: CacheEntry): void {
+    if (!this.cache.has(contentHash)) return;
     this.cache.delete(contentHash);
     this.cache.set(contentHash, entry);
   }
@@ -243,6 +263,19 @@ export class EphemeralOriginalService {
     this.cache.delete(contentHash);
     this.cachedBytes -= entry.bytes;
     await this.deps.blobs.deleteEphemeral(contentHash);
+    this.dropEmptyOwners(contentHash, entry.activePhotoIds);
+  }
+
+  private activeOwners(contentHash: string): Set<string> {
+    const current = this.activeByHash.get(contentHash);
+    if (current !== undefined) return current;
+    const created = new Set<string>();
+    this.activeByHash.set(contentHash, created);
+    return created;
+  }
+
+  private dropEmptyOwners(contentHash: string, owners: Set<string> | undefined): void {
+    if (owners?.size === 0 && this.activeByHash.get(contentHash) === owners) this.activeByHash.delete(contentHash);
   }
 
   private changeState(photoId: string, stage: EphemeralStage): void {
