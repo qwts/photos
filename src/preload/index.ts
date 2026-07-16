@@ -31,6 +31,9 @@ const backupProviderStatus = createInvoker(channels.backupProviderStatus, invoke
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
+const protectedAlbumsList = createInvoker(channels.protectedAlbumsList, invokeTransport);
+const protectedAlbumExportPickDestination = createInvoker(channels.protectedAlbumExportPickDestination, invokeTransport);
+const protectedAlbumExportCancel = createInvoker(channels.protectedAlbumExportCancel, invokeTransport);
 const importListSources = createInvoker(channels.importListSources, invokeTransport);
 const importPickFolder = createInvoker(channels.importPickFolder, invokeTransport);
 const keysStatus = createInvoker(channels.keysStatus, invokeTransport);
@@ -85,6 +88,20 @@ const overlook: OverlookApi = {
     addPhotos: createInvoker(channels.albumAddPhotos, invokeTransport),
     removePhotos: createInvoker(channels.albumRemovePhotos, invokeTransport),
     movePhotos: createInvoker(channels.albumMovePhotos, invokeTransport),
+  }),
+  protectedAlbums: Object.freeze({
+    list: async () => protectedAlbumsList({}),
+    unlock: createInvoker(channels.protectedAlbumUnlock, invokeTransport),
+    relock: createInvoker(channels.protectedAlbumRelock, invokeTransport),
+    summary: createInvoker(channels.protectedAlbumSummary, invokeTransport),
+    page: createInvoker(channels.protectedAlbumPage, invokeTransport),
+    get: createInvoker(channels.protectedAlbumGet, invokeTransport),
+    toggleFavorite: createInvoker(channels.protectedAlbumToggleFavorite, invokeTransport),
+    delete: createInvoker(channels.protectedAlbumDelete, invokeTransport),
+    restore: createInvoker(channels.protectedAlbumRestore, invokeTransport),
+    pickExportDestination: async () => protectedAlbumExportPickDestination({}),
+    export: createInvoker(channels.protectedAlbumExportRun, invokeTransport),
+    cancelExport: async () => protectedAlbumExportCancel({}),
   }),
   backup: Object.freeze({
     run: createInvoker(channels.backupRun, invokeTransport),

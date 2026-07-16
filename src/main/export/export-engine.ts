@@ -60,6 +60,9 @@ export interface ExportEngineDeps {
   /** Buffers a decrypt stream (transcode needs whole files). */
   readonly bufferStream: (stream: Readable) => Promise<Buffer>;
   readonly events: { progress(done: number, total: number): void };
+  /** Protected domains supply a redacted sink; ordinary exports retain the
+   * existing filename/error diagnostics. */
+  readonly failure?: ((photoId: string, error: unknown) => void) | undefined;
 }
 
 /**
@@ -142,7 +145,11 @@ export class ExportEngine {
         files.push({ photoId: photo.id, fileName, renamed: fileName !== targetName, fromPreview });
       } catch (error) {
         failed += 1;
-        console.error(`[overlook] export failed for ${photo?.fileName ?? id}: ${error instanceof Error ? error.message : String(error)}`);
+        if (this.deps.failure === undefined) {
+          console.error(`[overlook] export failed for ${photo?.fileName ?? id}: ${error instanceof Error ? error.message : String(error)}`);
+        } else {
+          this.deps.failure(id, error);
+        }
       } finally {
         await releaseOriginal?.();
       }

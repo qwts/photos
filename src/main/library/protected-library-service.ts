@@ -1,4 +1,5 @@
 import { buffer } from 'node:stream/consumers';
+import type { Readable } from 'node:stream';
 
 import type { ProtectedBlobKind, ProtectedBlobStore } from '../blobs/protected-blob-store.js';
 import {
@@ -17,6 +18,7 @@ import type {
   ProtectedPageResult,
   ProtectedPhotoRecord,
 } from '../../shared/library/protected-types.js';
+import type { PhotoRecord } from '../../shared/library/types.js';
 
 export class ProtectedContentUnavailableError extends Error {
   override readonly name = 'ProtectedContentUnavailableError';
@@ -32,11 +34,18 @@ export interface ProtectedMediaBytes {
   readonly fileKind: ProtectedPhotoRecord['fileKind'];
 }
 
+export interface ProtectedOriginalSource {
+  readonly photo: PhotoRecord;
+  readonly stream: Readable;
+  readonly release: () => Promise<void>;
+}
+
 export interface ProtectedLibraryServiceOptions {
   readonly libraryId: string;
   readonly albums: ProtectedAlbumRepository;
   readonly photos: ProtectedPhotoMigrationRepository;
   readonly blobs: ProtectedBlobStore;
+  readonly blobsReady?: Promise<void> | undefined;
   readonly authorities: ProtectedAlbumAuthorityRegistry;
   readonly now?: (() => string) | undefined;
 }
@@ -175,6 +184,7 @@ export class ProtectedLibraryService {
   async media(albumId: string, photoId: string, kind: ProtectedBlobKind): Promise<ProtectedMediaBytes> {
     try {
       const authorized = this.requirePhoto(albumId, photoId);
+      await this.options.blobsReady;
       const bytes = await this.options.authorities.withSnapshot(authorized.snapshot, (albumKey) =>
         buffer(this.options.blobs.getStream(albumId, authorized.record.blobRef, kind, albumKey)),
       );
@@ -190,6 +200,40 @@ export class ProtectedLibraryService {
     } catch {
       throw new ProtectedContentUnavailableError();
     }
+  }
+
+  exportPhoto(albumId: string, photoId: string): PhotoRecord {
+    return this.opaque(() => {
+      const metadata = this.requirePhoto(albumId, photoId).metadata.photo;
+      return { ...metadata, keyId: 1, syncState: 'local' };
+    });
+  }
+
+  openOriginal(albumId: string, photoId: string): ProtectedOriginalSource {
+    return this.opaque(() => {
+      const authorized = this.requirePhoto(albumId, photoId);
+      const stream = this.options.authorities.withSnapshot(authorized.snapshot, (albumKey) =>
+        this.options.blobs.getStream(albumId, authorized.record.blobRef, 'original', albumKey),
+      );
+      let released = false;
+      const stopRevocation = this.options.authorities.onRevoked((revokedAlbumId) => {
+        if (revokedAlbumId === albumId && !this.options.authorities.isCurrent(authorized.snapshot)) {
+          stream.destroy(new ProtectedContentUnavailableError());
+        }
+      });
+      const release = async (): Promise<void> => {
+        if (released) return;
+        released = true;
+        stopRevocation();
+        if (!stream.destroyed) stream.destroy();
+      };
+      stream.once('close', stopRevocation);
+      return {
+        photo: { ...authorized.metadata.photo, keyId: 1, syncState: 'local' },
+        stream,
+        release,
+      };
+    });
   }
 
   private mutate(

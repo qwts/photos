@@ -8,6 +8,9 @@ import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
+import type { ProtectedAlbumService } from './crypto/protected-album-service.js';
+import type { ProtectedLibraryService } from './library/protected-library-service.js';
+import type { ProtectedExportFacade } from './export/protected-export-runtime.js';
 import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from './backup/offload.js';
 import type { AppLockState, AppTouchIdUnlockResult, AppUnlockResult, LockStateSnapshot } from './crypto/app-lock-controller.js';
 import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
@@ -184,6 +187,57 @@ export function registerAlbumHandlers(getService: () => LibraryService, newId: (
     wrapHandler(channels.albumMovePhotos, ({ sourceAlbumId, targetAlbumId, photoIds }) =>
       getService().moveBetweenAlbums(sourceAlbumId, targetAlbumId, photoIds),
     )(request),
+  );
+}
+
+export function registerProtectedAlbumHandlers(
+  getAlbums: () => ProtectedAlbumService,
+  getLibrary: () => ProtectedLibraryService,
+  getExport: () => ProtectedExportFacade,
+): void {
+  ipcMain.handle(channels.protectedAlbumsList.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumsList, () => ({ albums: getLibrary().listOpaque() }))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumUnlock.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumUnlock, async ({ albumId, password }) => {
+      const result = await getAlbums().unlock(albumId, password);
+      return { ok: result.ok };
+    })(request),
+  );
+  ipcMain.handle(channels.protectedAlbumRelock.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumRelock, ({ albumId }) => ({ relocked: getAlbums().relock(albumId) }))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumSummary.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumSummary, ({ albumId }) => getLibrary().summary(albumId))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumPage.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumPage, (input) => getLibrary().page(input))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumGet.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumGet, ({ albumId, photoId }) => ({ photo: getLibrary().get(albumId, photoId) }))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumToggleFavorite.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumToggleFavorite, ({ albumId, photoId }) => getLibrary().toggleFavorite(albumId, photoId))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumDelete.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumDelete, ({ albumId, photoIds }) => getLibrary().softDelete(albumId, photoIds))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumRestore.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumRestore, ({ albumId, photoIds }) => getLibrary().restore(albumId, photoIds))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumExportPickDestination.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumExportPickDestination, async () => ({ path: await getExport().pickDestination() }))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumExportRun.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumExportRun, ({ albumId, photoIds, destination, format }) =>
+      getExport().run(albumId, photoIds, destination, format),
+    )(request),
+  );
+  ipcMain.handle(channels.protectedAlbumExportCancel.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumExportCancel, () => {
+      getExport().cancel();
+      return {};
+    })(request),
   );
 }
 
