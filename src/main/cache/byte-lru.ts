@@ -114,6 +114,9 @@ export class ByteLru<V extends ByteSized> {
   ): Promise<V | null> {
     await this.acquire();
     try {
+      // close() may have started while this job waited behind the decrypt
+      // semaphore. Never begin new plaintext work after custody is sealing.
+      if (this.closed) return null;
       // A waiter with no signal never aborts, so it keeps the load alive.
       if (signals.every((signal) => signal?.aborted === true)) {
         return null;

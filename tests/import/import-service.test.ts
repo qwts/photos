@@ -97,6 +97,39 @@ describe('import service serialization (#87)', () => {
     await Promise.all([resume, drain]);
     assert.equal(drained, true);
   });
+
+  test('close aborts admission for work already queued behind an active batch', async () => {
+    let entered: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const engine = {
+      importFiles: () => Promise.resolve(null),
+      resume: async () => {
+        calls += 1;
+        entered?.();
+        await gate;
+        return null;
+      },
+    } as unknown as ImportEngine;
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, engine);
+    const active = service.resume();
+    await started;
+    const queued = service.resume();
+
+    service.close();
+    release?.();
+
+    await active;
+    await assert.rejects(queued, /import service is closed/u);
+    await service.drain();
+    assert.equal(calls, 1);
+  });
 });
 
 describe('import service fixture source is injector-gated (#129 F1)', () => {

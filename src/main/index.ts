@@ -690,8 +690,8 @@ function getExportFacade(): DrainableExportFacade {
 async function closeLibrary(drainRestore: boolean): Promise<void> {
   autoBackupTrigger = undefined;
   manifestSyncTrigger = undefined;
-  importService?.cancel();
-  exportFacade?.cancel();
+  importService?.close();
+  exportFacade?.close();
   for (const controller of activeBackupControllers) controller.abort();
   await drainWithCancellationFence(
     () => scheduleAutoBackup.cancel(),

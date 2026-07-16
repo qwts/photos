@@ -201,6 +201,33 @@ describe('ThumbService', () => {
     assert.equal(releases.length, 2);
   });
 
+  test('close drops queued decrypts before their loader starts', async () => {
+    let releaseActive: (() => void) | undefined;
+    const activeGate = new Promise<void>((resolve) => {
+      releaseActive = resolve;
+    });
+    let loads = 0;
+    const service = new ThumbService({
+      loadThumb: async () => {
+        loads += 1;
+        await activeGate;
+        return loaded(10);
+      },
+      maxConcurrent: 1,
+    });
+    const active = service.getThumb('a', 'thumb');
+    const queued = service.getThumb('b', 'thumb');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const closing = service.close();
+    releaseActive?.();
+    const [, queuedResult] = await Promise.all([active, queued]);
+    await closing;
+
+    assert.equal(queuedResult, null);
+    assert.equal(loads, 1);
+  });
+
   test('EXIT CRITERIA: real-store reads decrypt in memory, never touch disk', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'overlook-thumbsvc-'));
     const store = new BlobStore({ dataDir });
