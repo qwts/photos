@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
 import { createNativeTouchIdAdapter } from '../../src/main/crypto/touch-id-native.js';
@@ -51,6 +53,16 @@ function nativeBinding() {
 }
 
 describe('native Touch ID adapter gating (#310)', () => {
+  test('native signature gate pins the owner Team ID and application identifier', () => {
+    const nativeSource = readFileSync(join(process.cwd(), 'native/touch-id/touch_id.mm'), 'utf8');
+    const entitlements = readFileSync(join(process.cwd(), 'build/entitlements.mac.plist'), 'utf8');
+    for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.qwts.overlook']) {
+      assert.match(nativeSource, new RegExp(identity, 'u'));
+      assert.match(entitlements, new RegExp(identity, 'u'));
+    }
+    assert.doesNotMatch(nativeSource, /stringWithFormat.*teamIdentifier/u);
+  });
+
   test('unsupported and unpackaged processes never load the native module', () => {
     let loads = 0;
     const loadBinding = () => {

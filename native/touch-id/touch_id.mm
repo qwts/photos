@@ -13,6 +13,8 @@
 namespace {
 
 constexpr const char* kService = "com.qwts.overlook.touch-id-unlock";
+constexpr const char* kExpectedTeamIdentifier = "Z5DM34QS5U";
+constexpr const char* kExpectedApplicationIdentifier = "Z5DM34QS5U.com.qwts.overlook";
 
 void SecureClear(std::vector<std::uint8_t>& bytes) {
   volatile std::uint8_t* cursor = bytes.data();
@@ -60,14 +62,17 @@ bool HasTrustedSignature(const std::string& expectedBundleId) {
         CFDictionaryGetValue(entitlements, CFSTR("com.apple.application-identifier")));
     const auto* entitlementTeam =
         static_cast<CFStringRef>(CFDictionaryGetValue(entitlements, CFSTR("com.apple.developer.team-identifier")));
-    NSString* expectedApplicationIdentifier = [NSString stringWithFormat:@"%@.%@", (__bridge NSString*)teamIdentifier, expected];
+    NSString* expectedTeamIdentifier = String(kExpectedTeamIdentifier);
+    NSString* expectedApplicationIdentifier = String(kExpectedApplicationIdentifier);
     const bool valid = applicationIdentifier != nullptr && entitlementTeam != nullptr &&
+                       expectedTeamIdentifier != nil && expectedApplicationIdentifier != nil &&
                        CFGetTypeID(applicationIdentifier) == CFStringGetTypeID() &&
                        CFGetTypeID(entitlementTeam) == CFStringGetTypeID() &&
                        CFStringCompare(identifier, (__bridge CFStringRef)expected, 0) == kCFCompareEqualTo &&
+                       CFStringCompare(teamIdentifier, (__bridge CFStringRef)expectedTeamIdentifier, 0) == kCFCompareEqualTo &&
                        CFStringCompare(applicationIdentifier, (__bridge CFStringRef)expectedApplicationIdentifier, 0) ==
                            kCFCompareEqualTo &&
-                       CFStringCompare(entitlementTeam, teamIdentifier, 0) == kCFCompareEqualTo &&
+                       CFStringCompare(entitlementTeam, (__bridge CFStringRef)expectedTeamIdentifier, 0) == kCFCompareEqualTo &&
                        (flags & kSecCodeSignatureAdhoc) == 0;
     CFRelease(information);
     return valid;
