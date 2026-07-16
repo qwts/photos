@@ -23,12 +23,21 @@ export interface ImportServiceEvents {
   imported(photoIds: readonly string[]): void;
 }
 
+export interface ImportScanners {
+  readonly source: typeof scanSource;
+  readonly files: typeof scanFiles;
+}
+
+const defaultScanners: ImportScanners = { source: scanSource, files: scanFiles };
+
 export class ImportService {
   /** One journal, one writer: batches and resumes run strictly in turn —
    * overlapping runs would overwrite or clear each other's resume state
    * (PR #183 review). */
   private turn: Promise<unknown> = Promise.resolve();
   private controller: AbortController | null = null;
+  private readonly scanControllers = new Set<AbortController>();
+  private readonly scans = new Set<Promise<unknown>>();
   private closed = false;
 
   constructor(
@@ -39,7 +48,22 @@ export class ImportService {
     // this ONLY in unpackaged builds (gated via harnessEnv). A packaged app
     // gets no injector, so the fixture folder can never be surfaced by env.
     private readonly fixtureSource: () => string | undefined = () => undefined,
+    private readonly scanners: ImportScanners = defaultScanners,
   ) {}
+
+  private trackScan<T>(scan: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    if (this.closed) return Promise.reject(new Error('import service is closed'));
+    const controller = new AbortController();
+    this.scanControllers.add(controller);
+    const work = Promise.resolve().then(() => scan(controller.signal));
+    this.scans.add(work);
+    const remove = (): void => {
+      this.scanControllers.delete(controller);
+      this.scans.delete(work);
+    };
+    void work.then(remove, remove);
+    return work;
+  }
 
   private async serialize<T>(task: () => Promise<T>): Promise<T> {
     const admitted = (): Promise<T> => {
@@ -74,9 +98,16 @@ export class ImportService {
   }
 
   async scanSource(path: string): Promise<SourceScanSummary> {
-    const { summary } = await scanSource(path, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, (progress) => {
-      this.events.scanProgress(path, progress);
-    });
+    const { summary } = await this.trackScan((signal) =>
+      this.scanners.source(
+        path,
+        { hasContentHash: (hash) => this.repo.hasContentHash(hash) },
+        (progress) => {
+          this.events.scanProgress(path, progress);
+        },
+        signal,
+      ),
+    );
     return summary;
   }
 
@@ -99,7 +130,7 @@ export class ImportService {
         // The signal reaches the fresh scan too — Cancel during hashing on a
         // big card must stop the I/O promptly (PR #186 review); the engine
         // then finalizes whatever the truncated scan surfaced as cancelled.
-        const { files } = await scanSource(
+        const { files } = await this.scanners.source(
           path,
           { hasContentHash: (hash) => this.repo.hasContentHash(hash) },
           () => undefined,
@@ -124,7 +155,7 @@ export class ImportService {
       const controller = new AbortController();
       this.controller = controller;
       try {
-        const { files } = await scanFiles(
+        const { files } = await this.scanners.files(
           paths,
           { hasContentHash: (hash) => this.repo.hasContentHash(hash) },
           () => undefined,
@@ -144,7 +175,9 @@ export class ImportService {
 
   /** Dropped-file scan (#237): the dialog's Dropped card numbers. */
   async scanDropped(paths: readonly string[]): Promise<SourceScanSummary> {
-    const { summary } = await scanFiles(paths, { hasContentHash: (hash) => this.repo.hasContentHash(hash) });
+    const { summary } = await this.trackScan((signal) =>
+      this.scanners.files(paths, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, undefined, signal),
+    );
     return summary;
   }
 
@@ -159,16 +192,20 @@ export class ImportService {
   close(): void {
     this.closed = true;
     this.controller?.abort();
+    for (const controller of this.scanControllers) controller.abort();
   }
 
   /** Waits for the serialized import/resume queue to stop touching library
    * state. Lock teardown calls cancel() first, then drains before closing DB
    * and key custody. */
-  drain(): Promise<void> {
-    return this.turn.then(
+  async drain(): Promise<void> {
+    await this.turn.then(
       () => undefined,
       () => undefined,
     );
+    while (this.scans.size > 0) {
+      await Promise.allSettled([...this.scans]);
+    }
   }
 
   /** Completes a journaled batch an earlier run left behind (crash-safety:
