@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -25,9 +25,10 @@ class FakeAnchorStore implements CredentialAnchorStore {
   failWrite = false;
   failAfterWrite = false;
   failClear = false;
+  available = true;
 
   isAvailable(): boolean {
-    return true;
+    return this.available;
   }
 
   read(): CredentialAnchor | null {
@@ -92,6 +93,19 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     unlinkSync(join(dataDir, 'master.key'));
 
     assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'anchor-mismatch' });
+  });
+
+  test('legacy custody rollback cannot bypass a previously configured lock', async () => {
+    const { dataDir, anchors, store, masterKey } = world();
+    const legacy = readFileSync(join(dataDir, 'master.key'));
+    await store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey });
+
+    writeFileSync(join(dataDir, 'master.key'), legacy);
+    anchors.clear();
+    assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'anchor-missing' });
+
+    anchors.available = false;
+    assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'anchor-unavailable' });
   });
 
   test('startup promotes an anchored pending record even when committed custody is missing', async () => {
@@ -185,6 +199,7 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     assert.equal(await store.remove(replacementPassword), true);
     assert.deepEqual(store.status(), { state: 'unconfigured' });
     assert.equal(anchors.anchor, null);
+    assert.equal(existsSync(join(dataDir, 'app-lock.configured')), false);
     const restored = Buffer.from(fakeSafeStorage().decryptString(readFileSync(join(dataDir, 'master.key'))), 'base64');
     assert.deepEqual(restored, masterKey);
   });
