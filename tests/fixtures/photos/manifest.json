@@ -4,14 +4,14 @@
   "sources": [
     {
       "file": "summer-landscape.jpg",
-      "sourcePage": "https://commons.wikimedia.org/wiki/File:Summer_landscape_in_mountains.jpg",
-      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bd/Summer_landscape_in_mountains.jpg",
-      "author": "U.S. Fish and Wildlife Service",
-      "description": "Summer mountain landscape",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Mountain_and_Landscape.jpg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/9/94/Mountain_and_Landscape.jpg",
+      "author": "Unknown author (PikWizard source)",
+      "description": "Mountain landscape",
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "transformation": "resized to 1280px wide JPEG",
-      "sha256": "3d669f18ddc1e9943076bf02c8cf0d4fe25a80c8a218ade496ac427ca4c623a4"
+      "sha256": "161dce8ca2dc3b48efbaf7f82311b0d9442dbc28a7129e80656e2d96348ddbed"
     },
     {
       "file": "street-city.jpg",
@@ -53,7 +53,7 @@
       "source": "summer-landscape.jpg",
       "width": 420,
       "height": 280,
-      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+      "sha256": "07ddaa2915124532f68aa3c69bd77ff988fe23b0264d7b917720adf868e7b4fe"
     },
     {
       "file": "t02.png",
@@ -81,7 +81,7 @@
       "source": "summer-landscape.jpg",
       "width": 420,
       "height": 236,
-      "sha256": "17e6be523b154ca74bb904f50d20651b9555efca7662126e3f05ab3ab1df0f24"
+      "sha256": "b04325e82b62b77c9476787eafb097d7bd2c73d9f6255ccbaf066070c6dd1e47"
     },
     {
       "file": "t06.png",
@@ -109,7 +109,7 @@
       "source": "summer-landscape.jpg",
       "width": 420,
       "height": 280,
-      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+      "sha256": "07ddaa2915124532f68aa3c69bd77ff988fe23b0264d7b917720adf868e7b4fe"
     },
     {
       "file": "t10.png",
@@ -137,7 +137,7 @@
       "source": "summer-landscape.jpg",
       "width": 420,
       "height": 236,
-      "sha256": "17e6be523b154ca74bb904f50d20651b9555efca7662126e3f05ab3ab1df0f24"
+      "sha256": "b04325e82b62b77c9476787eafb097d7bd2c73d9f6255ccbaf066070c6dd1e47"
     },
     {
       "file": "t14.png",
@@ -165,7 +165,7 @@
       "source": "summer-landscape.jpg",
       "width": 420,
       "height": 280,
-      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+      "sha256": "07ddaa2915124532f68aa3c69bd77ff988fe23b0264d7b917720adf868e7b4fe"
     },
     {
       "file": "t18.png",
@@ -193,7 +193,7 @@
       "source": "summer-landscape.jpg",
       "width": 420,
       "height": 236,
-      "sha256": "17e6be523b154ca74bb904f50d20651b9555efca7662126e3f05ab3ab1df0f24"
+      "sha256": "b04325e82b62b77c9476787eafb097d7bd2c73d9f6255ccbaf066070c6dd1e47"
     },
     {
       "file": "t22.png",
@@ -221,7 +221,7 @@
       "source": "summer-landscape.jpg",
       "width": 420,
       "height": 280,
-      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+      "sha256": "07ddaa2915124532f68aa3c69bd77ff988fe23b0264d7b917720adf868e7b4fe"
     },
     {
       "file": "t26.png",

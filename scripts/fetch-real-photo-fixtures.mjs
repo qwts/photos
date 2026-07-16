@@ -12,10 +12,10 @@ const thumbDir = join(root, 'design/handoff/assets/thumbs');
 const sources = [
   {
     file: 'summer-landscape.jpg',
-    sourcePage: 'https://commons.wikimedia.org/wiki/File:Summer_landscape_in_mountains.jpg',
-    sourceUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/bd/Summer_landscape_in_mountains.jpg',
-    author: 'U.S. Fish and Wildlife Service',
-    description: 'Summer mountain landscape',
+    sourcePage: 'https://commons.wikimedia.org/wiki/File:Mountain_and_Landscape.jpg',
+    sourceUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/94/Mountain_and_Landscape.jpg',
+    author: 'Unknown author (PikWizard source)',
+    description: 'Mountain landscape',
     resize: { width: 1280 },
   },
   {
@@ -102,6 +102,37 @@ function withExif(jpeg, segment) {
   return Buffer.concat([jpeg.subarray(0, 2), segment, jpeg.subarray(2)]);
 }
 
+function withExifDimensions(segment, width, height) {
+  const patched = Buffer.from(segment);
+  const tiff = 10;
+  const littleEndian = patched.toString('ascii', tiff, tiff + 2) === 'II';
+  const read16 = (offset) => (littleEndian ? patched.readUInt16LE(offset) : patched.readUInt16BE(offset));
+  const read32 = (offset) => (littleEndian ? patched.readUInt32LE(offset) : patched.readUInt32BE(offset));
+  const write16 = (value, offset) => (littleEndian ? patched.writeUInt16LE(value, offset) : patched.writeUInt16BE(value, offset));
+  const write32 = (value, offset) => (littleEndian ? patched.writeUInt32LE(value, offset) : patched.writeUInt32BE(value, offset));
+  const entries = (relativeOffset) => {
+    const start = tiff + relativeOffset;
+    const count = read16(start);
+    return Array.from({ length: count }, (_, index) => start + 2 + index * 12);
+  };
+  const ifd0 = read32(tiff + 4);
+  const exifPointer = entries(ifd0).find((entry) => read16(entry) === 0x8769);
+  if (exifPointer === undefined) throw new Error('EXIF template has no Exif IFD pointer');
+  const exifEntries = entries(read32(exifPointer + 8));
+  const patchDimension = (tag, value) => {
+    const entry = exifEntries.find((candidate) => read16(candidate) === tag);
+    if (entry === undefined) throw new Error(`EXIF template has no dimension tag ${String(tag)}`);
+    const type = read16(entry + 2);
+    const count = read32(entry + 4);
+    if (count !== 1 || (type !== 3 && type !== 4)) throw new Error(`unsupported EXIF dimension encoding for ${String(tag)}`);
+    if (type === 3) write16(value, entry + 8);
+    else write32(value, entry + 8);
+  };
+  patchDimension(0xa002, width);
+  patchDimension(0xa003, height);
+  return patched;
+}
+
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
@@ -134,7 +165,10 @@ for (const source of sources) {
 }
 
 const realPhotos = await Promise.all(sources.map(({ file }) => readFile(join(fixtureDir, file))));
-const realExif = withExif(realPhotos[0], app1);
+const realExifMetadata = await sharp(realPhotos[0]).metadata();
+if (realExifMetadata.width === undefined || realExifMetadata.height === undefined)
+  throw new Error('real EXIF fixture dimensions are unavailable');
+const realExif = withExif(realPhotos[0], withExifDimensions(app1, realExifMetadata.width, realExifMetadata.height));
 await writeFile(join(exifDir, 'exif-full.jpg'), realExif);
 await writeFile(join(exifDir, 'exif-stripped.jpg'), await sharp(realPhotos[1]).jpeg({ quality: 84 }).toBuffer());
 

@@ -15,6 +15,8 @@ function fixture(name: string): Buffer {
 describe('EXIF extraction (#85)', () => {
   test('EXIT CRITERIA: full EXIF JPEG yields the ADR-0006 field set', async () => {
     const meta = await extractMetadata(fixture('exif-full.jpg'));
+    assert.equal(meta.width, 1280);
+    assert.equal(meta.height, 838);
     assert.equal(meta.camera, 'FUJIFILM X-T5');
     assert.equal(meta.lens, 'XF35mmF1.4 R');
     assert.equal(meta.iso, 200);
@@ -30,6 +32,8 @@ describe('EXIF extraction (#85)', () => {
 
   test('RAF resolves the embedded JPEG via the documented header offsets', async () => {
     const meta = await extractMetadata(fixture('sample.raf'));
+    assert.equal(meta.width, 1280);
+    assert.equal(meta.height, 838);
     assert.equal(meta.camera, 'FUJIFILM X-T5');
     assert.equal(meta.iso, 200);
     assert.equal(meta.aperture, '1.4');
