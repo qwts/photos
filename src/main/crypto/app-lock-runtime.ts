@@ -1,4 +1,4 @@
-import { AppLockCredentialStore } from './app-lock-credentials.js';
+import { AppLockCredentialStore, type CredentialAnchorStore } from './app-lock-credentials.js';
 import { AppLockController } from './app-lock-controller.js';
 import { OsCredentialAnchorStore } from './credential-anchor.js';
 import type { SafeStorageLike } from './keystore.js';
@@ -17,13 +17,14 @@ export interface AppLockRuntimeOptions {
   readonly openAuthorized: (masterKey?: Buffer) => void | Promise<void>;
   readonly closeAuthorized: () => void | Promise<void>;
   readonly failClosed: () => void;
+  readonly anchorStore?: CredentialAnchorStore;
 }
 
 export function createAppLockRuntime(options: AppLockRuntimeOptions): AppLockController {
   return new AppLockController({
     credentials: new AppLockCredentialStore({
       dataDir: options.dataDir,
-      anchorStore: new OsCredentialAnchorStore({ dataDir: options.dataDir }),
+      anchorStore: options.anchorStore ?? new OsCredentialAnchorStore({ dataDir: options.dataDir }),
       safeStorage: options.safeStorage,
     }),
     throttle: new UnlockThrottle({ dataDir: options.dataDir, safeStorage: options.safeStorage }),

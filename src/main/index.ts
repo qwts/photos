@@ -12,6 +12,7 @@ import { createWindow, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
 import { drainBeforeDeadline } from './crypto/library-shutdown.js';
+import { TestFileCredentialAnchorStore } from './crypto/test-credential-anchor.js';
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
@@ -728,6 +729,9 @@ function getAppLockController(): ReturnType<typeof createAppLockRuntime> {
     appLockController = createAppLockRuntime({
       dataDir,
       safeStorage: pickSafeStorage(),
+      ...(harnessEnv('OVERLOOK_APP_LOCK_TEST_ANCHOR') === '1'
+        ? { anchorStore: new TestFileCredentialAnchorStore(path.join(app.getPath('userData'), 'app-lock-test-anchor.json')) }
+        : {}),
       openAuthorized: (masterKey) => {
         if (masterKey === undefined) return;
         const authorized = Buffer.from(masterKey);
