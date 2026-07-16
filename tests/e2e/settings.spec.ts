@@ -124,9 +124,12 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     const pane = page.getByTestId('settings-pane');
     await expect(pane).toContainText('Always on');
     const paneSwitches = pane.getByRole('switch');
-    await expect(paneSwitches.first()).toBeDisabled();
-    await expect(paneSwitches.first()).toHaveAttribute('aria-checked', 'false');
-    await paneSwitches.nth(1).click();
+    const switchCount = await paneSwitches.count();
+    const faceGrouping = paneSwitches.nth(switchCount - 2);
+    const diagnostics = paneSwitches.nth(switchCount - 1);
+    await expect(faceGrouping).toBeDisabled();
+    await expect(faceGrouping).toHaveAttribute('aria-checked', 'false');
+    await diagnostics.click();
     await expect
       .poll(async () => page.evaluate<boolean>(`window.overlook.settings.get().then((r) => r.settings.shareDiagnostics)`))
       .toBe(true);
