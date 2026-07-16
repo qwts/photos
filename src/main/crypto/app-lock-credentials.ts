@@ -1,11 +1,11 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { z } from 'zod';
 
-import { strengthOf } from '../../shared/crypto/password-strength.js';
 import type { SafeStorageLike } from './keystore.js';
+import { assertStrongPassword, createPasswordSaltV1, derivePasswordKeyV1, PASSWORD_KDF_V1 } from './password-kdf.js';
 
 const MAGIC = Buffer.from('OVLK', 'ascii');
 const MASTER_FILE = 'master.key';
@@ -15,11 +15,6 @@ const VERSION = 1;
 const KEY_BYTES = 32;
 const NONCE_BYTES = 12;
 const TAG_BYTES = 16;
-const SALT_BYTES = 16;
-const SCRYPT_N = 2 ** 17;
-const SCRYPT_R = 8;
-const SCRYPT_P = 1;
-const SCRYPT_MAXMEM = 160 * 1024 * 1024;
 
 export interface CredentialAnchor {
   readonly libraryId: string;
@@ -87,10 +82,10 @@ const recordSchema = z
     kdf: z
       .object({
         name: z.literal('scrypt'),
-        N: z.literal(SCRYPT_N),
-        r: z.literal(SCRYPT_R),
-        p: z.literal(SCRYPT_P),
-        salt: canonicalBase64.refine((value) => Buffer.from(value, 'base64').length === SALT_BYTES),
+        N: z.literal(PASSWORD_KDF_V1.N),
+        r: z.literal(PASSWORD_KDF_V1.r),
+        p: z.literal(PASSWORD_KDF_V1.p),
+        salt: canonicalBase64.refine((value) => Buffer.from(value, 'base64').length === PASSWORD_KDF_V1.saltBytes),
       })
       .strict(),
     passwordSlot: slotSchema,
@@ -148,26 +143,16 @@ function open(key: Buffer, slot: SealedSlot, associatedData: Buffer): Buffer {
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 }
 
-function derivePasswordKey(password: string, salt: Buffer): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    scrypt(password, salt, KEY_BYTES, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: SCRYPT_MAXMEM }, (error, key) => {
-      if (error !== null) reject(error);
-      else resolve(key);
-    });
-  });
-}
-
 function validateInput({ libraryId, password, masterKey }: ConfigureAppLockInput): void {
   if (libraryId.length < 1 || libraryId.length > 256) throw new Error('library id is invalid');
-  if (password.length < 8 || password.length > 1024) throw new Error('password length is invalid');
-  if (strengthOf(password).score < 3) throw new Error('password is too weak');
+  assertStrongPassword(password);
   if (masterKey.length !== KEY_BYTES) throw new Error('master key must be 32 bytes');
 }
 
 async function createRecord(input: ConfigureAppLockInput, generation: number): Promise<AppLockRecord> {
   validateInput(input);
-  const salt = randomBytes(SALT_BYTES);
-  const passwordKey = await derivePasswordKey(input.password, salt);
+  const salt = createPasswordSaltV1();
+  const passwordKey = await derivePasswordKeyV1(input.password, salt);
   const unlockKey = randomBytes(KEY_BYTES);
   const header = { libraryId: input.libraryId, generation };
   try {
@@ -175,7 +160,7 @@ async function createRecord(input: ConfigureAppLockInput, generation: number): P
       version: VERSION,
       libraryId: input.libraryId,
       generation,
-      kdf: { name: 'scrypt', N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, salt: salt.toString('base64') },
+      kdf: { name: 'scrypt', N: PASSWORD_KDF_V1.N, r: PASSWORD_KDF_V1.r, p: PASSWORD_KDF_V1.p, salt: salt.toString('base64') },
       passwordSlot: seal(passwordKey, unlockKey, aad(header, 'password')),
       masterSlot: seal(unlockKey, input.masterKey, aad(header, 'master')),
     };
@@ -261,7 +246,7 @@ export class AppLockCredentialStore {
     if (password.length < 1 || password.length > 1024) return { ok: false, reason: 'wrong-password' };
     const record = parseRecord(readFileSync(this.masterPath));
     if (record === null) return { ok: false, reason: 'recovery-required' };
-    const passwordKey = await derivePasswordKey(password, Buffer.from(record.kdf.salt, 'base64'));
+    const passwordKey = await derivePasswordKeyV1(password, Buffer.from(record.kdf.salt, 'base64'));
     let unlockKey: Buffer | undefined;
     try {
       unlockKey = open(passwordKey, record.passwordSlot, aad(record, 'password'));
