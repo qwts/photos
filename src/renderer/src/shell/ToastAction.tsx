@@ -25,15 +25,20 @@ export function ToastAction({ toast }: { readonly toast: NonNullable<AppState['t
     const photoIds = toast.actionPhotoIds ?? [];
     dispatch({ type: 'toast/dismissed' });
     if (photoIds.length === 0) return;
-    void window.overlook.backup.restoreOriginals({ photoIds: [...photoIds] }).then(({ restored, failed }) => {
-      dispatch({
-        type: 'toast/shown',
-        toast:
-          failed > 0
-            ? { title: `Restored ${formatCount(restored)} · ${formatCount(failed)} FAILED`, tone: 'red' }
-            : { title: `Restored ${formatCount(restored)} ${restored === 1 ? 'original' : 'originals'}`, tone: 'green' },
+    void window.overlook.backup
+      .restoreOriginals({ photoIds: [...photoIds] })
+      .then(({ restored, failed }) => {
+        dispatch({
+          type: 'toast/shown',
+          toast:
+            failed > 0
+              ? { title: `Restored ${formatCount(restored)} · ${formatCount(failed)} FAILED`, tone: 'red' }
+              : { title: `Restored ${formatCount(restored)} ${restored === 1 ? 'original' : 'originals'}`, tone: 'green' },
+        });
+      })
+      .catch(() => {
+        dispatch({ type: 'toast/shown', toast: { title: 'RESTORE FAILED — ORIGINALS REMAIN OFFLOADED', tone: 'red' } });
       });
-    });
   };
   return (
     <button type="button" className="ovl-toast__action" onClick={run}>

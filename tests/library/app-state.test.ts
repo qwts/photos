@@ -190,4 +190,13 @@ describe('app state reducer', () => {
     assert.equal(jumped.source, 'recent');
     assert.equal(jumped.toast, null);
   });
+
+  test('offload Undo toast preserves the exact photo ids (#281)', () => {
+    const state = apply(initialAppState, {
+      type: 'toast/shown',
+      toast: { title: 'Offloaded 2', tone: 'green', action: 'undo-offload', actionPhotoIds: ['a', 'b'] },
+    });
+    assert.equal(state.toast?.action, 'undo-offload');
+    assert.deepEqual(state.toast?.actionPhotoIds, ['a', 'b']);
+  });
 });
