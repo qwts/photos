@@ -57,9 +57,25 @@ export function RecoveryUnlock(): ReactElement {
         onChange={setRecoveryPassword}
         label="Recovery-key password"
         placeholder="Recovery-key password"
+        name="recovery-key-password"
+        autoComplete="current-password"
       />
-      <PasswordField value={nextPassword} onChange={setNextPassword} label="New app password" placeholder="New app password" />
-      <PasswordField value={confirm} onChange={setConfirm} label="Confirm new app password" placeholder="Confirm password" />
+      <PasswordField
+        value={nextPassword}
+        onChange={setNextPassword}
+        label="New app password"
+        placeholder="New app password"
+        name="new-app-password"
+        autoComplete="new-password"
+      />
+      <PasswordField
+        value={confirm}
+        onChange={setConfirm}
+        label="Confirm new app password"
+        placeholder="Confirm password"
+        name="confirm-app-password"
+        autoComplete="new-password"
+      />
       <Button variant="primary" icon="shield-check" disabled={!ready} onClick={recover}>
         {busy ? 'Recovering…' : 'Establish new password'}
       </Button>

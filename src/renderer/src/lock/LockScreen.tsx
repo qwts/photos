@@ -71,7 +71,15 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
             <RecoveryUnlock />
           ) : (
             <>
-              <PasswordField value={password} onChange={setPassword} label="App password" placeholder="Password" autoFocus />
+              <PasswordField
+                value={password}
+                onChange={setPassword}
+                label="App password"
+                placeholder="Password"
+                name="app-password"
+                autoComplete="current-password"
+                autoFocus
+              />
               <Button
                 type="submit"
                 variant="primary"
