@@ -127,12 +127,15 @@ export function Lightbox({
     void window.overlook.backup.ephemeralStatus({ photoId: photo.id }).then(({ stage }) => {
       if (active && stage !== null) setEphemeralState({ photoId: photo.id, stage });
     });
+    if (offloaded) {
+      void window.overlook.backup.prepareEphemeral({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
+    }
     return () => {
       active = false;
       unsubscribe();
       void window.overlook.backup.releaseEphemeral({ photoId: photo.id });
     };
-  }, [photo.id]);
+  }, [offloaded, photo.id]);
 
   const ephemeralStage = ephemeralState?.photoId === photo.id ? ephemeralState.stage : null;
 
@@ -164,17 +167,6 @@ export function Lightbox({
         {photo.syncState === 'synced' && photo.deletedAt === null ? (
           <IconButton icon="cloud-upload" label="Offload original" onClick={onOffload} />
         ) : null}
-        {offloaded && ephemeralStage === 'ready' ? (
-          <Button
-            size="sm"
-            icon="cloud-download"
-            onClick={() => {
-              void window.overlook.backup.keepDownloaded({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
-            }}
-          >
-            Keep downloaded
-          </Button>
-        ) : null}
         <IconButton icon="info" label="Inspector (I)" active={inspectorOpen} onClick={onToggleInspector} />
         {photo.deletedAt === null ? (
           // Already-deleted rows offer no Delete (PR #218 review) — the
@@ -190,10 +182,26 @@ export function Lightbox({
         <IconButton icon="chevron-right" size="lg" label="Next (→)" onClick={onNext} />
       </div>
       <div className={`ovl-lightbox__strip ovl-lightbox__chrome${chromeClass}`}>
-        <span className="mono-data">{exifStrip(photo)}</span>
-        {offloaded && ephemeralStage === 'fetching' ? <span className="mono-data">FETCHING ORIGINAL…</span> : null}
-        {offloaded && ephemeralStage === 'verifying' ? <span className="mono-data">VERIFYING ORIGINAL…</span> : null}
-        {offloaded && ephemeralStage === 'ready' ? <span className="mono-data">STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE</span> : null}
+        <span className="ovl-lightbox__exif mono-data">{exifStrip(photo)}</span>
+        {offloaded && ephemeralStage !== null && ephemeralStage !== 'released' ? (
+          <div className="ovl-lightbox__custody">
+            {ephemeralStage === 'fetching' ? <span className="mono-data">FETCHING ORIGINAL…</span> : null}
+            {ephemeralStage === 'verifying' ? <span className="mono-data">VERIFYING ORIGINAL…</span> : null}
+            {ephemeralStage === 'ready' ? <span className="mono-data">STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE</span> : null}
+            {ephemeralStage === 'error' ? <span className="mono-data">ORIGINAL UNAVAILABLE</span> : null}
+            {ephemeralStage === 'ready' ? (
+              <Button
+                size="sm"
+                icon="cloud-download"
+                onClick={() => {
+                  void window.overlook.backup.keepDownloaded({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
+                }}
+              >
+                Keep downloaded
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -227,6 +227,22 @@ describe('FullService (#91)', () => {
     assert.equal(loads, 2);
   });
 
+  test('invalidating a closed ephemeral view drops cached plaintext (#306)', async () => {
+    let loads = 0;
+    const service = new FullService({
+      loadOriginal: () => {
+        loads += 1;
+        return Promise.resolve({ bytes: Buffer.from('view'), contentHash: 'hash', fileKind: 'jpeg' });
+      },
+    });
+    await service.getFull('P0');
+    assert.ok(service.stats().cachedBytes > 0);
+    service.invalidate('P0');
+    assert.equal(service.stats().cachedBytes, 0);
+    await service.getFull('P0');
+    assert.equal(loads, 2);
+  });
+
   test('EXIT CRITERIA: real-store originals decrypt in memory, never touch disk', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'overlook-fullsvc-'));
     const store = new BlobStore({ dataDir });

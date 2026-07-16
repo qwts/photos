@@ -72,23 +72,36 @@ export class EphemeralOriginalService {
   }
 
   async open(photoId: string, purpose: OriginalPurpose): Promise<{ readonly stream: Readable; readonly custody: OriginalCustody }> {
+    const custody = await this.prepare(photoId, purpose);
+    const photo = this.deps.repo.get(photoId);
+    if (photo === undefined) throw new EphemeralOriginalError(`photo ${photoId} does not exist`, 'not-found');
+    return {
+      stream:
+        custody === 'durable'
+          ? this.deps.blobs.durableStream(photo.contentHash, photoId)
+          : this.deps.blobs.ephemeralStream(photo.contentHash, photoId),
+      custody,
+    };
+  }
+
+  async prepare(photoId: string, purpose: OriginalPurpose): Promise<OriginalCustody> {
     const photo = this.deps.repo.get(photoId);
     if (photo === undefined) throw new EphemeralOriginalError(`photo ${photoId} does not exist`, 'not-found');
     if (this.deps.ledger.status(photoId) !== 'offloaded') {
       if (!this.deps.blobs.hasOriginal(photo.contentHash)) {
         throw new EphemeralOriginalError(`photo ${photoId} has no local original`, 'not-found');
       }
-      return { stream: this.deps.blobs.durableStream(photo.contentHash, photoId), custody: 'durable' };
+      return 'durable';
     }
     if (!this.deps.reOffloadAfterViewing()) {
       await this.permanentlyRestore(photoId);
-      return { stream: this.deps.blobs.durableStream(photo.contentHash, photoId), custody: 'durable' };
+      return 'durable';
     }
 
     const entry = await this.ensure(photoId, photo.contentHash);
     if (purpose !== 'prefetch') entry.activePhotoIds.add(photoId);
     this.touch(photo.contentHash, entry);
-    return { stream: this.deps.blobs.ephemeralStream(photo.contentHash, photoId), custody: 'ephemeral' };
+    return 'ephemeral';
   }
 
   async keepDownloaded(photoId: string): Promise<void> {
