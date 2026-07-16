@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
-import { Lightbox } from './Lightbox';
+import { Lightbox, type LightboxProps } from './Lightbox';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
 
@@ -168,10 +169,27 @@ export const OffloadedUnavailable: Story = {
   },
 };
 
+function OffloadTransitionHarness(args: LightboxProps) {
+  const [offloading, setOffloading] = useState(false);
+  return (
+    <Lightbox
+      {...args}
+      photo={{ ...args.photo, syncState: offloading ? 'offloaded' : 'synced' }}
+      suppressRehydrate={offloading}
+      onOffload={() => setOffloading(true)}
+    />
+  );
+}
+
 export const OffloadSuppressionBlocksFetch: Story = {
-  args: { photo: { ...PHOTO, syncState: 'offloaded' }, suppressRehydrate: true },
-  play: async () => {
+  args: { photo: { ...PHOTO, syncState: 'synced' } },
+  render: (args) => <OffloadTransitionHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const originalImage = canvas.getByRole('img', { name: PHOTO.fileName });
+    await userEvent.click(canvas.getByRole('button', { name: 'Offload original' }));
     await waitFor(() => expect(backupStubCalls.status).toBeGreaterThan(0));
     await expect(backupStubCalls.prepare).toBe(0);
+    await expect(canvas.getByRole('img', { name: PHOTO.fileName })).toBe(originalImage);
   },
 };

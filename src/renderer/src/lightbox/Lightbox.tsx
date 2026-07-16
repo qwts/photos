@@ -151,7 +151,7 @@ export function Lightbox({
       onMouseMove={wake}
     >
       <img
-        key={`${photo.id}-${photo.syncState}`}
+        key={`${photo.id}-${suppressRehydrate ? 'synced' : photo.syncState}`}
         className="ovl-lightbox__img"
         src={fullUrl(photo.id)}
         alt={photo.fileName}
