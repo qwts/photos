@@ -83,10 +83,19 @@ verification: the `verified` bit is what offload eligibility trusts.
   a silent placeholder.
 
 **Provider abstraction — mock-first (decision with the owner, epic #44).**
-One interface both the in-memory/on-disk mock and the pCloud adapter
+One interface the in-memory/on-disk mock, pCloud, and Google Drive adapters
 implement: `put`, `get`, `list`, `delete`, `quota`, `verify` (checksum), plus
-auth lifecycle hooks. The engine, tests, and UI states develop against the
-mock; the pCloud adapter (#109) arrives when owner credentials exist.
+auth lifecycle hooks. The engine, tests, restore workflow, and UI consume
+capability descriptors rather than provider-name branches.
+
+**Google Drive custody (#277).** The desktop installed-app flow uses the
+system browser, PKCE S256, a nonce-bound loopback callback, and only the
+`drive.file` scope. The public OAuth client ID is embedded at package build
+time through `GOOGLE_DRIVE_CLIENT_ID`; refresh tokens are sealed by OS
+`safeStorage` outside the replaceable library directory. The adapter creates
+only its app-owned `/Overlook/<library-id>/` tree, persists Drive file/folder
+IDs, revalidates stale IDs, paginates listings, uses resumable uploads, and
+falls back to download-and-SHA-256 when Drive omits a checksum.
 
 **Image Trail interop stance:** Overlook writes only under `/Overlook/` —
 never `/Image Trail/backups/` (that path is the sibling's verified-upload
@@ -117,3 +126,6 @@ a new Import-dialog source — not a shared live folder or shared format.
   viewing and export. It adds a second encrypted local lifecycle, so its byte
   cap, shared-content ownership, provider-switch lock, crash cleanup, and
   plaintext-cache invalidation are tested as security invariants.
+- A packaged build without `GOOGLE_DRIVE_CLIENT_ID` keeps Google Drive visible
+  but unavailable with an explicit configuration reason; it never starts a
+  partial OAuth flow.

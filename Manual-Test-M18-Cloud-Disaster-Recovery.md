@@ -1,7 +1,7 @@
 # Manual Test — M18 Cloud Disaster Recovery
 
-Use this owner-only procedure to validate pCloud without putting credentials in
-CI or touching a real backup.
+Use this owner-only procedure to validate pCloud or Google Drive without
+putting credentials in CI or touching a real backup.
 
 ## Automated live contract
 
@@ -42,6 +42,32 @@ existing product-library folder.
 
 Record the command, commit, API region, duration, pass/fail result, and cleanup
 result on the owning issue. Do not record the OAuth URL or token.
+
+## Google Drive live contract
+
+Prerequisites:
+
+- create a Google OAuth **Desktop app** client with the Drive API enabled;
+- export its public client ID as `OVERLOOK_GOOGLE_DRIVE_CLIENT_ID`;
+- use a test Google account that can approve the `drive.file` scope; and
+- allow the random `127.0.0.1` loopback callback printed by the test.
+
+Run:
+
+```sh
+npm run test:google-drive:live
+```
+
+Open the printed authorization URL and approve access. The test uses an
+isolated library ID, then runs the same object and fresh-profile recovery
+contracts as pCloud. Expected evidence is a passing env-gated test, exact
+restore state, quota reporting, and successful cleanup of every created file.
+Record the commit, duration, pass/fail, and cleanup result on #277; never record
+the authorization URL, code, access token, or refresh token.
+
+For release packages, store the same public client ID in the repository secret
+`GOOGLE_DRIVE_CLIENT_ID`. A package built without it must report Google Drive
+as unavailable rather than opening OAuth.
 
 ## Product cross-machine check
 

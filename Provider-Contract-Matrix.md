@@ -3,12 +3,12 @@
 Canonical status for provider-neutral backup and disaster recovery. An adapter
 is not restore-ready merely because account connection or object upload works.
 
-| Provider     | Object contract                                              | Complete fresh-profile restore | Live owner run                       | Status          |
-| ------------ | ------------------------------------------------------------ | ------------------------------ | ------------------------------------ | --------------- |
-| Local mock   | CI                                                           | CI + Electron E2E              | Not applicable                       | Passed          |
-| pCloud       | Scripted unit + shared contract                              | Shared contract                | Passed 2026-07-14 (`api.pcloud.com`) | Passed          |
-| Google Drive | Planned in [#277](https://github.com/qwts/photos/issues/277) | Required before release        | Required                             | Not implemented |
-| iCloud Drive | Planned in [#278](https://github.com/qwts/photos/issues/278) | Required before release        | Required on macOS                    | Not implemented |
+| Provider     | Object contract                                              | Complete fresh-profile restore | Live owner run                       | Status            |
+| ------------ | ------------------------------------------------------------ | ------------------------------ | ------------------------------------ | ----------------- |
+| Local mock   | CI                                                           | CI + Electron E2E              | Not applicable                       | Passed            |
+| pCloud       | Scripted unit + shared contract                              | Shared contract                | Passed 2026-07-14 (`api.pcloud.com`) | Passed            |
+| Google Drive | Scripted unit + shared contract in PR #344                   | Shared contract in PR #344     | Pending owner OAuth client/account   | Live gate pending |
+| iCloud Drive | Planned in [#278](https://github.com/qwts/photos/issues/278) | Required before release        | Required on macOS                    | Not implemented   |
 
 ## Required restore contract
 
