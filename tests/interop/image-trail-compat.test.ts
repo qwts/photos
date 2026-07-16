@@ -139,6 +139,13 @@ describe('Image Trail compatibility import', () => {
       importImageTrailCompatibilityFile(JSON.stringify(weak), 'correct horse'),
       /Wrong password, corrupt file, or unsupported export/u,
     );
+
+    const blankReference = JSON.parse(encrypted) as { header: { keyReference: string } };
+    blankReference.header.keyReference = 'export:';
+    await assert.rejects(
+      importImageTrailCompatibilityFile(JSON.stringify(blankReference), 'correct horse'),
+      /Wrong password, corrupt file, or unsupported export/u,
+    );
   });
 
   test('rejects count mismatches and non-bookmark plaintext payloads', async () => {

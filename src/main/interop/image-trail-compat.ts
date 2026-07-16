@@ -87,7 +87,7 @@ const encryptedEnvelopeSchema = z
         algorithm: z.literal('AES-GCM'),
         wrappingMode: z.literal('password'),
         keyKind: z.literal('export'),
-        keyReference: z.string().startsWith('export:'),
+        keyReference: z.string().regex(/^export:.+$/u),
         salt: z.string().min(1),
         iv: z.string().min(1),
         iterations: z.literal(PBKDF2_ITERATIONS),
@@ -197,8 +197,13 @@ async function decryptEncrypted(value: unknown, password: string | undefined): P
     iv = decodeCanonicalBase64(envelope.header.iv, 12);
     ciphertext = decodeCanonicalBase64(envelope.payload);
     const passwordBytes = new TextEncoder().encode(password);
-    const baseKey = await webcrypto.subtle.importKey('raw', passwordBytes, 'PBKDF2', false, ['deriveKey']);
-    passwordBytes.fill(0);
+    const baseKey = await (async () => {
+      try {
+        return await webcrypto.subtle.importKey('raw', passwordBytes, 'PBKDF2', false, ['deriveKey']);
+      } finally {
+        passwordBytes.fill(0);
+      }
+    })();
     const key = await webcrypto.subtle.deriveKey(
       { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
       baseKey,
