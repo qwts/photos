@@ -693,12 +693,12 @@ async function closeLibraryForRestore(): Promise<void> {
   manifestSyncTrigger = undefined;
   importService?.cancel();
   exportFacade?.cancel();
-  restoreRuntime?.dispose();
   for (const controller of activeBackupControllers) controller.abort();
   await drainBeforeDeadline([
     importService?.drain() ?? Promise.resolve(),
     exportFacade?.drain() ?? Promise.resolve(),
     Promise.allSettled([...activeBackupRuns]),
+    restoreRuntime?.close() ?? Promise.resolve(),
     providerIdle(),
     thumbService?.close() ?? Promise.resolve(),
     fullService?.close() ?? Promise.resolve(),

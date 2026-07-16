@@ -148,3 +148,39 @@ test('cancelled runs preserve the discovery session for resumable retry', async 
   assert.equal((await first).error?.reason, 'cancelled');
   assert.equal((await coordinator.run('session-resume', LIBRARY_ID, false)).result?.resumed, true);
 });
+
+test('close drains an active discovery and destroys its recovered session', async () => {
+  const world = await remoteWorld();
+  let entered: (() => void) | undefined;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.resolve(world.recoveryFile),
+    sources: async () => {
+      entered?.();
+      await gate;
+      return [{ libraryId: LIBRARY_ID, provider: world.provider }];
+    },
+    createRunner: () => ({ run: () => Promise.reject(new Error('unused')) }),
+    sessionId: () => 'session-close',
+    progress: () => undefined,
+  });
+  const discovery = coordinator.discover('mock', '/recovery.key', PASSWORD);
+  await started;
+  let closed = false;
+  const closing = coordinator.close().then(() => {
+    closed = true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(closed, false);
+  release?.();
+  assert.equal((await discovery).sessionId, 'session-close');
+  await closing;
+  assert.equal(closed, true);
+  assert.equal((await coordinator.run('session-close', LIBRARY_ID, false)).error?.message.includes('expired'), true);
+});

@@ -67,6 +67,7 @@ function invalidSummary(libraryId: string, error: RestoreError): RestoreLibraryS
 export class RestoreCoordinator {
   private session: RestoreSession | null = null;
   private controller: AbortController | null = null;
+  private readonly active = new Set<Promise<unknown>>();
 
   constructor(private readonly deps: RestoreCoordinatorDeps) {}
 
@@ -75,7 +76,11 @@ export class RestoreCoordinator {
     this.session = null;
   }
 
-  async discover(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse> {
+  discover(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse> {
+    return this.track(() => this.discoverOperation(providerId, keyPath, password));
+  }
+
+  private async discoverOperation(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse> {
     if (this.controller !== null) {
       return { sessionId: null, libraries: [], error: { reason: 'io', message: 'A restore is already running.' } };
     }
@@ -129,7 +134,11 @@ export class RestoreCoordinator {
     }
   }
 
-  async run(sessionId: string, libraryId: string, allowReplace: boolean): Promise<RestoreRunResponse> {
+  run(sessionId: string, libraryId: string, allowReplace: boolean): Promise<RestoreRunResponse> {
+    return this.track(() => this.runOperation(sessionId, libraryId, allowReplace));
+  }
+
+  private async runOperation(sessionId: string, libraryId: string, allowReplace: boolean): Promise<RestoreRunResponse> {
     const session = this.session;
     const source = session?.sources.get(libraryId);
     if (session === null || session.id !== sessionId || source === undefined) {
@@ -170,5 +179,19 @@ export class RestoreCoordinator {
   dispose(): void {
     this.cancel();
     this.clearSession();
+  }
+
+  async close(): Promise<void> {
+    this.cancel();
+    await Promise.allSettled([...this.active]);
+    this.clearSession();
+  }
+
+  private track<T>(operation: () => Promise<T>): Promise<T> {
+    const active = operation();
+    this.active.add(active);
+    const remove = () => this.active.delete(active);
+    void active.then(remove, remove);
+    return active;
   }
 }
