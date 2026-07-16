@@ -2,13 +2,25 @@ import { BrowserWindow, ipcMain } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 
 import { channels } from '../shared/ipc/channels.js';
-import { wrapHandler } from '../shared/ipc/registry.js';
+import { wrapHandler as validateHandler } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
 import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js';
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
 import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from './backup/offload.js';
+
+let contentAdmission = (): void => undefined;
+
+export function setContentAdmissionGate(gate: () => void): void {
+  contentAdmission = gate;
+}
+
+const wrapHandler: typeof validateHandler = (channel, handler) =>
+  validateHandler(channel, (request) => {
+    contentAdmission();
+    return handler(request);
+  });
 
 function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
   const win = BrowserWindow.fromWebContents(event.sender);
@@ -307,23 +319,23 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
 }
 
 export function registerIpcHandlers(): void {
-  const ping = wrapHandler(channels.ping, ({ message }) => ({ echoed: message }));
+  const ping = validateHandler(channels.ping, ({ message }) => ({ echoed: message }));
   ipcMain.handle(channels.ping.name, (_event, request: unknown) => ping(request));
 
-  const getPlatform = wrapHandler(channels.getPlatform, () => ({ platform: process.platform }));
+  const getPlatform = validateHandler(channels.getPlatform, () => ({ platform: process.platform }));
   ipcMain.handle(channels.getPlatform.name, (_event, request: unknown) => getPlatform(request));
 
   // Window controls need the calling window, so validation wraps a handler
   // built per invocation.
   ipcMain.handle(channels.windowMinimize.name, (event, request: unknown) =>
-    wrapHandler(channels.windowMinimize, () => {
+    validateHandler(channels.windowMinimize, () => {
       windowFromEvent(event).minimize();
       return {};
     })(request),
   );
 
   ipcMain.handle(channels.windowToggleMaximize.name, (event, request: unknown) =>
-    wrapHandler(channels.windowToggleMaximize, () => {
+    validateHandler(channels.windowToggleMaximize, () => {
       const win = windowFromEvent(event);
       if (win.isMaximized()) {
         win.unmaximize();
@@ -335,7 +347,7 @@ export function registerIpcHandlers(): void {
   );
 
   ipcMain.handle(channels.windowClose.name, (event, request: unknown) =>
-    wrapHandler(channels.windowClose, () => {
+    validateHandler(channels.windowClose, () => {
       windowFromEvent(event).close();
       return {};
     })(request),

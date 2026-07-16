@@ -19,8 +19,13 @@ const NO_STORE = {
 };
 
 /** Call once after app ready; the service is created lazily like the library. */
-export function registerFullProtocol(getService: () => FullService): void {
+export function registerFullProtocol(getService: () => FullService, admit: () => void = () => undefined): void {
   protocol.handle(FULL_SCHEME, async (request) => {
+    try {
+      admit();
+    } catch {
+      return new Response(null, { status: 404, headers: NO_STORE });
+    }
     const parsed = parseFullUrl(request.url);
     if (parsed === null) {
       return new Response(null, { status: 400, headers: NO_STORE });

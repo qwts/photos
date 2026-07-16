@@ -120,9 +120,13 @@ export class KeyStore {
     const isFirstRun = !existsSync(masterPath);
     let masterKey: Buffer;
     if (!isFirstRun) {
+      const persisted = readFileSync(masterPath);
+      if (persisted.subarray(0, 4).toString('ascii') === 'OVLK') {
+        throw new KeyCustodyError('app lock is configured; password authorization is required before opening the key store');
+      }
       let decoded: string;
       try {
-        decoded = options.safeStorage.decryptString(readFileSync(masterPath));
+        decoded = options.safeStorage.decryptString(persisted);
       } catch {
         throw new KeyCustodyError('the stored master key could not be unwrapped by the OS keychain');
       }
@@ -135,6 +139,18 @@ export class KeyStore {
       writeFileAtomic(masterPath, options.safeStorage.encryptString(masterKey.toString('base64')));
     }
 
+    return KeyStore.fromMaster(options, masterKey, isFirstRun);
+  }
+
+  /** Opens an app-locked library after ADR-0013 has authenticated and released
+   * the master. The caller retains ownership of its input Buffer. */
+  static openWithMaster(options: KeyStoreOptions, authorizedMaster: Buffer): KeyStore {
+    if (authorizedMaster.length !== 32) throw new KeyCustodyError('authorized master key is malformed');
+    mkdirSync(options.dataDir, { recursive: true });
+    return KeyStore.fromMaster(options, Buffer.from(authorizedMaster), false);
+  }
+
+  private static fromMaster(options: KeyStoreOptions, masterKey: Buffer, isFirstRun: boolean): KeyStore {
     const keysPath = join(options.dataDir, KEYS_FILE);
     let records: readonly WrappedKeyRecord[];
     if (existsSync(keysPath)) {
@@ -226,5 +242,12 @@ export class KeyStore {
    * into the password-encrypted recovery file. Handle and drop promptly. */
   masterKeyBytes(): Buffer {
     return Buffer.from(this.masterKey);
+  }
+
+  /** Revokes every in-memory key copy owned by this store. */
+  close(): void {
+    this.masterKey.fill(0);
+    for (const key of this.keys.values()) key.fill(0);
+    this.keys.clear();
   }
 }

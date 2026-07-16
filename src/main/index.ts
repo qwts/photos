@@ -8,7 +8,9 @@ import { app, BrowserWindow, dialog, safeStorage, shell } from 'electron';
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
+import { createWindow, relaunchLocked } from './app-window.js';
 import { KeyStore, type SafeStorageLike } from './crypto/keystore.js';
+import { createAppLockRuntime } from './crypto/app-lock-runtime.js';
 import { pickSafeStorageImpl } from './crypto/safe-storage.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
@@ -57,6 +59,7 @@ import {
   registerPurgeHandlers,
   registerRestoreHandlers,
   registerSettingsHandlers,
+  setContentAdmissionGate,
   type ExportFacade,
 } from './ipc.js';
 import { SettingsStore } from './settings/settings-store.js';
@@ -108,11 +111,15 @@ function broadcast(send: (win: BrowserWindow) => void): void {
 
 let libraryParts:
   { db: ReturnType<typeof openLibraryDatabase>; blobStore: BlobStore; blobStoreReady: Promise<void>; keyStore: KeyStore } | undefined;
+let releasedMaster: Buffer | undefined;
 
 function getLibraryService(): LibraryService {
   if (libraryService === undefined) {
     const dataDir = path.join(app.getPath('userData'), 'library');
-    const keyStore = KeyStore.open({ safeStorage: pickSafeStorage(), dataDir });
+    const keyStore =
+      releasedMaster === undefined
+        ? KeyStore.open({ safeStorage: pickSafeStorage(), dataDir })
+        : KeyStore.openWithMaster({ safeStorage: pickSafeStorage(), dataDir }, releasedMaster);
     // The DB key is KEY #1: stable across rotation (rotation only moves the
     // blob WRITE key), wrapped by the master key per ADR-0004. A dedicated
     // db-key slot can arrive later via migration if ever needed.
@@ -726,6 +733,7 @@ async function closeLibraryForRestore(): Promise<void> {
   exportFacade?.cancel();
   await thumbnailPool?.close();
   libraryParts?.db.close();
+  libraryParts?.keyStore.close();
   libraryService = undefined;
   libraryParts = undefined;
   importService = undefined;
@@ -734,11 +742,38 @@ async function closeLibraryForRestore(): Promise<void> {
   fullService = undefined;
   backupEngine = undefined;
   offloadService = undefined;
+  ephemeralOriginalService = undefined;
   autoBackupTrigger = undefined;
   manifestSyncTrigger = undefined;
   purgeService = undefined;
   consistencyChecker = undefined;
   exportFacade = undefined;
+}
+
+let appLockController: ReturnType<typeof createAppLockRuntime> | undefined;
+
+function getAppLockController(): ReturnType<typeof createAppLockRuntime> {
+  if (appLockController === undefined) {
+    const dataDir = path.join(app.getPath('userData'), 'library');
+    appLockController = createAppLockRuntime({
+      dataDir,
+      safeStorage: pickSafeStorage(),
+      openAuthorized: (masterKey) => {
+        if (masterKey === undefined) return;
+        const authorized = Buffer.from(masterKey);
+        releasedMaster = authorized;
+        try {
+          getLibraryService();
+        } finally {
+          authorized.fill(0);
+          releasedMaster = undefined;
+        }
+      },
+      closeAuthorized: closeLibraryForRestore,
+      failClosed: relaunchLocked,
+    });
+  }
+  return appLockController;
 }
 
 let restoreRuntime: RestoreRuntime | undefined;
@@ -771,61 +806,12 @@ function getRestoreRuntime(): RestoreRuntime {
   return restoreRuntime;
 }
 
-function createWindow(): void {
-  // Dev runs use the raw Electron binary whose stock icon would sit in the
-  // dock/taskbar; point it at the product icon (#236). Packaged builds get
-  // their icon from the bundle resources (electron-builder), and build/ is
-  // not shipped, so this is dev-only by construction.
-  const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
-  if (devIcon !== undefined && process.platform === 'darwin') {
-    app.dock?.setIcon(devIcon);
-  }
-  const win = new BrowserWindow({
-    ...(devIcon !== undefined && process.platform !== 'darwin' ? { icon: devIcon } : {}),
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 600,
-    // Design --gray-0 — paints the frame before the renderer does, so no
-    // white flash on launch.
-    backgroundColor: '#050708',
-    // Frameless chrome (#50): mac keeps native traffic lights over the
-    // renderer's reserved 30px strip; win/linux get no OS frame at all and
-    // drive minimize/maximize/close over IPC.
-    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : { frame: false }),
-    webPreferences: {
-      // The preload bundle is CJS (.cjs): sandboxed renderers cannot load ESM
-      // preloads, and sandbox stays on as a day-one security default.
-      preload: path.join(import.meta.dirname, '../preload/index.cjs'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
-
-  const emitFocusChanged = createEmitter(events.focusChanged, (name, payload) => {
-    win.webContents.send(name, payload);
-  });
-  win.on('focus', () => {
-    emitFocusChanged({ focused: true });
-  });
-  win.on('blur', () => {
-    emitFocusChanged({ focused: false });
-  });
-
-  // electron-vite sets ELECTRON_RENDERER_URL only in dev (HMR server); packaged
-  // and `electron-vite preview` runs load the built renderer from disk.
-  const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
-  if (devServerUrl !== undefined) {
-    void win.loadURL(devServerUrl);
-  } else {
-    void win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'));
-  }
-}
-
 void app.whenReady().then(async () => {
   // Recover the activation rename crash window before IPC can classify/open the library.
   await recoverInterruptedActivation(restorePaths(path.join(app.getPath('userData'), 'library')));
+  const lock = getAppLockController();
+  await lock.initialize();
+  setContentAdmissionGate(() => lock.requireContentAccess());
   registerIpcHandlers();
   registerLibraryHandlers(getLibraryService, () => {
     // Soft delete of a synced row leaves pendingCount at 0 with a STALE
@@ -836,8 +822,8 @@ void app.whenReady().then(async () => {
     manifestSyncTrigger?.();
   });
   registerAlbumHandlers(getLibraryService, ulid);
-  registerThumbProtocol(getThumbService);
-  registerFullProtocol(getFullService);
+  registerThumbProtocol(getThumbService, () => lock.requireContentAccess());
+  registerFullProtocol(getFullService, () => lock.requireContentAccess());
   registerImportHandlers(
     getImportService,
     async () => {
