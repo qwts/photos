@@ -36,6 +36,20 @@ function singleRecordAnalysis(record: InteropRecord): SyncAnalysis {
   };
 }
 
+function sameParticipants(session: StoredSyncSession, source: InteropProduct, target: InteropProduct): boolean {
+  return (
+    (session.sourceProduct === source && session.targetProduct === target) ||
+    (session.direction === 'two-way' && session.sourceProduct === target && session.targetProduct === source)
+  );
+}
+
+function hasTombstone(item: StoredSyncItem): boolean {
+  return (
+    (item.imageTrailRecord !== null && item.imageTrailRecord.deletedAt !== null) ||
+    (item.overlookRecord !== null && item.overlookRecord.deletedAt !== null)
+  );
+}
+
 export class SyncProtocolService {
   readonly #now: () => string;
 
@@ -69,9 +83,10 @@ export class SyncProtocolService {
     const session = this.repository.getSession(sessionId);
     if (session === undefined) throw new SyncProtocolError('Sync session does not exist.');
     if (
+      envelope.header.transferId !== sessionId ||
       session.pairingId !== envelope.header.pairingId ||
-      session.sourceProduct !== envelope.header.sourceProduct ||
-      session.targetProduct !== envelope.header.targetProduct
+      !sameParticipants(session, envelope.header.sourceProduct, envelope.header.targetProduct) ||
+      envelope.header.targetProduct !== this.localProduct
     ) {
       throw new SyncProtocolError('Sync message does not match the durable session identity.');
     }
@@ -118,6 +133,7 @@ export class SyncProtocolService {
   }
 
   async apply(sessionId: string, interopId: string, applier: SyncRecordApplier): Promise<StoredSyncItem> {
+    this.repository.activeSession(sessionId);
     const item = this.repository.getItem(sessionId, interopId);
     if (item === undefined) throw new SyncProtocolError('Sync item does not exist.');
     if (item.state === 'applied' || item.state === 'skipped') return item;
@@ -125,7 +141,7 @@ export class SyncProtocolService {
     if (item.state !== 'eligible' && item.state !== 'ready') {
       throw new SyncProtocolError('Sync item still requires conflict or delete review.');
     }
-    if (item.analysis.category === 'delete-review' && item.deleteDecision !== 'apply') {
+    if (hasTombstone(item) && item.deleteDecision !== 'apply') {
       throw new SyncProtocolError('Sync deletion requires explicit approval.');
     }
     const imageTrail = item.imageTrailRecord;

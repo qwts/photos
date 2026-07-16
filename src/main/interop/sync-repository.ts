@@ -20,7 +20,17 @@ const scopeSchema = z
     kind: z.enum(['all', 'selected', 'album']),
     localIds: z.array(z.string().min(1)).readonly(),
   })
-  .strict();
+  .strict()
+  .superRefine((scope, context) => {
+    if (new Set(scope.localIds).size !== scope.localIds.length) {
+      context.addIssue({ code: 'custom', message: 'Sync scope ids must be unique.' });
+    }
+    const validCount =
+      (scope.kind === 'all' && scope.localIds.length === 0) ||
+      (scope.kind === 'selected' && scope.localIds.length > 0) ||
+      (scope.kind === 'album' && scope.localIds.length === 1);
+    if (!validCount) context.addIssue({ code: 'custom', message: 'Sync scope ids do not match the selected scope kind.' });
+  });
 const sessionPhaseSchema = z.enum(['reviewing', 'transferring', 'paused', 'completed', 'cancelled', 'failed']);
 const itemStateSchema = z.enum(['eligible', 'duplicate', 'conflict', 'delete-review', 'ready', 'applied', 'skipped', 'failed']);
 const deleteDecisionSchema = z.enum(['apply', 'keep']);
@@ -207,6 +217,13 @@ function emptyCounts(): SyncProgressCounts {
   return { total: 0, eligible: 0, duplicate: 0, conflict: 0, deleteReview: 0, ready: 0, applied: 0, skipped: 0, failed: 0 };
 }
 
+function hasTombstone(item: StoredSyncItem): boolean {
+  return (
+    (item.imageTrailRecord !== null && item.imageTrailRecord.deletedAt !== null) ||
+    (item.overlookRecord !== null && item.overlookRecord.deletedAt !== null)
+  );
+}
+
 export class SyncRepository {
   constructor(private readonly db: BetterSqlite3.Database) {}
 
@@ -220,6 +237,13 @@ export class SyncRepository {
     readonly at: string;
   }): StoredSyncSession {
     const at = timestampSchema.parse(input.at);
+    if (input.sourceProduct === input.targetProduct) throw new SyncRepositoryError('Sync source and target products must differ.');
+    if (
+      (input.direction === 'image-trail-to-overlook' && (input.sourceProduct !== 'image-trail' || input.targetProduct !== 'overlook')) ||
+      (input.direction === 'overlook-to-image-trail' && (input.sourceProduct !== 'overlook' || input.targetProduct !== 'image-trail'))
+    ) {
+      throw new SyncRepositoryError('Sync direction does not match the selected source and target products.');
+    }
     runNamed(
       this.db,
       `INSERT OR IGNORE INTO interop_sync_sessions (
@@ -255,6 +279,10 @@ export class SyncRepository {
   getSession(sessionId: string): StoredSyncSession | undefined {
     const row = queryGet<SessionRow>(this.db, 'SELECT * FROM interop_sync_sessions WHERE session_id = ?', sessionId);
     return row === undefined ? undefined : hydrateSession(row);
+  }
+
+  activeSession(sessionId: string): StoredSyncSession {
+    return this.requireActiveSession(sessionId);
   }
 
   putItem(input: {
@@ -403,7 +431,12 @@ export class SyncRepository {
       this.db,
       `UPDATE interop_sync_items SET decisions_json = @decisionsJson, state = @state
        WHERE session_id = @sessionId AND interop_id = @interopId`,
-      { sessionId, interopId, decisionsJson: JSON.stringify(decisions), state: ready ? 'ready' : 'conflict' },
+      {
+        sessionId,
+        interopId,
+        decisionsJson: JSON.stringify(decisions),
+        state: ready ? (hasTombstone(item) ? 'delete-review' : 'ready') : 'conflict',
+      },
     );
     this.auditEvent(`${sessionId}:${interopId}:decision:${at}`, sessionId, interopId, 'decision', { field, action, applyToAll }, at);
     return this.requireItem(sessionId, interopId);
@@ -427,6 +460,12 @@ export class SyncRepository {
 
   setControl(sessionId: string, action: 'pause' | 'resume' | 'cancel' | 'disconnect', atInput: string): StoredSyncSession {
     const session = this.requireSession(sessionId);
+    if (action !== 'disconnect' && !session.connected) {
+      throw new SyncRepositoryError('Disconnected Sync sessions cannot resume or change state.');
+    }
+    if (session.phase === 'cancelled' && action !== 'disconnect') {
+      throw new SyncRepositoryError('Cancelled Sync sessions cannot resume or change state.');
+    }
     const at = timestampSchema.parse(atInput);
     const phase = action === 'pause' ? 'paused' : action === 'resume' ? 'reviewing' : 'cancelled';
     const connected = action === 'disconnect' ? 0 : session.connected ? 1 : 0;
