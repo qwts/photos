@@ -1,4 +1,5 @@
 import type { AppLockCredentialStore, AppLockStatus, ConfigureAppLockInput } from './app-lock-credentials.js';
+import type { UnlockThrottle } from './unlock-throttle.js';
 
 export type AppLockState = 'unconfigured-unlocked' | 'locked' | 'unlocking' | 'unlocked' | 'locking' | 'recovery-required';
 
@@ -12,6 +13,7 @@ export interface AppLockControllerOptions {
   readonly openAuthorized: (masterKey?: Buffer) => void | Promise<void>;
   readonly closeAuthorized: () => void | Promise<void>;
   readonly failClosed?: () => void;
+  readonly throttle?: Pick<UnlockThrottle, 'remainingMs' | 'recordFailure' | 'reset'>;
 }
 
 export interface LockStateSnapshot {
@@ -19,7 +21,9 @@ export interface LockStateSnapshot {
   readonly libraryId: string | null;
 }
 
-export type AppUnlockResult = { readonly ok: true } | { readonly ok: false; readonly reason: 'wrong-password' | 'recovery-required' };
+export type AppUnlockResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'wrong-password' | 'recovery-required' | 'throttled'; readonly retryAfterMs?: number };
 
 export class AppLockController {
   private current: LockStateSnapshot;
@@ -54,14 +58,18 @@ export class AppLockController {
   unlock(password: string): Promise<AppUnlockResult> {
     return this.serialize(async () => {
       if (this.current.state !== 'locked') return { ok: false, reason: 'recovery-required' };
+      const remaining = this.options.throttle?.remainingMs() ?? 0;
+      if (remaining > 0) return { ok: false, reason: 'throttled', retryAfterMs: remaining };
       this.publish({ ...this.current, state: 'unlocking' });
       const result = await this.options.credentials.unlock(password);
       if (!result.ok) {
         this.publish({ ...this.current, state: result.reason === 'recovery-required' ? 'recovery-required' : 'locked' });
-        return result;
+        const retryAfterMs = result.reason === 'wrong-password' ? this.options.throttle?.recordFailure() : undefined;
+        return { ...result, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) };
       }
       try {
         await this.options.openAuthorized(result.masterKey);
+        this.options.throttle?.reset();
         this.publish({ ...this.current, state: 'unlocked' });
         return { ok: true };
       } catch {
