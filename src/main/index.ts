@@ -75,9 +75,7 @@ function harnessEnv(name: string): string | undefined {
 }
 
 const userDataOverride = harnessEnv('OVERLOOK_USER_DATA');
-if (userDataOverride !== undefined && userDataOverride !== '') {
-  app.setPath('userData', userDataOverride);
-}
+if (userDataOverride !== undefined && userDataOverride !== '') app.setPath('userData', userDataOverride);
 
 // Privileged-scheme registration must precede app ready (#75, #91).
 registerSchemePrivileges();
@@ -149,6 +147,9 @@ function getLibraryService(): LibraryService {
       db,
       libraryId,
       ordinaryBlobs: store,
+      masterKey: () => keyStore.masterKeyBytes(),
+      resolveLibraryKey: () => keyStore.resolver(),
+      currentLibraryKey: () => keyStore.currentKey(),
       oweManifest: () => {
         getBackupEngine();
         manifestSyncTrigger?.();
@@ -163,6 +164,8 @@ function getLibraryService(): LibraryService {
       pickDestination: pickExportDestination,
       failure: () => console.error('[overlook] protected export failed'),
       repairFailure: () => console.error('[overlook] protected migration repair failed'),
+      workflowProgress: (progress) => broadcast((win) => win.webContents.send(events.protectedWorkflowProgress.name, progress)),
+      workflowChanged: () => broadcast((win) => win.webContents.send(events.protectedAlbumsChanged.name, {})),
     });
     libraryParts = {
       db,

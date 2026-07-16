@@ -314,6 +314,23 @@ export class PhotosRepository {
     ).map((row) => row.photo_id);
   }
 
+  albumForProtection(albumId: string):
+    | {
+        readonly id: string;
+        readonly name: string;
+        readonly createdAt: string;
+        readonly position: number;
+        readonly photoIds: readonly string[];
+      }
+    | undefined {
+    const album = queryGet<{ id: string; name: string; createdAt: string; position: number }>(
+      this.db,
+      `SELECT id, name, created_at AS createdAt, position FROM albums WHERE id = ?`,
+      albumId,
+    );
+    return album === undefined ? undefined : { ...album, photoIds: this.albumMembers(albumId) };
+  }
+
   /** Albums CRUD (#117). Deleting an album NEVER deletes photos — the
    * CASCADE clears membership only (Clear-vs-Delete language rules). */
   createAlbum(id: string, name: string): AlbumSummary {
