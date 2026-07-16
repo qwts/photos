@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 
 import { dialog } from 'electron';
 
@@ -78,6 +79,9 @@ export function registerAppServices(options: AppServicesOptions): void {
     () => options.getProtected().albums,
     () => options.getProtected().library,
     () => options.getProtected().exports(),
+    () => options.getProtected().workflow,
+    () => pickRecoveryKeyPath(options.harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
+    readFile,
   );
   registerThumbProtocol(options.getThumbs, options.requireContentAccess, () => options.getProtected().media());
   registerFullProtocol(options.getFull, options.requireContentAccess, () => options.getProtected().media());

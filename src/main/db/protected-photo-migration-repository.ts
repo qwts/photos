@@ -35,6 +35,13 @@ export interface ProtectedPhotoStoredRecord {
   readonly hasMid: boolean;
 }
 
+export interface OrdinaryAlbumRestoration {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+  readonly position: number;
+}
+
 interface JournalRow {
   readonly migrationId: string;
   readonly operation: ProtectedMigrationOperation;
@@ -231,6 +238,18 @@ export class ProtectedPhotoMigrationRepository {
     ).map(({ migrationId }) => this.get(migrationId)!);
   }
 
+  findAlbumJournal(albumId: string, operation: 'protect' | 'unprotect'): ProtectedMigrationJournal | undefined {
+    const column = operation === 'protect' ? 'target_album_id' : 'source_album_id';
+    const row = queryGet<{ migrationId: string }>(
+      this.db,
+      `SELECT migration_id AS migrationId FROM protected_photo_migrations
+        WHERE operation = @operation AND ${column} = @albumId
+        ORDER BY created_at LIMIT 1`,
+      { albumId, operation },
+    );
+    return row === undefined ? undefined : this.get(row.migrationId);
+  }
+
   transition(migrationId: string, from: ProtectedMigrationPhase, to: ProtectedMigrationPhase, now = new Date().toISOString()): void {
     const changed = queryGet<{ migrationId: string }>(
       this.db,
@@ -285,10 +304,23 @@ export class ProtectedPhotoMigrationRepository {
   commitUnprotect(
     migrationId: string,
     restorations: ReadonlyMap<string, { readonly photo: PhotoInsert; readonly memberships: ProtectedPhotoMetadata['ordinaryMemberships'] }>,
+    ordinaryAlbum?: OrdinaryAlbumRestoration,
     now = new Date().toISOString(),
   ): void {
     this.db.transaction(() => {
       const journal = this.require(migrationId, 'unprotect', 'verify');
+      if (ordinaryAlbum !== undefined) {
+        if (queryGet<{ id: string }>(this.db, 'SELECT id FROM albums WHERE id = ?', ordinaryAlbum.id) !== undefined) {
+          throw new ProtectedPhotoMigrationRepositoryError('ordinary album already exists');
+        }
+        run(this.db, 'UPDATE albums SET position = position + 1 WHERE position >= ?', ordinaryAlbum.position);
+        runNamed(
+          this.db,
+          `INSERT INTO albums (id, name, created_at, position)
+           VALUES (@id, @name, @createdAt, @position)`,
+          { ...ordinaryAlbum },
+        );
+      }
       for (const item of journal.items) {
         const restoration = restorations.get(item.photoId);
         if (restoration === undefined || restoration.photo.contentHash !== item.targetBlobRef) {

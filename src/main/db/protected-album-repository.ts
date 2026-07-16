@@ -154,6 +154,20 @@ export class ProtectedAlbumRepository {
     );
   }
 
+  deleteRetiring(albumId: string): boolean {
+    this.context(albumId);
+    return (
+      queryGet<{ albumId: string }>(
+        this.db,
+        `DELETE FROM protected_album_records
+          WHERE album_id = @albumId AND migration_state = 'retiring'
+            AND NOT EXISTS (SELECT 1 FROM protected_photo_records WHERE album_id = @albumId)
+          RETURNING album_id AS albumId`,
+        { albumId },
+      ) !== undefined
+    );
+  }
+
   private context(albumId: string): ProtectedAlbumContext {
     if (albumId.length < 1 || albumId.length > 256) throw new ProtectedAlbumRepositoryError('album id is invalid');
     return { libraryId: this.libraryId, albumId };

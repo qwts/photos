@@ -262,10 +262,49 @@ export const channels = {
         .readonly(),
     }),
   ),
+  protectedAlbumProtect: defineChannel(
+    'protected-album:protect',
+    z.object({ albumId: z.string().min(1), password: z.string().min(1).max(1024) }),
+    z.object({
+      ok: z.boolean(),
+      albumId: z.string().nullable(),
+      reason: z.enum(['not-found', 'empty', 'conflict', 'wrong-password', 'cancelled', 'failed']).nullable(),
+    }),
+  ),
+  protectedAlbumUnprotect: defineChannel(
+    'protected-album:unprotect',
+    z.object({ albumId: z.string().min(1).max(256), password: z.string().min(1).max(1024) }),
+    z.object({
+      ok: z.boolean(),
+      albumId: z.string().nullable(),
+      reason: z.enum(['not-found', 'empty', 'conflict', 'wrong-password', 'cancelled', 'failed']).nullable(),
+    }),
+  ),
+  protectedAlbumChangePassword: defineChannel(
+    'protected-album:change-password',
+    z.object({
+      albumId: z.string().min(1).max(256),
+      currentPassword: z.string().min(1).max(1024),
+      nextPassword: z.string().min(1).max(1024),
+    }),
+    z.object({ changed: z.boolean() }),
+  ),
+  protectedAlbumPickRecovery: defineChannel('protected-album:pick-recovery', z.object({}), z.object({ path: z.string().nullable() })),
+  protectedAlbumRecover: defineChannel(
+    'protected-album:recover',
+    z.object({
+      albumId: z.string().min(1).max(256),
+      path: z.string().min(1),
+      recoveryPassword: z.string().min(1).max(1024),
+      nextPassword: z.string().min(1).max(1024),
+    }),
+    z.object({ recovered: z.boolean(), reason: z.enum(['not-found', 'wrong-recovery-key', 'invalid-record']).nullable() }),
+  ),
+  protectedAlbumCancelWorkflow: defineChannel('protected-album:cancel-workflow', z.object({}), z.object({ cancelled: z.boolean() })),
   protectedAlbumUnlock: defineChannel(
     'protected-album:unlock',
     z.object({ albumId: z.string().min(1).max(256), password: z.string().min(1).max(1024) }),
-    z.object({ ok: z.boolean() }),
+    z.object({ ok: z.boolean(), outcome: z.enum(['opened', 'protection-completed', 'removal-completed']).nullable() }),
   ),
   protectedAlbumRelock: defineChannel(
     'protected-album:relock',
@@ -638,6 +677,16 @@ export const events = {
     z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative(), photoId: z.string().nullable() }),
   ),
   restoreProgress: defineEvent('restore:progress', restoreProgressSchema),
+  protectedAlbumsChanged: defineEvent('protected-album:changed', z.object({})),
+  protectedWorkflowProgress: defineEvent(
+    'protected-album:workflow-progress',
+    z.object({
+      operation: z.enum(['protect', 'unprotect']),
+      stage: z.enum(['preparing', 'copying', 'verifying', 'committing', 'purging', 'complete']),
+      done: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
+    }),
+  ),
 } as const;
 
 export type PingRequest = z.output<typeof channels.ping.request>;

@@ -32,6 +32,8 @@ const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
 const protectedAlbumsList = createInvoker(channels.protectedAlbumsList, invokeTransport);
+const protectedAlbumPickRecovery = createInvoker(channels.protectedAlbumPickRecovery, invokeTransport);
+const protectedAlbumCancelWorkflow = createInvoker(channels.protectedAlbumCancelWorkflow, invokeTransport);
 const protectedAlbumExportPickDestination = createInvoker(channels.protectedAlbumExportPickDestination, invokeTransport);
 const protectedAlbumExportCancel = createInvoker(channels.protectedAlbumExportCancel, invokeTransport);
 const importListSources = createInvoker(channels.importListSources, invokeTransport);
@@ -91,6 +93,12 @@ const overlook: OverlookApi = {
   }),
   protectedAlbums: Object.freeze({
     list: async () => protectedAlbumsList({}),
+    protect: createInvoker(channels.protectedAlbumProtect, invokeTransport),
+    unprotect: createInvoker(channels.protectedAlbumUnprotect, invokeTransport),
+    changePassword: createInvoker(channels.protectedAlbumChangePassword, invokeTransport),
+    pickRecovery: async () => protectedAlbumPickRecovery({}),
+    recover: createInvoker(channels.protectedAlbumRecover, invokeTransport),
+    cancelWorkflow: async () => protectedAlbumCancelWorkflow({}),
     unlock: createInvoker(channels.protectedAlbumUnlock, invokeTransport),
     relock: createInvoker(channels.protectedAlbumRelock, invokeTransport),
     summary: createInvoker(channels.protectedAlbumSummary, invokeTransport),
@@ -102,6 +110,8 @@ const overlook: OverlookApi = {
     pickExportDestination: async () => protectedAlbumExportPickDestination({}),
     export: createInvoker(channels.protectedAlbumExportRun, invokeTransport),
     cancelExport: async () => protectedAlbumExportCancel({}),
+    onChanged: createSubscriber(events.protectedAlbumsChanged, subscribeTransport),
+    onProgress: createSubscriber(events.protectedWorkflowProgress, subscribeTransport),
   }),
   backup: Object.freeze({
     run: createInvoker(channels.backupRun, invokeTransport),

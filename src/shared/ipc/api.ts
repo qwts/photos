@@ -57,6 +57,14 @@ export interface OverlookApi {
   };
   readonly protectedAlbums: {
     readonly list: () => Promise<Res<typeof channels.protectedAlbumsList>>;
+    readonly protect: (request: Req<typeof channels.protectedAlbumProtect>) => Promise<Res<typeof channels.protectedAlbumProtect>>;
+    readonly unprotect: (request: Req<typeof channels.protectedAlbumUnprotect>) => Promise<Res<typeof channels.protectedAlbumUnprotect>>;
+    readonly changePassword: (
+      request: Req<typeof channels.protectedAlbumChangePassword>,
+    ) => Promise<Res<typeof channels.protectedAlbumChangePassword>>;
+    readonly pickRecovery: () => Promise<Res<typeof channels.protectedAlbumPickRecovery>>;
+    readonly recover: (request: Req<typeof channels.protectedAlbumRecover>) => Promise<Res<typeof channels.protectedAlbumRecover>>;
+    readonly cancelWorkflow: () => Promise<Res<typeof channels.protectedAlbumCancelWorkflow>>;
     readonly unlock: (request: Req<typeof channels.protectedAlbumUnlock>) => Promise<Res<typeof channels.protectedAlbumUnlock>>;
     readonly relock: (request: Req<typeof channels.protectedAlbumRelock>) => Promise<Res<typeof channels.protectedAlbumRelock>>;
     readonly summary: (request: Req<typeof channels.protectedAlbumSummary>) => Promise<Res<typeof channels.protectedAlbumSummary>>;
@@ -70,6 +78,8 @@ export interface OverlookApi {
     readonly pickExportDestination: () => Promise<Res<typeof channels.protectedAlbumExportPickDestination>>;
     readonly export: (request: Req<typeof channels.protectedAlbumExportRun>) => Promise<Res<typeof channels.protectedAlbumExportRun>>;
     readonly cancelExport: () => Promise<Res<typeof channels.protectedAlbumExportCancel>>;
+    readonly onChanged: (listener: () => void) => () => void;
+    readonly onProgress: (listener: (payload: z.output<typeof events.protectedWorkflowProgress.payload>) => void) => () => void;
   };
   readonly backup: {
     readonly run: (request: Req<typeof channels.backupRun>) => Promise<Res<typeof channels.backupRun>>;

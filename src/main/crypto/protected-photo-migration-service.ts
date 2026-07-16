@@ -4,8 +4,11 @@ import type { BlobStore } from '../blobs/blob-store.js';
 import type { ProtectedBlobStore } from '../blobs/protected-blob-store.js';
 import type { PhotosRepository } from '../db/photos-repository.js';
 import type {
+  OrdinaryAlbumRestoration,
   ProtectedMigrationJournal,
   ProtectedMigrationItem,
+  ProtectedMigrationOperation,
+  ProtectedMigrationPhase,
   ProtectedPhotoMigrationRepository,
 } from '../db/protected-photo-migration-repository.js';
 import type { EnvelopeKey, KeyResolver } from './envelope.js';
@@ -17,6 +20,7 @@ export interface ProtectedMigrationAuthority {
   readonly targetAlbumKey?: Buffer;
   readonly libraryResolver?: KeyResolver;
   readonly targetLibraryKey?: EnvelopeKey;
+  readonly ordinaryAlbum?: OrdinaryAlbumRestoration;
 }
 
 export interface ProtectedMigrationRecovery {
@@ -231,6 +235,14 @@ export class ProtectedPhotoMigrationService {
     }
   }
 
+  migrationPhase(migrationId: string): ProtectedMigrationPhase | undefined {
+    return this.options.migrations.get(migrationId)?.phase;
+  }
+
+  pendingForAlbum(albumId: string, operation: Extract<ProtectedMigrationOperation, 'protect' | 'unprotect'>) {
+    return this.options.migrations.findAlbumJournal(albumId, operation);
+  }
+
   async repairStartup(): Promise<ProtectedMigrationRecovery> {
     const rolledBack: string[] = [];
     const awaitingAuthority: string[] = [];
@@ -395,7 +407,7 @@ export class ProtectedPhotoMigrationService {
       const { deletedAt: _deletedAt, ...photo } = metadata.photo;
       restorations.set(item.photoId, { photo: { ...photo, keyId: targetKey.id }, memberships: metadata.ordinaryMemberships });
     }
-    this.options.migrations.commitUnprotect(journal.migrationId, restorations);
+    this.options.migrations.commitUnprotect(journal.migrationId, restorations, authority.ordinaryAlbum);
   }
 
   private metadata(

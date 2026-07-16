@@ -11,6 +11,7 @@ import type { LibraryService } from './library/library-service.js';
 import type { ProtectedAlbumService } from './crypto/protected-album-service.js';
 import type { ProtectedLibraryService } from './library/protected-library-service.js';
 import type { ProtectedExportFacade } from './export/protected-export-runtime.js';
+import type { ProtectedWorkflowService } from './library/protected-workflow-service.js';
 import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from './backup/offload.js';
 import type { AppLockState, AppTouchIdUnlockResult, AppUnlockResult, LockStateSnapshot } from './crypto/app-lock-controller.js';
 import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
@@ -194,14 +195,45 @@ export function registerProtectedAlbumHandlers(
   getAlbums: () => ProtectedAlbumService,
   getLibrary: () => ProtectedLibraryService,
   getExport: () => ProtectedExportFacade,
+  getWorkflow: () => ProtectedWorkflowService,
+  pickRecovery: () => Promise<string | null>,
+  readRecovery: (path: string) => Promise<Buffer>,
 ): void {
   ipcMain.handle(channels.protectedAlbumsList.name, (_event, request: unknown) =>
     wrapHandler(channels.protectedAlbumsList, () => ({ albums: getLibrary().listOpaque() }))(request),
   );
+  ipcMain.handle(channels.protectedAlbumProtect.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumProtect, async ({ albumId, password }) => {
+      const result = await getWorkflow().protect(albumId, password);
+      return result.ok ? { ok: true, albumId: result.albumId, reason: null } : { ok: false, albumId: null, reason: result.reason };
+    })(request),
+  );
+  ipcMain.handle(channels.protectedAlbumUnprotect.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumUnprotect, async ({ albumId, password }) => {
+      const result = await getWorkflow().unprotect(albumId, password);
+      return result.ok ? { ok: true, albumId: result.albumId, reason: null } : { ok: false, albumId: null, reason: result.reason };
+    })(request),
+  );
+  ipcMain.handle(channels.protectedAlbumChangePassword.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumChangePassword, async ({ albumId, currentPassword, nextPassword }) => ({
+      changed: await getWorkflow().changePassword(albumId, currentPassword, nextPassword),
+    }))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumPickRecovery.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumPickRecovery, async () => ({ path: await pickRecovery() }))(request),
+  );
+  ipcMain.handle(channels.protectedAlbumRecover.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumRecover, async ({ albumId, path, recoveryPassword, nextPassword }) =>
+      getWorkflow().recoverPassword({ albumId, recoveryFile: await readRecovery(path), recoveryPassword, nextPassword }),
+    )(request),
+  );
+  ipcMain.handle(channels.protectedAlbumCancelWorkflow.name, (_event, request: unknown) =>
+    wrapHandler(channels.protectedAlbumCancelWorkflow, () => ({ cancelled: getWorkflow().cancel() }))(request),
+  );
   ipcMain.handle(channels.protectedAlbumUnlock.name, (_event, request: unknown) =>
     wrapHandler(channels.protectedAlbumUnlock, async ({ albumId, password }) => {
-      const result = await getAlbums().unlock(albumId, password);
-      return { ok: result.ok };
+      const result = await getWorkflow().unlock(albumId, password);
+      return result.ok ? { ok: true, outcome: result.outcome } : { ok: false, outcome: null };
     })(request),
   );
   ipcMain.handle(channels.protectedAlbumRelock.name, (_event, request: unknown) =>

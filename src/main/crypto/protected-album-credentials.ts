@@ -75,6 +75,14 @@ const membershipSchema = z
   })
   .strict();
 
+const ordinaryAlbumSchema = z
+  .object({
+    id: idSchema,
+    createdAt: z.iso.datetime({ offset: true }),
+    position: z.number().int().nonnegative(),
+  })
+  .strict();
+
 const protectedMemberSchema = z
   .object({
     photoId: idSchema,
@@ -97,6 +105,7 @@ export const protectedAlbumMetadataSchema = z
     name: z.string().min(1).max(120),
     createdAt: z.iso.datetime({ offset: true }),
     position: z.number().int().nonnegative(),
+    ordinaryAlbum: ordinaryAlbumSchema.optional(),
     members: z.array(protectedMemberSchema).readonly(),
   })
   .strict()
