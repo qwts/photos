@@ -149,6 +149,16 @@ export class ImportService {
     this.controller?.abort();
   }
 
+  /** Waits for the serialized import/resume queue to stop touching library
+   * state. Lock teardown calls cancel() first, then drains before closing DB
+   * and key custody. */
+  drain(): Promise<void> {
+    return this.turn.then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+
   /** Completes a journaled batch an earlier run left behind (crash-safety:
    * called once at service bootstrap). */
   async resume(): Promise<ImportSummary | null> {

@@ -22,4 +22,19 @@ describe('auto-backup scheduler (#267)', () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     assert.equal(fired, 2, 'a later edit schedules again');
   });
+
+  test('cancel drops pending work without disabling future scheduling', async () => {
+    let fired = 0;
+    const schedule = createAutoBackupScheduler(() => {
+      fired += 1;
+    }, 20);
+    schedule();
+    schedule.cancel();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.equal(fired, 0);
+
+    schedule();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.equal(fired, 1);
+  });
 });

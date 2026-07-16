@@ -1,4 +1,4 @@
-import { access, readFile, statfs, unlink } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
@@ -11,6 +11,7 @@ import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { createWindow, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
+import { drainBeforeDeadline } from './crypto/library-shutdown.js';
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
@@ -46,8 +47,7 @@ import { PurgeService } from './library/purge-service.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
-import { ExportEngine, writeFileCleanly } from './export/export-engine.js';
-import { transcodeToJpeg } from './export/transcode.js';
+import { createExportRuntime, type DrainableExportFacade } from './export/export-runtime.js';
 import {
   registerAlbumHandlers,
   registerBackupHandlers,
@@ -59,7 +59,6 @@ import {
   registerPurgeHandlers,
   registerRestoreHandlers,
   registerSettingsHandlers,
-  type ExportFacade,
 } from './ipc.js';
 import { getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
@@ -346,8 +345,24 @@ function getFullService(): FullService {
 let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
 let ephemeralOriginalService: EphemeralOriginalService | undefined;
+const activeBackupControllers = new Set<AbortController>();
+const activeBackupRuns = new Set<Promise<BackupRunResult>>();
 let providerRuntime: ProviderRuntime | undefined;
 let providerWorkCount = 0;
+const providerIdleWaiters = new Set<() => void>();
+
+function changeProviderWork(delta: 1 | -1): void {
+  providerWorkCount += delta;
+  if (providerWorkCount === 0) {
+    for (const resolve of providerIdleWaiters) resolve();
+    providerIdleWaiters.clear();
+  }
+}
+
+function providerIdle(): Promise<void> {
+  if (providerWorkCount === 0) return Promise.resolve();
+  return new Promise((resolve) => providerIdleWaiters.add(resolve));
+}
 
 /** Provider selection + pCloud custody policy (#256) — logic lives in
  * backup/provider-runtime.ts; only the Electron seams are wired here. */
@@ -380,7 +395,6 @@ function ensureRestoreProviderRegistry(): ProviderRuntime {
   }
   return runtime;
 }
-/** Auto-backup entry point (imports + resume) — set by getBackupEngine. */
 let autoBackupTrigger: (() => void) | undefined;
 
 /** Dirtying EDITS auto-backup like imports do (#267) — before this, an
@@ -390,7 +404,6 @@ const scheduleAutoBackup = createAutoBackupScheduler(() => {
   getBackupEngine();
   autoBackupTrigger?.();
 });
-/** Manifest-debt push after deletes (#120/PR #218) — quiet, auto-marked. */
 let manifestSyncTrigger: (() => void) | undefined;
 let purgeService: PurgeService | undefined;
 let consistencyChecker: ConsistencyChecker | undefined;
@@ -500,7 +513,7 @@ function getBackupEngine(): BackupEngine {
       blobsReady: parts.blobStoreReady,
       resolveKey: parts.keyStore.resolver(),
       reOffloadAfterViewing: () => getSettingsStore().get().reOffloadAfterViewing,
-      workChanged: (delta) => (providerWorkCount += delta),
+      workChanged: changeProviderWork,
       syncStateChanged: (updates) => emitSyncStateChanged({ updates: [...updates] }),
       storageChanged: () => broadcast((win) => win.webContents.send(events.storageChanged.name, {})),
       stateChanged: emitEphemeralState,
@@ -567,10 +580,15 @@ function getBackupEngine(): BackupEngine {
     // import-complete toast (#116); failures stay loud for every trigger.
     const engine = backupEngine;
     const originalRun = engine.run.bind(engine);
-    const runAndReport = async (auto: boolean, signal?: AbortSignal): Promise<BackupRunResult> => {
-      providerWorkCount += 1;
+    const runAndReportCore = async (auto: boolean, signal?: AbortSignal): Promise<BackupRunResult> => {
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      if (signal?.aborted === true) controller.abort();
+      else signal?.addEventListener('abort', abort, { once: true });
+      activeBackupControllers.add(controller);
+      changeProviderWork(1);
       try {
-        const result = await originalRun(signal);
+        const result = await originalRun(controller.signal);
         if (result.skipped === null) {
           emitCompleted({
             uploaded: result.uploaded,
@@ -582,8 +600,17 @@ function getBackupEngine(): BackupEngine {
         }
         return result;
       } finally {
-        providerWorkCount -= 1;
+        signal?.removeEventListener('abort', abort);
+        activeBackupControllers.delete(controller);
+        changeProviderWork(-1);
       }
+    };
+    const runAndReport = (auto: boolean, signal?: AbortSignal): Promise<BackupRunResult> => {
+      const run = runAndReportCore(auto, signal);
+      activeBackupRuns.add(run);
+      const remove = () => activeBackupRuns.delete(run);
+      void run.then(remove, remove);
+      return run;
     };
     engine.run = (signal?: AbortSignal) => runAndReport(false, signal);
     // The auto-backup trigger (#105/#111): same single-flight run, marked
@@ -621,9 +648,9 @@ function getBackupEngine(): BackupEngine {
   return backupEngine;
 }
 
-let exportFacade: ExportFacade | undefined;
+let exportFacade: DrainableExportFacade | undefined;
 
-function getExportFacade(): ExportFacade {
+function getExportFacade(): DrainableExportFacade {
   if (exportFacade === undefined) {
     getLibraryService();
     const parts = libraryParts;
@@ -634,7 +661,7 @@ function getExportFacade(): ExportFacade {
     const emitProgress = createEmitter(events.exportProgress, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    const engine = new ExportEngine({
+    exportFacade = createExportRuntime({
       repo: { get: (id) => repo.get(id) },
       blobs: parts.blobStore,
       resolveKey: parts.keyStore.resolver(),
@@ -642,55 +669,6 @@ function getExportFacade(): ExportFacade {
         const service = getEphemeralOriginalService();
         const opened = await service.open(photo.id, 'export');
         return { stream: opened.stream, release: opened.custody === 'ephemeral' ? () => service.release(photo.id, 'export') : undefined };
-      },
-      writeFile: writeFileCleanly,
-      exists: async (filePath) =>
-        access(filePath).then(
-          () => true,
-          () => false,
-        ),
-      freeBytes: async (dir) => {
-        const stats = await statfs(dir);
-        return stats.bavail * stats.bsize;
-      },
-      joinPath: (dir, name) => path.join(dir, name),
-      transcodeJpeg: transcodeToJpeg,
-      bufferStream: async (stream) => buffer(stream),
-      events: {
-        progress: (done, total) => {
-          emitProgress({ done, total });
-        },
-      },
-    });
-    // One run at a time: overlapping export:run calls would clobber the
-    // cancel slot and race on destination filenames (PR #194 review).
-    let controller: AbortController | null = null;
-    let turn: Promise<unknown> = Promise.resolve();
-    exportFacade = {
-      run: (photoIds, destination, format) => {
-        const task = async (): Promise<{ exported: number; failed: number; cancelled: number; previewTranscodes: number }> => {
-          controller = new AbortController();
-          try {
-            const summary = await engine.exportPhotos(photoIds, destination, controller.signal, format);
-            return {
-              exported: summary.exported,
-              failed: summary.failed,
-              cancelled: summary.cancelled,
-              previewTranscodes: summary.previewTranscodes,
-            };
-          } finally {
-            controller = null;
-          }
-        };
-        const next = turn.then(task, task);
-        turn = next.then(
-          () => undefined,
-          () => undefined,
-        );
-        return next;
-      },
-      cancel: () => {
-        controller?.abort();
       },
       pickDestination: async () => {
         // Harness hook (#101, OVERLOOK_* family): the mock-file-dialog seam
@@ -702,15 +680,29 @@ function getExportFacade(): ExportFacade {
         const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
         return result.canceled ? null : (result.filePaths[0] ?? null);
       },
-    };
+      progress: (done, total) => emitProgress({ done, total }),
+    });
   }
   return exportFacade;
 }
 
 async function closeLibraryForRestore(): Promise<void> {
+  scheduleAutoBackup.cancel();
+  autoBackupTrigger = undefined;
+  manifestSyncTrigger = undefined;
   importService?.cancel();
   exportFacade?.cancel();
-  await thumbnailPool?.close();
+  restoreRuntime?.dispose();
+  for (const controller of activeBackupControllers) controller.abort();
+  await drainBeforeDeadline([
+    importService?.drain() ?? Promise.resolve(),
+    exportFacade?.drain() ?? Promise.resolve(),
+    Promise.allSettled([...activeBackupRuns]),
+    providerIdle(),
+    thumbService?.close() ?? Promise.resolve(),
+    fullService?.close() ?? Promise.resolve(),
+    thumbnailPool?.close() ?? Promise.resolve(),
+  ]);
   libraryParts?.db.close();
   libraryParts?.keyStore.close();
   libraryService = undefined;
@@ -722,11 +714,10 @@ async function closeLibraryForRestore(): Promise<void> {
   backupEngine = undefined;
   offloadService = undefined;
   ephemeralOriginalService = undefined;
-  autoBackupTrigger = undefined;
-  manifestSyncTrigger = undefined;
   purgeService = undefined;
   consistencyChecker = undefined;
   exportFacade = undefined;
+  restoreRuntime = undefined;
 }
 
 let appLockController: ReturnType<typeof createAppLockRuntime> | undefined;
@@ -771,8 +762,8 @@ function getRestoreRuntime(): RestoreRuntime {
       progress: emitProgress,
       beforeActivate: closeLibraryForRestore,
       activationOperations: activationOperationsForHarness(harnessEnv('OVERLOOK_RESTORE_FAULT')),
-      workStarted: () => (providerWorkCount += 1),
-      workFinished: () => (providerWorkCount -= 1),
+      workStarted: () => changeProviderWork(1),
+      workFinished: () => changeProviderWork(-1),
       activated: () => {
         if (harnessEnv('OVERLOOK_RESTORE_NO_RELAUNCH') === '1') return;
         setTimeout(() => {
@@ -877,7 +868,7 @@ void app.whenReady().then(async () => {
       run: () => getBackupEngine().run(),
       offloadService: getOffloadService,
       ephemeralOriginalService: getEphemeralOriginalService,
-      workChanged: (delta) => (providerWorkCount += delta),
+      workChanged: changeProviderWork,
     }),
   );
   const contentAvailable = lock.snapshot().state === 'unconfigured-unlocked' || lock.snapshot().state === 'unlocked';
