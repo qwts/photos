@@ -30,7 +30,7 @@ const TOAST_DISMISS_MS = 4000;
 // Composition shell (#73): fixed chrome per README §1. The toolbar, grid,
 // sidebar internals, and status bar semantics land with #74–#81 — this keeps
 // their regions real (token dims, live counts) so each issue fills in place.
-export function Shell({ platform }: { readonly platform: string }): ReactElement {
+export function Shell({ platform, lockConfigured }: { readonly platform: string; readonly lockConfigured: boolean }): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const offload = useOffloadWorkflow();
@@ -264,6 +264,7 @@ export function Shell({ platform }: { readonly platform: string }): ReactElement
         }}
       />
       <Toolbar
+        onLock={lockConfigured ? () => void window.overlook.appLock.lockNow() : undefined}
         onImport={() => {
           // #237: the dialog owns source discovery (SD scan, folder picker,
           // no-card empty state) — the toolbar just opens it.

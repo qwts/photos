@@ -32,9 +32,10 @@ const FILTERS: readonly { key: keyof ChipFilters; icon: 'star' | 'image' | 'clou
 export interface ToolbarProps {
   /** Opens the ImportDialog (#88); wired by the shell. */
   readonly onImport?: (() => void) | undefined;
+  readonly onLock?: (() => void) | undefined;
 }
 
-export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
+export function Toolbar({ onImport, onLock }: ToolbarProps = {}): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -121,6 +122,11 @@ export function Toolbar({ onImport }: ToolbarProps = {}): ReactElement {
         // the pending set drains; an idle affordance misstates that there
         // is something to run.
         null}
+        {onLock === undefined ? null : (
+          <Tooltip label="Lock now" side="bottom">
+            <IconButton icon="lock" label="Lock now" onClick={onLock} />
+          </Tooltip>
+        )}
         <Button
           variant="primary"
           icon="download"

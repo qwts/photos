@@ -14,6 +14,17 @@ export interface OverlookApi {
   readonly minimizeWindow: () => Promise<void>;
   readonly toggleMaximizeWindow: () => Promise<boolean>;
   readonly closeWindow: () => Promise<void>;
+  readonly appLock: {
+    readonly status: () => Promise<Res<typeof channels.appLockStatus>>;
+    readonly unlock: (request: Req<typeof channels.appLockUnlock>) => Promise<Res<typeof channels.appLockUnlock>>;
+    readonly configure: (request: Req<typeof channels.appLockConfigure>) => Promise<Res<typeof channels.appLockConfigure>>;
+    readonly lockNow: () => Promise<Res<typeof channels.appLockNow>>;
+    readonly changePassword: (request: Req<typeof channels.appLockChangePassword>) => Promise<Res<typeof channels.appLockChangePassword>>;
+    readonly remove: (request: Req<typeof channels.appLockRemove>) => Promise<Res<typeof channels.appLockRemove>>;
+    readonly pickRecovery: () => Promise<Res<typeof channels.appLockPickRecovery>>;
+    readonly recover: (request: Req<typeof channels.appLockRecover>) => Promise<Res<typeof channels.appLockRecover>>;
+    readonly onChanged: (listener: (payload: z.output<typeof events.appLockStateChanged.payload>) => void) => () => void;
+  };
   readonly library: {
     readonly page: (request: Req<typeof channels.libraryPage>) => Promise<Res<typeof channels.libraryPage>>;
     readonly get: (request: Req<typeof channels.libraryGet>) => Promise<Res<typeof channels.libraryGet>>;

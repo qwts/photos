@@ -157,11 +157,27 @@ function installStub(): void {
     cancel: () => Promise.resolve({}),
     onProgress: () => () => undefined,
   };
+  const appLockListeners = new Set<Parameters<OverlookApi['appLock']['onChanged']>[0]>();
+  const appLockApi: OverlookApi['appLock'] = {
+    status: () => Promise.resolve({ state: 'unconfigured-unlocked', libraryId: null, retryAfterMs: 0 }),
+    unlock: () => Promise.resolve({ ok: true, reason: null, retryAfterMs: 0 }),
+    configure: () => Promise.resolve({ state: 'locked', libraryId: 'story-library', retryAfterMs: 0 }),
+    lockNow: () => Promise.resolve({ state: 'locked', libraryId: 'story-library', retryAfterMs: 0 }),
+    changePassword: () => Promise.resolve({ changed: true }),
+    remove: () => Promise.resolve({ removed: true }),
+    pickRecovery: () => Promise.resolve({ path: null }),
+    recover: () => Promise.resolve({ recovered: false, reason: 'invalid' }),
+    onChanged: (listener) => {
+      appLockListeners.add(listener);
+      return () => appLockListeners.delete(listener);
+    },
+  };
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = {
     settings: settingsApi,
     backup: backupApi,
     keys: keysApi,
     restore: restoreApi,
+    appLock: appLockApi,
     library: {
       stats: () => Promise.resolve({ photos: 1542, bytes: 48_000_000_000, pending: 0, lastBackupAt: null, offloadedBytes: 12_600_000_000 }),
       onStorageChanged: () => () => undefined,
@@ -296,7 +312,9 @@ export const PrivacySection: Story = {
     await expect(body.getByText('Originals and thumbnails are encrypted on this device before leaving it.')).toBeVisible();
 
     // Face grouping is deferred — disabled and OFF, never faked as active.
-    const [faceGrouping, diagnostics] = body.getAllByRole('switch');
+    const switches = body.getAllByRole('switch');
+    const faceGrouping = switches.at(-2);
+    const diagnostics = switches.at(-1);
     if (faceGrouping === undefined || diagnostics === undefined) {
       throw new Error('expected the face-grouping and diagnostics switches');
     }

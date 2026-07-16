@@ -42,6 +42,12 @@ const chipFiltersSchema = z.object({
 });
 
 const sourceFilterSchema = z.enum(['all', 'favorites', 'recent', 'offloaded', 'deleted']);
+const appLockStateSchema = z.enum(['unconfigured-unlocked', 'locked', 'unlocking', 'unlocked', 'locking', 'recovery-required']);
+const appLockStatusSchema = z.object({
+  state: appLockStateSchema,
+  libraryId: z.string().nullable(),
+  retryAfterMs: z.number().int().nonnegative(),
+});
 
 const importSourceSchema = z.object({
   path: z.string(),
@@ -140,6 +146,34 @@ export const channels = {
   windowMinimize: defineChannel('window:minimize', z.object({}), z.object({})),
   windowToggleMaximize: defineChannel('window:toggle-maximize', z.object({}), z.object({ maximized: z.boolean() })),
   windowClose: defineChannel('window:close', z.object({}), z.object({})),
+  appLockStatus: defineChannel('app-lock:status', z.object({}), appLockStatusSchema),
+  appLockUnlock: defineChannel(
+    'app-lock:unlock',
+    z.object({ password: z.string().min(1).max(1024) }),
+    z.object({
+      ok: z.boolean(),
+      reason: z.enum(['wrong-password', 'recovery-required', 'throttled']).nullable(),
+      retryAfterMs: z.number().int().nonnegative(),
+    }),
+  ),
+  appLockConfigure: defineChannel('app-lock:configure', z.object({ password: z.string().min(8).max(1024) }), appLockStatusSchema),
+  appLockNow: defineChannel('app-lock:lock-now', z.object({}), appLockStatusSchema),
+  appLockChangePassword: defineChannel(
+    'app-lock:change-password',
+    z.object({ currentPassword: z.string().min(1).max(1024), nextPassword: z.string().min(8).max(1024) }),
+    z.object({ changed: z.boolean() }),
+  ),
+  appLockRemove: defineChannel('app-lock:remove', z.object({ password: z.string().min(1).max(1024) }), z.object({ removed: z.boolean() })),
+  appLockPickRecovery: defineChannel('app-lock:pick-recovery', z.object({}), z.object({ path: z.string().nullable() })),
+  appLockRecover: defineChannel(
+    'app-lock:recover',
+    z.object({
+      path: z.string().min(1),
+      recoveryPassword: z.string().min(1).max(1024),
+      nextPassword: z.string().min(8).max(1024),
+    }),
+    z.object({ recovered: z.boolean(), reason: z.enum(['invalid', 'wrong-password', 'mismatch']).nullable() }),
+  ),
   // Library contract (#71) — the renderer's typed window into the library.
   libraryPage: defineChannel(
     'library:page',
@@ -429,6 +463,7 @@ export const events = {
   // Main pushes window focus state; also the reference implementation of the
   // main→renderer event pattern (progress events, settings changes later).
   focusChanged: defineEvent('window:focus-changed', z.object({ focused: z.boolean() })),
+  appLockStateChanged: defineEvent('app-lock:state-changed', appLockStatusSchema),
   // Targeted library pushes (#71) — never refetch-the-world signals.
   libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
   photoSyncStateChanged: defineEvent(

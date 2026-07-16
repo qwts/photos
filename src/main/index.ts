@@ -3,15 +3,15 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
-import { app, BrowserWindow, dialog, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { createWindow, relaunchLocked } from './app-window.js';
-import { KeyStore, type SafeStorageLike } from './crypto/keystore.js';
-import { createAppLockRuntime } from './crypto/app-lock-runtime.js';
-import { pickSafeStorageImpl } from './crypto/safe-storage.js';
+import { KeyStore } from './crypto/keystore.js';
+import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
+import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
 import { run } from './db/sql.js';
@@ -59,10 +59,9 @@ import {
   registerPurgeHandlers,
   registerRestoreHandlers,
   registerSettingsHandlers,
-  setContentAdmissionGate,
   type ExportFacade,
 } from './ipc.js';
-import { SettingsStore } from './settings/settings-store.js';
+import { getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
@@ -94,10 +93,6 @@ if (userDataOverride !== undefined && userDataOverride !== '') {
 
 // Privileged-scheme registration must precede app ready (#75, #91).
 registerSchemePrivileges();
-
-function pickSafeStorage(): SafeStorageLike {
-  return pickSafeStorageImpl(safeStorage, app.isPackaged);
-}
 
 // Lazy library bootstrap: nothing touches the keychain or the database until
 // the renderer's first library.* call (the E2E smoke never does).
@@ -346,22 +341,6 @@ function getFullService(): FullService {
     });
   }
   return fullService;
-}
-
-let settingsStore: SettingsStore | undefined;
-
-function getSettingsStore(): SettingsStore {
-  if (settingsStore === undefined) {
-    settingsStore = new SettingsStore({ filePath: path.join(app.getPath('userData'), 'settings.json') });
-    // Packaged installs have no mock provider (#256): correct a stale or
-    // default 'mock' providerId IN THE STORE, so the renderer's visibility
-    // gates (#239 mirror settings.providerId) agree with main instead of
-    // relying on ProviderRuntime.activeId's mask alone (PR #260 review).
-    if (app.isPackaged && settingsStore.get().providerId === 'mock') {
-      settingsStore.set({ providerId: null });
-    }
-  }
-  return settingsStore;
 }
 
 let backupEngine: BackupEngine | undefined;
@@ -811,8 +790,20 @@ void app.whenReady().then(async () => {
   await recoverInterruptedActivation(restorePaths(path.join(app.getPath('userData'), 'library')));
   const lock = getAppLockController();
   await lock.initialize();
-  setContentAdmissionGate(() => lock.requireContentAccess());
   registerIpcHandlers();
+  registerAppLockIpc({
+    controller: lock,
+    currentMaster: () => {
+      getLibraryService();
+      if (libraryParts === undefined) throw new Error('library bootstrap failed; no master key available');
+      return libraryParts.keyStore.masterKeyBytes();
+    },
+    libraryId: () => getProviderRuntime().libraryId(),
+    dataDir: path.join(app.getPath('userData'), 'library'),
+    pickRecovery: () => pickRecoveryKeyPath(harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
+    send: (name, payload) => broadcast((win) => win.webContents.send(name, payload)),
+    settings: () => getSettingsStore().get(),
+  });
   registerLibraryHandlers(getLibraryService, () => {
     // Soft delete of a synced row leaves pendingCount at 0 with a STALE
     // remote manifest — a restore-from-backup would resurrect the photo
@@ -889,8 +880,9 @@ void app.whenReady().then(async () => {
       workChanged: (delta) => (providerWorkCount += delta),
     }),
   );
+  const contentAvailable = lock.snapshot().state === 'unconfigured-unlocked' || lock.snapshot().state === 'unlocked';
   const seedCount = Number(harnessEnv('OVERLOOK_SEED') ?? '0');
-  if (Number.isInteger(seedCount) && seedCount > 0) {
+  if (contentAvailable && Number.isInteger(seedCount) && seedCount > 0) {
     getLibraryService();
     if (libraryParts !== undefined) {
       await libraryParts.blobStore.init();
@@ -901,7 +893,7 @@ void app.whenReady().then(async () => {
   // Like seedLibrary, a non-empty library is left untouched (re-runs on the
   // same profile must not duplicate content hashes).
   const syntheticCount = Number(harnessEnv('OVERLOOK_SEED_SYNTHETIC') ?? '0');
-  if (Number.isInteger(syntheticCount) && syntheticCount > 0) {
+  if (contentAvailable && Number.isInteger(syntheticCount) && syntheticCount > 0) {
     const service = getLibraryService();
     if (libraryParts !== undefined && service.stats().photos === 0) {
       seedSynthetic(libraryParts.db, libraryParts.keyStore.currentKey().id, 'synthetic', syntheticCount);
