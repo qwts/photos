@@ -266,6 +266,11 @@ export class OffloadService {
 
   /** Download → staged restore → decrypt-and-rehash verify → synced. */
   async rehydrate(photoId: string): Promise<void> {
+    await this.restoreOriginal(photoId);
+    this.notifyRestored([photoId]);
+  }
+
+  private async restoreOriginal(photoId: string): Promise<void> {
     const photo = this.deps.repo.get(photoId);
     if (photo === undefined || this.deps.ledger.status(photoId) !== 'offloaded') {
       throw new RehydrateError(`photo ${photoId} is not offloaded`, 'not-offloaded');
@@ -289,8 +294,6 @@ export class OffloadService {
     }
     this.deps.ledger.setStatus(photoId, 'synced');
     this.deps.audit(`REHYDRATE-OK photo=${photoId}`);
-    this.deps.syncStateChanged([{ id: photoId, syncState: 'synced' }]);
-    this.deps.storageChanged();
   }
 
   /** Batch restore for selection and Settings. Omit ids to restore every
@@ -300,11 +303,13 @@ export class OffloadService {
     let restored = 0;
     let skipped = 0;
     let failed = 0;
+    const restoredIds: string[] = [];
     const results: RestoreOriginalResultItem[] = [];
     for (const photoId of ids) {
       try {
-        await this.rehydrate(photoId);
+        await this.restoreOriginal(photoId);
         restored += 1;
+        restoredIds.push(photoId);
         results.push({ photoId, outcome: 'restored', reason: null });
       } catch (error) {
         const reason = error instanceof RehydrateError ? error.reason : 'verify-failed';
@@ -317,7 +322,14 @@ export class OffloadService {
         }
       }
     }
+    this.notifyRestored(restoredIds);
     return { restored, skipped, failed, results };
+  }
+
+  private notifyRestored(photoIds: readonly string[]): void {
+    if (photoIds.length === 0) return;
+    this.deps.syncStateChanged(photoIds.map((id) => ({ id, syncState: 'synced' })));
+    this.deps.storageChanged();
   }
 
   private async assertProviderAvailable(): Promise<void> {
