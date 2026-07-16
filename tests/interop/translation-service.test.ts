@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,7 +10,7 @@ import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { queryGet } from '../../src/main/db/sql.js';
 import { InteropRepository } from '../../src/main/interop/interop-repository.js';
-import { deterministicInteropId } from '../../src/main/interop/record-translation.js';
+import { deterministicInteropId, translateImageTrailBookmark } from '../../src/main/interop/record-translation.js';
 import { InteropTranslationService } from '../../src/main/interop/translation-service.js';
 import { interopEnvelopeSchema } from '../../src/shared/interop/messages.js';
 import type { InteropAlbum, InteropRecord } from '../../src/shared/interop/records.js';
@@ -41,6 +41,23 @@ function canonicalRecord(): InteropRecord {
   return canonicalPayload().record;
 }
 
+function compatibilityBookmark() {
+  return {
+    uuid: 'bookmark-1',
+    payload: {
+      url: 'https://example.test/bookmark.jpg',
+      title: 'Bookmark',
+      bookmarkedAt: '2026-07-16T13:00:00.000Z',
+      storedOriginal: {
+        blobId: 'unavailable-original',
+        mimeType: 'image/jpeg',
+        byteLength: 42,
+        capturedAt: '2026-07-16T13:05:00.000Z',
+      },
+    },
+  } as const;
+}
+
 function plainFullBackup(): string {
   return JSON.stringify({
     format: 'image-trail.records',
@@ -48,25 +65,60 @@ function plainFullBackup(): string {
     payloadType: 'bookmarks',
     createdAt: RECEIVED_AT,
     recordCount: 1,
-    entries: [
-      {
-        uuid: 'bookmark-1',
-        payload: {
-          url: 'https://example.test/bookmark.jpg',
-          title: 'Bookmark',
-          bookmarkedAt: '2026-07-16T13:00:00.000Z',
-          storedOriginal: {
-            blobId: 'unavailable-original',
-            mimeType: 'image/jpeg',
-            byteLength: 42,
-            capturedAt: '2026-07-16T13:05:00.000Z',
-          },
-        },
-      },
-    ],
+    entries: [compatibilityBookmark()],
   });
 }
 
+async function encryptedMixedBackup(password: string): Promise<string> {
+  const salt = new Uint8Array(16).fill(5);
+  const iv = new Uint8Array(12).fill(6);
+  const passwordBytes = new TextEncoder().encode(password);
+  const baseKey = await webcrypto.subtle.importKey('raw', passwordBytes, 'PBKDF2', false, ['deriveKey']);
+  passwordBytes.fill(0);
+  const key = await webcrypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 600_000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt'],
+  );
+  const payload = {
+    schemaVersion: 2,
+    bookmarks: [compatibilityBookmark()],
+    originalBlobs: [],
+    blobKeyBackups: [],
+    missingOriginalBlobIds: [],
+    albums: [
+      {
+        id: 'album-1',
+        name: 'Conflicted',
+        createdAt: '2026-07-16T12:00:00.000Z',
+        updatedAt: RECEIVED_AT,
+        recordIds: ['bookmark-1'],
+      },
+    ],
+  };
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  const ciphertext = new Uint8Array(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext));
+  plaintext.fill(0);
+  return JSON.stringify({
+    header: {
+      magic: 'IMAGE-TRAIL-EXPORT',
+      formatVersion: 1,
+      payloadType: 'mixed',
+      algorithm: 'AES-GCM',
+      wrappingMode: 'password',
+      keyKind: 'export',
+      keyReference: 'export:service-fixture',
+      salt: Buffer.from(salt).toString('base64'),
+      iv: Buffer.from(iv).toString('base64'),
+      iterations: 600_000,
+      createdAt: RECEIVED_AT,
+      recordCount: 1,
+    },
+    payload: Buffer.from(ciphertext).toString('base64'),
+  });
+}
 describe('InteropTranslationService', () => {
   test('persists compatibility imports as metadata-only records without native photo rows', async () => {
     const { db, repository, service } = openService();
@@ -124,6 +176,25 @@ describe('InteropTranslationService', () => {
     assert.equal(result.reviewCategory, 'conflict');
     assert.equal(result.persisted, false);
     assert.equal(repository.getRecord(first.identity.interopId)?.record.identity.interopId, first.identity.interopId);
+    db.close();
+  });
+
+  test('does not persist album memberships that point at conflicted compatibility records', async () => {
+    const { db, repository, service } = openService();
+    const incoming = translateImageTrailBookmark(compatibilityBookmark());
+    const existing = { ...incoming, identity: { ...incoming.identity, interopId: '0c7994dd-0cc4-45c5-8c19-c5bdcd56988c' } };
+    repository.putRecord({ record: existing, reviewCategory: 'metadata-only', receivedAt: RECEIVED_AT });
+
+    const result = await service.importCompatibilityFile({
+      fileContent: await encryptedMixedBackup('correct horse'),
+      password: 'correct horse',
+      receivedAt: RECEIVED_AT,
+    });
+
+    assert.equal(result.records[0]?.reviewCategory, 'conflict');
+    assert.equal(result.records[0]?.persisted, false);
+    assert.deepEqual(result.albums[0]?.members, []);
+    assert.deepEqual(repository.getAlbum(result.albums[0]?.interopId ?? '')?.album.members, []);
     db.close();
   });
 
