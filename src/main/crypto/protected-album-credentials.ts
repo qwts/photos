@@ -84,15 +84,10 @@ const protectedMemberSchema = z
   .strict()
   .superRefine((member, context) => {
     const ids = new Set<string>();
-    const positions = new Set<number>();
     for (const [index, membership] of member.ordinaryMemberships.entries()) {
       if (ids.has(membership.albumId))
         context.addIssue({ code: 'custom', path: ['ordinaryMemberships', index], message: 'duplicate album' });
-      if (positions.has(membership.position)) {
-        context.addIssue({ code: 'custom', path: ['ordinaryMemberships', index], message: 'duplicate position' });
-      }
       ids.add(membership.albumId);
-      positions.add(membership.position);
     }
   });
 
