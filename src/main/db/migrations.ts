@@ -198,7 +198,31 @@ const SCHEMA_V5: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5];
+const SCHEMA_V6: Migration = {
+  version: 6,
+  name: 'protected-album-custody',
+  // #325: this table is deliberately independent of ordinary albums. During
+  // #326's re-encryption journal, an ordinary row and a staged protected row
+  // can coexist while every public query continues to expose only the former.
+  up(db) {
+    db.exec(`
+      CREATE TABLE protected_album_records (
+        album_id TEXT PRIMARY KEY,
+        record_version INTEGER NOT NULL CHECK (record_version = 1),
+        migration_state TEXT NOT NULL CHECK (migration_state IN ('staged', 'active', 'retiring')),
+        credential_generation INTEGER NOT NULL CHECK (credential_generation > 0),
+        metadata_generation INTEGER NOT NULL CHECK (metadata_generation > 0),
+        credential_record BLOB NOT NULL,
+        sealed_metadata BLOB NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_protected_album_migration_state ON protected_album_records (migration_state);
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {
