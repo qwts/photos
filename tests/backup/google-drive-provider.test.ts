@@ -271,6 +271,41 @@ function setup(world = new DriveWorld(), pathsDir = mkdtempSync(join(tmpdir(), '
 const PAYLOAD = Buffer.from('OVLK-encrypted-envelope');
 
 describe('Google Drive provider adapter (#277)', () => {
+  test('account replacement clears shared validation and path caches before rebuilding the remote tree', async () => {
+    const first = new DriveWorld();
+    const second = new DriveWorld();
+    let active = first;
+    const fetchImpl: typeof fetch = (input, init) => active.fetch(input, init);
+    const tokenStore = new GoogleDriveTokenStore({
+      safeStorage,
+      dataDir: mkdtempSync(join(tmpdir(), 'overlook-google-account-switch-auth-')),
+    });
+    tokenStore.save({ clientId: CLIENT_ID, refreshToken: 'refresh-1', connectedAt: 'now' });
+    const auth = new GoogleDriveAuthClient({ clientId: () => CLIENT_ID, tokenStore, fetchImpl });
+    auth.seed('access-1', 3600);
+    const paths = new GoogleDrivePathStore(mkdtempSync(join(tmpdir(), 'overlook-google-account-switch-paths-')));
+    const provider = new GoogleDriveProvider({ auth, paths, libraryId: LIBRARY_ID, fetchImpl });
+
+    await provider.put('blobs/aa/first.ovlk', Readable.from([PAYLOAD]));
+    assert.notEqual(paths.overlookFolderId(), null);
+    const scoped = provider.forLibrary('RESTORE_LIBRARY');
+
+    active = second;
+    auth.seed('access-2', 3600);
+    provider.resetAccountCache();
+    assert.equal(paths.overlookFolderId(), null);
+    await scoped.put('blobs/bb/second.ovlk', Readable.from([PAYLOAD]));
+
+    assert.equal(
+      [...second.files.values()].some((file) => file.name === 'Overlook'),
+      true,
+    );
+    assert.equal(
+      [...second.files.values()].some((file) => file.name === 'RESTORE_LIBRARY'),
+      true,
+    );
+  });
+
   test('provider contract: resumable put/list/get/verify/delete, quota, and restore discovery', async () => {
     const { provider } = setup();
     assert.equal(await provider.authState(), 'connected');

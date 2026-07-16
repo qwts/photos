@@ -99,9 +99,11 @@ export class GoogleDriveProvider implements StorageProvider {
   } as const;
 
   private readonly fetchImpl: typeof fetch;
-  private readonly validatedIds = new Set<string>();
 
-  constructor(private readonly options: GoogleDriveProviderOptions) {
+  constructor(
+    private readonly options: GoogleDriveProviderOptions,
+    private readonly validatedIds = new Set<string>(),
+  ) {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
@@ -113,7 +115,15 @@ export class GoogleDriveProvider implements StorageProvider {
     if (!/^[A-Za-z0-9_-]{1,64}$/u.test(libraryId)) {
       throw new ProviderError(`unsafe library id: ${libraryId}`, 'corrupt');
     }
-    return new GoogleDriveProvider({ ...this.options, libraryId });
+    return new GoogleDriveProvider({ ...this.options, libraryId }, this.validatedIds);
+  }
+
+  /** Folder/file IDs are account-scoped. OAuth replacement must invalidate
+   * both the durable path index and this process's validation memo before any
+   * request can target the newly selected account. */
+  resetAccountCache(): void {
+    this.validatedIds.clear();
+    this.options.paths.clear();
   }
 
   async listLibraries(): Promise<readonly string[]> {

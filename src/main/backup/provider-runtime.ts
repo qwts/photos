@@ -49,6 +49,7 @@ export class ProviderRuntime {
   private googlePathStoreInstance: GoogleDrivePathStore | undefined;
   private googleAuthInstance: GoogleDriveAuthClient | undefined;
   private googleConnectFlow: (() => Promise<PCloudConnectResult>) | undefined;
+  private googleProviderInstance: GoogleDriveProvider | undefined;
   private registryInstance: ProviderRegistry | undefined;
 
   constructor(options: ProviderRuntimeOptions) {
@@ -122,7 +123,10 @@ export class ProviderRuntime {
       tokenStore: this.googleTokenStore(),
       authClient: this.googleAuth(),
       openExternal: this.options.openExternal,
-      onConnected: () => this.options.setProviderId('google-drive'),
+      onConnected: () => {
+        this.resetGoogleDriveAccountCache();
+        this.options.setProviderId('google-drive');
+      },
       ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
     });
     return this.googleConnectFlow();
@@ -208,6 +212,7 @@ export class ProviderRuntime {
     }
     if (providerId === 'google-drive') {
       this.googleAuth().clear();
+      this.resetGoogleDriveAccountCache();
     }
     if (this.activeId() === providerId) {
       this.options.setProviderId(null);
@@ -278,14 +283,14 @@ export class ProviderRuntime {
     const registry = new ProviderRegistry();
     const libraryId = build.libraryId ?? this.libraryId();
     registry.register(new PCloudProvider({ auth: () => this.tokenStore().load(), libraryId }));
-    registry.register(
-      new GoogleDriveProvider({
-        auth: this.googleAuth(),
-        paths: this.googlePathStore(),
-        libraryId,
-        ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
-      }),
-    );
+    const googleProvider = new GoogleDriveProvider({
+      auth: this.googleAuth(),
+      paths: this.googlePathStore(),
+      libraryId,
+      ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
+    });
+    this.googleProviderInstance = googleProvider;
+    registry.register(googleProvider);
     if (!this.options.isPackaged) {
       const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir, libraryId }));
       const fault = build.fault;
@@ -296,5 +301,13 @@ export class ProviderRuntime {
     }
     this.registryInstance = registry;
     return createActiveProvider({ registry, activeId: () => this.activeId(), defaultId: () => this.defaultTarget() });
+  }
+
+  private resetGoogleDriveAccountCache(): void {
+    if (this.googleProviderInstance === undefined) {
+      this.googlePathStore().clear();
+      return;
+    }
+    this.googleProviderInstance.resetAccountCache();
   }
 }
