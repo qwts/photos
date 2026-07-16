@@ -626,6 +626,10 @@
           "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
         },
         {
+          "type": "storybook",
+          "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
+        },
+        {
           "type": "unit-dom",
           "path": "tests/backup/ephemeral-originals.test.ts"
         }
