@@ -53,6 +53,7 @@ export interface OverlookApi {
     readonly delete: (request: Req<typeof channels.albumDelete>) => Promise<Res<typeof channels.albumDelete>>;
     readonly addPhotos: (request: Req<typeof channels.albumAddPhotos>) => Promise<Res<typeof channels.albumAddPhotos>>;
     readonly removePhotos: (request: Req<typeof channels.albumRemovePhotos>) => Promise<Res<typeof channels.albumRemovePhotos>>;
+    readonly movePhotos: (request: Req<typeof channels.albumMovePhotos>) => Promise<Res<typeof channels.albumMovePhotos>>;
   };
   readonly backup: {
     readonly run: (request: Req<typeof channels.backupRun>) => Promise<Res<typeof channels.backupRun>>;

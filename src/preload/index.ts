@@ -84,6 +84,7 @@ const overlook: OverlookApi = {
     delete: createInvoker(channels.albumDelete, invokeTransport),
     addPhotos: createInvoker(channels.albumAddPhotos, invokeTransport),
     removePhotos: createInvoker(channels.albumRemovePhotos, invokeTransport),
+    movePhotos: createInvoker(channels.albumMovePhotos, invokeTransport),
   }),
   backup: Object.freeze({
     run: createInvoker(channels.backupRun, invokeTransport),

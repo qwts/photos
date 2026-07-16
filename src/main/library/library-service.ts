@@ -85,6 +85,13 @@ export class LibraryService {
     return { removed: removed.length };
   }
 
+  moveBetweenAlbums(sourceAlbumId: string, targetAlbumId: string, photoIds: readonly string[]): { moved: number; alreadyInTarget: number } {
+    const result = this.repo.moveBetweenAlbums(sourceAlbumId, targetAlbumId, photoIds);
+    this.events.libraryChanged(result.moved);
+    this.events.pendingCountChanged(this.repo.pendingCount());
+    return { moved: result.moved.length, alreadyInTarget: result.alreadyInTarget };
+  }
+
   // Soft delete + restore (#120): targeted pushes; pendingCount changes in
   // both directions (deleted rows leave it, restores re-dirty).
   deletePhotos(photoIds: readonly string[]): { deleted: number } {

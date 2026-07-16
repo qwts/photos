@@ -180,6 +180,24 @@ describe('library IPC contract', () => {
     ]);
   });
 
+  test('album move publishes one targeted change and pending-count update (#279)', () => {
+    const { service, events } = seededService();
+    service.createAlbum('AL1', 'Source');
+    service.createAlbum('AL2', 'Target');
+    service.addToAlbum('AL1', ['01J8LIB003', '01J8LIB004']);
+    events.changed.length = 0;
+    events.pending.length = 0;
+
+    assert.deepEqual(service.moveBetweenAlbums('AL1', 'AL2', ['01J8LIB003', '01J8LIB004']), {
+      moved: 2,
+      alreadyInTarget: 0,
+    });
+    assert.deepEqual(events.changed, [['01J8LIB003', '01J8LIB004']]);
+    assert.equal(events.pending.length, 1);
+    assert.equal(service.albums().find((album) => album.id === 'AL1')?.count, 0);
+    assert.equal(service.albums().find((album) => album.id === 'AL2')?.count, 2);
+  });
+
   test('stats reports live photo count, bytes, and pending for the chrome', async () => {
     const { service } = seededService();
     const client = rendererClient(service);

@@ -459,6 +459,32 @@ describe('albums (#117)', () => {
     db.close();
   });
 
+  test('album move adds before removing, handles target duplicates, and rolls back on invalid targets (#279)', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(samplePhoto());
+    repo.insert(samplePhoto());
+    const ids = repo.page({ source: 'all', limit: 10 }).photos.map((photo) => photo.id);
+    repo.createAlbum('ALB1', 'Source');
+    repo.createAlbum('ALB2', 'Target');
+    const [first, second] = ids;
+    assert.ok(first !== undefined && second !== undefined);
+    repo.addToAlbum('ALB1', [first, second]);
+    repo.addToAlbum('ALB2', [second]);
+
+    assert.deepEqual(repo.moveBetweenAlbums('ALB1', 'ALB2', [first, second]), {
+      moved: [first, second],
+      alreadyInTarget: 1,
+    });
+    assert.deepEqual(repo.albumMembers('ALB1'), []);
+    assert.deepEqual(repo.albumMembers('ALB2').sort(), [first, second].sort());
+
+    repo.addToAlbum('ALB1', [first]);
+    assert.throws(() => repo.moveBetweenAlbums('ALB1', 'MISSING', [first]), /does not exist/u);
+    assert.deepEqual(repo.albumMembers('ALB1'), [first], 'failed move retains the source membership');
+    assert.throws(() => repo.moveBetweenAlbums('ALB1', 'ALB1', [first]), /must differ/u);
+    db.close();
+  });
+
   test('rename persists and dirties members; unknown albums are typed errors', () => {
     const { db, repo } = openSeeded();
     repo.insert(samplePhoto());
