@@ -2,7 +2,7 @@ import type { ThumbUrlSize } from '../../shared/library/thumb-url.js';
 import { FullService, type FullPayload } from '../fullres/full-service.js';
 import { ThumbService, type LoadedThumb } from '../thumbs/thumb-service.js';
 import type { ProtectedAlbumAuthorityRegistry } from '../crypto/protected-album-authority.js';
-import { ProtectedLibraryService } from './protected-library-service.js';
+import type { ProtectedLibraryService } from './protected-library-service.js';
 
 function mediaKey(albumId: string, photoId: string): string {
   return JSON.stringify([albumId, photoId]);
@@ -11,8 +11,12 @@ function mediaKey(albumId: string, photoId: string): string {
 function parseMediaKey(value: string): { readonly albumId: string; readonly photoId: string } | null {
   try {
     const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed) || parsed.length !== 2 || parsed.some((part) => typeof part !== 'string' || part === '')) return null;
-    return { albumId: parsed[0] as string, photoId: parsed[1] as string };
+    if (!Array.isArray(parsed)) return null;
+    const values: readonly unknown[] = parsed;
+    const albumId = values[0];
+    const photoId = values[1];
+    if (values.length !== 2 || typeof albumId !== 'string' || albumId === '' || typeof photoId !== 'string' || photoId === '') return null;
+    return { albumId, photoId };
   } catch {
     return null;
   }

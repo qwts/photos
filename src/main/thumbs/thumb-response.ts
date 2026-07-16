@@ -8,7 +8,7 @@ export async function handleThumbRequest(
   getService: () => ThumbService,
   admit: () => void,
   request: Request,
-  getProtected?: (() => ProtectedMediaService) | undefined,
+  getProtected?: () => ProtectedMediaService,
 ): Promise<Response> {
   try {
     admit();
@@ -21,9 +21,9 @@ export async function handleThumbRequest(
   const loaded =
     parsed !== null
       ? await getService().getThumb(parsed.photoId, parsed.size, request.signal)
-      : getProtected === undefined
+      : protectedTarget === null || getProtected === undefined
         ? null
-        : await getProtected().getThumb(protectedTarget!.albumId, protectedTarget!.photoId, protectedTarget!.size, request.signal);
+        : await getProtected().getThumb(protectedTarget.albumId, protectedTarget.photoId, protectedTarget.size, request.signal);
   if (loaded === null) return new Response(null, { status: 404, headers: NO_STORE });
   return new Response(new Uint8Array(loaded.bytes), {
     status: 200,

@@ -1,0 +1,109 @@
+import path from 'node:path';
+import { existsSync } from 'node:fs';
+
+import { dialog } from 'electron';
+
+import { events } from '../shared/ipc/channels.js';
+import { createEmitter } from '../shared/ipc/registry.js';
+import { createBackupFacade, type BackupFacadeOptions } from './backup/backup-facade.js';
+import type { FullService } from './fullres/full-service.js';
+import { registerFullProtocol } from './fullres/full-protocol.js';
+import type { ImportService } from './import/import-service.js';
+import { ulid } from './import/ulid.js';
+import type { KeyStore } from './crypto/keystore.js';
+import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
+import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
+import type { DrainableExportFacade } from './export/export-runtime.js';
+import {
+  registerAlbumHandlers,
+  registerBackupHandlers,
+  registerExportHandlers,
+  registerImportHandlers,
+  registerKeysHandlers,
+  registerLibraryHandlers,
+  registerProtectedAlbumHandlers,
+  registerPurgeHandlers,
+  registerRestoreHandlers,
+  registerSettingsHandlers,
+} from './ipc.js';
+import type { LibraryService } from './library/library-service.js';
+import type { DrainablePurgeFacade } from './library/purge-runtime.js';
+import type { ProtectedRuntime } from './library/protected-runtime.js';
+import { createRestoreFacade } from './backup/restore-facade.js';
+import type { RestoreRuntime } from './backup/restore-runtime.js';
+import { getSettingsStore } from './settings/settings-runtime.js';
+import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
+import type { ThumbService } from './thumbs/thumb-service.js';
+
+export interface AppServicesOptions {
+  readonly dataDir: string;
+  readonly harnessEnv: (name: string) => string | undefined;
+  readonly requireContentAccess: () => void;
+  readonly allowKeyImport: () => boolean;
+  readonly getLibrary: () => LibraryService;
+  readonly getProtected: () => ProtectedRuntime;
+  readonly getThumbs: () => ThumbService;
+  readonly getFull: () => FullService;
+  readonly getImport: () => ImportService;
+  readonly getExport: () => DrainableExportFacade;
+  readonly getKeyStore: () => KeyStore;
+  readonly safeStorage: Parameters<typeof createRecoveryKeyFacade>[0]['safeStorage'];
+  readonly getRestore: () => RestoreRuntime;
+  readonly getPurge: () => DrainablePurgeFacade;
+  readonly backup: BackupFacadeOptions;
+  readonly providerBusy: () => boolean;
+  readonly onDeleted: () => void;
+  readonly onImported: () => void;
+  readonly broadcast: (name: string, payload: unknown) => void;
+}
+
+async function pickImportFolder(options: AppServicesOptions): Promise<string | null> {
+  const fixture = options.harnessEnv('OVERLOOK_IMPORT_FOLDER');
+  if (fixture !== undefined && fixture !== '') return fixture;
+  const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+  return result.canceled ? null : (result.filePaths[0] ?? null);
+}
+
+async function pickKeyExport(options: AppServicesOptions): Promise<string | null> {
+  const fixture = options.harnessEnv('OVERLOOK_KEY_EXPORT_DESTINATION');
+  if (fixture !== undefined && fixture !== '') return fixture;
+  const result = await dialog.showSaveDialog({ defaultPath: 'overlook-recovery.key' });
+  return result.canceled ? null : (result.filePath ?? null);
+}
+
+export function registerAppServices(options: AppServicesOptions): void {
+  registerLibraryHandlers(options.getLibrary, options.onDeleted);
+  registerAlbumHandlers(options.getLibrary, ulid);
+  registerProtectedAlbumHandlers(
+    () => options.getProtected().albums,
+    () => options.getProtected().library,
+    () => options.getProtected().exports(),
+  );
+  registerThumbProtocol(options.getThumbs, options.requireContentAccess, () => options.getProtected().media());
+  registerFullProtocol(options.getFull, options.requireContentAccess, () => options.getProtected().media());
+  registerImportHandlers(options.getImport, () => pickImportFolder(options), options.onImported);
+  registerExportHandlers(options.getExport);
+  registerKeysHandlers(() =>
+    createRecoveryKeyFacade({
+      keyStore: options.getKeyStore,
+      safeStorage: options.safeStorage,
+      dataDir: () => options.dataDir,
+      allowImport: options.allowKeyImport,
+      pickExportDestination: () => pickKeyExport(options),
+      pickImportSource: () => pickRecoveryKeyPath(options.harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
+    }),
+  );
+  registerRestoreHandlers(() =>
+    createRestoreFacade({
+      coordinator: () => options.getRestore().coordinator,
+      fresh: () => !existsSync(path.join(options.dataDir, 'library.db')),
+      pickKey: () => pickRecoveryKeyPath(options.harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
+      busy: options.providerBusy,
+    }),
+  );
+  registerPurgeHandlers(() => ({ purge: (photoIds) => options.getPurge().purge(photoIds) }));
+  registerSettingsHandlers(() => getSettingsStore());
+  const emitSettingsChanged = createEmitter(events.settingsChanged, options.broadcast);
+  getSettingsStore().subscribe((settings) => emitSettingsChanged({ settings }));
+  registerBackupHandlers(() => createBackupFacade(options.backup));
+}

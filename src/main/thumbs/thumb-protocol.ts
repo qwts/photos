@@ -16,7 +16,7 @@ import { handleThumbRequest } from './thumb-response.js';
 export function registerThumbProtocol(
   getService: () => ThumbService,
   admit: () => void = () => undefined,
-  getProtected?: (() => ProtectedMediaService) | undefined,
+  getProtected?: () => ProtectedMediaService,
 ): void {
   protocol.handle(THUMB_SCHEME, (request) => handleThumbRequest(getService, admit, request, getProtected));
 }

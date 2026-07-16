@@ -87,7 +87,8 @@ async function world() {
     custody.albumKey.fill(0);
   }
 
-  const albumKey = albumKeys.get('protected-a')!;
+  const albumKey = albumKeys.get('protected-a');
+  assert.ok(albumKey);
   const blobRef = await blobs.putOriginal({
     albumId: 'protected-a',
     albumKey,
@@ -131,6 +132,12 @@ async function world() {
   return { db, albums, photos, blobs, authorities, albumKeys, service, original, contentHash };
 }
 
+function albumKey(worldState: Awaited<ReturnType<typeof world>>): Buffer {
+  const key = worldState.albumKeys.get('protected-a');
+  assert.ok(key);
+  return key;
+}
+
 function unavailable(operation: () => unknown): void {
   assert.throws(operation, (error: unknown) => {
     assert.ok(error instanceof ProtectedContentUnavailableError);
@@ -161,7 +168,7 @@ describe('protected library authorization boundary (#327)', () => {
 
   test('one authorized route pages, searches, mutates, and reads only its own domain', async () => {
     const w = await world();
-    w.authorities.authorize('protected-a', w.albumKeys.get('protected-a')!);
+    w.authorities.authorize('protected-a', albumKey(w));
     assert.deepEqual(w.service.summary('protected-a'), {
       id: 'protected-a',
       name: 'Secret trip',
@@ -191,7 +198,7 @@ describe('protected library authorization boundary (#327)', () => {
 
   test('relock revokes a media read already in flight', async () => {
     const w = await world();
-    w.authorities.authorize('protected-a', w.albumKeys.get('protected-a')!);
+    w.authorities.authorize('protected-a', albumKey(w));
     let started: (() => void) | undefined;
     const entered = new Promise<void>((resolve) => {
       started = resolve;
@@ -227,7 +234,7 @@ describe('protected library authorization boundary (#327)', () => {
 
   test('domain-scoped protocol URLs revoke cached thumbnails, previews, full reads, and prefetches on relock', async () => {
     const w = await world();
-    w.authorities.authorize('protected-a', w.albumKeys.get('protected-a')!);
+    w.authorities.authorize('protected-a', albumKey(w));
     const media = new ProtectedMediaService({ library: w.service, authorities: w.authorities });
     assert.equal((await media.getThumb('protected-a', PHOTO_ID, 'thumb'))?.bytes.toString(), 'private thumb');
     assert.deepEqual((await media.getFull('protected-a', PHOTO_ID))?.bytes, w.original);
@@ -307,7 +314,7 @@ describe('protected library authorization boundary (#327)', () => {
         failures += 1;
       },
     });
-    w.authorities.authorize('protected-a', w.albumKeys.get('protected-a')!);
+    w.authorities.authorize('protected-a', albumKey(w));
     const exported = await runtime.run('protected-a', [PHOTO_ID], destination, 'original');
     assert.deepEqual(exported, { exported: 1, failed: 0, cancelled: 0, previewTranscodes: 0 });
     assert.deepEqual(await readFile(join(destination, 'private-name.jpg')), w.original);
@@ -323,7 +330,7 @@ describe('protected library authorization boundary (#327)', () => {
 
   test('relock during protected export destroys the stream and removes the partial plaintext file', async () => {
     const w = await world();
-    w.authorities.authorize('protected-a', w.albumKeys.get('protected-a')!);
+    w.authorities.authorize('protected-a', albumKey(w));
     let started: (() => void) | undefined;
     const entered = new Promise<void>((resolve) => {
       started = resolve;

@@ -221,11 +221,12 @@ export class ProtectedLibraryService {
           stream.destroy(new ProtectedContentUnavailableError());
         }
       });
-      const release = async (): Promise<void> => {
-        if (released) return;
+      const release = (): Promise<void> => {
+        if (released) return Promise.resolve();
         released = true;
         stopRevocation();
         if (!stream.destroyed) stream.destroy();
+        return Promise.resolve();
       };
       stream.once('close', stopRevocation);
       return {

@@ -18,7 +18,7 @@ import type { FullService } from './full-service.js';
 export function registerFullProtocol(
   getService: () => FullService,
   admit: () => void = () => undefined,
-  getProtected?: (() => ProtectedMediaService) | undefined,
+  getProtected?: () => ProtectedMediaService,
 ): void {
   protocol.handle(FULL_SCHEME, (request) => handleFullRequest(getService, admit, request, getProtected));
 }

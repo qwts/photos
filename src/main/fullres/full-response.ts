@@ -12,7 +12,7 @@ export async function handleFullRequest(
   getService: () => FullService,
   admit: () => void,
   request: Request,
-  getProtected?: (() => ProtectedMediaService) | undefined,
+  getProtected?: () => ProtectedMediaService,
 ): Promise<Response> {
   try {
     admit();
@@ -37,9 +37,9 @@ export async function handleFullRequest(
   const payload =
     parsed !== null
       ? await getService().getFull(parsed.photoId, request.signal)
-      : getProtected === undefined
+      : protectedTarget === null || getProtected === undefined
         ? null
-        : await getProtected().getFull(protectedTarget!.albumId, protectedTarget!.photoId, request.signal);
+        : await getProtected().getFull(protectedTarget.albumId, protectedTarget.photoId, request.signal);
   if (payload === null) return new Response(null, { status: 404, headers: NO_STORE });
   return new Response(new Uint8Array(payload.bytes), {
     status: 200,
