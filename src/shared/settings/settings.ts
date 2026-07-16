@@ -14,6 +14,9 @@ export const settingsSchema = z.object({
   /** Locked true by design: imports always generate thumbnails. */
   thumbnailsOnImport: z.literal(true),
   autoBackupOnImport: z.boolean(),
+  /** Keep cloud-only originals temporary after viewing unless the user
+   * explicitly chooses permanent local custody. */
+  reOffloadAfterViewing: z.boolean(),
   importMode: z.enum(['copy', 'move']),
   wifiOnly: z.boolean(),
   /** Percent of available upload, 10–100; 100 = unlimited. */
@@ -34,6 +37,7 @@ export const defaultSettings: AppSettings = {
   appearance: 'dark',
   thumbnailsOnImport: true,
   autoBackupOnImport: true,
+  reOffloadAfterViewing: true,
   importMode: 'copy',
   wifiOnly: true,
   bandwidthLimit: 100,
@@ -50,6 +54,7 @@ const recoverySchema = z
     appearance: settingsSchema.shape.appearance.catch(defaultSettings.appearance),
     thumbnailsOnImport: settingsSchema.shape.thumbnailsOnImport.catch(true),
     autoBackupOnImport: settingsSchema.shape.autoBackupOnImport.catch(defaultSettings.autoBackupOnImport),
+    reOffloadAfterViewing: settingsSchema.shape.reOffloadAfterViewing.catch(defaultSettings.reOffloadAfterViewing),
     importMode: settingsSchema.shape.importMode.catch(defaultSettings.importMode),
     wifiOnly: settingsSchema.shape.wifiOnly.catch(defaultSettings.wifiOnly),
     bandwidthLimit: settingsSchema.shape.bandwidthLimit.catch(defaultSettings.bandwidthLimit),
@@ -76,6 +81,7 @@ export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSe
     appearance: patch.appearance ?? current.appearance,
     thumbnailsOnImport: true,
     autoBackupOnImport: patch.autoBackupOnImport ?? current.autoBackupOnImport,
+    reOffloadAfterViewing: patch.reOffloadAfterViewing ?? current.reOffloadAfterViewing,
     importMode: patch.importMode ?? current.importMode,
     wifiOnly: patch.wifiOnly ?? current.wifiOnly,
     bandwidthLimit: patch.bandwidthLimit ?? current.bandwidthLimit,

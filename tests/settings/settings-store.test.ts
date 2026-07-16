@@ -25,17 +25,19 @@ describe('settings store (#111)', () => {
     assert.deepEqual(store.get(), defaultSettings);
     assert.equal(store.get().sortOrder, 'date');
     assert.equal(store.get().autoBackupOnImport, true);
+    assert.equal(store.get().reOffloadAfterViewing, true);
     assert.equal(store.get().wifiOnly, true);
   });
 
   test('EXIT CRITERIA: settings persist across a restart (new store, same file)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
-    storeIn(dir).set({ sortOrder: 'name', bandwidthLimit: 40, providerId: null });
+    storeIn(dir).set({ sortOrder: 'name', bandwidthLimit: 40, providerId: null, reOffloadAfterViewing: false });
 
     const reborn = storeIn(dir);
     assert.equal(reborn.get().sortOrder, 'name');
     assert.equal(reborn.get().bandwidthLimit, 40);
     assert.equal(reborn.get().providerId, null, 'disconnected survives — null is a value, not "unset"');
+    assert.equal(reborn.get().reOffloadAfterViewing, false);
     assert.equal(reborn.get().wifiOnly, true, 'untouched keys keep their defaults');
   });
 
@@ -53,7 +55,13 @@ describe('settings store (#111)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
     writeFileSync(
       join(dir, 'settings.json'),
-      JSON.stringify({ sortOrder: 'name', bandwidthLimit: 'fast', wifiOnly: false, thumbnailsOnImport: false }),
+      JSON.stringify({
+        sortOrder: 'name',
+        bandwidthLimit: 'fast',
+        wifiOnly: false,
+        thumbnailsOnImport: false,
+        reOffloadAfterViewing: 'sometimes',
+      }),
       'utf8',
     );
 
@@ -62,6 +70,7 @@ describe('settings store (#111)', () => {
     assert.equal(settings.wifiOnly, false, 'good key kept');
     assert.equal(settings.bandwidthLimit, defaultSettings.bandwidthLimit, 'bad key → its default');
     assert.equal(settings.thumbnailsOnImport, true, 'locked key cannot be persisted off');
+    assert.equal(settings.reOffloadAfterViewing, true, 'invalid custody policy recovers to its safe default');
   });
 
   test('writes are atomic: live file always parses, no staging file left behind', () => {
