@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted 2026-07-16 on [#283](https://github.com/qwts/photos/issues/283) and
-[#331](https://github.com/qwts/photos/issues/331), paired with
+Accepted 2026-07-16 on [#283](https://github.com/qwts/photos/issues/283),
+[#331](https://github.com/qwts/photos/issues/331), and
+[#332](https://github.com/qwts/photos/issues/332), paired with
 [Image Trail #560](https://github.com/qwts/image-trail/issues/560). This ADR
 supersedes only the deferred import-only interoperability stance in
 [ADR-0007](ADR-0007-Backup-Format-And-Offload); ADR-0007's backup format,
@@ -68,6 +69,33 @@ native database. Concurrent vectors create an explicit reviewed conflict with
 `keep-image-trail`, `keep-overlook`, or `keep-both`; neither last-write-wins nor
 filename matching is allowed. Deletes are tombstones and propagate only after
 review.
+
+#### Overlook translation and compatibility custody
+
+Overlook persists canonical records and albums in dedicated SQLCipher-backed
+interop tables. A web bookmark without a transported and verified original is
+not inserted into the native `photos` table. Its origin, stable interop id,
+revision vectors, URL, dimensions, bookmark/capture/download timestamps,
+source compatibility, remote blob references, and namespaced unknown metadata
+remain first-class interop data. Bookmark time is never promoted to capture or
+EXIF time, and camera, lens, exposure, GPS, and place fields are never
+fabricated.
+
+The main process owns legacy Image Trail compatibility import. Plain bookmark
+exports and password-encrypted bookmark/full-backup exports are parsed per row.
+Encrypted compatibility retains Image Trail's PBKDF2-SHA-256 600,000-iteration
+and AES-256-GCM parameters; malformed headers, wrong passwords, and corrupt
+ciphertext share one failure surface. Passwords and decrypted bytes do not
+enter renderer state, logs, or persistent temporary files, and replaceable
+byte buffers are cleared after use.
+
+Legacy stored-original and inline-thumbnail references remain
+`metadata-only`/`unavailable` until the blob transport proves bytes, content
+hash, and key custody. A reference alone never makes an original `available`.
+Canonical available originals must have a content hash equal to record
+identity before persistence. Content hashes, not filenames, drive duplicate
+review; a divergent interop id for the same remote origin is held as an
+unpersisted conflict for explicit policy resolution.
 
 ### Move, Sync, and durability
 
