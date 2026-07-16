@@ -234,6 +234,9 @@ export interface BackupFacade {
   offloadPreflight(photoIds: readonly string[]): Promise<OffloadPreflight>;
   offload(photoIds: readonly string[]): Promise<OffloadSummary>;
   rehydrate(photoId: string): Promise<void>;
+  keepDownloaded(photoId: string): Promise<void>;
+  releaseEphemeral(photoId: string): Promise<void>;
+  ephemeralStatus(photoId: string): 'fetching' | 'verifying' | 'ready' | 'released' | 'error' | null;
   restoreOriginals(photoIds?: readonly string[]): Promise<RestoreOriginalsSummary>;
   providers(): { providers: readonly ProviderDescriptor[]; defaultProviderId: string };
   providerStatus(providerId: string): Promise<{
@@ -264,6 +267,21 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
       await getFacade().rehydrate(photoId);
       return { ok: true };
     })(request),
+  );
+  ipcMain.handle(channels.backupKeepDownloaded.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupKeepDownloaded, async ({ photoId }) => {
+      await getFacade().keepDownloaded(photoId);
+      return { ok: true };
+    })(request),
+  );
+  ipcMain.handle(channels.backupReleaseEphemeral.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupReleaseEphemeral, async ({ photoId }) => {
+      await getFacade().releaseEphemeral(photoId);
+      return { ok: true };
+    })(request),
+  );
+  ipcMain.handle(channels.backupEphemeralStatus.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupEphemeralStatus, ({ photoId }) => ({ stage: getFacade().ephemeralStatus(photoId) }))(request),
   );
   ipcMain.handle(channels.backupRestoreOriginals.name, (_event, request: unknown) =>
     wrapHandler(channels.backupRestoreOriginals, async ({ photoIds }) => getFacade().restoreOriginals(photoIds))(request),

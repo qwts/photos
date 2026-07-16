@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import { createBackupFacade } from '../../src/main/backup/backup-facade.js';
 import type { OffloadService } from '../../src/main/backup/offload.js';
+import type { EphemeralOriginalService } from '../../src/main/backup/ephemeral-originals.js';
 import type { ProviderRuntime } from '../../src/main/backup/provider-runtime.js';
 
 function runtime(activeId = 'mock'): ProviderRuntime {
@@ -32,6 +33,12 @@ function offloadService(activeWork: () => number, reject = false): OffloadServic
   } as unknown as OffloadService;
 }
 
+const ephemeralOriginalService = {
+  keepDownloaded: () => Promise.resolve(),
+  release: () => Promise.resolve(),
+  status: () => null,
+} as unknown as EphemeralOriginalService;
+
 test('offload and restore work hold the provider-switch lock for their full async lifetime (#281)', async () => {
   let activeWork = 0;
   const facade = createBackupFacade({
@@ -44,6 +51,7 @@ test('offload and restore work hold the provider-switch lock for their full asyn
         integrity: { checked: 0, repaired: 0, unrecoverable: 0, recoveryRepaired: false, failed: false },
       }),
     offloadService: () => offloadService(() => activeWork),
+    ephemeralOriginalService: () => ephemeralOriginalService,
     workChanged: (delta) => (activeWork += delta),
   });
 
@@ -63,6 +71,7 @@ test('provider work lock releases when an offload operation rejects (#281)', asy
     runtime: () => runtime(),
     run: () => Promise.reject(new Error('unused')),
     offloadService: () => offloadService(() => activeWork, true),
+    ephemeralOriginalService: () => ephemeralOriginalService,
     workChanged: (delta) => (activeWork += delta),
   });
 

@@ -1,5 +1,6 @@
 import type { ProviderRuntime } from './provider-runtime.js';
 import type { OffloadService } from './offload.js';
+import type { EphemeralOriginalService } from './ephemeral-originals.js';
 
 export interface BackupFacadeOptions {
   readonly runtime: () => ProviderRuntime;
@@ -10,6 +11,7 @@ export interface BackupFacadeOptions {
     integrity: { checked: number; repaired: number; unrecoverable: number; recoveryRepaired: boolean; failed: boolean };
   }>;
   readonly offloadService: () => OffloadService;
+  readonly ephemeralOriginalService: () => EphemeralOriginalService;
   readonly workChanged: (delta: 1 | -1) => void;
 }
 
@@ -38,6 +40,9 @@ export function createBackupFacade(options: BackupFacadeOptions) {
     offload: (photoIds: readonly string[]) => withProviderWork(() => options.offloadService().offload(photoIds)),
     rehydrate: (photoId: string) => withProviderWork(() => options.offloadService().rehydrate(photoId)),
     restoreOriginals: (photoIds?: readonly string[]) => withProviderWork(() => options.offloadService().restoreOriginals(photoIds)),
+    keepDownloaded: (photoId: string) => options.ephemeralOriginalService().keepDownloaded(photoId),
+    releaseEphemeral: (photoId: string) => options.ephemeralOriginalService().release(photoId),
+    ephemeralStatus: (photoId: string) => options.ephemeralOriginalService().status(photoId),
     providers: () => ({ providers: options.runtime().descriptors(), defaultProviderId: options.runtime().defaultTarget() }),
     providerStatus: (providerId: string) => options.runtime().status(providerId),
     connect: (providerId: string) => options.runtime().connect(providerId),

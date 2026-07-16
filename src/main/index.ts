@@ -14,7 +14,8 @@ import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
 import { run } from './db/sql.js';
 import { registerFullProtocol } from './fullres/full-protocol.js';
-import { FullService } from './fullres/full-service.js';
+import type { FullService } from './fullres/full-service.js';
+import { createFullRuntime } from './fullres/full-runtime.js';
 import { extractMetadata } from './import/exif.js';
 import { ImportEngine } from './import/import-engine.js';
 import { ImportJournal } from './import/import-journal.js';
@@ -29,7 +30,9 @@ import { createBackupFacade } from './backup/backup-facade.js';
 import { createBackupIntegrityRuntime } from './backup/integrity-runtime.js';
 import { sealManifestJson } from './backup/manifest-sealer.js';
 import { createRecoveryHealthCheck } from './backup/recovery-health.js';
-import { OffloadService } from './backup/offload.js';
+import type { OffloadService } from './backup/offload.js';
+import type { EphemeralOriginalService } from './backup/ephemeral-originals.js';
+import { createOriginalCustodyRuntime } from './backup/original-custody-runtime.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
 import { RestoreRuntime } from './backup/restore-runtime.js';
 import { activationOperationsForHarness } from './backup/restore-fault.js';
@@ -327,32 +330,12 @@ function getFullService(): FullService {
       throw new Error('library bootstrap failed; full-res service unavailable');
     }
     const repo = new PhotosRepository(parts.db);
-    // Configurable decrypted-buffer budget (#91); the FullService default
-    // (256 MiB) applies when the env override is absent or not a number.
-    const budgetMb = Number(process.env['OVERLOOK_FULL_CACHE_MB'] ?? '');
-    fullService = new FullService({
-      loadOriginal: async (photoId) => {
-        const photo = repo.get(photoId);
-        if (photo === undefined) {
-          return null;
-        }
-        if (photo.syncState === 'offloaded') {
-          // The ledger, not the filesystem, owns availability: an offloaded
-          // original may still exist locally mid-eviction, but it must
-          // already render as remote-only (M08 restores it explicitly).
-          return null;
-        }
-        try {
-          const stream = parts.blobStore.getStream(photo.contentHash, parts.keyStore.resolver(), photoId);
-          return { bytes: await buffer(stream), contentHash: photo.contentHash, fileKind: photo.fileKind };
-        } catch (error) {
-          if (error instanceof BlobStoreError) {
-            return null; // Offloaded or missing original — placeholder.
-          }
-          throw error;
-        }
-      },
-      maxCacheBytes: Number.isFinite(budgetMb) && budgetMb > 0 ? budgetMb * 1024 * 1024 : undefined,
+    fullService = createFullRuntime({
+      repo,
+      blobs: parts.blobStore,
+      resolveKey: parts.keyStore.resolver(),
+      ephemeral: getEphemeralOriginalService,
+      cacheMb: process.env['OVERLOOK_FULL_CACHE_MB'],
     });
   }
   return fullService;
@@ -376,6 +359,7 @@ function getSettingsStore(): SettingsStore {
 
 let backupEngine: BackupEngine | undefined;
 let offloadService: OffloadService | undefined;
+let ephemeralOriginalService: EphemeralOriginalService | undefined;
 let providerRuntime: ProviderRuntime | undefined;
 let providerWorkCount = 0;
 
@@ -435,6 +419,12 @@ function getOffloadService(): OffloadService {
   getBackupEngine();
   if (offloadService === undefined) throw new Error('backup bootstrap failed; offload unavailable');
   return offloadService;
+}
+
+function getEphemeralOriginalService(): EphemeralOriginalService {
+  getBackupEngine();
+  if (ephemeralOriginalService === undefined) throw new Error('backup bootstrap failed; ephemeral originals unavailable');
+  return ephemeralOriginalService;
 }
 
 function getBackupEngine(): BackupEngine {
@@ -512,27 +502,26 @@ function getBackupEngine(): BackupEngine {
       integrityScrub: () => integrityScrubber.scrub(),
       recoveryGenerationHealthy: createRecoveryHealthCheck(provider, () => getProviderRuntime().libraryId(), parts.keyStore),
     });
-    offloadService = new OffloadService({
+    const emitEphemeralState = createEmitter(events.ephemeralOriginalState, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    const custody = createOriginalCustodyRuntime({
       provider,
-      providerConnected: () => getProviderRuntime().activeId() !== null,
+      connected: () => getProviderRuntime().activeId() !== null,
       ledger,
-      repo: {
-        get: (id) => repo.get(id),
-        countByContentHash: (hash) => repo.countByContentHash(hash),
-        offloadedIds: () => repo.offloadedPhotoIds(),
-      },
-      ledgerDirty: (photoId) => ledger.isDirty(photoId),
-      blobs: {
-        deleteOriginal: async (hash) => parts.blobStore.deleteOriginal(hash),
-        hasOriginal: (hash) => parts.blobStore.hasOriginal(hash),
-        encryptedStream: (hash) => parts.blobStore.getEncryptedStream(hash),
-        restoreOriginal: async (hash, ciphertext, photoId) =>
-          parts.blobStore.restoreOriginal(hash, ciphertext, parts.keyStore.resolver(), photoId),
-      },
+      repo,
+      blobs: parts.blobStore,
+      blobsReady: parts.blobStoreReady,
+      resolveKey: parts.keyStore.resolver(),
+      reOffloadAfterViewing: () => getSettingsStore().get().reOffloadAfterViewing,
+      workChanged: (delta) => (providerWorkCount += delta),
       syncStateChanged: (updates) => emitSyncStateChanged({ updates: [...updates] }),
       storageChanged: () => broadcast((win) => win.webContents.send(events.storageChanged.name, {})),
+      stateChanged: (state) => emitEphemeralState(state),
       audit,
     });
+    offloadService = custody.offload;
+    ephemeralOriginalService = custody.ephemeral;
     purgeService = new PurgeService({
       repo: {
         getDeleted: (id) => repo.getDeleted(id),
@@ -904,6 +893,7 @@ void app.whenReady().then(async () => {
       runtime: ensureRestoreProviderRegistry,
       run: () => getBackupEngine().run(),
       offloadService: getOffloadService,
+      ephemeralOriginalService: getEphemeralOriginalService,
       workChanged: (delta) => (providerWorkCount += delta),
     }),
   );

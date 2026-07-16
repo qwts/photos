@@ -75,6 +75,10 @@ function installStub(): void {
     offloadPreflight: () => Promise.resolve({ eligible: 0, ineligible: 0, estimatedFreedBytes: 0, items: [] }),
     offload: () => Promise.resolve({ offloaded: 0, skipped: 0, failed: 0, freedBytes: 0, results: [] }),
     rehydrate: () => Promise.resolve({ ok: true }),
+    keepDownloaded: () => Promise.resolve({ ok: true }),
+    releaseEphemeral: () => Promise.resolve({ ok: true }),
+    ephemeralStatus: () => Promise.resolve({ stage: null }),
+    onEphemeralState: () => () => undefined,
     restoreOriginals: ({ photoIds }) =>
       Promise.resolve({
         restored: photoIds?.length ?? 2,
