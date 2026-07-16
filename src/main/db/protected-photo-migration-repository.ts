@@ -113,6 +113,17 @@ export class ProtectedPhotoMigrationRepository {
     ).map(stored);
   }
 
+  countProtectedBlobOwners(albumId: string, blobRef: string): number {
+    return (
+      queryGet<{ count: number }>(
+        this.db,
+        'SELECT count(*) AS count FROM protected_photo_records WHERE album_id = ? AND blob_ref = ?',
+        albumId,
+        blobRef,
+      )?.count ?? 0
+    );
+  }
+
   prepare(input: {
     readonly migrationId: string;
     readonly operation: ProtectedMigrationOperation;

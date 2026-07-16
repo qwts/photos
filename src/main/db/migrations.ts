@@ -356,10 +356,10 @@ const SCHEMA_V8: Migration = {
         has_thumb INTEGER NOT NULL CHECK (has_thumb IN (0, 1)),
         has_mid INTEGER NOT NULL CHECK (has_mid IN (0, 1)),
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        UNIQUE (album_id, blob_ref)
+        updated_at TEXT NOT NULL
       ) WITHOUT ROWID;
       CREATE INDEX idx_protected_photo_album ON protected_photo_records (album_id);
+      CREATE INDEX idx_protected_photo_blob ON protected_photo_records (album_id, blob_ref);
 
       -- Public ordinary-library reads use this view. A photo disappears as
       -- soon as prepare commits and cannot flicker back between copy phases.
