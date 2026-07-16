@@ -37,11 +37,20 @@ const PHOTO: PhotoRecord = {
 
 type EphemeralStage = 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
 
+let backupStubCalls = { status: 0, prepare: 0 };
+
 function installBackupStub(stage: EphemeralStage | null): void {
+  backupStubCalls = { status: 0, prepare: 0 };
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = {
     backup: {
-      ephemeralStatus: () => Promise.resolve({ stage }),
-      prepareEphemeral: () => Promise.resolve({ custody: 'ephemeral' }),
+      ephemeralStatus: () => {
+        backupStubCalls.status += 1;
+        return Promise.resolve({ stage });
+      },
+      prepareEphemeral: () => {
+        backupStubCalls.prepare += 1;
+        return Promise.resolve({ custody: 'ephemeral' });
+      },
       releaseEphemeral: () => Promise.resolve({ ok: true }),
       keepDownloaded: () => Promise.resolve({ ok: true }),
       onEphemeralState: () => () => undefined,
@@ -156,5 +165,13 @@ export const OffloadedUnavailable: Story = {
   parameters: { ephemeralStage: 'error' },
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(within(canvasElement).getByText('ORIGINAL UNAVAILABLE')).toBeVisible());
+  },
+};
+
+export const OffloadSuppressionBlocksFetch: Story = {
+  args: { photo: { ...PHOTO, syncState: 'offloaded' }, suppressRehydrate: true },
+  play: async () => {
+    await waitFor(() => expect(backupStubCalls.status).toBeGreaterThan(0));
+    await expect(backupStubCalls.prepare).toBe(0);
   },
 };
