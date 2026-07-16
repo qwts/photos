@@ -97,7 +97,9 @@ export class ProtectedAlbumService {
           this.options.authorities.relock(albumId);
           throw new ProtectedAlbumServiceError('protected album credentials changed concurrently');
         }
-        this.options.authorities.authorize(albumId, changed.albumKey);
+        // Credential changes terminate the current album authorization.
+        // The new password must explicitly release custody again.
+        this.options.authorities.relock(albumId);
         return true;
       } finally {
         changed.albumKey.fill(0);
@@ -136,7 +138,9 @@ export class ProtectedAlbumService {
           this.options.authorities.relock(input.albumId);
           throw new ProtectedAlbumServiceError('protected album credentials changed concurrently');
         }
-        this.options.authorities.authorize(input.albumId, recovered.albumKey);
+        // Recovery is a credential ceremony, not a session unlock. Revoke
+        // any prior authority and require the new password on the next open.
+        this.options.authorities.relock(input.albumId);
         return { ok: true, metadata: recovered.metadata };
       } finally {
         recovered.albumKey.fill(0);
