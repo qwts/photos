@@ -132,6 +132,9 @@ export class AppLockController {
 
   recover(input: ConfigureAppLockInput): Promise<void> {
     return this.serialize(async () => {
+      if (this.current.state !== 'locked' && this.current.state !== 'recovery-required') {
+        throw new AppLockedError('App lock recovery requires a closed library');
+      }
       await this.options.credentials.recover(input);
       this.publish({ state: 'locked', libraryId: input.libraryId });
     });

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -80,6 +80,26 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     const { dataDir, anchors, store, masterKey } = world();
     anchors.failAfterWrite = true;
     await assert.rejects(store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey }), /interrupted/);
+    anchors.failAfterWrite = false;
+    const restarted = new AppLockCredentialStore({ dataDir, anchorStore: anchors, safeStorage: fakeSafeStorage() });
+    assert.deepEqual(restarted.status(), { state: 'locked', libraryId: 'library-a' });
+    assert.equal((await restarted.unlock('correct horse battery staple')).ok, true);
+  });
+
+  test('missing committed custody never falls back to an unconfigured profile', async () => {
+    const { dataDir, store, masterKey } = world();
+    await store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey });
+    unlinkSync(join(dataDir, 'master.key'));
+
+    assert.deepEqual(store.status(), { state: 'recovery-required', reason: 'anchor-mismatch' });
+  });
+
+  test('startup promotes an anchored pending record even when committed custody is missing', async () => {
+    const { dataDir, anchors, store, masterKey } = world();
+    anchors.failAfterWrite = true;
+    await assert.rejects(store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey }), /interrupted/);
+    unlinkSync(join(dataDir, 'master.key'));
+
     anchors.failAfterWrite = false;
     const restarted = new AppLockCredentialStore({ dataDir, anchorStore: anchors, safeStorage: fakeSafeStorage() });
     assert.deepEqual(restarted.status(), { state: 'locked', libraryId: 'library-a' });
