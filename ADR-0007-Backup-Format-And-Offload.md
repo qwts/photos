@@ -42,8 +42,9 @@ envelope scheme, sealed by the current library key) listing: schema version,
 library id, key ids in use, and per-photo rows (photo id, content hash,
 byte size, key id, file name, minimal display metadata). A new generation
 uploads after each backup batch; the previous N=2 generations are retained
-for corruption recovery. Restore-on-new-machine = recovery phrase (ADR-0004)
-+ latest manifest + blobs; the wrapped master key never leaves the device.
+for corruption recovery. Restore on a new machine requires the recovery phrase
+(ADR-0004), latest manifest, and blobs; the wrapped master key never leaves the
+device.
 
 **Verify-after-upload — checksum compare, not re-download.** The provider
 interface exposes a server-side content hash/size check (pCloud offers
@@ -63,10 +64,23 @@ verification: the `verified` bit is what offload eligibility trusts.
   ledger row flips to `offloaded`; the DB row keeps everything else.
 - **UI contract:** offloaded tiles dim to 55% with the amber cloud glyph
   (StatusGlyph vocabulary) — the design's existing state.
-- **Rehydrate:** opening/exporting an offloaded photo downloads the blob,
-  re-verifies its content hash against the DB, restores the ledger row to
-  `synced`. Rehydrate failures (offline, provider error) surface as the
-  amber `cloud-alert` state, never a silent placeholder.
+- **Temporary view/export custody (default):** with **Re-offload after
+  viewing** enabled, opening, neighbor-prefetching, or exporting an offloaded
+  photo downloads its existing encrypted envelope into a separate bounded
+  ephemeral store. The store authenticates every envelope chunk and verifies
+  the decrypted content address before it can serve the memory-only full-res
+  path. The durable ledger remains `offloaded`; close/navigation/export
+  completion releases ownership, inactive ciphertext is LRU-evicted, and
+  startup removes abandoned ephemeral files. Plaintext is never written.
+- **Keep downloaded / policy off:** **Keep downloaded** atomically promotes
+  already-verified ciphertext into the durable blob store before the ledger
+  becomes `synced`. Disabling Re-offload after viewing uses that permanent
+  verified restore path when a photo is opened.
+- **Failure truth:** fetching, verification, ready, released, and error are
+  explicit states. Offline/expired auth, missing/corrupt remote objects, and
+  cache pressure fail closed without changing durable state. Remote loss is
+  coordinated with ADR-0012's integrity-error contract rather than shown as
+  a silent placeholder.
 
 **Provider abstraction — mock-first (decision with the owner, epic #44).**
 One interface both the in-memory/on-disk mock and the pCloud adapter
@@ -99,3 +113,7 @@ a new Import-dialog source — not a shared live folder or shared format.
 - Thumbs-stay eviction bounds offload savings (thumbnails remain on disk) —
   accepted so the library stays browsable offline, per the design's offloaded
   UX.
+- Temporary custody preserves the user's storage choice while still allowing
+  viewing and export. It adds a second encrypted local lifecycle, so its byte
+  cap, shared-content ownership, provider-switch lock, crash cleanup, and
+  plaintext-cache invalidation are tested as security invariants.
