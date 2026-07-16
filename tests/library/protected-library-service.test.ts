@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
+import { readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -14,6 +15,7 @@ import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { ProtectedAlbumRepository } from '../../src/main/db/protected-album-repository.js';
 import { ProtectedPhotoMigrationRepository } from '../../src/main/db/protected-photo-migration-repository.js';
 import { runNamed } from '../../src/main/db/sql.js';
+import { createProtectedExportRuntime } from '../../src/main/export/protected-export-runtime.js';
 import { handleFullRequest } from '../../src/main/fullres/full-response.js';
 import { FullService } from '../../src/main/fullres/full-service.js';
 import { ProtectedContentUnavailableError, ProtectedLibraryService } from '../../src/main/library/protected-library-service.js';
@@ -290,6 +292,78 @@ describe('protected library authorization boundary (#327)', () => {
     assert.deepEqual(media.stats(), { thumbBytes: 0, fullBytes: 0 });
     await media.close();
     await Promise.all([ordinaryThumb.close(), ordinaryFull.close()]);
+    w.db.close();
+  });
+
+  test('protected export requires live album authority and redacts failures', async () => {
+    const w = await world();
+    const destination = mkdtempSync(join(tmpdir(), 'overlook-protected-export-'));
+    let failures = 0;
+    const runtime = createProtectedExportRuntime({
+      library: w.service,
+      progress: () => undefined,
+      pickDestination: () => Promise.resolve(destination),
+      failure: () => {
+        failures += 1;
+      },
+    });
+    w.authorities.authorize('protected-a', w.albumKeys.get('protected-a')!);
+    const exported = await runtime.run('protected-a', [PHOTO_ID], destination, 'original');
+    assert.deepEqual(exported, { exported: 1, failed: 0, cancelled: 0, previewTranscodes: 0 });
+    assert.deepEqual(await readFile(join(destination, 'private-name.jpg')), w.original);
+
+    w.authorities.relock('protected-a');
+    const denied = await runtime.run('protected-a', [PHOTO_ID], destination, 'original');
+    assert.deepEqual(denied, { exported: 0, failed: 1, cancelled: 0, previewTranscodes: 0 });
+    assert.equal(failures, 1, 'failure sink receives no protected filename, id, hash, or error text');
+    runtime.close();
+    await runtime.drain();
+    w.db.close();
+  });
+
+  test('relock during protected export destroys the stream and removes the partial plaintext file', async () => {
+    const w = await world();
+    w.authorities.authorize('protected-a', w.albumKeys.get('protected-a')!);
+    let started: (() => void) | undefined;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const delayedBlobs = {
+      getStream: () =>
+        Readable.from(
+          (async function* () {
+            yield Buffer.from('partial');
+            started?.();
+            await gate;
+            yield Buffer.from('late plaintext');
+          })(),
+        ),
+    } as unknown as ProtectedBlobStore;
+    const service = new ProtectedLibraryService({
+      libraryId: LIBRARY_ID,
+      albums: w.albums,
+      photos: w.photos,
+      blobs: delayedBlobs,
+      authorities: w.authorities,
+    });
+    const destination = mkdtempSync(join(tmpdir(), 'overlook-protected-export-revoke-'));
+    const runtime = createProtectedExportRuntime({
+      library: service,
+      progress: () => undefined,
+      pickDestination: () => Promise.resolve(destination),
+    });
+    const pending = runtime.run('protected-a', [PHOTO_ID], destination, 'original');
+    await entered;
+    w.authorities.relock('protected-a');
+    release?.();
+    assert.deepEqual(await pending, { exported: 0, failed: 1, cancelled: 0, previewTranscodes: 0 });
+    assert.deepEqual(await readdir(destination), []);
+    runtime.close();
+    await runtime.drain();
     w.db.close();
   });
 });

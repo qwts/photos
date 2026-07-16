@@ -149,6 +149,9 @@ const photoRecordSchema = z.object({
   syncState: syncStatusSchema,
 });
 
+const protectedPhotoRecordSchema = photoRecordSchema.omit({ contentHash: true, keyId: true, syncState: true });
+const protectedPageCursorSchema = z.object({ position: z.number().int().nonnegative(), id: z.string().min(1) });
+
 export const channels = {
   // Demo round-trip channel proving the registry under test; real domain
   // channels (library, import, backup, settings) arrive with their epics.
@@ -244,6 +247,88 @@ export const channels = {
     z.object({}),
     z.object({ albums: z.array(z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() })).readonly() }),
   ),
+  protectedAlbumsList: defineChannel(
+    'protected-album:list',
+    z.object({}),
+    z.object({
+      albums: z
+        .array(
+          z.object({
+            id: z.string().min(1),
+            label: z.literal('Protected album'),
+            locked: z.boolean(),
+          }),
+        )
+        .readonly(),
+    }),
+  ),
+  protectedAlbumUnlock: defineChannel(
+    'protected-album:unlock',
+    z.object({ albumId: z.string().min(1).max(256), password: z.string().min(1).max(1024) }),
+    z.object({ ok: z.boolean() }),
+  ),
+  protectedAlbumRelock: defineChannel(
+    'protected-album:relock',
+    z.object({ albumId: z.string().min(1).max(256) }),
+    z.object({ relocked: z.boolean() }),
+  ),
+  protectedAlbumSummary: defineChannel(
+    'protected-album:summary',
+    z.object({ albumId: z.string().min(1).max(256) }),
+    z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative(), createdAt: z.string() }),
+  ),
+  protectedAlbumPage: defineChannel(
+    'protected-album:page',
+    z.object({
+      albumId: z.string().min(1).max(256),
+      limit: z.number().int().positive().max(500),
+      cursor: protectedPageCursorSchema.optional(),
+      query: z.string().optional(),
+      source: z.enum(['all', 'favorites', 'deleted']).optional(),
+    }),
+    z.object({ photos: z.array(protectedPhotoRecordSchema).readonly(), nextCursor: protectedPageCursorSchema.nullable() }),
+  ),
+  protectedAlbumGet: defineChannel(
+    'protected-album:get',
+    z.object({ albumId: z.string().min(1).max(256), photoId: z.string().min(1) }),
+    z.object({ photo: protectedPhotoRecordSchema }),
+  ),
+  protectedAlbumToggleFavorite: defineChannel(
+    'protected-album:toggle-favorite',
+    z.object({ albumId: z.string().min(1).max(256), photoId: z.string().min(1) }),
+    z.object({ favorite: z.boolean() }),
+  ),
+  protectedAlbumDelete: defineChannel(
+    'protected-album:delete',
+    z.object({ albumId: z.string().min(1).max(256), photoIds: z.array(z.string().min(1)).min(1) }),
+    z.object({ deleted: z.number().int().nonnegative() }),
+  ),
+  protectedAlbumRestore: defineChannel(
+    'protected-album:restore',
+    z.object({ albumId: z.string().min(1).max(256), photoIds: z.array(z.string().min(1)).min(1) }),
+    z.object({ restored: z.number().int().nonnegative() }),
+  ),
+  protectedAlbumExportPickDestination: defineChannel(
+    'protected-album:export-pick-destination',
+    z.object({}),
+    z.object({ path: z.string().nullable() }),
+  ),
+  protectedAlbumExportRun: defineChannel(
+    'protected-album:export-run',
+    z.object({
+      albumId: z.string().min(1).max(256),
+      photoIds: z.array(z.string().min(1)).min(1),
+      destination: z.string().min(1),
+      format: z.enum(['original', 'jpeg']).optional(),
+    }),
+    z.object({
+      exported: z.number().int().nonnegative(),
+      failed: z.number().int().nonnegative(),
+      cancelled: z.number().int().nonnegative(),
+      previewTranscodes: z.number().int().nonnegative(),
+    }),
+  ),
+  protectedAlbumExportCancel: defineChannel('protected-album:export-cancel', z.object({}), z.object({})),
   // Soft delete + restore (#120): safe by default — rows move to Recently
   // deleted and come back intact. Purge (the destructive path) is #121.
   libraryDelete: defineChannel(

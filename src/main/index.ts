@@ -8,14 +8,19 @@ import { app, BrowserWindow, dialog, session, shell } from 'electron';
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
+import { ProtectedBlobStore } from './blobs/protected-blob-store.js';
 import { createWindow, reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
 import { drainWithCancellationFence } from './crypto/library-shutdown.js';
 import { TestFileCredentialAnchorStore } from './crypto/test-credential-anchor.js';
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
+import { ProtectedAlbumAuthorityRegistry } from './crypto/protected-album-authority.js';
+import { ProtectedAlbumService } from './crypto/protected-album-service.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
+import { ProtectedAlbumRepository } from './db/protected-album-repository.js';
+import { ProtectedPhotoMigrationRepository } from './db/protected-photo-migration-repository.js';
 import { run } from './db/sql.js';
 import { registerFullProtocol } from './fullres/full-protocol.js';
 import type { FullService } from './fullres/full-service.js';
@@ -51,6 +56,7 @@ import { SyncLedger } from './backup/sync-ledger.js';
 import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import { createExportRuntime, type DrainableExportFacade } from './export/export-runtime.js';
+import { createProtectedExportRuntime, type DrainableProtectedExportFacade } from './export/protected-export-runtime.js';
 import {
   registerAlbumHandlers,
   registerBackupHandlers,
@@ -60,12 +66,15 @@ import {
   registerKeysHandlers,
   registerLibraryHandlers,
   registerPurgeHandlers,
+  registerProtectedAlbumHandlers,
   registerRestoreHandlers,
   registerSettingsHandlers,
 } from './ipc.js';
 import { getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
+import { ProtectedLibraryService } from './library/protected-library-service.js';
+import { ProtectedMediaService } from './library/protected-media-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
 import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
@@ -106,8 +115,17 @@ function broadcast(send: (win: BrowserWindow) => void): void {
   }
 }
 
-let libraryParts:
-  { db: ReturnType<typeof openLibraryDatabase>; blobStore: BlobStore; blobStoreReady: Promise<void>; keyStore: KeyStore } | undefined;
+interface LibraryParts {
+  readonly db: ReturnType<typeof openLibraryDatabase>;
+  readonly blobStore: BlobStore;
+  readonly blobStoreReady: Promise<void>;
+  readonly keyStore: KeyStore;
+  readonly protectedAuthorities: ProtectedAlbumAuthorityRegistry;
+  readonly protectedAlbums: ProtectedAlbumService;
+  readonly protectedLibrary: ProtectedLibraryService;
+}
+
+let libraryParts: LibraryParts | undefined;
 let releasedMaster: Buffer | undefined;
 
 function getLibraryService(): LibraryService {
@@ -126,9 +144,11 @@ function getLibraryService(): LibraryService {
     }
     const db = openLibraryDatabase({ path: path.join(dataDir, 'library.db'), dbKey });
     const store = new BlobStore({ dataDir });
+    const protectedStore = new ProtectedBlobStore(dataDir);
     // Reads fail clean before init, but WRITES race the directory creation
     // on a fresh profile — importers await this promise (PR #183 review).
     const blobStoreReady = store.init();
+    const protectedStoreReady = protectedStore.init();
     // photos.key_id references keys(id): the current key's row must exist
     // before the FIRST real import on a fresh profile (#90 caught this —
     // previously only the dev seed wrote it). The wrapped key itself lives
@@ -139,7 +159,30 @@ function getLibraryService(): LibraryService {
       keyStore.currentKey().id,
       new Date().toISOString(),
     );
-    libraryParts = { db, blobStore: store, blobStoreReady, keyStore };
+    const libraryId = getProviderRuntime().libraryId();
+    const authorities = new ProtectedAlbumAuthorityRegistry();
+    const protectedAlbums = new ProtectedAlbumService({
+      libraryId,
+      repository: new ProtectedAlbumRepository(db, libraryId),
+      authorities,
+    });
+    const protectedLibrary = new ProtectedLibraryService({
+      libraryId,
+      albums: new ProtectedAlbumRepository(db, libraryId),
+      photos: new ProtectedPhotoMigrationRepository(db),
+      blobs: protectedStore,
+      blobsReady: protectedStoreReady,
+      authorities,
+    });
+    libraryParts = {
+      db,
+      blobStore: store,
+      blobStoreReady,
+      keyStore,
+      protectedAuthorities: authorities,
+      protectedAlbums,
+      protectedLibrary,
+    };
     startupMaintenance.schedule();
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
@@ -303,6 +346,7 @@ function getThumbService(): ThumbService {
 }
 
 let fullService: FullService | undefined;
+let protectedMediaService: ProtectedMediaService | undefined;
 
 function getFullService(): FullService {
   if (fullService === undefined) {
@@ -321,6 +365,31 @@ function getFullService(): FullService {
     });
   }
   return fullService;
+}
+
+function getProtectedAlbumService(): ProtectedAlbumService {
+  getLibraryService();
+  if (libraryParts === undefined) throw new Error('library bootstrap failed; protected albums unavailable');
+  return libraryParts.protectedAlbums;
+}
+
+function getProtectedLibraryService(): ProtectedLibraryService {
+  getLibraryService();
+  if (libraryParts === undefined) throw new Error('library bootstrap failed; protected library unavailable');
+  return libraryParts.protectedLibrary;
+}
+
+function getProtectedMediaService(): ProtectedMediaService {
+  if (protectedMediaService === undefined) {
+    const library = getProtectedLibraryService();
+    const parts = libraryParts;
+    if (parts === undefined) throw new Error('library bootstrap failed; protected media unavailable');
+    protectedMediaService = new ProtectedMediaService({
+      library,
+      authorities: parts.protectedAuthorities,
+    });
+  }
+  return protectedMediaService;
 }
 
 let backupEngine: BackupEngine | undefined;
@@ -643,6 +712,7 @@ function getBackupEngine(): BackupEngine {
 }
 
 let exportFacade: DrainableExportFacade | undefined;
+let protectedExportFacade: DrainableProtectedExportFacade | undefined;
 
 function getExportFacade(): DrainableExportFacade {
   if (exportFacade === undefined) {
@@ -680,25 +750,53 @@ function getExportFacade(): DrainableExportFacade {
   return exportFacade;
 }
 
+function getProtectedExportFacade(): DrainableProtectedExportFacade {
+  if (protectedExportFacade === undefined) {
+    const emitProgress = createEmitter(events.exportProgress, (name, payload) => {
+      broadcast((win) => win.webContents.send(name, payload));
+    });
+    protectedExportFacade = createProtectedExportRuntime({
+      library: getProtectedLibraryService(),
+      pickDestination: async () => {
+        const fixture = harnessEnv('OVERLOOK_EXPORT_DESTINATION');
+        if (fixture !== undefined && fixture !== '') return fixture;
+        const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+      progress: (done, total) => emitProgress({ done, total }),
+      failure: () => console.error('[overlook] protected export failed'),
+    });
+  }
+  return protectedExportFacade;
+}
+
 async function closeLibrary(drainRestore: boolean): Promise<void> {
   autoBackupTrigger = undefined;
   manifestSyncTrigger = undefined;
   importService?.close();
   exportFacade?.close();
+  protectedExportFacade?.close();
   purgeRuntime?.close();
+  libraryParts?.protectedAlbums.relockAll();
   for (const controller of activeBackupControllers) controller.abort();
   await drainWithCancellationFence(cancelScheduledLibraryWork, [
     importService?.drain() ?? Promise.resolve(),
     exportFacade?.drain() ?? Promise.resolve(),
+    protectedExportFacade?.drain() ?? Promise.resolve(),
     purgeRuntime?.drain() ?? Promise.resolve(),
     startupMaintenance.drain(),
     Promise.allSettled([...activeBackupRuns]),
     drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
     drainRestore ? providerIdle() : Promise.resolve(),
-    Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),
+    Promise.all([
+      thumbService?.close() ?? Promise.resolve(),
+      fullService?.close() ?? Promise.resolve(),
+      protectedMediaService?.close() ?? Promise.resolve(),
+    ]),
     thumbnailPool?.close() ?? Promise.resolve(),
     ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
   ]);
+  libraryParts?.protectedAlbums.close();
   libraryParts?.db.close();
   libraryParts?.keyStore.close();
   libraryService = undefined;
@@ -707,12 +805,14 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   thumbnailPool = undefined;
   thumbService = undefined;
   fullService = undefined;
+  protectedMediaService = undefined;
   backupEngine = undefined;
   offloadService = undefined;
   ephemeralOriginalService = undefined;
   [purgeService, purgeRuntime] = [undefined, undefined];
   consistencyChecker = undefined;
   exportFacade = undefined;
+  protectedExportFacade = undefined;
   if (drainRestore) restoreRuntime = undefined;
 }
 
@@ -806,8 +906,9 @@ void app.whenReady().then(async () => {
     manifestSyncTrigger?.();
   });
   registerAlbumHandlers(getLibraryService, ulid);
-  registerThumbProtocol(getThumbService, () => lock.requireContentAccess());
-  registerFullProtocol(getFullService, () => lock.requireContentAccess());
+  registerProtectedAlbumHandlers(getProtectedAlbumService, getProtectedLibraryService, getProtectedExportFacade);
+  registerThumbProtocol(getThumbService, () => lock.requireContentAccess(), getProtectedMediaService);
+  registerFullProtocol(getFullService, () => lock.requireContentAccess(), getProtectedMediaService);
   registerImportHandlers(
     getImportService,
     async () => {

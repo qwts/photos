@@ -54,6 +54,49 @@ describe('channel registry', () => {
       { ok: true, reason: null },
     );
   });
+
+  test('protected album IPC strips domain equality and library custody fields (#327)', () => {
+    const parsed = channels.protectedAlbumPage.response.parse({
+      photos: [
+        {
+          id: 'P1',
+          fileName: 'private.jpg',
+          fileKind: 'jpeg',
+          width: 10,
+          height: 10,
+          bytes: 42,
+          camera: null,
+          lens: null,
+          iso: null,
+          aperture: null,
+          shutter: null,
+          focalLength: null,
+          takenAt: null,
+          gpsLat: null,
+          gpsLon: null,
+          place: null,
+          importedAt: '2026-07-16T12:00:00.000Z',
+          importSource: 'test',
+          favorite: false,
+          deletedAt: null,
+          contentHash: 'a'.repeat(64),
+          keyId: 1,
+          syncState: 'synced',
+        },
+      ],
+      nextCursor: null,
+    });
+    assert.equal('contentHash' in parsed.photos[0]!, false);
+    assert.equal('keyId' in parsed.photos[0]!, false);
+    assert.equal('syncState' in parsed.photos[0]!, false);
+    assert.throws(() =>
+      channels.protectedAlbumExportRun.request.parse({
+        albumId: '',
+        photoIds: [],
+        destination: '',
+      }),
+    );
+  });
 });
 
 describe('createInvoker', () => {

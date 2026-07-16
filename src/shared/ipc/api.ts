@@ -55,6 +55,22 @@ export interface OverlookApi {
     readonly removePhotos: (request: Req<typeof channels.albumRemovePhotos>) => Promise<Res<typeof channels.albumRemovePhotos>>;
     readonly movePhotos: (request: Req<typeof channels.albumMovePhotos>) => Promise<Res<typeof channels.albumMovePhotos>>;
   };
+  readonly protectedAlbums: {
+    readonly list: () => Promise<Res<typeof channels.protectedAlbumsList>>;
+    readonly unlock: (request: Req<typeof channels.protectedAlbumUnlock>) => Promise<Res<typeof channels.protectedAlbumUnlock>>;
+    readonly relock: (request: Req<typeof channels.protectedAlbumRelock>) => Promise<Res<typeof channels.protectedAlbumRelock>>;
+    readonly summary: (request: Req<typeof channels.protectedAlbumSummary>) => Promise<Res<typeof channels.protectedAlbumSummary>>;
+    readonly page: (request: Req<typeof channels.protectedAlbumPage>) => Promise<Res<typeof channels.protectedAlbumPage>>;
+    readonly get: (request: Req<typeof channels.protectedAlbumGet>) => Promise<Res<typeof channels.protectedAlbumGet>>;
+    readonly toggleFavorite: (
+      request: Req<typeof channels.protectedAlbumToggleFavorite>,
+    ) => Promise<Res<typeof channels.protectedAlbumToggleFavorite>>;
+    readonly delete: (request: Req<typeof channels.protectedAlbumDelete>) => Promise<Res<typeof channels.protectedAlbumDelete>>;
+    readonly restore: (request: Req<typeof channels.protectedAlbumRestore>) => Promise<Res<typeof channels.protectedAlbumRestore>>;
+    readonly pickExportDestination: () => Promise<Res<typeof channels.protectedAlbumExportPickDestination>>;
+    readonly export: (request: Req<typeof channels.protectedAlbumExportRun>) => Promise<Res<typeof channels.protectedAlbumExportRun>>;
+    readonly cancelExport: () => Promise<Res<typeof channels.protectedAlbumExportCancel>>;
+  };
   readonly backup: {
     readonly run: (request: Req<typeof channels.backupRun>) => Promise<Res<typeof channels.backupRun>>;
     readonly onProgress: (listener: (payload: z.output<typeof events.backupProgress.payload>) => void) => () => void;
