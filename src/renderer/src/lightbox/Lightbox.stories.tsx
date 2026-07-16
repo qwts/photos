@@ -3,6 +3,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import { Lightbox } from './Lightbox';
 import type { PhotoRecord } from '../../../shared/library/types.js';
+import type { OverlookApi } from '../../../shared/ipc/api.js';
 
 // #92 exit criteria: chrome hides after 2.2s idle and wakes on mousemove
 // (200ms ease-out fades); RAW records carry the PREVIEW badge; the EXIF
@@ -34,6 +35,20 @@ const PHOTO: PhotoRecord = {
   syncState: 'local',
 };
 
+type EphemeralStage = 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
+
+function installBackupStub(stage: EphemeralStage | null): void {
+  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = {
+    backup: {
+      ephemeralStatus: () => Promise.resolve({ stage }),
+      prepareEphemeral: () => Promise.resolve({ custody: 'ephemeral' }),
+      releaseEphemeral: () => Promise.resolve({ ok: true }),
+      keepDownloaded: () => Promise.resolve({ ok: true }),
+      onEphemeralState: () => () => undefined,
+    } as unknown as OverlookApi['backup'],
+  };
+}
+
 const meta: Meta<typeof Lightbox> = {
   title: 'App/Lightbox',
   component: Lightbox,
@@ -47,7 +62,18 @@ const meta: Meta<typeof Lightbox> = {
     onToggleInspector: fn(),
     onExport: fn(),
     onOffload: fn(),
+    onDelete: fn(),
   },
+  decorators: [
+    (Story, context) => {
+      installBackupStub((context.parameters['ephemeralStage'] as EphemeralStage | null | undefined) ?? null);
+      return (
+        <div style={{ position: 'relative', width: 'min(960px, 100vw)', height: '640px', overflow: 'hidden' }}>
+          <Story />
+        </div>
+      );
+    },
+  ],
 };
 
 export default meta;
@@ -93,5 +119,42 @@ export const SyncedOriginalCanBeOffloaded: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Offload original' }));
     await expect(args.onOffload).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const OffloadedFetching: Story = {
+  args: { photo: { ...PHOTO, syncState: 'offloaded' } },
+  parameters: { ephemeralStage: 'fetching' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByText('FETCHING ORIGINAL…')).toBeVisible());
+    await expect(canvas.queryByRole('button', { name: 'Keep downloaded' })).not.toBeInTheDocument();
+  },
+};
+
+export const OffloadedVerifying: Story = {
+  args: { photo: { ...PHOTO, syncState: 'offloaded' } },
+  parameters: { ephemeralStage: 'verifying' },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(within(canvasElement).getByText('VERIFYING ORIGINAL…')).toBeVisible());
+  },
+};
+
+export const OffloadedStreaming: Story = {
+  args: { photo: { ...PHOTO, syncState: 'offloaded' } },
+  parameters: { ephemeralStage: 'ready' },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible());
+    await expect(canvas.getByRole('button', { name: 'Keep downloaded' })).toBeVisible();
+    await expect(canvas.getByText('FUJIFILM X-T5 · ƒ/1.4 · 1/250S · ISO 200 · 35MM')).toBeVisible();
+  },
+};
+
+export const OffloadedUnavailable: Story = {
+  args: { photo: { ...PHOTO, syncState: 'offloaded' } },
+  parameters: { ephemeralStage: 'error' },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(within(canvasElement).getByText('ORIGINAL UNAVAILABLE')).toBeVisible());
   },
 };
