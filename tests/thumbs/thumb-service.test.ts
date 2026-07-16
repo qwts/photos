@@ -12,6 +12,7 @@ import { BlobStore } from '../../src/main/blobs/blob-store.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import { ThumbService, type LoadedThumb } from '../../src/main/thumbs/thumb-service.js';
+import { handleThumbRequest } from '../../src/main/thumbs/thumb-response.js';
 import { parseThumbUrl, thumbUrl, THUMB_SCHEME } from '../../src/shared/library/thumb-url.js';
 
 function loaded(size: number, hash = 'h'): LoadedThumb {
@@ -33,6 +34,24 @@ describe('thumb URL contract', () => {
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/a/b?size=thumb`), null);
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/01J8?size=huge`), null);
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/?size=thumb`), null);
+  });
+
+  test('protocol responses never let Chromium cache decrypted thumbs across lock', async () => {
+    const service = new ThumbService({ loadThumb: () => Promise.resolve(loaded(3)) });
+    const success = await handleThumbRequest(service, () => undefined, new Request(thumbUrl('a')));
+    assert.equal(success.status, 200);
+    assert.equal(success.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(Buffer.from(await success.arrayBuffer()), Buffer.alloc(3, 1));
+
+    const denied = await handleThumbRequest(
+      service,
+      () => {
+        throw new Error('locked');
+      },
+      new Request(thumbUrl('a')),
+    );
+    assert.equal(denied.status, 404);
+    assert.equal(denied.headers.get('cache-control'), 'no-store');
   });
 });
 
