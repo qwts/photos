@@ -14,6 +14,10 @@ export function createAppLockFacade(options: AppLockFacadeOptions) {
     snapshot: () => options.controller.snapshot(),
     retryAfterMs: () => options.controller.retryAfterMs(),
     unlock: (password: string) => options.controller.unlock(password),
+    touchIdStatus: () => options.controller.touchIdStatus(),
+    touchIdUnlock: () => options.controller.unlockWithTouchId(),
+    touchIdEnable: (password: string) => options.controller.enableTouchId(password),
+    touchIdDisable: () => options.controller.disableTouchId(),
     configure: async (password: string) => {
       const masterKey = options.currentMaster();
       try {

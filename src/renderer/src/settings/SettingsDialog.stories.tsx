@@ -167,10 +167,15 @@ function installStub(): void {
     remove: () => Promise.resolve({ removed: true }),
     pickRecovery: () => Promise.resolve({ path: null }),
     recover: () => Promise.resolve({ recovered: false, reason: 'invalid' }),
+    touchIdStatus: () => Promise.resolve({ available: false, reason: 'unsigned-build', enabled: false }),
+    touchIdEnable: () => Promise.resolve({ enabled: false, reason: 'unsigned-build' }),
+    touchIdDisable: () => Promise.resolve({ disabled: true }),
+    touchIdUnlock: () => Promise.resolve({ ok: false, reason: 'not-enabled' }),
     onChanged: (listener) => {
       appLockListeners.add(listener);
       return () => appLockListeners.delete(listener);
     },
+    onTouchIdChanged: () => () => undefined,
   };
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = {
     settings: settingsApi,

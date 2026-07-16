@@ -530,8 +530,28 @@
       "wiki": "User-Story-M20-Privacy-lock-protected-albums",
       "coverage": [
         {
-          "type": "deferred",
-          "issue": 310
+          "type": "playwright-e2e",
+          "path": "tests/e2e/app-lock.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/lock/LockScreen.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/crypto/touch-id.test.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/crypto/touch-id-native.test.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/crypto/app-lock-controller.test.ts"
+        },
+        {
+          "type": "manual",
+          "reason": "On a notarized Developer ID build on a Touch ID Mac: enable after password confirmation, restart, unlock biometrically, then verify cancel, failed scan, lockout, enrollment change, password fallback, password-change revocation, opt-out, and Keychain item accessibility/synchronization attributes. CI cannot provide signed hardware or mutate the enrolled biometric set."
         }
       ]
     },

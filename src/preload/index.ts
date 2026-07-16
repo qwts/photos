@@ -40,6 +40,9 @@ const restorePickKey = createInvoker(channels.restorePickKey, invokeTransport);
 const appLockStatus = createInvoker(channels.appLockStatus, invokeTransport);
 const appLockNow = createInvoker(channels.appLockNow, invokeTransport);
 const appLockPickRecovery = createInvoker(channels.appLockPickRecovery, invokeTransport);
+const appLockTouchIdStatus = createInvoker(channels.appLockTouchIdStatus, invokeTransport);
+const appLockTouchIdDisable = createInvoker(channels.appLockTouchIdDisable, invokeTransport);
+const appLockTouchIdUnlock = createInvoker(channels.appLockTouchIdUnlock, invokeTransport);
 
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
@@ -53,7 +56,12 @@ const overlook: OverlookApi = {
     remove: createInvoker(channels.appLockRemove, invokeTransport),
     pickRecovery: async () => appLockPickRecovery({}),
     recover: createInvoker(channels.appLockRecover, invokeTransport),
+    touchIdStatus: async () => appLockTouchIdStatus({}),
+    touchIdEnable: createInvoker(channels.appLockTouchIdEnable, invokeTransport),
+    touchIdDisable: async () => appLockTouchIdDisable({}),
+    touchIdUnlock: async () => appLockTouchIdUnlock({}),
     onChanged: createSubscriber(events.appLockStateChanged, subscribeTransport),
+    onTouchIdChanged: createSubscriber(events.appLockTouchIdChanged, subscribeTransport),
   }),
   library: Object.freeze({
     page: createInvoker(channels.libraryPage, invokeTransport),

@@ -19,6 +19,8 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
   const [error, setError] = useState('');
   const [deadline, setDeadline] = useState(() => Date.now() + retryAfterMs);
   const [clock, setClock] = useState(() => Date.now());
+  const [touchId, setTouchId] = useState<Awaited<ReturnType<typeof window.overlook.appLock.touchIdStatus>> | null>(null);
+  const [touchIdBusy, setTouchIdBusy] = useState(false);
   const busy = state === 'unlocking' || state === 'locking';
 
   useEffect(() => {
@@ -26,6 +28,11 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
     const timer = setInterval(() => setClock(Date.now()), 250);
     return () => clearInterval(timer);
   }, [deadline]);
+
+  useEffect(() => {
+    void window.overlook.appLock.touchIdStatus().then(setTouchId);
+    return window.overlook.appLock.onTouchIdChanged(setTouchId);
+  }, []);
 
   const submit = (event: FormEvent): void => {
     event.preventDefault();
@@ -47,6 +54,23 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
             : 'That password did not unlock this library.',
       );
     });
+  };
+
+  const unlockWithTouchId = (): void => {
+    if (busy || touchIdBusy || touchId?.enabled !== true || !touchId.available) return;
+    setError('');
+    setTouchIdBusy(true);
+    void window.overlook.appLock
+      .touchIdUnlock()
+      .then((result) => {
+        if (result.ok) return;
+        setError(touchIdError(result.reason ?? 'unavailable'));
+        if (result.reason === 'enrollment-changed' || result.reason === 'not-enabled') {
+          void window.overlook.appLock.touchIdStatus().then(setTouchId);
+        }
+      })
+      .catch(() => setError('Touch ID could not be used. Enter your app password.'))
+      .finally(() => setTouchIdBusy(false));
   };
 
   const recoveryRequired = state === 'recovery-required';
@@ -71,6 +95,24 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
             <RecoveryUnlock />
           ) : (
             <>
+              {touchId?.enabled ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="lg"
+                    icon="fingerprint"
+                    className="ovl-lock-screen__unlock"
+                    disabled={busy || touchIdBusy || !touchId.available}
+                    onClick={unlockWithTouchId}
+                  >
+                    {busy || touchIdBusy ? 'Checking Touch ID…' : touchId.available ? 'Unlock with Touch ID' : 'Touch ID unavailable'}
+                  </Button>
+                  <div className="ovl-lock-screen__divider">
+                    <span>or use app password</span>
+                  </div>
+                </>
+              ) : null}
               <PasswordField
                 value={password}
                 onChange={setPassword}
@@ -105,4 +147,22 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
       </main>
     </div>
   );
+}
+
+function touchIdError(reason: NonNullable<Awaited<ReturnType<typeof window.overlook.appLock.touchIdUnlock>>['reason']>): string {
+  switch (reason) {
+    case 'cancelled':
+      return 'Touch ID was cancelled. Try again or enter your app password.';
+    case 'failed':
+      return 'Touch ID did not recognize you. Try again or enter your app password.';
+    case 'locked-out':
+      return 'Touch ID is locked. Enter your app password.';
+    case 'enrollment-changed':
+      return 'Touch ID enrollment changed. Unlock with your password, then enable it again in Settings.';
+    case 'recovery-required':
+      return 'This library requires its exported recovery key.';
+    case 'not-enabled':
+    case 'unavailable':
+      return 'Touch ID is unavailable. Enter your app password.';
+  }
 }

@@ -52,6 +52,22 @@
   justify-content: center;
 }
 
+.ovl-lock-screen__divider {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  color: var(--text-faint);
+  font: var(--type-meta);
+}
+
+.ovl-lock-screen__divider::before,
+.ovl-lock-screen__divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--border-1);
+  content: '';
+}
+
 .ovl-lock-screen__status {
   min-height: var(--space-5);
   color: var(--accent-red);

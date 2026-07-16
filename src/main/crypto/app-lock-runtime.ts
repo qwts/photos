@@ -1,3 +1,5 @@
+import { app } from 'electron';
+
 import { AppLockCredentialStore, type CredentialAnchorStore } from './app-lock-credentials.js';
 import { AppLockController } from './app-lock-controller.js';
 import { createAppLockFacade, type AppLockFacadeOptions } from './app-lock-facade.js';
@@ -10,6 +12,9 @@ import { registerAppLockHandlers } from '../ipc.js';
 import { setContentAdmissionGate } from '../ipc.js';
 import { registerAppLockLifecycle } from './app-lock-lifecycle.js';
 import type { AppSettings } from '../../shared/settings/settings.js';
+import { TouchIdService } from './touch-id.js';
+import { createNativeTouchIdAdapter } from './touch-id-native.js';
+import { TestTouchIdAdapter } from './test-touch-id-adapter.js';
 
 export { createAppLockFacade } from './app-lock-facade.js';
 
@@ -23,12 +28,18 @@ export interface AppLockRuntimeOptions {
 }
 
 export function createAppLockRuntime(options: AppLockRuntimeOptions): AppLockController {
+  const credentials = new AppLockCredentialStore({
+    dataDir: options.dataDir,
+    anchorStore: options.anchorStore ?? new OsCredentialAnchorStore({ dataDir: options.dataDir }),
+    safeStorage: options.safeStorage,
+  });
+  const touchIdAdapter =
+    !app.isPackaged && process.env['OVERLOOK_TOUCH_ID_FAKE'] === '1'
+      ? new TestTouchIdAdapter()
+      : createNativeTouchIdAdapter({ platform: process.platform, packaged: app.isPackaged });
   return new AppLockController({
-    credentials: new AppLockCredentialStore({
-      dataDir: options.dataDir,
-      anchorStore: options.anchorStore ?? new OsCredentialAnchorStore({ dataDir: options.dataDir }),
-      safeStorage: options.safeStorage,
-    }),
+    credentials,
+    touchId: new TouchIdService(options.dataDir, touchIdAdapter, credentials),
     throttle: new UnlockThrottle({ dataDir: options.dataDir, safeStorage: options.safeStorage }),
     openAuthorized: options.openAuthorized,
     closeAuthorized: options.closeAuthorized,
@@ -45,10 +56,13 @@ export function registerAppLockIpc(options: AppLockIpcOptions): () => void {
   setContentAdmissionGate(() => options.controller.requireContentAccess());
   registerAppLockHandlers(() => createAppLockFacade(options));
   const emit = createEmitter(events.appLockStateChanged, (name, payload) => options.send(name, payload));
+  const emitTouchId = createEmitter(events.appLockTouchIdChanged, (name, payload) => options.send(name, payload));
   const offState = options.controller.subscribe((snapshot) => emit({ ...snapshot, retryAfterMs: options.controller.retryAfterMs() }));
+  const offTouchId = options.controller.subscribeTouchId(emitTouchId);
   const offLifecycle = registerAppLockLifecycle({ controller: options.controller, settings: options.settings });
   return () => {
     offState();
+    offTouchId();
     offLifecycle();
   };
 }

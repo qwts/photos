@@ -48,6 +48,19 @@ const appLockStatusSchema = z.object({
   libraryId: z.string().nullable(),
   retryAfterMs: z.number().int().nonnegative(),
 });
+const touchIdUnavailableReasonSchema = z.enum([
+  'unsupported-platform',
+  'unsigned-build',
+  'native-unavailable',
+  'not-enrolled',
+  'locked-out',
+  'unavailable',
+]);
+const touchIdStatusSchema = z.object({
+  available: z.boolean(),
+  reason: touchIdUnavailableReasonSchema.nullable(),
+  enabled: z.boolean(),
+});
 
 const importSourceSchema = z.object({
   path: z.string(),
@@ -173,6 +186,26 @@ export const channels = {
       nextPassword: z.string().min(8).max(1024),
     }),
     z.object({ recovered: z.boolean(), reason: z.enum(['invalid', 'wrong-password', 'mismatch']).nullable() }),
+  ),
+  appLockTouchIdStatus: defineChannel('app-lock:touch-id-status', z.object({}), touchIdStatusSchema),
+  appLockTouchIdEnable: defineChannel(
+    'app-lock:touch-id-enable',
+    z.object({ password: z.string().min(1).max(1024) }),
+    z.object({
+      enabled: z.boolean(),
+      reason: z.union([touchIdUnavailableReasonSchema, z.enum(['wrong-password', 'recovery-required'])]).nullable(),
+    }),
+  ),
+  appLockTouchIdDisable: defineChannel('app-lock:touch-id-disable', z.object({}), z.object({ disabled: z.boolean() })),
+  appLockTouchIdUnlock: defineChannel(
+    'app-lock:touch-id-unlock',
+    z.object({}),
+    z.object({
+      ok: z.boolean(),
+      reason: z
+        .enum(['not-enabled', 'cancelled', 'failed', 'locked-out', 'unavailable', 'enrollment-changed', 'recovery-required'])
+        .nullable(),
+    }),
   ),
   // Library contract (#71) — the renderer's typed window into the library.
   libraryPage: defineChannel(
@@ -464,6 +497,7 @@ export const events = {
   // main→renderer event pattern (progress events, settings changes later).
   focusChanged: defineEvent('window:focus-changed', z.object({ focused: z.boolean() })),
   appLockStateChanged: defineEvent('app-lock:state-changed', appLockStatusSchema),
+  appLockTouchIdChanged: defineEvent('app-lock:touch-id-changed', touchIdStatusSchema),
   // Targeted library pushes (#71) — never refetch-the-world signals.
   libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
   photoSyncStateChanged: defineEvent(

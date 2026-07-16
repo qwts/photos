@@ -16,6 +16,7 @@ function launch(userData: string): Promise<ElectronApplication> {
       OVERLOOK_SEED: '2',
       OVERLOOK_INSECURE_KEYSTORE: '1',
       OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
+      OVERLOOK_TOUCH_ID_FAKE: '1',
     },
   });
 }
@@ -109,6 +110,26 @@ test('app lock withholds content across configuration, bypass attempts, restart,
 
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('button', { name: 'Privacy' }).click();
+    const touchIdSwitch = page.getByRole('switch', { name: 'Unlock with Touch ID' });
+    await expect(touchIdSwitch).toBeEnabled();
+    await expect(touchIdSwitch).not.toBeChecked();
+    await touchIdSwitch.click();
+    const touchIdDialog = page.getByRole('dialog', { name: 'Enable Touch ID' });
+    await touchIdDialog.getByLabel('Current app password').fill('wrong password');
+    await touchIdDialog.getByRole('button', { name: 'Enable Touch ID' }).click();
+    await expect(touchIdDialog.getByRole('status')).toContainText('incorrect');
+    await touchIdDialog.getByLabel('Current app password').fill(PASSWORD);
+    await touchIdDialog.getByRole('button', { name: 'Enable Touch ID' }).click();
+    await expect(touchIdDialog).toHaveCount(0);
+    await expect(touchIdSwitch).toBeChecked();
+    await page.getByRole('button', { name: 'Lock now', exact: true }).last().click();
+    await expect(page.getByRole('button', { name: 'Unlock with Touch ID' })).toBeVisible();
+    await expect(page.getByLabel('App password')).toBeVisible();
+    await page.getByRole('button', { name: 'Unlock with Touch ID' }).click();
+    await page.getByTestId('virtual-grid').waitFor();
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'Privacy' }).click();
     await expect(page.getByRole('button', { name: 'Import…' })).toBeDisabled();
     await expect(page.getByTestId('recovery-key-row')).toContainText('Remove the app password before importing');
     await page.getByRole('button', { name: 'Change…' }).click();
@@ -125,6 +146,7 @@ test('app lock withholds content across configuration, bypass attempts, restart,
 
     await page.getByRole('button', { name: 'Lock now' }).click();
     await expect(page.getByTestId('lock-screen')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unlock with Touch ID' })).toHaveCount(0);
     await page.getByLabel('App password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Unlock' }).click();
     await expect(page.getByRole('status')).toContainText('did not unlock');

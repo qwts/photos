@@ -39,6 +39,8 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [passwordMode, setPasswordMode] = useState<AppPasswordMode | null>(null);
   const [appLockConfigured, setAppLockConfigured] = useState(false);
+  const [touchIdStatus, setTouchIdStatus] = useState<Awaited<ReturnType<typeof window.overlook.appLock.touchIdStatus>> | null>(null);
+  const [touchIdBusy, setTouchIdBusy] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -57,6 +59,15 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
     const sync = (state: string): void => setAppLockConfigured(state === 'unlocked');
     void window.overlook.appLock.status().then(({ state }) => sync(state));
     return window.overlook.appLock.onChanged(({ state }) => sync(state));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    void window.overlook.appLock.touchIdStatus().then(setTouchIdStatus);
+    return window.overlook.appLock.onTouchIdChanged((status) => {
+      setTouchIdStatus(status);
+      setTouchIdBusy(false);
+    });
   }, [open]);
 
   if (!open) {
@@ -104,6 +115,21 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
               appLockConfigured={appLockConfigured}
               onPasswordAction={setPasswordMode}
               onLockNow={() => void window.overlook.appLock.lockNow()}
+              touchIdStatus={touchIdStatus}
+              touchIdBusy={touchIdBusy}
+              onTouchIdChange={(enabled) => {
+                if (enabled) {
+                  setPasswordMode('touch-id');
+                  return;
+                }
+                setTouchIdBusy(true);
+                void window.overlook.appLock
+                  .touchIdDisable()
+                  .then(({ disabled }) => {
+                    if (!disabled) setTouchIdBusy(false);
+                  })
+                  .catch(() => setTouchIdBusy(false));
+              }}
             />
           )}
         </div>
