@@ -1,0 +1,84 @@
+{
+  "header": {
+    "magic": "OVERLOOK-IMAGE-TRAIL-INTEROP",
+    "contractVersion": 1,
+    "messageId": "cab1df8d-cce0-466d-a655-e188412e1244",
+    "transferId": "995b735b-bb6c-4144-977a-d58f3c0d9b8e",
+    "pairingId": "a3267e90-2bd1-432c-bc8b-78e4704f843f",
+    "sourceProduct": "overlook",
+    "targetProduct": "image-trail",
+    "operation": "sync",
+    "kind": "record",
+    "createdAt": "2026-07-16T11:00:00.000Z",
+    "sequence": 4
+  },
+  "payload": {
+    "kind": "record",
+    "schemaVersion": 1,
+    "record": {
+      "schemaVersion": 1,
+      "identity": {
+        "interopId": "4d220c3e-16bd-4833-891c-3ef9b980b3fb",
+        "origin": { "product": "image-trail", "localId": "bookmark-123" },
+        "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "revision": { "imageTrail": 1, "overlook": 2 },
+      "fieldRevisions": {
+        "title": { "imageTrail": 1, "overlook": 1 },
+        "roundTripMetadata": { "imageTrail": 1, "overlook": 2 }
+      },
+      "recordKind": "photo",
+      "title": "Edited in Overlook",
+      "label": "Round trip",
+      "sourceUrl": "https://example.test/photo.jpg",
+      "dimensions": { "width": 1200, "height": 800 },
+      "timestamps": {
+        "bookmarkedAt": "2026-07-16T09:00:00.000Z",
+        "capturedAt": "2026-07-16T09:05:00.000Z",
+        "downloadedAt": null,
+        "takenAt": null,
+        "importedAt": "2026-07-16T10:30:00.000Z"
+      },
+      "sourceCompatibility": "favorites",
+      "original": {
+        "state": "available",
+        "blobId": "original-123",
+        "mimeType": "image/jpeg",
+        "byteLength": 42,
+        "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "thumbnail": {
+        "state": "available",
+        "blobId": "thumbnail-123",
+        "mimeType": "image/jpeg",
+        "byteLength": 12,
+        "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "albumIds": ["50ca91c1-a9c7-4c98-9ab4-b075cb600424"],
+      "roundTripMetadata": {
+        "imageTrail": { "protectedPin": true },
+        "overlook": { "rating": 4, "colorLabel": "blue" }
+      },
+      "deletedAt": null
+    },
+    "albums": [
+      {
+        "schemaVersion": 1,
+        "interopId": "50ca91c1-a9c7-4c98-9ab4-b075cb600424",
+        "origin": { "product": "image-trail", "localId": "album-123" },
+        "revision": { "imageTrail": 1, "overlook": 1 },
+        "name": "Reference",
+        "members": [
+          {
+            "recordInteropId": "4d220c3e-16bd-4833-891c-3ef9b980b3fb",
+            "position": 0,
+            "revision": { "imageTrail": 1, "overlook": 1 }
+          }
+        ],
+        "roundTripMetadata": { "imageTrail": {}, "overlook": { "sort": "manual" } },
+        "deletedAt": null
+      }
+    ],
+    "reviewCategory": "eligible"
+  }
+}

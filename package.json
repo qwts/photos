@@ -28,6 +28,7 @@
     "test:unit:run": "ELECTRON_RUN_AS_NODE=1 electron --test '.test-dist/tests/**/*.test.js'",
     "test": "npm run typecheck && npm run test:compile && npm run test:unit:run",
     "test:cov": "npm run typecheck && npm run test:compile && c8 npm run test:unit:run",
+    "interop:generate-contract": "npm run test:compile && node scripts/generate-interop-contract.mjs",
     "coverage:summary": "node scripts/report-coverage-summary.mjs",
     "check:acceptance-coverage": "node scripts/check-e2e-coverage-map.mjs && node scripts/check-acceptance-coverage-diff.mjs",
     "test:pcloud:live": "npm run test:compile && OVERLOOK_PCLOUD_LIVE=1 ELECTRON_RUN_AS_NODE=1 electron --test '.test-dist/tests/backup/pcloud-live-contract.test.js'",

@@ -15,8 +15,8 @@ const deterministicOptions = {
   interopKey: Buffer.from([...Array.from({ length: 32 }, (_value, index) => index + 32)]),
 };
 
-function pairingFixture(): unknown {
-  return JSON.parse(readFileSync('design/handoff/contracts/v1/fixtures/valid-pairing-bundle.json', 'utf8')) as unknown;
+function pairingFixture(name = 'valid-pairing-bundle.json'): unknown {
+  return JSON.parse(readFileSync(`design/handoff/contracts/v1/fixtures/${name}`, 'utf8')) as unknown;
 }
 
 describe('interoperability pairing bundle', () => {
@@ -52,6 +52,13 @@ describe('interoperability pairing bundle', () => {
     ciphertext[0] = (ciphertext[0] ?? 0) ^ 0xff;
     await assert.rejects(
       openInteropPairingBundle({ ...bundle, cipher: { ...bundle.cipher, ciphertext: ciphertext.toString('base64') } }, 'correct-password'),
+      /Unable to open pairing bundle/,
+    );
+  });
+
+  test('rejects the golden corrupt pairing bundle', async () => {
+    await assert.rejects(
+      openInteropPairingBundle(pairingFixture('corrupt-pairing-bundle.json'), 'fixture-password'),
       /Unable to open pairing bundle/,
     );
   });
