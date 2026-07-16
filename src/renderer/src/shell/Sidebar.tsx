@@ -113,13 +113,14 @@ export interface SidebarProps {
   readonly counts: SourceCounts | null;
   readonly stats: LibraryStats | null;
   readonly albums: readonly AlbumSummary[];
+  readonly onTransferAlbum?: ((album: AlbumSummary) => void) | undefined;
 }
 
 // The 216px navigation rail (#80) per the design's Sidebar.jsx. Album
 // creation and management are keyboard-accessible here; the backup card
 // shows the encrypted badge, the settings gear (opens the M09 dialog), a
 // live aggregate bar while a backup runs (#108), and the mono storage line.
-export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
+export function Sidebar({ counts, stats, albums, onTransferAlbum }: SidebarProps): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const albumDrop = useAlbumPhotoDrop(albums);
@@ -313,6 +314,10 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
           onDelete={() => {
             setAlbumMenu(null);
             setDeletingAlbum(albumMenu.album);
+          }}
+          onTransfer={() => {
+            setAlbumMenu(null);
+            onTransferAlbum?.(albumMenu.album);
           }}
         />
       )}

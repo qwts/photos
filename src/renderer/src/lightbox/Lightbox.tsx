@@ -29,6 +29,7 @@ export interface LightboxProps {
   readonly onToggleInspector: () => void;
   /** Export dialog arrives with M07 (count=1); stub until then. */
   readonly onExport: () => void;
+  readonly onTransfer: () => void;
   /** Opens verified offload preflight for this photo. */
   readonly onOffload: () => void;
   /** Rehydrate failed — the host shows the red toast (#107). */
@@ -62,6 +63,7 @@ export function Lightbox({
   inspectorOpen,
   onToggleInspector,
   onExport,
+  onTransfer,
   onOffload,
   onRehydrateError,
   suppressRehydrate = false,
@@ -173,6 +175,7 @@ export function Lightbox({
         </span>
         <IconButton icon="star" label="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
         <IconButton icon="share" label="Export" onClick={onExport} />
+        <IconButton icon="refresh-cw" label="Transfer & Sync" onClick={onTransfer} />
         {photo.syncState === 'synced' && photo.deletedAt === null ? (
           <IconButton icon="cloud-upload" label="Offload original" onClick={onOffload} />
         ) : null}
