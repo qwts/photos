@@ -2,7 +2,7 @@
 
 **Epic:** [#46](https://github.com/qwts/photos/issues/46) · **Lane:** Closing
 
-The closing epic: prove the 200K-photo target with a perf harness and budgets, audit crash-safety (interrupted import/backup, orphan repair), sweep the acceptance-coverage-map to completeness, replace gradient placeholder fixtures with real sample images, security-review the crypto/IPC surfaces, and stand up signed/notarized packaging (**blocked on user-supplied signing certs** — flagged on its issue).
+The closing epic: prove the 200K-photo target with a perf harness and budgets, audit crash-safety (interrupted import/backup, orphan repair), sweep the acceptance-coverage-map to completeness, replace gradient placeholder fixtures with real sample images, security-review the crypto/IPC surfaces, and stand up signed/notarized packaging.
 
 ## Issues
 
@@ -25,10 +25,18 @@ The closing epic: prove the 200K-photo target with a perf harness and budgets, a
 | Crash-safety audit: `ConsistencyChecker` scan/repair (orphan blobs/thumbs, **age-gated** staging leftovers, lying rows → remote-verified `offloaded` else `error`); `SyncLedger.repairStatus` escape hatch; a lightweight repair at library open. Age gate protects live seed/import writes from the startup sweep | ✅ #125 (PR #223) | `tests/library/consistency.test.ts` (crash-window matrix + corrupted-store-repairs proof) — ledger ids `m11-consistency-*` |
 | Acceptance-coverage-map completeness sweep: 33 mapped entries, 2 deferred (#224 semantic search, #225 album reorder), 1 manual with reason; distribution documented | ✅ #126 (PR #226) | `tests/e2e/coverage-map.json` + `npm run check:acceptance-coverage` |
 | Real sample-image fixtures replace gradient placeholders | ⛔ #127 — **blocked on owner** (licensed photos or download approval); flagged on the issue | — |
-| Signed & notarized packaging | ⛔ #128 — **blocked on owner** (signing certificates); flagged on the issue | — |
+| Signed & notarized packaging: Developer ID signing + notarization, profile-restricted Touch ID entitlement path, and extracted-ZIP launch gate | ✅ #128; launch regression repair tracked in #357 | `package.yml` + `scripts/verify-macos-app-launch.mjs` + `tests/tooling/macos-signing.test.ts` |
 | Security review of the crypto/IPC surfaces: adversarial audit of the AES-256-GCM envelope + keystore, the IPC registry + custom protocol handlers, and a plaintext-at-rest sweep. All three seams sound; zero fix-before-release findings. Fix F1: harness env hooks gated on `!app.isPackaged` (packaged app not env-steerable). Follow-ups #229/#230/#231 filed | ✅ #129 (PR #232) | `tests/import/import-service.test.ts` (env-gate) + [Security Review M11](Security-Review-M11) + [ADR-0004](ADR-0004-Encryption-And-Key-Management#accepted-deviations--review-notes) appendix |
 
-The two ⛔ rows are the epic's only open work and are **owner-blocked** (they need user-supplied assets/credentials, not engineering); they stay open on the epic per the milestone note. Everything shippable in M11 is delivered and green through `ci` + e2e + Storybook + perf gates.
+The real-photo fixture row remains owner-blocked on licensed assets. The release-signing row is delivered; credential rotation and provisioning-profile expiry are operational maintenance, not feature blockers.
+
+## macOS release-signing contract
+
+- `CSC_LINK` and `CSC_KEY_PASSWORD` enable Developer ID signing; App Store Connect API-key secrets enable notarization.
+- The default signed path uses only Electron hardened-runtime entitlements that do not require a provisioning profile.
+- `MAC_PROVISIONING_PROFILE` optionally enables the restricted application/team identifiers required by the native Touch ID Data Protection Keychain path. The package script rejects a mismatched Team ID, application identifier, malformed profile, or expired profile before `electron-builder` runs.
+- Without a valid provisioning profile, Touch ID key custody fails closed and password/recovery-key access remains available; the release must still launch.
+- The macOS job verifies the signature and Gatekeeper assessment, extracts the exact generated `*-mac.zip`, and launches that packaged app with an isolated user-data directory. A release cannot upload if the packaged process does not reach its smoke-test readiness boundary.
 
 ## Definition of done
 
