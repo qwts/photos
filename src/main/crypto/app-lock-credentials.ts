@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { z } from 'zod';
@@ -181,15 +181,27 @@ async function createRecord(input: ConfigureAppLockInput, generation: number): P
  * the runtime can use a real OS credential store and tests remain deterministic. */
 export class AppLockCredentialStore {
   private readonly masterPath: string;
+  private readonly pendingPath: string;
 
   constructor(private readonly options: AppLockCredentialStoreOptions) {
     this.masterPath = join(options.dataDir, MASTER_FILE);
+    this.pendingPath = `${this.masterPath}.pending`;
   }
 
   status(): AppLockStatus {
     if (!existsSync(this.masterPath)) return { state: 'unconfigured' };
+    this.reconcilePendingTransition();
     const raw = readFileSync(this.masterPath);
-    if (!raw.subarray(0, MAGIC.length).equals(MAGIC)) return { state: 'unconfigured' };
+    if (!raw.subarray(0, MAGIC.length).equals(MAGIC)) {
+      if (!this.options.anchorStore.isAvailable()) return { state: 'unconfigured' };
+      const anchor = this.options.anchorStore.read();
+      if (anchor === null) return { state: 'unconfigured' };
+      if (anchor.recordHash === recordHash(raw)) {
+        this.clearAnchorOrThrow();
+        return { state: 'unconfigured' };
+      }
+      return { state: 'recovery-required', reason: 'anchor-mismatch' };
+    }
     const record = parseRecord(raw);
     if (record === null) return { state: 'recovery-required', reason: 'invalid-record' };
     if (!this.options.anchorStore.isAvailable()) return { state: 'recovery-required', reason: 'anchor-unavailable' };
@@ -251,8 +263,18 @@ export class AppLockCredentialStore {
     try {
       if (!this.options.safeStorage.isEncryptionAvailable()) throw new Error('OS keychain is unavailable');
       mkdirSync(this.options.dataDir, { recursive: true });
-      writeFileAtomic(this.masterPath, this.options.safeStorage.encryptString(unlocked.masterKey.toString('base64')));
-      this.options.anchorStore.clear();
+      const legacy = this.options.safeStorage.encryptString(unlocked.masterKey.toString('base64'));
+      const current = parseRecord(readFileSync(this.masterPath));
+      if (current === null) throw new Error('app-lock record is unavailable');
+      const anchor = {
+        libraryId: current.libraryId,
+        generation: Math.max(current.generation, this.options.anchorStore.read()?.generation ?? 0) + 1,
+        recordHash: recordHash(legacy),
+      };
+      writeFileAtomic(this.pendingPath, legacy);
+      this.options.anchorStore.write(anchor);
+      renameSync(this.pendingPath, this.masterPath);
+      this.clearAnchorOrThrow();
       return true;
     } finally {
       unlocked.masterKey.fill(0);
@@ -270,7 +292,37 @@ export class AppLockCredentialStore {
     const record = await createRecord(input, generation);
     const raw = recordBytes(record);
     mkdirSync(this.options.dataDir, { recursive: true });
+    writeFileAtomic(this.pendingPath, raw);
     this.options.anchorStore.write({ libraryId: record.libraryId, generation: record.generation, recordHash: recordHash(raw) });
-    writeFileAtomic(this.masterPath, raw);
+    renameSync(this.pendingPath, this.masterPath);
+  }
+
+  private reconcilePendingTransition(): void {
+    if (!existsSync(this.pendingPath) || !this.options.anchorStore.isAvailable()) return;
+    const pending = readFileSync(this.pendingPath);
+    const current = readFileSync(this.masterPath);
+    const anchor = this.options.anchorStore.read();
+    if (anchor?.recordHash === recordHash(pending)) {
+      const pendingRecord = parseRecord(pending);
+      if (pendingRecord !== null && (pendingRecord.libraryId !== anchor.libraryId || pendingRecord.generation !== anchor.generation)) {
+        return;
+      }
+      renameSync(this.pendingPath, this.masterPath);
+      if (pendingRecord === null) this.clearAnchorOrThrow();
+      return;
+    }
+    const currentRecord = parseRecord(current);
+    const currentIsCommitted =
+      currentRecord === null
+        ? anchor === null
+        : anchor?.libraryId === currentRecord.libraryId &&
+          anchor.generation === currentRecord.generation &&
+          anchor.recordHash === recordHash(current);
+    if (currentIsCommitted) unlinkSync(this.pendingPath);
+  }
+
+  private clearAnchorOrThrow(): void {
+    this.options.anchorStore.clear();
+    if (this.options.anchorStore.read() !== null) throw new Error('OS credential store refused to clear the app-lock anchor');
   }
 }

@@ -23,6 +23,8 @@ function fakeSafeStorage(): SafeStorageLike {
 class FakeAnchorStore implements CredentialAnchorStore {
   anchor: CredentialAnchor | null = null;
   failWrite = false;
+  failAfterWrite = false;
+  failClear = false;
 
   isAvailable(): boolean {
     return true;
@@ -35,9 +37,11 @@ class FakeAnchorStore implements CredentialAnchorStore {
   write(anchor: CredentialAnchor): void {
     if (this.failWrite) throw new Error('anchor unavailable');
     this.anchor = structuredClone(anchor);
+    if (this.failAfterWrite) throw new Error('anchor result was interrupted');
   }
 
   clear(): void {
+    if (this.failClear) throw new Error('anchor clear was interrupted');
     this.anchor = null;
   }
 }
@@ -70,6 +74,16 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     );
     assert.notEqual(readFileSync(join(dataDir, 'master.key')).subarray(0, 4).toString('ascii'), 'OVLK');
     assert.deepEqual(store.status(), { state: 'unconfigured' });
+  });
+
+  test('startup finishes the exact pending record when anchor commit succeeded before a crash', async () => {
+    const { dataDir, anchors, store, masterKey } = world();
+    anchors.failAfterWrite = true;
+    await assert.rejects(store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey }), /interrupted/);
+    anchors.failAfterWrite = false;
+    const restarted = new AppLockCredentialStore({ dataDir, anchorStore: anchors, safeStorage: fakeSafeStorage() });
+    assert.deepEqual(restarted.status(), { state: 'locked', libraryId: 'library-a' });
+    assert.equal((await restarted.unlock('correct horse battery staple')).ok, true);
   });
 
   test('creation rejects weak credentials in the main process', async () => {
@@ -124,6 +138,21 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     assert.equal(store.anchor()?.generation, (firstAnchor?.generation ?? 0) + 1);
   });
 
+  test('startup resumes an interrupted password rotation without accepting the old record', async () => {
+    const { dataDir, anchors, store, masterKey } = world();
+    const oldPassword = 'correct horse battery staple';
+    const nextPassword = 'a different excellent password';
+    await store.configure({ libraryId: 'library-a', password: oldPassword, masterKey });
+    anchors.failAfterWrite = true;
+    await assert.rejects(store.changePassword(oldPassword, nextPassword), /interrupted/);
+
+    anchors.failAfterWrite = false;
+    const restarted = new AppLockCredentialStore({ dataDir, anchorStore: anchors, safeStorage: fakeSafeStorage() });
+    assert.deepEqual(restarted.status(), { state: 'locked', libraryId: 'library-a' });
+    assert.equal((await restarted.unlock(oldPassword)).ok, false);
+    assert.equal((await restarted.unlock(nextPassword)).ok, true);
+  });
+
   test('recovery establishes new custody and remove restores legacy safeStorage custody', async () => {
     const { dataDir, anchors, store, masterKey } = world();
     await store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey });
@@ -135,6 +164,21 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
 
     assert.equal(await store.remove(replacementPassword), true);
     assert.deepEqual(store.status(), { state: 'unconfigured' });
+    assert.equal(anchors.anchor, null);
+    const restored = Buffer.from(fakeSafeStorage().decryptString(readFileSync(join(dataDir, 'master.key'))), 'base64');
+    assert.deepEqual(restored, masterKey);
+  });
+
+  test('startup completes an authorized removal interrupted after the legacy record commit', async () => {
+    const { dataDir, anchors, store, masterKey } = world();
+    const password = 'correct horse battery staple';
+    await store.configure({ libraryId: 'library-a', password, masterKey });
+    anchors.failClear = true;
+    await assert.rejects(store.remove(password), /interrupted/);
+
+    anchors.failClear = false;
+    const restarted = new AppLockCredentialStore({ dataDir, anchorStore: anchors, safeStorage: fakeSafeStorage() });
+    assert.deepEqual(restarted.status(), { state: 'unconfigured' });
     assert.equal(anchors.anchor, null);
     const restored = Buffer.from(fakeSafeStorage().decryptString(readFileSync(join(dataDir, 'master.key'))), 'base64');
     assert.deepEqual(restored, masterKey);
