@@ -20,7 +20,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0010](ADR-0010-Cloud-Restore-Staging-And-Atomic-Activation)     | Cloud Restore Activation     | Accepted |
 | [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching)     | Provider Catalog & Switching | Accepted |
 | [ADR-0012](ADR-0012-Continuous-Backup-Integrity-And-Recovery-Repair) | Continuous Backup Integrity  | Accepted |
-| [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums)       | App Lock & Protected Albums  | Proposed |
+| [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums)       | App Lock & Protected Albums  | Accepted |
 
 ## Template
 

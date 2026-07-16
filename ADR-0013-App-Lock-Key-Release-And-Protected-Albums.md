@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed 2026-07-16 on [#308](https://github.com/qwts/photos/issues/308). Accept after the threat-model and recovery review recorded below and an open review window. This ADR extends [ADR-0004](ADR-0004-Encryption-And-Key-Management) and [ADR-0008](ADR-0008-Recovery-Key-Format); it does not rewrite either decision.
+Accepted 2026-07-16 on [#308](https://github.com/qwts/photos/issues/308) after the threat-model/recovery pass below and the [#322 review](https://github.com/qwts/photos/pull/322) found no major issues. This ADR extends [ADR-0004](ADR-0004-Encryption-And-Key-Management) and [ADR-0008](ADR-0008-Recovery-Key-Format); it does not rewrite either decision.
 
 ## Context
 
@@ -189,7 +189,7 @@ Review must explicitly verify five invariants before child implementation is acc
 4. Native biometric material is current-enrollment, device-only, revocable, and never simulated in unsupported builds.
 5. Protected data has a separate key and query domain; every approved leakage is enumerated above.
 
-The pre-review adversarial pass corrected three issues: a rollback anchor cannot be a `safeStorage` file beside the record; reset must not silently destroy the remote backup; and protected-domain ciphertext traffic plus cross-domain dedupe behavior must be explicit. No unresolved semantic conflict with ADR-0004 or ADR-0008 remains. Implementation-specific native API and schema details remain gated by the child reviews and the acceptance matrix.
+The adversarial pass corrected three issues: a rollback anchor cannot be a `safeStorage` file beside the record; reset must not silently destroy the remote backup; and protected-domain ciphertext traffic plus cross-domain dedupe behavior must be explicit. The subsequent #322 review found no major issues. No unresolved semantic conflict with ADR-0004 or ADR-0008 remains. Implementation-specific native API and schema details remain gated by the child reviews and the acceptance matrix.
 
 ## Consequences
 
