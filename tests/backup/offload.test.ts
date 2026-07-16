@@ -267,6 +267,8 @@ describe('offload + rehydrate (#107)', () => {
     const restored = await buffer(w.store.getStream(photo?.contentHash ?? '', () => w.key.key, 'P0'));
     assert.deepEqual(restored, w.plaintexts.get('P0'), 'plaintext round-trips through the cloud');
     assert.ok(w.audits.some((line) => line.startsWith('REHYDRATE-OK photo=P0')));
+    assert.deepEqual(w.changed.at(-1), [{ id: 'P0', syncState: 'synced' }]);
+    assert.equal(w.storageChanges(), 2, 'standalone rehydrate refreshes immediately after offload');
   });
 
   test('a corrupt download never publishes: record stays cleanly offloaded', async () => {
@@ -297,22 +299,36 @@ describe('offload + rehydrate (#107)', () => {
   test('batch restore isolates failures and restore-all discovers live offloaded rows (#281)', async () => {
     const w = await world(3);
     await w.engine.run();
-    await w.service.offload(['P0', 'P1']);
-    const p1 = w.repo.get('P1');
-    await w.provider.delete(`blobs/${p1?.contentHash.slice(0, 2) ?? ''}/${p1?.contentHash ?? ''}`);
+    await w.service.offload(['P0', 'P1', 'P2']);
+    const p2 = w.repo.get('P2');
+    await w.provider.delete(`blobs/${p2?.contentHash.slice(0, 2) ?? ''}/${p2?.contentHash ?? ''}`);
 
     const summary = await w.service.restoreOriginals();
     assert.deepEqual(summary, {
-      restored: 1,
+      restored: 2,
       skipped: 0,
       failed: 1,
       results: [
         { photoId: 'P0', outcome: 'restored', reason: null },
-        { photoId: 'P1', outcome: 'failed', reason: 'download-failed' },
+        { photoId: 'P1', outcome: 'restored', reason: null },
+        { photoId: 'P2', outcome: 'failed', reason: 'download-failed' },
       ],
     });
     assert.equal(w.ledger.status('P0'), 'synced');
-    assert.equal(w.ledger.status('P1'), 'offloaded');
+    assert.equal(w.ledger.status('P1'), 'synced');
+    assert.equal(w.ledger.status('P2'), 'offloaded');
+    assert.deepEqual(w.changed, [
+      [
+        { id: 'P0', syncState: 'offloaded' },
+        { id: 'P1', syncState: 'offloaded' },
+        { id: 'P2', syncState: 'offloaded' },
+      ],
+      [
+        { id: 'P0', syncState: 'synced' },
+        { id: 'P1', syncState: 'synced' },
+      ],
+    ]);
+    assert.equal(w.storageChanges(), 2, 'offload and restore each emit one aggregate refresh');
   });
 
   test('batch restore reports disconnected provider and never flips status (#281)', async () => {
