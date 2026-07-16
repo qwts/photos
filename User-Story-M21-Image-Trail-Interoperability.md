@@ -1,5 +1,7 @@
 # M21 — Image Trail interoperability
 
+UI acceptance: [Image Trail Transfer and Sync UI](Acceptance-Test-Image-Trail-Transfer-And-Sync-UI).
+
 Epic: [#283](https://github.com/qwts/photos/issues/283)  
 Companion: [Image Trail #560](https://github.com/qwts/image-trail/issues/560)  
 Architecture: [ADR-0014](ADR-0014-Image-Trail-Bidirectional-Interoperability)
