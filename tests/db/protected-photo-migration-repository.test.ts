@@ -77,11 +77,10 @@ describe('ProtectedPhotoMigrationRepository', () => {
     const { db, photos, migrations } = world();
     photos.createAlbum('ordinary-a', 'Ordinary');
     photos.insert(photo('photo-a'));
-    runNamed(
-      db,
-      `UPDATE sync_ledger SET last_backup_at = @at, dirty = 0, status = 'synced' WHERE photo_id = @photoId`,
-      { at: '2026-07-16T12:30:00.000Z', photoId: 'photo-a' },
-    );
+    runNamed(db, `UPDATE sync_ledger SET last_backup_at = @at, dirty = 0, status = 'synced' WHERE photo_id = @photoId`, {
+      at: '2026-07-16T12:30:00.000Z',
+      photoId: 'photo-a',
+    });
     photos.addToAlbum('ordinary-a', ['photo-a']);
     migrations.prepare({
       migrationId: 'migration-a',
