@@ -71,4 +71,8 @@ export class RestoreRuntime {
   dispose(): void {
     this.coordinator.dispose();
   }
+
+  close(): Promise<void> {
+    return this.coordinator.close();
+  }
 }
