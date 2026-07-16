@@ -15,15 +15,7 @@
         },
         {
           "type": "playwright-e2e",
-          "path": "tests/e2e/browse.spec.ts"
-        },
-        {
-          "type": "playwright-e2e",
-          "path": "tests/e2e/lightbox.spec.ts"
-        },
-        {
-          "type": "playwright-e2e",
-          "path": "tests/e2e/albums.spec.ts"
+          "path": "tests/e2e/interop-ui.spec.ts"
         },
         {
           "type": "manual",
