@@ -37,7 +37,9 @@ export interface StoragePaneProps {
   readonly selectedPhotoIds: readonly string[];
   readonly onRestore?: (() => void) | undefined;
   readonly onPatch: (
-    patch: Partial<Pick<AppSettings, 'autoBackupOnImport' | 'importMode' | 'wifiOnly' | 'bandwidthLimit' | 'providerId'>>,
+    patch: Partial<
+      Pick<AppSettings, 'autoBackupOnImport' | 'reOffloadAfterViewing' | 'importMode' | 'wifiOnly' | 'bandwidthLimit' | 'providerId'>
+    >,
   ) => void;
 }
 
@@ -165,6 +167,15 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
       </Field>
 
       <OffloadedStorage connected={connected} selectedPhotoIds={selectedPhotoIds} />
+
+      <Field label="Re-offload after viewing" hint="Keep cloud-only originals temporary unless you choose Keep downloaded.">
+        <Switch
+          checked={settings.reOffloadAfterViewing}
+          onChange={(reOffloadAfterViewing) => {
+            onPatch({ reOffloadAfterViewing });
+          }}
+        />
+      </Field>
 
       {connected ? (
         <>
