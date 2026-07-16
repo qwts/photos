@@ -4,6 +4,7 @@ import { app, BrowserWindow } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
+import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/renderer-lock-reload.js';
 
 export function createWindow(): void {
   const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
@@ -41,33 +42,6 @@ export function relaunchLocked(): void {
  * cannot survive a lock transition. The replacement document boots only the
  * locking/locked surface because main-process authority is already revoked. */
 export function reloadContentWindowsForLock(): Promise<void> {
-  return Promise.all(
-    BrowserWindow.getAllWindows().map((win) => {
-      const contents = win.webContents;
-      if (contents.isDestroyed()) return Promise.resolve();
-      return new Promise<void>((resolve, reject) => {
-        const finished = (): void => {
-          cleanup();
-          resolve();
-        };
-        const failed = (_event: Electron.Event, code: number, description: string): void => {
-          cleanup();
-          reject(new Error(`locked renderer reload failed (${String(code)}): ${description}`));
-        };
-        const destroyed = (): void => {
-          cleanup();
-          resolve();
-        };
-        const cleanup = (): void => {
-          contents.off('did-finish-load', finished);
-          contents.off('did-fail-load', failed);
-          contents.off('destroyed', destroyed);
-        };
-        contents.once('did-finish-load', finished);
-        contents.once('did-fail-load', failed);
-        contents.once('destroyed', destroyed);
-        contents.reloadIgnoringCache();
-      });
-    }),
-  ).then(() => undefined);
+  const contents = BrowserWindow.getAllWindows().map((win) => win.webContents as unknown as ReloadableWebContents);
+  return reloadWebContentsForLock(contents);
 }
