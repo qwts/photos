@@ -1,5 +1,15 @@
 # photos
 
+## 0.24.0
+
+### Minor Changes
+
+- 0c8e98d: Add truthful Image Trail Transfer and Sync entry points plus review, conflict, progress, recovery, provider, pairing, and unavailable-original states.
+
+### Patch Changes
+
+- 71bd82e: Restore launchable macOS releases by requiring a matching provisioning profile for restricted Touch ID entitlements and smoke-testing the packaged artifact.
+
 ## 0.23.0
 
 ### Minor Changes
