@@ -2,7 +2,7 @@ import type { Readable } from 'node:stream';
 import type { ProviderCapabilities, ProviderId } from '../../shared/backup/provider-descriptor.js';
 
 // Storage-provider seam (#103, ADR-0007): the ONE interface both the mock
-// and the pCloud adapter (#109) implement. Engine code imports only this —
+// and every cloud adapter implement. Engine code imports only this —
 // the whole epic builds and tests without credentials. Remote paths are
 // provider-relative under /Overlook/<library-id>/ (the adapter owns the
 // prefix); blobs travel as-is (encrypt-once, ADR-0007).
@@ -16,7 +16,8 @@ export interface RemoteEntry {
 
 export interface ProviderQuota {
   readonly usedBytes: number;
-  readonly totalBytes: number;
+  /** Null when the provider reports usage but no finite account limit. */
+  readonly totalBytes: number | null;
 }
 
 export class ProviderError extends Error {
@@ -48,9 +49,9 @@ export function assertSafeRemotePath(path: string): void {
 }
 
 export interface StorageProvider {
-  /** Stable id ('mock', 'pcloud') — the registry + settings key. */
+  /** Stable id ('mock', 'pcloud', 'google-drive') — registry + settings key. */
   readonly id: ProviderId;
-  /** Human label for the settings card ("pCloud", "Local mock"). */
+  /** Human label for settings and restore surfaces. */
   readonly label: string;
   /** UI and policy truth; adapters state limits explicitly. */
   readonly capabilities: ProviderCapabilities;
