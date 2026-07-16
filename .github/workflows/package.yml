@@ -49,6 +49,8 @@ jobs:
       - name: Package
         shell: bash
         env:
+          # Public installed-app OAuth identifier embedded at build time.
+          OVERLOOK_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
