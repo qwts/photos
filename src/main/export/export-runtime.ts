@@ -9,7 +9,7 @@ import { ExportEngine, writeFileCleanly } from './export-engine.js';
 import { transcodeToJpeg } from './transcode.js';
 import type { PhotoRecord } from '../../shared/library/types.js';
 
-export type DrainableExportFacade = ExportFacade & { drain(): Promise<void> };
+export type DrainableExportFacade = ExportFacade & { close(): void; drain(): Promise<void> };
 
 export interface ExportRuntimeOptions {
   readonly repo: { readonly get: (id: string) => PhotoRecord | undefined };
@@ -46,9 +46,11 @@ export function createExportRuntime(options: ExportRuntimeOptions): DrainableExp
   });
   let controller: AbortController | null = null;
   let turn: Promise<unknown> = Promise.resolve();
+  let closed = false;
   return {
     run: (photoIds, destination, format) => {
       const task = async () => {
+        if (closed) throw new Error('export service is closed');
         controller = new AbortController();
         try {
           const summary = await engine.exportPhotos(photoIds, destination, controller.signal, format);
@@ -70,6 +72,10 @@ export function createExportRuntime(options: ExportRuntimeOptions): DrainableExp
       return next;
     },
     cancel: () => controller?.abort(),
+    close: () => {
+      closed = true;
+      controller?.abort();
+    },
     drain: () =>
       turn.then(
         () => undefined,

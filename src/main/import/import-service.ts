@@ -29,6 +29,7 @@ export class ImportService {
    * (PR #183 review). */
   private turn: Promise<unknown> = Promise.resolve();
   private controller: AbortController | null = null;
+  private closed = false;
 
   constructor(
     private readonly repo: PhotosRepository,
@@ -41,7 +42,11 @@ export class ImportService {
   ) {}
 
   private async serialize<T>(task: () => Promise<T>): Promise<T> {
-    const next = this.turn.then(task, task);
+    const admitted = (): Promise<T> => {
+      if (this.closed) return Promise.reject(new Error('import service is closed'));
+      return task();
+    };
+    const next = this.turn.then(admitted, admitted);
     this.turn = next.then(
       () => undefined,
       () => undefined,
@@ -146,6 +151,13 @@ export class ImportService {
   /** Cancel semantics (#88): the engine finishes the file in flight, keeps
    * everything completed, and finalizes the rest as cancelled. */
   cancel(): void {
+    this.controller?.abort();
+  }
+
+  /** Permanently stops this library-bound instance. Queued batches observe
+   * the flag when their serialized turn arrives and never touch custody. */
+  close(): void {
+    this.closed = true;
     this.controller?.abort();
   }
 
