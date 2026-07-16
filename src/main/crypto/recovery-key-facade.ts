@@ -22,6 +22,7 @@ export interface RecoveryKeyFacadeOptions {
   readonly dataDir: () => string;
   readonly pickExportDestination: () => Promise<string | null>;
   readonly pickImportSource: () => Promise<string | null>;
+  readonly allowImport: () => boolean;
 }
 
 export function createRecoveryKeyFacade(options: RecoveryKeyFacadeOptions) {
@@ -37,6 +38,9 @@ export function createRecoveryKeyFacade(options: RecoveryKeyFacadeOptions) {
     },
     pickFile: options.pickImportSource,
     importKey: async (importPath: string, password: string) => {
+      if (!options.allowImport()) {
+        throw new Error('recovery-key import is unavailable while app lock is configured');
+      }
       let data: Buffer;
       try {
         data = await readRecoveryKeyFile(importPath);
