@@ -3,6 +3,7 @@ import { app, BrowserWindow, powerMonitor } from 'electron';
 import type { AppSettings } from '../../shared/settings/settings.js';
 import type { AppLockController } from './app-lock-controller.js';
 import { idleLimitSeconds } from './app-lock-policy.js';
+import { registerLastWindowLock } from './last-window-lock.js';
 
 const POLL_MS = 15_000;
 
@@ -30,6 +31,7 @@ export function registerAppLockLifecycle(options: AppLockLifecycleOptions): () =
   for (const win of BrowserWindow.getAllWindows()) watchWindow(win);
   const onWindow = (_event: Electron.Event, win: BrowserWindow): void => watchWindow(win);
   app.on('browser-window-created', onWindow);
+  const offLastWindowLock = registerLastWindowLock(app, process.platform, () => options.settings().lockWhenHidden, lock);
 
   const timer = setInterval(() => {
     if (options.controller.snapshot().state !== 'unlocked') return;
@@ -54,6 +56,7 @@ export function registerAppLockLifecycle(options: AppLockLifecycleOptions): () =
     powerMonitor.off('user-did-resign-active', onSessionLock);
     app.off('browser-window-created', onWindow);
     app.off('before-quit', beforeQuit);
+    offLastWindowLock();
     for (const win of BrowserWindow.getAllWindows()) {
       win.off('hide', onHidden);
       win.off('minimize', onHidden);
