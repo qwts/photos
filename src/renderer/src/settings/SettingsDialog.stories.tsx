@@ -207,8 +207,8 @@ export const DisconnectHidesBackupControls: Story = {
     await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
 
     // Updated design (#239): the backup-specific controls HIDE instead of
-    // disabling — only the connection card, import Copy/Move (no provider
-    // needed), and the locked Encrypt switch remain.
+    // disabling — only the connection card, re-offload policy, import
+    // Copy/Move (no provider needed), and the locked Encrypt switch remain.
     await waitFor(() => expect(body.getByText('Not connected')).toBeVisible());
     await expect(body.getByText('Link a provider to store encrypted originals off-device.')).toBeVisible();
     await expect(body.queryByText('Back up new imports automatically')).not.toBeInTheDocument();
@@ -216,10 +216,11 @@ export const DisconnectHidesBackupControls: Story = {
     await expect(body.queryByRole('slider', { name: 'Upload bandwidth limit' })).not.toBeInTheDocument();
     await expect(body.getByRole('radio', { name: 'Copy' })).toBeEnabled();
     await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
-    // The locked Encrypt switch is the one switch left, still disabled-on.
+    // Re-offload remains a user policy while disconnected; Encrypt is locked on.
     const switches = body.getAllByRole('switch');
-    await expect(switches).toHaveLength(1);
-    await expect(switches[0]).toBeDisabled();
+    await expect(switches).toHaveLength(2);
+    await expect(switches[0]).toBeEnabled();
+    await expect(switches[1]).toBeDisabled();
 
     // Reconnect: instant with the mock, quota and the knobs return.
     await userEvent.click(body.getByRole('button', { name: 'Connect Local mock' }));
