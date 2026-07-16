@@ -278,6 +278,35 @@ describe('FullService (#91)', () => {
     assert.equal(loads, 2);
   });
 
+  test('invalidating an in-flight view prevents stale plaintext from entering the cache (#306 review)', async () => {
+    let finish: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let started: (() => void) | undefined;
+    const entered = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let loads = 0;
+    const service = new FullService({
+      loadOriginal: async () => {
+        loads += 1;
+        started?.();
+        await gate;
+        return { bytes: Buffer.from('in-flight-view'), contentHash: 'hash', fileKind: 'jpeg' };
+      },
+    });
+
+    const stale = service.getFull('P0');
+    await entered;
+    service.invalidate('P0');
+    finish?.();
+    assert.notEqual(await stale, null, 'the existing protocol request can settle');
+    assert.equal(service.stats().cachedBytes, 0, 'its invalidated plaintext generation is never cached');
+    await service.getFull('P0');
+    assert.equal(loads, 2, 'a later view starts a fresh custody-aware load');
+  });
+
   test('EXIT CRITERIA: real-store originals decrypt in memory, never touch disk', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'overlook-fullsvc-'));
     const store = new BlobStore({ dataDir });

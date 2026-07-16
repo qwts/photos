@@ -145,6 +145,19 @@ describe('ephemeral originals (#306)', () => {
     assert.equal(w.ephemeral.has(HASH_A), false);
   });
 
+  test('view and same-photo exports hold independent reference-counted custody (#306 review)', async () => {
+    const w = await world();
+    await w.service.open('P0', 'view');
+    await Promise.all([w.service.open('P0', 'export'), w.service.open('P0', 'export')]);
+
+    await w.service.release('P0', 'export');
+    assert.equal(w.ephemeral.has(HASH_A), true, 'the second export and lightbox still own custody');
+    await w.service.release('P0', 'export');
+    assert.equal(w.ephemeral.has(HASH_A), true, 'the open lightbox still owns custody after both exports');
+    await w.service.release('P0', 'view');
+    assert.equal(w.ephemeral.has(HASH_A), false);
+  });
+
   test('policy off uses permanent restore; prefetch stays temporary and LRU-bounded', async () => {
     const w = await world({ maxCacheBytes: 20 });
     w.setPolicy(false);

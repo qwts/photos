@@ -49,7 +49,7 @@ export interface EphemeralOriginalDeps {
 
 interface CacheEntry {
   readonly bytes: number;
-  readonly activePhotoIds: Set<string>;
+  readonly owners: Map<string, number>;
 }
 
 const DEFAULT_CACHE_BYTES = 1024 * 1024 * 1024;
@@ -63,7 +63,7 @@ function remotePath(contentHash: string): string {
 export class EphemeralOriginalService {
   private readonly cache = new Map<string, CacheEntry>();
   private readonly inFlight = new Map<string, Promise<CacheEntry>>();
-  private readonly activeByHash = new Map<string, Set<string>>();
+  private readonly ownersByHash = new Map<string, Map<string, number>>();
   private readonly releasedWhilePreparing = new Set<string>();
   private readonly states = new Map<string, EphemeralStage>();
   private readonly maxCacheBytes: number;
@@ -100,17 +100,19 @@ export class EphemeralOriginalService {
       return 'durable';
     }
 
-    const activePhotoIds = this.activeOwners(photo.contentHash);
-    if (purpose !== 'prefetch') activePhotoIds.add(photoId);
+    const owners = this.owners(photo.contentHash);
+    const ownedPurpose = purpose === 'prefetch' ? null : purpose;
+    const owner = ownedPurpose === null ? null : this.ownerKey(photoId, ownedPurpose);
+    if (owner !== null && ownedPurpose !== null) this.acquireOwner(owners, owner, ownedPurpose);
     let entry: CacheEntry;
     try {
       entry = await this.ensure(photoId, photo.contentHash);
     } catch (error) {
-      activePhotoIds.delete(photoId);
-      this.dropEmptyOwners(photo.contentHash, activePhotoIds);
+      if (owner !== null && ownedPurpose !== null) this.releaseOwner(owners, owner, ownedPurpose);
+      this.dropEmptyOwners(photo.contentHash, owners);
       throw error;
     }
-    if (this.releasedWhilePreparing.delete(photoId) && activePhotoIds.size === 0) {
+    if (owner !== null && this.releasedWhilePreparing.delete(owner) && owners.size === 0) {
       await this.remove(photo.contentHash, entry);
       this.changeState(photoId, 'released');
     }
@@ -139,18 +141,19 @@ export class EphemeralOriginalService {
     return this.states.get(photoId) ?? null;
   }
 
-  async release(photoId: string): Promise<void> {
+  async release(photoId: string, purpose: Exclude<OriginalPurpose, 'prefetch'> = 'view'): Promise<void> {
     const photo = this.deps.repo.get(photoId);
     if (photo === undefined) return;
-    const activePhotoIds = this.activeByHash.get(photo.contentHash);
-    activePhotoIds?.delete(photoId);
+    const owner = this.ownerKey(photoId, purpose);
+    const owners = this.ownersByHash.get(photo.contentHash);
+    if (owners !== undefined) this.releaseOwner(owners, owner, purpose);
     const entry = this.cache.get(photo.contentHash);
     if (entry === undefined) {
-      if (this.inFlight.has(photo.contentHash)) this.releasedWhilePreparing.add(photoId);
-      this.dropEmptyOwners(photo.contentHash, activePhotoIds);
+      if (this.inFlight.has(photo.contentHash)) this.releasedWhilePreparing.add(owner);
+      this.dropEmptyOwners(photo.contentHash, owners);
       return;
     }
-    if (entry.activePhotoIds.size > 0) return;
+    if (entry.owners.size > 0) return;
     await this.remove(photo.contentHash, entry);
     this.changeState(photoId, 'released');
   }
@@ -206,7 +209,7 @@ export class EphemeralOriginalService {
         throw new EphemeralOriginalError('original exceeds the temporary cache limit', 'cache-full');
       }
       await this.makeRoom(bytes);
-      const entry = { bytes, activePhotoIds: this.activeOwners(contentHash) };
+      const entry = { bytes, owners: this.owners(contentHash) };
       this.cache.set(contentHash, entry);
       this.cachedBytes += bytes;
       published = true;
@@ -246,7 +249,7 @@ export class EphemeralOriginalService {
   private async makeRoom(incomingBytes: number): Promise<void> {
     for (const [hash, entry] of this.cache) {
       if (this.cachedBytes + incomingBytes <= this.maxCacheBytes) break;
-      if (entry.activePhotoIds.size === 0) await this.remove(hash, entry);
+      if (entry.owners.size === 0) await this.remove(hash, entry);
     }
     if (this.cachedBytes + incomingBytes > this.maxCacheBytes) {
       throw new EphemeralOriginalError('temporary cache is full with active originals', 'cache-full');
@@ -263,19 +266,34 @@ export class EphemeralOriginalService {
     this.cache.delete(contentHash);
     this.cachedBytes -= entry.bytes;
     await this.deps.blobs.deleteEphemeral(contentHash);
-    this.dropEmptyOwners(contentHash, entry.activePhotoIds);
+    this.dropEmptyOwners(contentHash, entry.owners);
   }
 
-  private activeOwners(contentHash: string): Set<string> {
-    const current = this.activeByHash.get(contentHash);
+  private owners(contentHash: string): Map<string, number> {
+    const current = this.ownersByHash.get(contentHash);
     if (current !== undefined) return current;
-    const created = new Set<string>();
-    this.activeByHash.set(contentHash, created);
+    const created = new Map<string, number>();
+    this.ownersByHash.set(contentHash, created);
     return created;
   }
 
-  private dropEmptyOwners(contentHash: string, owners: Set<string> | undefined): void {
-    if (owners?.size === 0 && this.activeByHash.get(contentHash) === owners) this.activeByHash.delete(contentHash);
+  private ownerKey(photoId: string, purpose: Exclude<OriginalPurpose, 'prefetch'>): string {
+    return `${purpose}:${photoId}`;
+  }
+
+  private acquireOwner(owners: Map<string, number>, owner: string, purpose: Exclude<OriginalPurpose, 'prefetch'>): void {
+    const current = owners.get(owner) ?? 0;
+    owners.set(owner, purpose === 'view' ? Math.max(current, 1) : current + 1);
+  }
+
+  private releaseOwner(owners: Map<string, number>, owner: string, purpose: Exclude<OriginalPurpose, 'prefetch'>): void {
+    const current = owners.get(owner) ?? 0;
+    if (purpose === 'view' || current <= 1) owners.delete(owner);
+    else owners.set(owner, current - 1);
+  }
+
+  private dropEmptyOwners(contentHash: string, owners: Map<string, number> | undefined): void {
+    if (owners?.size === 0 && this.ownersByHash.get(contentHash) === owners) this.ownersByHash.delete(contentHash);
   }
 
   private changeState(photoId: string, stage: EphemeralStage): void {

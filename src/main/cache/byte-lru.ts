@@ -23,6 +23,7 @@ export class ByteLru<V extends ByteSized> {
   private readonly cache = new Map<string, V>();
   private cacheBytes = 0;
   private readonly inFlight = new Map<string, { readonly promise: Promise<V | null>; readonly signals: (AbortSignal | undefined)[] }>();
+  private readonly generations = new Map<string, number>();
   private active = 0;
   private peak = 0;
   private readonly queue: (() => void)[] = [];
@@ -54,12 +55,14 @@ export class ByteLru<V extends ByteSized> {
       return pending.promise;
     }
     const signals: (AbortSignal | undefined)[] = [signal];
-    const promise = this.runJob(key, load, signals);
-    this.inFlight.set(key, { promise, signals });
+    const generation = this.generations.get(key) ?? 0;
+    const promise = this.runJob(key, load, signals, generation);
+    const entry = { promise, signals };
+    this.inFlight.set(key, entry);
     try {
       return await promise;
     } finally {
-      this.inFlight.delete(key);
+      if (this.inFlight.get(key) === entry) this.inFlight.delete(key);
     }
   }
 
@@ -68,10 +71,12 @@ export class ByteLru<V extends ByteSized> {
     return this.cache.has(key) || this.inFlight.has(key);
   }
 
-  /** Drops a completed value immediately. In-flight work is left to finish;
-   * callers use this when external custody closes and cached plaintext must
-   * not outlive that lifecycle. */
+  /** Drops a completed value and detaches in-flight work. The load may finish
+   * for its existing waiter, but its stale generation cannot repopulate this
+   * cache or satisfy a new request after external custody closes. */
   delete(key: string): void {
+    this.generations.set(key, (this.generations.get(key) ?? 0) + 1);
+    this.inFlight.delete(key);
     const value = this.cache.get(key);
     if (value === undefined) return;
     this.cache.delete(key);
@@ -83,7 +88,12 @@ export class ByteLru<V extends ByteSized> {
     return { cachedBytes: this.cacheBytes, peakConcurrent: this.peak };
   }
 
-  private async runJob(key: string, load: () => Promise<V | null>, signals: readonly (AbortSignal | undefined)[]): Promise<V | null> {
+  private async runJob(
+    key: string,
+    load: () => Promise<V | null>,
+    signals: readonly (AbortSignal | undefined)[],
+    generation: number,
+  ): Promise<V | null> {
     await this.acquire();
     try {
       // A waiter with no signal never aborts, so it keeps the load alive.
@@ -91,7 +101,7 @@ export class ByteLru<V extends ByteSized> {
         return null;
       }
       const value = await load();
-      if (value !== null) {
+      if (value !== null && (this.generations.get(key) ?? 0) === generation) {
         this.store(key, value);
       }
       return value;

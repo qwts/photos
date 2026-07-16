@@ -655,7 +655,7 @@ function getExportFacade(): ExportFacade {
       openOriginal: async (photo) => {
         const service = getEphemeralOriginalService();
         const opened = await service.open(photo.id, 'export');
-        return { stream: opened.stream, release: opened.custody === 'ephemeral' ? () => service.release(photo.id) : undefined };
+        return { stream: opened.stream, release: opened.custody === 'ephemeral' ? () => service.release(photo.id, 'export') : undefined };
       },
       writeFile: writeFileCleanly,
       exists: async (filePath) =>
