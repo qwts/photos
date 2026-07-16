@@ -85,14 +85,28 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
         {mode === 'change' || mode === 'remove' ? (
           <label>
             <div className="ovl-key__label mono-data">Current password</div>
-            <PasswordField value={current} onChange={setCurrent} label="Current app password" autoFocus />
+            <PasswordField
+              value={current}
+              onChange={setCurrent}
+              label="Current app password"
+              name="app-password"
+              autoComplete="current-password"
+              autoFocus
+            />
           </label>
         ) : null}
         {mode === 'remove' ? null : (
           <>
             <label>
               <div className="ovl-key__label mono-data">New password</div>
-              <PasswordField value={password} onChange={setPassword} label="New app password" autoFocus={mode === 'set'} />
+              <PasswordField
+                value={password}
+                onChange={setPassword}
+                label="New app password"
+                name="new-app-password"
+                autoComplete="new-password"
+                autoFocus={mode === 'set'}
+              />
               <div className="ovl-key__meter" aria-label={`Password strength: ${strength.label || 'none'}`}>
                 <div className="ovl-key__meterbars">
                   {Array.from({ length: 5 }, (_, index) => (
@@ -110,7 +124,13 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
             </label>
             <label>
               <div className="ovl-key__label mono-data">Confirm password</div>
-              <PasswordField value={confirm} onChange={setConfirm} label="Confirm app password" />
+              <PasswordField
+                value={confirm}
+                onChange={setConfirm}
+                label="Confirm app password"
+                name="confirm-app-password"
+                autoComplete="new-password"
+              />
               {mismatch ? (
                 <div className="ovl-key__mismatch">
                   <Icon name="triangle-alert" size={13} />

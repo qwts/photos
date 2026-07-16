@@ -14,9 +14,19 @@ export interface PasswordFieldProps {
   readonly label: string;
   readonly placeholder?: string;
   readonly autoFocus?: boolean;
+  readonly name?: string;
+  readonly autoComplete?: 'current-password' | 'new-password' | 'off';
 }
 
-export function PasswordField({ value, onChange, label, placeholder, autoFocus = false }: PasswordFieldProps): ReactElement {
+export function PasswordField({
+  value,
+  onChange,
+  label,
+  placeholder,
+  autoFocus = false,
+  name,
+  autoComplete = 'off',
+}: PasswordFieldProps): ReactElement {
   const [focus, setFocus] = useState(false);
   const [reveal, setReveal] = useState(false);
   return (
@@ -28,6 +38,10 @@ export function PasswordField({ value, onChange, label, placeholder, autoFocus =
         value={value}
         aria-label={label}
         placeholder={placeholder}
+        name={name}
+        autoComplete={autoComplete}
+        autoCapitalize="none"
+        spellCheck={false}
         // The dialog opened straight into this field — take focus so typing
         // works immediately (mock behavior).
         autoFocus={autoFocus}
@@ -40,6 +54,8 @@ export function PasswordField({ value, onChange, label, placeholder, autoFocus =
         onBlur={() => {
           setFocus(false);
         }}
+        onCopy={(event) => event.preventDefault()}
+        onCut={(event) => event.preventDefault()}
       />
       <button
         type="button"

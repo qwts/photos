@@ -42,7 +42,13 @@ export const PasswordFailureAndThrottle: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('Library locked')).toBeVisible();
-    await userEvent.type(canvas.getByLabelText('App password'), 'wrong password');
+    const password = canvas.getByLabelText('App password');
+    await expect(password).toHaveAttribute('autocomplete', 'current-password');
+    await expect(password).toHaveAttribute('name', 'app-password');
+    const copy = new Event('copy', { bubbles: true, cancelable: true });
+    password.dispatchEvent(copy);
+    await expect(copy.defaultPrevented).toBe(true);
+    await userEvent.type(password, 'wrong password');
     await userEvent.click(canvas.getByRole('button', { name: 'Unlock' }));
     await expect(await canvas.findByText('That password did not unlock this library.')).toBeVisible();
     await expect(canvas.getByRole('button', { name: /Try again in/u })).toBeDisabled();
