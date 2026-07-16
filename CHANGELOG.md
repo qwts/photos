@@ -1,5 +1,16 @@
 # photos
 
+## 0.19.0
+
+### Minor Changes
+
+- 6f122e7: Add a main-process-enforced app password, locked startup and lifecycle triggers, persisted retry throttling, crash-safe credential rotation, recovery-key re-establishment, fail-closed work teardown, and dedicated lock and Privacy settings surfaces.
+- 7cda42c: Add orientation-aware lightbox fill, clamped two-axis panning, focal-point zoom from 0.25× to 8×, and accessible zoom/reset controls.
+
+### Patch Changes
+
+- bb473c7: Keep background prefetch and export reads temporary when re-offload-after-viewing is disabled, and prevent an offload-in-progress lightbox from immediately fetching the evicted original again.
+
 ## 0.18.0
 
 ### Minor Changes
