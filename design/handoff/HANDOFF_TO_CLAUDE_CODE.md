@@ -16,7 +16,7 @@ The design moved on in a few places — the app is mostly built, so these are th
 See `readme.md`'s app section (`README.md` in this bundle) for the full per-screen detail.
 
 ## Fidelity
-**High-fidelity.** Colors, typography, spacing, radii, elevation, and motion are final and defined as tokens. Recreate the UI to match. The placeholder "photos" in `assets/thumbs/` are generated gradients — swap in real images.
+**High-fidelity.** Colors, typography, spacing, radii, elevation, and motion are final and defined as tokens. Recreate the UI to match. `assets/thumbs/` contains cropped derivatives of the licensed real-photo fixtures recorded in `tests/fixtures/photos/manifest.json`.
 
 ## What's in the bundle
 - `readme.md` — **the spec.** Read this first.
@@ -26,7 +26,7 @@ See `readme.md`'s app section (`README.md` in this bundle) for the full per-scre
 - `components/` — component specs in `core/`, `forms/`, `feedback/`, `media/`.
 - `ui_kits/app/` — an **interactive desktop app mock** (grid → lightbox → inspector, import flow, backup states). Open `ui_kits/app/index.html` to see the whole app assembled. This is your primary reference for how screens compose. Its `.jsx` files show layout/behavior — recreate them in your chosen framework, don't ship them as-is.
 - `assets/fonts/` — IBM Plex Sans + Mono binaries (OFL licensed, see `OFL.txt`).
-- `assets/thumbs/` — placeholder images (replace with real samples).
+- `assets/thumbs/` — real-photo sample derivatives for visual evaluation.
 
 ## How to view it
 Open `Overlook Design System.html` (the design-system overview) and `ui_kits/app/index.html` (the app mock) in a browser. All paths are relative — keep the folder structure intact.

@@ -17,7 +17,7 @@ Re-read these — several things changed since the last drop:
 The files in this bundle are **design references written in HTML/CSS/JSX** — an interactive prototype showing intended look, layout, and behavior. They are **not production code to copy directly**. Your job is to **recreate these designs in the target codebase's existing environment** (React, Vue, Swift, native, etc.) using its established patterns and libraries — or, if no environment exists yet, choose the most appropriate stack (the brief targets an Electron or Tauri desktop shell with a local encrypted SQLite library + pCloud backup) and implement there.
 
 ## Fidelity
-**High-fidelity.** Colors, typography, spacing, radii, elevation, and motion are final and defined as design tokens (see below) — recreate pixel-for-pixel. The "photos" in `assets/thumbs/` are placeholder generated gradients; swap in real images. Copy is final and should ship as written (see Content voice below).
+**High-fidelity.** Colors, typography, spacing, radii, elevation, and motion are final and defined as design tokens (see below) — recreate pixel-for-pixel. `assets/thumbs/` contains licensed real-photo derivatives for evaluating the media surfaces. Copy is final and should ship as written (see Content voice below).
 
 ## Screens / Views
 
@@ -117,7 +117,7 @@ Full source in `tokens/*.css` (copied into this bundle) — pull exact values fr
 
 ## Assets
 - `assets/fonts/` — IBM Plex Sans + Mono webfont files (OFL-licensed).
-- `assets/thumbs/` — placeholder generated-gradient "photos"; replace with real sample images before final review.
+- `assets/thumbs/` — licensed real-photo sample derivatives; provenance lives in `tests/fixtures/photos/manifest.json`.
 - Icons: [Lucide](https://lucide.dev) via CDN, stroke width 1.75, sizes 14/16/20 — no icon font, no hand-drawn SVGs, no emoji. Fixed vocabulary is listed in the design system's `readme.md` under ICONOGRAPHY.
 - **App icon / wordmark:** the product mark is a gradient-ringed **hexagon over a twilight mountain/lake scene** — transparent-background master at `assets/overlook-icon.png`, full size set in `assets/icon-set/` (16–1024) and an Apple `assets/Overlook.iconset/` (run `iconutil -c icns Overlook.iconset` for a `.icns`). The wordmark is this icon next to "OVERLOOK" in Plex Sans 600 (+0.14em tracking) filled with `--brand-gradient`.
 

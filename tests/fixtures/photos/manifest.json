@@ -1,0 +1,248 @@
+{
+  "license": "CC0-1.0",
+  "retrieved": "2026-07-15",
+  "sources": [
+    {
+      "file": "summer-landscape.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Summer_landscape_in_mountains.jpg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/b/bd/Summer_landscape_in_mountains.jpg",
+      "author": "U.S. Fish and Wildlife Service",
+      "description": "Summer mountain landscape",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "transformation": "resized to 1280px wide JPEG",
+      "sha256": "3d669f18ddc1e9943076bf02c8cf0d4fe25a80c8a218ade496ac427ca4c623a4"
+    },
+    {
+      "file": "street-city.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Street_city.jpg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/0/01/Street_city.jpg",
+      "author": "Omina006",
+      "description": "Portrait-oriented city street",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "transformation": "resized to 960px wide JPEG",
+      "sha256": "caa1dc76ccbbaeda1bafc0157c9ad7ded4ff13617b919b2f498a391bf6fb72b4"
+    },
+    {
+      "file": "flower-landscape.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Flower_photography_image.jpg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/3/30/Flower_photography_image.jpg",
+      "author": "Gopinath KARUMALAI",
+      "description": "Flowers at dusk",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "transformation": "resized to 1280px wide JPEG",
+      "sha256": "ac77b7fda669ef73e32817072f328dd5767ae4dfa3ee1fd7045be62a93ad51d4"
+    },
+    {
+      "file": "street-square.jpg",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Street_photography.jpeg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Street_photography.jpeg",
+      "author": "Kumar Mangal Roy",
+      "description": "Street vendor in Sonarpur, Kolkata",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "transformation": "cropped and resized to 960x960 JPEG",
+      "sha256": "45ba9e731d84f527b291a9a0876b094f7f65b874dec3bf489d4ea76e91de03d6"
+    }
+  ],
+  "designThumbs": [
+    {
+      "file": "t01.png",
+      "source": "summer-landscape.jpg",
+      "width": 420,
+      "height": 280,
+      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+    },
+    {
+      "file": "t02.png",
+      "source": "street-city.jpg",
+      "width": 280,
+      "height": 420,
+      "sha256": "a65dec2c9d75a0bfc2cb60270563124382c7d8e039a693156cdbc4a775beb298"
+    },
+    {
+      "file": "t03.png",
+      "source": "flower-landscape.jpg",
+      "width": 420,
+      "height": 315,
+      "sha256": "6f4b1ba9e439a3660e0ad817af652f05078e36db38e30dd1d59e2aecd686a23f"
+    },
+    {
+      "file": "t04.png",
+      "source": "street-square.jpg",
+      "width": 315,
+      "height": 420,
+      "sha256": "19e061ff267881f05eba28ed39598a2cc0ff93aed4dfdd894de4169530097e49"
+    },
+    {
+      "file": "t05.png",
+      "source": "summer-landscape.jpg",
+      "width": 420,
+      "height": 236,
+      "sha256": "17e6be523b154ca74bb904f50d20651b9555efca7662126e3f05ab3ab1df0f24"
+    },
+    {
+      "file": "t06.png",
+      "source": "street-city.jpg",
+      "width": 420,
+      "height": 420,
+      "sha256": "f18e55ac7e94c9c9635cc380c34b9ce1dcc25f70c96de2f4444d6652d31c95d0"
+    },
+    {
+      "file": "t07.png",
+      "source": "flower-landscape.jpg",
+      "width": 420,
+      "height": 280,
+      "sha256": "8eb10aa1f72b9313f8a9b25cd1aae7206a2feb21b4d6a3ffd05ae8a5e5646dc3"
+    },
+    {
+      "file": "t08.png",
+      "source": "street-square.jpg",
+      "width": 420,
+      "height": 315,
+      "sha256": "fec9b7e7dcbf271a5ced0a6682b705d9fad44a00db5c63e25259cebb0b6349e2"
+    },
+    {
+      "file": "t09.png",
+      "source": "summer-landscape.jpg",
+      "width": 420,
+      "height": 280,
+      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+    },
+    {
+      "file": "t10.png",
+      "source": "street-city.jpg",
+      "width": 280,
+      "height": 420,
+      "sha256": "a65dec2c9d75a0bfc2cb60270563124382c7d8e039a693156cdbc4a775beb298"
+    },
+    {
+      "file": "t11.png",
+      "source": "flower-landscape.jpg",
+      "width": 420,
+      "height": 315,
+      "sha256": "6f4b1ba9e439a3660e0ad817af652f05078e36db38e30dd1d59e2aecd686a23f"
+    },
+    {
+      "file": "t12.png",
+      "source": "street-square.jpg",
+      "width": 315,
+      "height": 420,
+      "sha256": "19e061ff267881f05eba28ed39598a2cc0ff93aed4dfdd894de4169530097e49"
+    },
+    {
+      "file": "t13.png",
+      "source": "summer-landscape.jpg",
+      "width": 420,
+      "height": 236,
+      "sha256": "17e6be523b154ca74bb904f50d20651b9555efca7662126e3f05ab3ab1df0f24"
+    },
+    {
+      "file": "t14.png",
+      "source": "street-city.jpg",
+      "width": 420,
+      "height": 420,
+      "sha256": "f18e55ac7e94c9c9635cc380c34b9ce1dcc25f70c96de2f4444d6652d31c95d0"
+    },
+    {
+      "file": "t15.png",
+      "source": "flower-landscape.jpg",
+      "width": 420,
+      "height": 280,
+      "sha256": "8eb10aa1f72b9313f8a9b25cd1aae7206a2feb21b4d6a3ffd05ae8a5e5646dc3"
+    },
+    {
+      "file": "t16.png",
+      "source": "street-square.jpg",
+      "width": 420,
+      "height": 315,
+      "sha256": "fec9b7e7dcbf271a5ced0a6682b705d9fad44a00db5c63e25259cebb0b6349e2"
+    },
+    {
+      "file": "t17.png",
+      "source": "summer-landscape.jpg",
+      "width": 420,
+      "height": 280,
+      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+    },
+    {
+      "file": "t18.png",
+      "source": "street-city.jpg",
+      "width": 280,
+      "height": 420,
+      "sha256": "a65dec2c9d75a0bfc2cb60270563124382c7d8e039a693156cdbc4a775beb298"
+    },
+    {
+      "file": "t19.png",
+      "source": "flower-landscape.jpg",
+      "width": 420,
+      "height": 315,
+      "sha256": "6f4b1ba9e439a3660e0ad817af652f05078e36db38e30dd1d59e2aecd686a23f"
+    },
+    {
+      "file": "t20.png",
+      "source": "street-square.jpg",
+      "width": 315,
+      "height": 420,
+      "sha256": "19e061ff267881f05eba28ed39598a2cc0ff93aed4dfdd894de4169530097e49"
+    },
+    {
+      "file": "t21.png",
+      "source": "summer-landscape.jpg",
+      "width": 420,
+      "height": 236,
+      "sha256": "17e6be523b154ca74bb904f50d20651b9555efca7662126e3f05ab3ab1df0f24"
+    },
+    {
+      "file": "t22.png",
+      "source": "street-city.jpg",
+      "width": 420,
+      "height": 420,
+      "sha256": "f18e55ac7e94c9c9635cc380c34b9ce1dcc25f70c96de2f4444d6652d31c95d0"
+    },
+    {
+      "file": "t23.png",
+      "source": "flower-landscape.jpg",
+      "width": 420,
+      "height": 280,
+      "sha256": "8eb10aa1f72b9313f8a9b25cd1aae7206a2feb21b4d6a3ffd05ae8a5e5646dc3"
+    },
+    {
+      "file": "t24.png",
+      "source": "street-square.jpg",
+      "width": 420,
+      "height": 315,
+      "sha256": "fec9b7e7dcbf271a5ced0a6682b705d9fad44a00db5c63e25259cebb0b6349e2"
+    },
+    {
+      "file": "t25.png",
+      "source": "summer-landscape.jpg",
+      "width": 420,
+      "height": 280,
+      "sha256": "e5a41c5f56bca8aa58e070abca6710c02aa5f841974b59ec59aa85025c267364"
+    },
+    {
+      "file": "t26.png",
+      "source": "street-city.jpg",
+      "width": 280,
+      "height": 420,
+      "sha256": "a65dec2c9d75a0bfc2cb60270563124382c7d8e039a693156cdbc4a775beb298"
+    },
+    {
+      "file": "t27.png",
+      "source": "flower-landscape.jpg",
+      "width": 420,
+      "height": 315,
+      "sha256": "6f4b1ba9e439a3660e0ad817af652f05078e36db38e30dd1d59e2aecd686a23f"
+    },
+    {
+      "file": "t28.png",
+      "source": "street-square.jpg",
+      "width": 315,
+      "height": 420,
+      "sha256": "19e061ff267881f05eba28ed39598a2cc0ff93aed4dfdd894de4169530097e49"
+    }
+  ]
+}
