@@ -37,6 +37,7 @@ interface World {
   readonly contentHash: string;
   readonly protectAuthority: ProtectedMigrationAuthority;
   readonly manifestDebts: { count: number };
+  readonly revokedOrdinary: string[][];
 }
 
 async function world(): Promise<World> {
@@ -95,6 +96,7 @@ async function world(): Promise<World> {
   photos.addToAlbum('ordinary-a', [PHOTO_ID]);
   const migrations = new ProtectedPhotoMigrationRepository(db);
   const manifestDebts = { count: 0 };
+  const revokedOrdinary: string[][] = [];
   let sequence = 0;
   const service = new ProtectedPhotoMigrationService({
     libraryId: LIBRARY_ID,
@@ -105,6 +107,7 @@ async function world(): Promise<World> {
     oweManifest: () => {
       manifestDebts.count += 1;
     },
+    revokeOrdinary: (photoIds) => revokedOrdinary.push([...photoIds]),
     createMigrationId: () => `migration-${String(++sequence)}`,
   });
   return {
@@ -121,6 +124,7 @@ async function world(): Promise<World> {
     contentHash,
     protectAuthority: { targetAlbumKey: albumKeyA, libraryResolver: (keyId) => (keyId === 1 ? libraryKey : undefined) },
     manifestDebts,
+    revokedOrdinary,
   };
 }
 
@@ -141,6 +145,7 @@ describe('ProtectedPhotoMigrationService', () => {
   test('protect then authorized unprotect round-trips bytes, derivatives, metadata, and memberships', async () => {
     const w = await world();
     const protectId = w.service.prepareProtect({ albumId: 'protected-a', albumKey: w.albumKeyA, photoIds: [PHOTO_ID] });
+    assert.deepEqual(w.revokedOrdinary, [[PHOTO_ID]], 'ordinary media caches revoke before protected custody begins');
     await w.service.runToCompletion(protectId, w.protectAuthority);
     assert.equal(w.manifestDebts.count, 1, 'removing ordinary custody owes a fresh backup manifest');
     assert.equal(w.photos.get(PHOTO_ID), undefined);

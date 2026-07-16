@@ -36,6 +36,9 @@ export interface ProtectedPhotoMigrationServiceOptions {
   readonly migrations: ProtectedPhotoMigrationRepository;
   /** Protection removes an ordinary row from the backup manifest. */
   readonly oweManifest: () => void;
+  /** Eagerly zeroizes ordinary media generations before the row becomes
+   * hidden. Repository admission remains the second, durable boundary. */
+  readonly revokeOrdinary?: ((photoIds: readonly string[]) => void) | undefined;
   readonly createMigrationId?: () => string;
 }
 
@@ -102,6 +105,7 @@ export class ProtectedPhotoMigrationService {
         hasMid: true,
       };
     });
+    this.options.revokeOrdinary?.(input.photoIds);
     this.options.migrations.prepare({
       migrationId,
       operation: 'protect',
