@@ -61,6 +61,7 @@ export function Lightbox({
   onExport,
   onOffload,
   onRehydrateError,
+  suppressRehydrate = false,
   onDelete,
 }: LightboxProps): ReactElement {
   const [chrome, setChrome] = useState(true);
@@ -127,7 +128,7 @@ export function Lightbox({
     void window.overlook.backup.ephemeralStatus({ photoId: photo.id }).then(({ stage }) => {
       if (active && stage !== null) setEphemeralState({ photoId: photo.id, stage });
     });
-    if (offloaded) {
+    if (offloaded && !suppressRehydrate) {
       void window.overlook.backup.prepareEphemeral({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
     }
     return () => {
@@ -135,7 +136,7 @@ export function Lightbox({
       unsubscribe();
       void window.overlook.backup.releaseEphemeral({ photoId: photo.id });
     };
-  }, [offloaded, photo.id]);
+  }, [offloaded, photo.id, suppressRehydrate]);
 
   const ephemeralStage = ephemeralState?.photoId === photo.id ? ephemeralState.stage : null;
 

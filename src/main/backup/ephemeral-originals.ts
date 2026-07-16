@@ -95,7 +95,7 @@ export class EphemeralOriginalService {
       }
       return 'durable';
     }
-    if (!this.deps.reOffloadAfterViewing()) {
+    if (!this.deps.reOffloadAfterViewing() && purpose === 'view') {
       await this.permanentlyRestore(photoId);
       return 'durable';
     }
