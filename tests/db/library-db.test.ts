@@ -95,7 +95,36 @@ describe('migrations', () => {
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1, 2, 3, 4],
+      [1, 2, 3, 4, 5],
+    );
+    db.close();
+  });
+
+  test('schema v5 keeps canonical interoperability records separate from native photos', () => {
+    const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
+    const tables = queryAll<{ name: string }>(
+      db,
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name IN ('interop_records', 'interop_albums')
+       ORDER BY name`,
+    );
+    assert.deepEqual(
+      tables.map((table) => table.name),
+      ['interop_albums', 'interop_records'],
+    );
+    const recordColumns = queryAll<{ name: string }>(db, 'PRAGMA table_info(interop_records)');
+    assert.deepEqual(
+      recordColumns.map((column) => column.name),
+      [
+        'interop_id',
+        'origin_product',
+        'origin_local_id',
+        'content_hash',
+        'local_photo_id',
+        'review_category',
+        'record_json',
+        'received_at',
+      ],
     );
     db.close();
   });
