@@ -1,0 +1,34 @@
+{
+  "header": {
+    "magic": "OVERLOOK-IMAGE-TRAIL-INTEROP",
+    "contractVersion": 2,
+    "messageId": "8959e5cc-391f-4330-9563-60f70bd0119d",
+    "transferId": "8c42634d-d602-46ee-ac5b-20186fbd51e0",
+    "pairingId": "a3267e90-2bd1-432c-bc8b-78e4704f843f",
+    "sourceProduct": "image-trail",
+    "targetProduct": "overlook",
+    "operation": "move",
+    "kind": "manifest",
+    "createdAt": "2026-07-16T10:00:00.000Z",
+    "sequence": 0
+  },
+  "payload": {
+    "kind": "manifest",
+    "schemaVersion": 1,
+    "recordInteropIds": [],
+    "albumInteropIds": [],
+    "blobCount": 0,
+    "counts": {
+      "total": 0,
+      "eligible": 0,
+      "duplicate": 0,
+      "conflict": 0,
+      "metadataOnly": 0,
+      "unsupported": 0,
+      "skipped": 0,
+      "failed": 0,
+      "acknowledged": 0,
+      "finalized": 0
+    }
+  }
+}
