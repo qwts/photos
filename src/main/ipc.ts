@@ -9,7 +9,8 @@ import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/back
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
 import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from './backup/offload.js';
-import type { AppLockState, AppUnlockResult, LockStateSnapshot } from './crypto/app-lock-controller.js';
+import type { AppLockState, AppTouchIdUnlockResult, AppUnlockResult, LockStateSnapshot } from './crypto/app-lock-controller.js';
+import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -27,6 +28,10 @@ export interface AppLockFacade {
   snapshot(): LockStateSnapshot;
   retryAfterMs(): number;
   unlock(password: string): Promise<AppUnlockResult>;
+  touchIdStatus(): Promise<TouchIdStatus>;
+  touchIdUnlock(): Promise<AppTouchIdUnlockResult>;
+  touchIdEnable(password: string): Promise<TouchIdEnableResult>;
+  touchIdDisable(): Promise<boolean>;
   configure(password: string): Promise<void>;
   lock(): Promise<void>;
   changePassword(currentPassword: string, nextPassword: string): Promise<boolean>;
@@ -87,6 +92,24 @@ export function registerAppLockHandlers(getFacade: () => AppLockFacade): void {
     validateHandler(channels.appLockRecover, ({ path, recoveryPassword, nextPassword }) =>
       getFacade().recover(path, recoveryPassword, nextPassword),
     )(request),
+  );
+  ipcMain.handle(channels.appLockTouchIdStatus.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockTouchIdStatus, () => getFacade().touchIdStatus())(request),
+  );
+  ipcMain.handle(channels.appLockTouchIdEnable.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockTouchIdEnable, async ({ password }) => {
+      const result = await getFacade().touchIdEnable(password);
+      return { enabled: result.ok, reason: result.ok ? null : result.reason };
+    })(request),
+  );
+  ipcMain.handle(channels.appLockTouchIdDisable.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockTouchIdDisable, async () => ({ disabled: await getFacade().touchIdDisable() }))(request),
+  );
+  ipcMain.handle(channels.appLockTouchIdUnlock.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockTouchIdUnlock, async () => {
+      const result = await getFacade().touchIdUnlock();
+      return { ok: result.ok, reason: result.ok ? null : result.reason };
+    })(request),
   );
 }
 

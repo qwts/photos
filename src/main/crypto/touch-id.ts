@@ -144,6 +144,8 @@ export class TouchIdService {
       return { ok: true };
     } catch {
       await this.bestEffortClear(`v1:${anchor.recordHash}`);
+      const marker = this.readMarker();
+      if (marker?.account === `v1:${anchor.recordHash}`) this.removeMarker();
       return { ok: false, reason: 'unavailable' };
     } finally {
       released.unlockKey.fill(0);

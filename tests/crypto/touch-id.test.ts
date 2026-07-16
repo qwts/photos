@@ -211,6 +211,17 @@ describe('Touch ID availability and failure handling (#310)', () => {
     assert.equal((await w.service.status()).enabled, false);
   });
 
+  test('failed re-enrollment revokes the old marker and native custody', async () => {
+    const w = world();
+    await w.service.enable('correct password');
+    w.adapter.storeError = true;
+
+    assert.deepEqual(await w.service.enable('correct password'), { ok: false, reason: 'unavailable' });
+    assert.equal(existsSync(join(w.dataDir, 'touch-id.json')), false);
+    assert.equal(w.adapter.items.size, 0);
+    assert.equal((await w.service.status()).enabled, false);
+  });
+
   test('invalid markers fail closed and a marker removed mid-status cannot unlock', async () => {
     const w = world();
     const markerPath = join(w.dataDir, 'touch-id.json');

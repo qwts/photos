@@ -23,7 +23,12 @@ export interface OverlookApi {
     readonly remove: (request: Req<typeof channels.appLockRemove>) => Promise<Res<typeof channels.appLockRemove>>;
     readonly pickRecovery: () => Promise<Res<typeof channels.appLockPickRecovery>>;
     readonly recover: (request: Req<typeof channels.appLockRecover>) => Promise<Res<typeof channels.appLockRecover>>;
+    readonly touchIdStatus: () => Promise<Res<typeof channels.appLockTouchIdStatus>>;
+    readonly touchIdEnable: (request: Req<typeof channels.appLockTouchIdEnable>) => Promise<Res<typeof channels.appLockTouchIdEnable>>;
+    readonly touchIdDisable: () => Promise<Res<typeof channels.appLockTouchIdDisable>>;
+    readonly touchIdUnlock: () => Promise<Res<typeof channels.appLockTouchIdUnlock>>;
     readonly onChanged: (listener: (payload: z.output<typeof events.appLockStateChanged.payload>) => void) => () => void;
+    readonly onTouchIdChanged: (listener: (payload: z.output<typeof events.appLockTouchIdChanged.payload>) => void) => () => void;
   };
   readonly library: {
     readonly page: (request: Req<typeof channels.libraryPage>) => Promise<Res<typeof channels.libraryPage>>;

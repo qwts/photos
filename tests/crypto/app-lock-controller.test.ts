@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 
 import { AppLockController, AppLockedError } from '../../src/main/crypto/app-lock-controller.js';
 import type { AppLockStatus, ConfigureAppLockInput, UnlockResult } from '../../src/main/crypto/app-lock-credentials.js';
+import type { TouchIdEnableResult, TouchIdStatus, TouchIdUnlockResult } from '../../src/main/crypto/touch-id.js';
 
 class FakeCredentials {
   credentialStatus: AppLockStatus = { state: 'locked', libraryId: 'library-a' };
@@ -32,6 +33,38 @@ class FakeCredentials {
 
   remove(_password: string): Promise<boolean> {
     return Promise.resolve(true);
+  }
+}
+
+class FakeTouchId {
+  statusValue: TouchIdStatus = { available: true, reason: null, enabled: true };
+  enableValue: TouchIdEnableResult = { ok: true };
+  unlockValue: TouchIdUnlockResult = { ok: true, masterKey: Buffer.alloc(32, 8) };
+  credentialChanges = 0;
+  disables = 0;
+
+  status(): Promise<TouchIdStatus> {
+    return Promise.resolve(this.statusValue);
+  }
+
+  enable(_password: string): Promise<TouchIdEnableResult> {
+    return Promise.resolve(this.enableValue);
+  }
+
+  disable(): Promise<boolean> {
+    this.disables += 1;
+    this.statusValue = { ...this.statusValue, enabled: false };
+    return Promise.resolve(true);
+  }
+
+  unlockMaster(): Promise<TouchIdUnlockResult> {
+    return Promise.resolve(this.unlockValue);
+  }
+
+  credentialsChanged(): Promise<void> {
+    this.credentialChanges += 1;
+    this.statusValue = { ...this.statusValue, enabled: false };
+    return Promise.resolve();
   }
 }
 
@@ -214,5 +247,120 @@ describe('app-lock authority state machine (#311)', () => {
     );
     assert.equal(credentials.recoveries, 0);
     assert.equal(controller.snapshot().state, 'unlocked');
+  });
+});
+
+describe('Touch ID app-lock authority (#310)', () => {
+  test('successful biometric release opens M without reading or resetting password throttle', async () => {
+    const credentials = new FakeCredentials();
+    const touchId = new FakeTouchId();
+    const releasedMaster = Buffer.alloc(32, 8);
+    touchId.unlockValue = { ok: true, masterKey: releasedMaster };
+    const opened: Buffer[] = [];
+    let throttleCalls = 0;
+    const controller = new AppLockController({
+      credentials,
+      touchId,
+      openAuthorized: (masterKey) => {
+        if (masterKey !== undefined) opened.push(Buffer.from(masterKey));
+      },
+      closeAuthorized: () => undefined,
+      throttle: {
+        remainingMs: () => {
+          throttleCalls += 1;
+          return 60_000;
+        },
+        recordFailure: () => {
+          throttleCalls += 1;
+          return 60_000;
+        },
+        reset: () => {
+          throttleCalls += 1;
+        },
+      },
+    });
+
+    assert.deepEqual(await controller.unlockWithTouchId(), { ok: true });
+    assert.deepEqual(opened, [Buffer.alloc(32, 8)]);
+    assert.deepEqual(releasedMaster, Buffer.alloc(32));
+    assert.equal(throttleCalls, 0);
+    assert.equal(controller.snapshot().state, 'unlocked');
+  });
+
+  test('cancel and failed scans stay locked without changing password throttle', async () => {
+    const credentials = new FakeCredentials();
+    const touchId = new FakeTouchId();
+    let throttleWrites = 0;
+    const controller = new AppLockController({
+      credentials,
+      touchId,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => undefined,
+      throttle: {
+        remainingMs: () => 0,
+        recordFailure: () => {
+          throttleWrites += 1;
+          return 0;
+        },
+        reset: () => {
+          throttleWrites += 1;
+        },
+      },
+    });
+    touchId.unlockValue = { ok: false, reason: 'cancelled' };
+    assert.deepEqual(await controller.unlockWithTouchId(), { ok: false, reason: 'cancelled' });
+    touchId.unlockValue = { ok: false, reason: 'failed' };
+    assert.deepEqual(await controller.unlockWithTouchId(), { ok: false, reason: 'failed' });
+    touchId.unlockMaster = () => Promise.reject(new Error('native boundary failed'));
+    assert.deepEqual(await controller.unlockWithTouchId(), { ok: false, reason: 'unavailable' });
+    assert.equal(controller.snapshot().state, 'locked');
+    assert.equal(throttleWrites, 0);
+    assert.deepEqual(await controller.unlock('password'), { ok: true }, 'password fallback remains authoritative');
+  });
+
+  test('opt-in requires an open library and opt-out publishes the resulting status', async () => {
+    const credentials = new FakeCredentials();
+    const touchId = new FakeTouchId();
+    touchId.statusValue = { available: true, reason: null, enabled: false };
+    const statuses: TouchIdStatus[] = [];
+    const controller = new AppLockController({
+      credentials,
+      touchId,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => undefined,
+    });
+    await assert.rejects(controller.enableTouchId('password'), AppLockedError);
+    await controller.unlock('password');
+    controller.subscribeTouchId((status) => statuses.push(status));
+    assert.deepEqual(await controller.enableTouchId('password'), { ok: true });
+    touchId.statusValue = { available: true, reason: null, enabled: true };
+    assert.equal(await controller.disableTouchId(), true);
+    assert.equal(touchId.disables, 1);
+    assert.deepEqual(statuses.at(-1), { available: true, reason: null, enabled: false });
+  });
+
+  test('password rotation, removal, and recovery revoke old biometric custody', async () => {
+    const credentials = new FakeCredentials();
+    const touchId = new FakeTouchId();
+    const controller = new AppLockController({
+      credentials,
+      touchId,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => undefined,
+    });
+    await controller.unlock('password');
+    assert.equal(await controller.changePassword('current', 'next'), true);
+    assert.equal(await controller.remove('current'), true);
+    assert.equal(touchId.credentialChanges, 2);
+
+    const recoveryTouchId = new FakeTouchId();
+    const recoveryController = new AppLockController({
+      credentials: new FakeCredentials(),
+      touchId: recoveryTouchId,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => undefined,
+    });
+    await recoveryController.recover({ libraryId: 'library-a', password: 'Strong Password 1!', masterKey: Buffer.alloc(32, 3) });
+    assert.equal(recoveryTouchId.credentialChanges, 1);
   });
 });

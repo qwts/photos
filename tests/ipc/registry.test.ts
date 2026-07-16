@@ -33,6 +33,27 @@ describe('channel registry', () => {
     );
     assert.throws(() => channels.backupOffload.response.parse({ offloaded: 1, skipped: 0, freedBytes: 42 }));
   });
+
+  test('Touch ID IPC exposes states but strips native and unlock secrets (#310)', () => {
+    assert.deepEqual(
+      channels.appLockTouchIdStatus.response.parse({
+        available: true,
+        reason: null,
+        enabled: true,
+        nativeDetail: 'LAError -42',
+      }),
+      { available: true, reason: null, enabled: true },
+    );
+    assert.deepEqual(
+      channels.appLockTouchIdUnlock.response.parse({
+        ok: true,
+        reason: null,
+        unlockKey: Buffer.alloc(32, 5),
+        masterKey: Buffer.alloc(32, 6),
+      }),
+      { ok: true, reason: null },
+    );
+  });
 });
 
 describe('createInvoker', () => {

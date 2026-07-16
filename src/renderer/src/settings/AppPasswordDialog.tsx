@@ -8,7 +8,7 @@ import { PasswordField } from '../components/PasswordField';
 
 import './settings.css';
 
-export type AppPasswordMode = 'set' | 'change' | 'remove';
+export type AppPasswordMode = 'set' | 'change' | 'remove' | 'touch-id';
 
 export interface AppPasswordDialogProps {
   readonly mode: AppPasswordMode;
@@ -22,12 +22,12 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const next = mode === 'remove' ? current : password;
+  const next = mode === 'remove' || mode === 'touch-id' ? current : password;
   const strength = strengthOf(next);
   const mismatch = mode !== 'remove' && confirm.length > 0 && confirm !== password;
   const canSubmit =
     !busy &&
-    (mode === 'remove'
+    (mode === 'remove' || mode === 'touch-id'
       ? current.length > 0
       : password.length >= 8 && password === confirm && strength.score >= 3 && (mode === 'set' || current.length > 0));
 
@@ -35,17 +35,36 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
     if (!canSubmit) return;
     setBusy(true);
     setError('');
-    const operation =
-      mode === 'set'
-        ? window.overlook.appLock.configure({ password })
-        : mode === 'change'
-          ? window.overlook.appLock.changePassword({ currentPassword: current, nextPassword: password })
-          : window.overlook.appLock.remove({ password: current });
-    void operation
-      .then((result) => {
-        const accepted = 'changed' in result ? result.changed : 'removed' in result ? result.removed : true;
+    const operation = async (): Promise<{ readonly accepted: boolean; readonly reason?: string }> => {
+      if (mode === 'set') {
+        await window.overlook.appLock.configure({ password });
+        return { accepted: true };
+      }
+      if (mode === 'change') {
+        const result = await window.overlook.appLock.changePassword({ currentPassword: current, nextPassword: password });
+        return { accepted: result.changed };
+      }
+      if (mode === 'remove') {
+        const result = await window.overlook.appLock.remove({ password: current });
+        return { accepted: result.removed };
+      }
+      const result = await window.overlook.appLock.touchIdEnable({ password: current });
+      return { accepted: result.enabled, ...(result.reason === null ? {} : { reason: result.reason }) };
+    };
+    void operation()
+      .then(({ accepted, reason }) => {
         if (!accepted) {
-          setError('The current password is incorrect.');
+          setError(
+            reason === 'not-enrolled'
+              ? 'Set up Touch ID in System Settings, then try again.'
+              : reason === 'locked-out'
+                ? 'Touch ID is locked. Use your password until macOS makes it available again.'
+                : reason === 'unsigned-build' || reason === 'native-unavailable' || reason === 'unsupported-platform'
+                  ? 'Touch ID is unavailable in this build.'
+                  : reason === 'unavailable'
+                    ? 'Touch ID or secure storage is unavailable.'
+                    : 'The current password is incorrect.',
+          );
           return;
         }
         onDone();
@@ -54,7 +73,14 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
       .finally(() => setBusy(false));
   };
 
-  const title = mode === 'set' ? 'Set app password' : mode === 'change' ? 'Change app password' : 'Remove app password';
+  const title =
+    mode === 'set'
+      ? 'Set app password'
+      : mode === 'change'
+        ? 'Change app password'
+        : mode === 'remove'
+          ? 'Remove app password'
+          : 'Enable Touch ID';
   return (
     <Dialog
       open
@@ -67,7 +93,12 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant={mode === 'remove' ? 'danger' : 'primary'} icon="lock" disabled={!canSubmit} onClick={submit}>
+          <Button
+            variant={mode === 'remove' ? 'danger' : 'primary'}
+            icon={mode === 'touch-id' ? 'fingerprint' : 'lock'}
+            disabled={!canSubmit}
+            onClick={submit}
+          >
             {busy ? 'Working…' : title}
           </Button>
         </>
@@ -79,10 +110,12 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
           <div className="ovl-keynote__body">
             {mode === 'remove'
               ? 'Removing the app password returns custody to this OS keychain. Your separate recovery key is unchanged.'
-              : 'While locked, every decrypted original stays sealed — nothing can be viewed, exported, restored, or synced until you unlock.'}
+              : mode === 'touch-id'
+                ? 'Confirm your app password. Overlook stores only its unlock key in this Mac’s device-only Keychain, protected by your current Touch ID enrollment.'
+                : 'While locked, every decrypted original stays sealed — nothing can be viewed, exported, restored, or synced until you unlock.'}
           </div>
         </div>
-        {mode === 'change' || mode === 'remove' ? (
+        {mode === 'change' || mode === 'remove' || mode === 'touch-id' ? (
           <label>
             <div className="ovl-key__label mono-data">Current password</div>
             <PasswordField
@@ -95,7 +128,7 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
             />
           </label>
         ) : null}
-        {mode === 'remove' ? null : (
+        {mode === 'remove' || mode === 'touch-id' ? null : (
           <>
             <label>
               <div className="ovl-key__label mono-data">New password</div>

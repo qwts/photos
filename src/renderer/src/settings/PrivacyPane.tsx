@@ -24,6 +24,9 @@ export interface PrivacyPaneProps {
   readonly appLockConfigured: boolean;
   readonly onPasswordAction: (mode: AppPasswordMode) => void;
   readonly onLockNow: () => void;
+  readonly touchIdStatus: Awaited<ReturnType<typeof window.overlook.appLock.touchIdStatus>> | null;
+  readonly touchIdBusy: boolean;
+  readonly onTouchIdChange: (enabled: boolean) => void;
 }
 
 export function PrivacyPane({
@@ -33,6 +36,9 @@ export function PrivacyPane({
   appLockConfigured,
   onPasswordAction,
   onLockNow,
+  touchIdStatus,
+  touchIdBusy,
+  onTouchIdChange,
 }: PrivacyPaneProps): ReactElement {
   // The recovery row's fingerprint (#240) — the same identifier the
   // KeyDialog shows; '—' while the keystore is unavailable.
@@ -95,11 +101,13 @@ export function PrivacyPane({
           onChange={(lockWhenHidden) => onPatch({ lockWhenHidden })}
         />
       </Field>
-      <Field
-        label="Unlock with Touch ID"
-        hint={appLockConfigured ? 'Native Touch ID support is tracked separately and is not enabled yet.' : 'Set an app password first.'}
-      >
-        <Switch checked={false} disabled />
+      <Field label="Unlock with Touch ID" hint={touchIdHint(appLockConfigured, touchIdStatus)}>
+        <Switch
+          label="Unlock with Touch ID"
+          checked={touchIdStatus?.enabled ?? false}
+          disabled={!appLockConfigured || touchIdBusy || touchIdStatus === null || (!touchIdStatus.available && !touchIdStatus.enabled)}
+          onChange={onTouchIdChange}
+        />
       </Field>
       <Field label="End-to-end encryption" hint="Originals and thumbnails are encrypted on this device before leaving it.">
         <Badge tone="green">Always on</Badge>
@@ -155,4 +163,27 @@ export function PrivacyPane({
       </Field>
     </div>
   );
+}
+
+function touchIdHint(appLockConfigured: boolean, status: Awaited<ReturnType<typeof window.overlook.appLock.touchIdStatus>> | null): string {
+  if (!appLockConfigured) return 'Set an app password first.';
+  if (status === null) return 'Checking this Mac…';
+  if (status.enabled && status.available) return 'Enabled on this Mac. Your app password always remains available.';
+  if (status.enabled) return 'Enabled, but Touch ID is currently unavailable. Use your app password or turn this off.';
+  if (status.available) return 'Confirm your app password to opt in on this Mac.';
+  switch (status.reason) {
+    case 'not-enrolled':
+      return 'Set up Touch ID in System Settings first.';
+    case 'locked-out':
+      return 'Touch ID is locked by macOS. Use your app password.';
+    case 'unsigned-build':
+      return 'Available only in signed Overlook builds.';
+    case 'unsupported-platform':
+      return 'Available on supported Macs with Touch ID.';
+    case 'native-unavailable':
+      return 'This build does not include native Touch ID support.';
+    case 'unavailable':
+    case null:
+      return 'Touch ID or secure storage is unavailable on this Mac.';
+  }
 }

@@ -1,4 +1,5 @@
 import type { AppLockCredentialStore, AppLockStatus, ConfigureAppLockInput } from './app-lock-credentials.js';
+import type { TouchIdEnableResult, TouchIdService, TouchIdStatus, TouchIdUnlockFailureReason } from './touch-id.js';
 import type { UnlockThrottle } from './unlock-throttle.js';
 
 export type AppLockState = 'unconfigured-unlocked' | 'locked' | 'unlocking' | 'unlocked' | 'locking' | 'recovery-required';
@@ -14,6 +15,7 @@ export interface AppLockControllerOptions {
   readonly closeAuthorized: () => void | Promise<void>;
   readonly failClosed?: () => void;
   readonly throttle?: Pick<UnlockThrottle, 'remainingMs' | 'recordFailure' | 'reset'>;
+  readonly touchId?: Pick<TouchIdService, 'status' | 'enable' | 'disable' | 'unlockMaster' | 'credentialsChanged'>;
 }
 
 export interface LockStateSnapshot {
@@ -25,10 +27,13 @@ export type AppUnlockResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'wrong-password' | 'recovery-required' | 'throttled'; readonly retryAfterMs?: number };
 
+export type AppTouchIdUnlockResult = { readonly ok: true } | { readonly ok: false; readonly reason: TouchIdUnlockFailureReason };
+
 export class AppLockController {
   private current: LockStateSnapshot;
   private transition: Promise<unknown> = Promise.resolve();
   private readonly listeners = new Set<(snapshot: LockStateSnapshot) => void>();
+  private readonly touchIdListeners = new Set<(status: TouchIdStatus) => void>();
 
   constructor(private readonly options: AppLockControllerOptions) {
     this.current = this.fromCredentialStatus(options.credentials.status());
@@ -45,6 +50,15 @@ export class AppLockController {
   subscribe(listener: (snapshot: LockStateSnapshot) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  subscribeTouchId(listener: (status: TouchIdStatus) => void): () => void {
+    this.touchIdListeners.add(listener);
+    return () => this.touchIdListeners.delete(listener);
+  }
+
+  touchIdStatus(): Promise<TouchIdStatus> {
+    return this.options.touchId?.status() ?? Promise.resolve({ available: false, reason: 'unsupported-platform', enabled: false });
   }
 
   initialize(): Promise<void> {
@@ -88,6 +102,51 @@ export class AppLockController {
     });
   }
 
+  unlockWithTouchId(): Promise<AppTouchIdUnlockResult> {
+    return this.serialize(async () => {
+      if (this.current.state !== 'locked') return { ok: false, reason: 'recovery-required' };
+      if (this.options.touchId === undefined) return { ok: false, reason: 'not-enabled' };
+      this.publish({ ...this.current, state: 'unlocking' });
+      const result = await this.options.touchId.unlockMaster().catch(() => ({ ok: false as const, reason: 'unavailable' as const }));
+      if (!result.ok) {
+        this.publish({ ...this.current, state: result.reason === 'recovery-required' ? 'recovery-required' : 'locked' });
+        if (result.reason === 'enrollment-changed' || result.reason === 'recovery-required') await this.publishTouchId();
+        return result;
+      }
+      try {
+        await this.options.openAuthorized(result.masterKey);
+        this.publish({ ...this.current, state: 'unlocked' });
+        return { ok: true };
+      } catch {
+        this.publish({ ...this.current, state: 'locked' });
+        return { ok: false, reason: 'recovery-required' };
+      } finally {
+        result.masterKey.fill(0);
+      }
+    });
+  }
+
+  enableTouchId(password: string): Promise<TouchIdEnableResult> {
+    return this.serialize(async () => {
+      this.requireContentAccess();
+      const result =
+        this.options.touchId === undefined
+          ? ({ ok: false, reason: 'unsupported-platform' } as const)
+          : await this.options.touchId.enable(password);
+      if (result.ok) await this.publishTouchId();
+      return result;
+    });
+  }
+
+  disableTouchId(): Promise<boolean> {
+    return this.serialize(async () => {
+      this.requireContentAccess();
+      const disabled = this.options.touchId === undefined || (await this.options.touchId.disable());
+      if (disabled) await this.publishTouchId();
+      return disabled;
+    });
+  }
+
   lock(): Promise<void> {
     return this.serialize(async () => {
       if (this.current.state !== 'unlocked') return;
@@ -120,7 +179,9 @@ export class AppLockController {
   changePassword(currentPassword: string, nextPassword: string): Promise<boolean> {
     return this.serialize(async () => {
       this.requireContentAccess();
-      return this.options.credentials.changePassword(currentPassword, nextPassword);
+      const changed = await this.options.credentials.changePassword(currentPassword, nextPassword);
+      if (changed) await this.credentialsChanged();
+      return changed;
     });
   }
 
@@ -128,7 +189,10 @@ export class AppLockController {
     return this.serialize(async () => {
       this.requireContentAccess();
       const removed = await this.options.credentials.remove(password);
-      if (removed) this.publish({ state: 'unconfigured-unlocked', libraryId: null });
+      if (removed) {
+        await this.credentialsChanged();
+        this.publish({ state: 'unconfigured-unlocked', libraryId: null });
+      }
       return removed;
     });
   }
@@ -139,6 +203,7 @@ export class AppLockController {
         throw new AppLockedError('App lock recovery requires a closed library');
       }
       await this.options.credentials.recover(input);
+      await this.credentialsChanged();
       this.publish({ state: 'locked', libraryId: input.libraryId });
     });
   }
@@ -156,6 +221,31 @@ export class AppLockController {
         listener(this.snapshot());
       } catch {
         // Observer delivery is best-effort and must never interrupt custody transitions.
+      }
+    }
+  }
+
+  private async credentialsChanged(): Promise<void> {
+    try {
+      await this.options.touchId?.credentialsChanged();
+    } catch {
+      // Rotation already makes the old U unable to open the new credential
+      // record. Startup/status reconciliation retries physical cleanup.
+    }
+    await this.publishTouchId();
+  }
+
+  private async publishTouchId(): Promise<void> {
+    const status = await this.touchIdStatus().catch(() => ({
+      available: false as const,
+      reason: 'native-unavailable' as const,
+      enabled: false,
+    }));
+    for (const listener of this.touchIdListeners) {
+      try {
+        listener(status);
+      } catch {
+        // Observer delivery cannot interrupt custody transitions.
       }
     }
   }

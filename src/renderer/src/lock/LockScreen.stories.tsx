@@ -15,7 +15,12 @@ function installStub(result: Awaited<ReturnType<OverlookApi['appLock']['unlock']
       remove: () => Promise.reject(new Error('not used')),
       pickRecovery: () => Promise.resolve({ path: '/Users/ansel/Desktop/overlook-recovery.key' }),
       recover: () => Promise.resolve({ recovered: true, reason: null }),
+      touchIdStatus: () => Promise.resolve({ available: true, reason: null, enabled: true }),
+      touchIdEnable: () => Promise.resolve({ enabled: true, reason: null }),
+      touchIdDisable: () => Promise.resolve({ disabled: true }),
+      touchIdUnlock: () => Promise.resolve({ ok: false, reason: 'cancelled' }),
       onChanged: () => () => undefined,
+      onTouchIdChanged: () => () => undefined,
     },
     minimizeWindow: () => Promise.resolve(),
     toggleMaximizeWindow: () => Promise.resolve(false),
@@ -52,6 +57,16 @@ export const PasswordFailureAndThrottle: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Unlock' }));
     await expect(await canvas.findByText('That password did not unlock this library.')).toBeVisible();
     await expect(canvas.getByRole('button', { name: /Try again in/u })).toBeDisabled();
+  },
+};
+
+export const TouchIdCancellationKeepsPasswordFallback: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(await canvas.findByRole('button', { name: 'Unlock with Touch ID' }));
+    await expect(await canvas.findByText('Touch ID was cancelled. Try again or enter your app password.')).toBeVisible();
+    await expect(canvas.getByLabelText('App password')).toBeEnabled();
+    await expect(canvas.getByRole('button', { name: 'Unlock' })).toBeVisible();
   },
 };
 
