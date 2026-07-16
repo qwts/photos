@@ -79,6 +79,65 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
   }
 });
 
+test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#307)', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-lightbox-transform-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '4',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+    await page.locator('.ovl-grid__cell').first().click();
+
+    const viewport = page.getByTestId('lightbox-viewport');
+    const image = viewport.getByRole('img');
+    await expect(viewport).toHaveAttribute('data-mode', 'fit');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+
+    await image.dblclick();
+    await expect(viewport).toHaveAttribute('data-mode', 'fill');
+    await image.dblclick();
+    await expect(viewport).toHaveAttribute('data-mode', 'fit');
+
+    const bounds = await viewport.boundingBox();
+    expect(bounds).not.toBeNull();
+    await page.mouse.move((bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.25, (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.25);
+    await page.keyboard.down('Alt');
+    await page.mouse.wheel(0, -600);
+    await page.keyboard.up('Alt');
+    await expect.poll(async () => Number(await viewport.getAttribute('data-zoom'))).toBeGreaterThan(2);
+
+    await page.mouse.wheel(900, 700);
+    await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-x')))).toBeGreaterThan(0);
+    await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-y')))).toBeGreaterThan(0);
+
+    await page.keyboard.press('i');
+    await expect(viewport).toHaveAttribute('data-mode', 'fit');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+    await page.keyboard.press('i');
+
+    await page.keyboard.press('+');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.250');
+    await page.keyboard.press('0');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+
+    await page.keyboard.press('+');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
+    await expect(viewport).toHaveAttribute('data-mode', 'fit');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+  } finally {
+    await app.close();
+  }
+});
+
 // #95 exit criteria: a lightbox favorite behaves like an edit anywhere —
 // the ledger dirties (pendingCount), the StatusBar flips amber, and the
 // grid tile's star appears, all via targeted pushes with no reload.

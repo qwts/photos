@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
+import landscapePhoto from '../../../../tests/fixtures/photos/summer-landscape.jpg';
+import portraitPhoto from '../../../../tests/fixtures/photos/street-city.jpg';
 import { Lightbox, type LightboxProps } from './Lightbox';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
@@ -14,8 +16,8 @@ const PHOTO: PhotoRecord = {
   id: '01J8SEEDPHOTO0001',
   fileName: 'IMG_4028.JPG',
   fileKind: 'jpeg',
-  width: 6240,
-  height: 4160,
+  width: 1280,
+  height: 838,
   bytes: 8_400_000,
   contentHash: 'a'.repeat(64),
   camera: 'FUJIFILM X-T5',
@@ -64,6 +66,7 @@ const meta: Meta<typeof Lightbox> = {
   component: Lightbox,
   args: {
     photo: PHOTO,
+    imageSrc: landscapePhoto,
     onClose: fn(),
     onPrev: fn(),
     onNext: fn(),
@@ -120,6 +123,39 @@ export const RawPreviewBadge: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('PREVIEW')).toBeVisible();
     await expect(canvas.getByText(/IMG_4021\.RAF — 2026-06-12/u)).toBeVisible();
+  },
+};
+
+export const PortraitFillZoomAndReset: Story = {
+  args: {
+    photo: { ...PHOTO, width: 960, height: 1280, fileName: 'PORTRAIT.JPG' },
+    imageSrc: portraitPhoto,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
+    await expect(viewport).toHaveAttribute('data-mode', 'fit');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+    await userEvent.dblClick(image);
+    await expect(viewport).toHaveAttribute('data-mode', 'fill');
+    await expect(viewport).toHaveAttribute('data-zoom', '2.000');
+    await userEvent.click(canvas.getByRole('button', { name: 'Fit image (0)' }));
+    await expect(viewport).toHaveAttribute('data-mode', 'fit');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+  },
+};
+
+export const KeyboardZoom: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    await userEvent.keyboard('+');
+    await expect(viewport).toHaveAttribute('data-mode', 'custom');
+    await expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('125%');
+    await userEvent.keyboard('0');
+    await expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('100%');
   },
 };
 
