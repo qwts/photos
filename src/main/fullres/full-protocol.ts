@@ -1,6 +1,8 @@
 import { protocol } from 'electron';
 
-import { FULL_SCHEME, parseFullUrl } from '../../shared/library/full-url.js';
+import { FULL_SCHEME } from '../../shared/library/full-url.js';
+import type { ProtectedMediaService } from '../library/protected-media-service.js';
+import { handleFullRequest } from './full-response.js';
 import type { FullService } from './full-service.js';
 
 // overlook-full:// (#91): decrypted originals straight to the lightbox —
@@ -12,42 +14,11 @@ import type { FullService } from './full-service.js';
 // Unlike the thumbs' <img> path, fetch() enforces CORS: the renderer's
 // app origin is cross-origin to this scheme, so responses must opt in.
 // The protocol only exists inside our session — '*' exposes nothing new.
-const NO_STORE = {
-  'Cache-Control': 'no-store',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Expose-Headers': 'X-Overlook-Preview',
-};
-
 /** Call once after app ready; the service is created lazily like the library. */
-export function registerFullProtocol(getService: () => FullService, admit: () => void = () => undefined): void {
-  protocol.handle(FULL_SCHEME, async (request) => {
-    try {
-      admit();
-    } catch {
-      return new Response(null, { status: 404, headers: NO_STORE });
-    }
-    const parsed = parseFullUrl(request.url);
-    if (parsed === null) {
-      return new Response(null, { status: 400, headers: NO_STORE });
-    }
-    const service = getService();
-    if (parsed.prefetch) {
-      // Neighbor warm: start the decrypt, answer immediately, ship no body.
-      service.prefetch([parsed.photoId]);
-      return new Response(null, { status: 204, headers: NO_STORE });
-    }
-    const payload = await service.getFull(parsed.photoId, request.signal);
-    if (payload === null) {
-      // Missing/offloaded original or un-renderable RAW: placeholder (E7.2).
-      return new Response(null, { status: 404, headers: NO_STORE });
-    }
-    return new Response(new Uint8Array(payload.bytes), {
-      status: 200,
-      headers: {
-        ...NO_STORE,
-        'Content-Type': payload.mime,
-        ...(payload.preview ? { 'X-Overlook-Preview': '1' } : {}),
-      },
-    });
-  });
+export function registerFullProtocol(
+  getService: () => FullService,
+  admit: () => void = () => undefined,
+  getProtected?: (() => ProtectedMediaService) | undefined,
+): void {
+  protocol.handle(FULL_SCHEME, (request) => handleFullRequest(getService, admit, request, getProtected));
 }

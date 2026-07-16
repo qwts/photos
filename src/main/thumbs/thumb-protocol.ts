@@ -2,6 +2,7 @@ import { protocol } from 'electron';
 
 import { THUMB_SCHEME } from '../../shared/library/thumb-url.js';
 import type { ThumbService } from './thumb-service.js';
+import type { ProtectedMediaService } from '../library/protected-media-service.js';
 import { handleThumbRequest } from './thumb-response.js';
 
 // overlook-thumb:// (#75): decrypted thumbs straight into <img> tags —
@@ -12,6 +13,10 @@ import { handleThumbRequest } from './thumb-response.js';
 // exactly one registerSchemesAsPrivileged call).
 
 /** Call once after app ready; the service is created lazily like the library. */
-export function registerThumbProtocol(getService: () => ThumbService, admit: () => void = () => undefined): void {
-  protocol.handle(THUMB_SCHEME, (request) => handleThumbRequest(getService, admit, request));
+export function registerThumbProtocol(
+  getService: () => ThumbService,
+  admit: () => void = () => undefined,
+  getProtected?: (() => ProtectedMediaService) | undefined,
+): void {
+  protocol.handle(THUMB_SCHEME, (request) => handleThumbRequest(getService, admit, request, getProtected));
 }

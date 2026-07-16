@@ -53,4 +53,29 @@ describe('protected album session authority (#325)', () => {
     assert.throws(() => registry.authorize('', randomBytes(32)), /album id/);
     assert.throws(() => registry.authorize('A', randomBytes(16)), /32 bytes/);
   });
+
+  test('snapshots and listeners revoke stale cache and in-flight generations independently', () => {
+    const registry = new ProtectedAlbumAuthorityRegistry();
+    const revoked: string[] = [];
+    const off = registry.onRevoked((albumId) => revoked.push(albumId));
+    registry.authorize('ALBUM1', Buffer.alloc(32, 1));
+    registry.authorize('ALBUM2', Buffer.alloc(32, 2));
+    const first = registry.snapshot('ALBUM1');
+    const second = registry.snapshot('ALBUM2');
+    assert.equal(
+      registry.withSnapshot(first, (key) => key[0]),
+      1,
+    );
+
+    registry.authorize('ALBUM1', Buffer.alloc(32, 3));
+    assert.equal(registry.isCurrent(first), false);
+    assert.equal(registry.isCurrent(second), true);
+    assert.throws(() => registry.withSnapshot(first, () => undefined), ProtectedAlbumAuthorityError);
+    assert.deepEqual(revoked, ['ALBUM1']);
+
+    registry.relock('ALBUM2');
+    assert.equal(registry.isCurrent(second), false);
+    assert.deepEqual(revoked, ['ALBUM1', 'ALBUM2']);
+    off();
+  });
 });
