@@ -33,11 +33,16 @@ function offloadService(activeWork: () => number, reject = false): OffloadServic
   } as unknown as OffloadService;
 }
 
-const ephemeralOriginalService = {
-  keepDownloaded: () => Promise.resolve(),
-  release: () => Promise.resolve(),
-  status: () => null,
-} as unknown as EphemeralOriginalService;
+function ephemeralOriginalService(activeWork: () => number, reject = false): EphemeralOriginalService {
+  return {
+    keepDownloaded: () => {
+      assert.equal(activeWork(), 1);
+      return reject ? Promise.reject(new Error('promotion failed')) : Promise.resolve();
+    },
+    release: () => Promise.resolve(),
+    status: () => null,
+  } as unknown as EphemeralOriginalService;
+}
 
 test('offload and restore work hold the provider-switch lock for their full async lifetime (#281)', async () => {
   let activeWork = 0;
@@ -51,7 +56,7 @@ test('offload and restore work hold the provider-switch lock for their full asyn
         integrity: { checked: 0, repaired: 0, unrecoverable: 0, recoveryRepaired: false, failed: false },
       }),
     offloadService: () => offloadService(() => activeWork),
-    ephemeralOriginalService: () => ephemeralOriginalService,
+    ephemeralOriginalService: () => ephemeralOriginalService(() => activeWork),
     workChanged: (delta) => (activeWork += delta),
   });
 
@@ -63,6 +68,8 @@ test('offload and restore work hold the provider-switch lock for their full asyn
   assert.equal(activeWork, 0);
   await facade.restoreOriginals();
   assert.equal(activeWork, 0);
+  await facade.keepDownloaded('P1');
+  assert.equal(activeWork, 0);
 });
 
 test('provider work lock releases when an offload operation rejects (#281)', async () => {
@@ -71,10 +78,24 @@ test('provider work lock releases when an offload operation rejects (#281)', asy
     runtime: () => runtime(),
     run: () => Promise.reject(new Error('unused')),
     offloadService: () => offloadService(() => activeWork, true),
-    ephemeralOriginalService: () => ephemeralOriginalService,
+    ephemeralOriginalService: () => ephemeralOriginalService(() => activeWork),
     workChanged: (delta) => (activeWork += delta),
   });
 
   await assert.rejects(facade.offload(['P1']), /delete failed/u);
+  assert.equal(activeWork, 0);
+});
+
+test('provider work lock releases when keep-downloaded promotion rejects (#311 review)', async () => {
+  let activeWork = 0;
+  const facade = createBackupFacade({
+    runtime: () => runtime(),
+    run: () => Promise.reject(new Error('unused')),
+    offloadService: () => offloadService(() => activeWork),
+    ephemeralOriginalService: () => ephemeralOriginalService(() => activeWork, true),
+    workChanged: (delta) => (activeWork += delta),
+  });
+
+  await assert.rejects(facade.keepDownloaded('P1'), /promotion failed/u);
   assert.equal(activeWork, 0);
 });

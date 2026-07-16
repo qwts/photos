@@ -40,7 +40,7 @@ export function createBackupFacade(options: BackupFacadeOptions) {
     offload: (photoIds: readonly string[]) => withProviderWork(() => options.offloadService().offload(photoIds)),
     rehydrate: (photoId: string) => withProviderWork(() => options.offloadService().rehydrate(photoId)),
     restoreOriginals: (photoIds?: readonly string[]) => withProviderWork(() => options.offloadService().restoreOriginals(photoIds)),
-    keepDownloaded: (photoId: string) => options.ephemeralOriginalService().keepDownloaded(photoId),
+    keepDownloaded: (photoId: string) => withProviderWork(() => options.ephemeralOriginalService().keepDownloaded(photoId)),
     releaseEphemeral: (photoId: string) => options.ephemeralOriginalService().release(photoId),
     ephemeralStatus: (photoId: string) => options.ephemeralOriginalService().status(photoId),
     prepareEphemeral: (photoId: string) => options.ephemeralOriginalService().prepare(photoId, 'view'),
