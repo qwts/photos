@@ -13,12 +13,14 @@ M20 adds a cryptographic whole-app lock, opt-in native Touch ID release on suppo
 | [#310](https://github.com/qwts/photos/issues/310) | Native Touch ID with password fallback          | #308 and #311 key-release seam |
 | [#309](https://github.com/qwts/photos/issues/309) | Protected albums and leakage isolation          | #308                           |
 
+#309 is delivered in order through [#325](https://github.com/qwts/photos/issues/325) key custody and sealed metadata, [#326](https://github.com/qwts/photos/issues/326) crash-safe photo migration, [#327](https://github.com/qwts/photos/issues/327) leakage enforcement, [#328](https://github.com/qwts/photos/issues/328) backup/restore/sync/offload, and [#329](https://github.com/qwts/photos/issues/329) user workflows.
+
 ## Implementation status
 
 - #308 contract: complete; ADR-0013 accepted.
 - #311 app-lock lifecycle: implemented by [PR #323](https://github.com/qwts/photos/pull/323). Configured launch withholds the master key until password release; main-process IPC/protocol admission, crash-resumable OVLK/anchor transitions, persistent throttling, recovery-file re-establishment, lifecycle locking, work drain, cache zeroization, Privacy controls, and the dedicated lock surface are covered.
 - #310 Touch ID is implemented by [PR #324](https://github.com/qwts/photos/pull/324), pending the owner-run signed/notarized hardware checklist below. It uses a signed Node-API bridge, the macOS Data Protection Keychain, current-enrollment Touch ID access control, Settings opt-in/out, and an always-visible password fallback.
-- #309 protected albums remain a separate deferred delivery.
+- #309 protected albums are split into #325–#329. Draft [PR #330](https://github.com/qwts/photos/pull/330) implements #325's non-user-visible key, credential, sealed-metadata, persistence, and main-process session-authority foundation. Photo migration, leakage isolation, cloud lifecycle, and UI remain #326–#329.
 
 ## Product and privacy rules
 
@@ -44,7 +46,7 @@ The complete testable matrix is in ADR-0013. The repo ledger tracks:
 
 - `m20-app-lock-lifecycle` → `tests/e2e/app-lock.spec.ts`, lock-screen Storybook interactions, custody/state-machine tests, and packaged manual evidence
 - `m20-touch-id-unlock` → native adapter/custody tests, `tests/e2e/app-lock.spec.ts`, lock-screen Storybook interactions, and the signed checklist below
-- `m20-protected-albums` → #309
+- `m20-protected-albums` → #309 through #325–#329. PR #330 supplies foundation evidence only; the ledger stays deferred until the full chain is integrated.
 
 Each child must supply unit, Storybook, Electron E2E, security-review, and required signed-build/manual evidence. The epic closes only after the bypass, crash/restart, accessibility, recovery, and leakage matrices all pass.
 
