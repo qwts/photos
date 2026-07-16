@@ -7,6 +7,99 @@ import { z } from 'zod';
 import type { CredentialAnchor, CredentialAnchorStore } from './app-lock-credentials.js';
 
 const SERVICE = 'com.qwts.overlook.app-lock-anchor';
+const WINDOWS_SCRIPT = String.raw`
+$ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class OverlookCredentialAnchor {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  private struct CREDENTIAL {
+    public uint Flags;
+    public uint Type;
+    public string TargetName;
+    public string Comment;
+    public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+    public uint CredentialBlobSize;
+    public IntPtr CredentialBlob;
+    public uint Persist;
+    public uint AttributeCount;
+    public IntPtr Attributes;
+    public string TargetAlias;
+    public string UserName;
+  }
+
+  [DllImport("advapi32.dll", EntryPoint = "CredWriteW", CharSet = CharSet.Unicode, SetLastError = true)]
+  private static extern bool CredWrite(ref CREDENTIAL credential, uint flags);
+
+  [DllImport("advapi32.dll", EntryPoint = "CredReadW", CharSet = CharSet.Unicode, SetLastError = true)]
+  private static extern bool CredRead(string target, uint type, uint flags, out IntPtr credential);
+
+  [DllImport("advapi32.dll", EntryPoint = "CredDeleteW", CharSet = CharSet.Unicode, SetLastError = true)]
+  private static extern bool CredDelete(string target, uint type, uint flags);
+
+  [DllImport("advapi32.dll", SetLastError = true)]
+  private static extern void CredFree(IntPtr credential);
+
+  public static void Write(string target, string value) {
+    byte[] bytes = System.Text.Encoding.Unicode.GetBytes(value);
+    IntPtr blob = Marshal.AllocHGlobal(bytes.Length);
+    try {
+      Marshal.Copy(bytes, 0, blob, bytes.Length);
+      CREDENTIAL credential = new CREDENTIAL {
+        Type = 1,
+        TargetName = target,
+        CredentialBlobSize = (uint)bytes.Length,
+        CredentialBlob = blob,
+        Persist = 2,
+        UserName = "Overlook"
+      };
+      if (!CredWrite(ref credential, 0)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    } finally {
+      Marshal.FreeHGlobal(blob);
+      Array.Clear(bytes, 0, bytes.Length);
+    }
+  }
+
+  public static string Read(string target) {
+    IntPtr pointer;
+    if (!CredRead(target, 1, 0, out pointer)) {
+      int error = Marshal.GetLastWin32Error();
+      if (error == 1168) return null;
+      throw new System.ComponentModel.Win32Exception(error);
+    }
+    try {
+      CREDENTIAL credential = (CREDENTIAL)Marshal.PtrToStructure(pointer, typeof(CREDENTIAL));
+      byte[] bytes = new byte[credential.CredentialBlobSize];
+      Marshal.Copy(credential.CredentialBlob, bytes, 0, bytes.Length);
+      try { return System.Text.Encoding.Unicode.GetString(bytes); }
+      finally { Array.Clear(bytes, 0, bytes.Length); }
+    } finally {
+      CredFree(pointer);
+    }
+  }
+
+  public static void Delete(string target) {
+    if (!CredDelete(target, 1, 0) && Marshal.GetLastWin32Error() != 1168) {
+      throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+  }
+}
+'@
+
+$operation = $env:OVERLOOK_ANCHOR_OPERATION
+$target = $env:OVERLOOK_ANCHOR_TARGET
+if ($operation -eq 'read') {
+  [OverlookCredentialAnchor]::Read($target)
+} elseif ($operation -eq 'write') {
+  [OverlookCredentialAnchor]::Write($target, $env:OVERLOOK_ANCHOR_VALUE)
+} elseif ($operation -eq 'clear') {
+  [OverlookCredentialAnchor]::Delete($target)
+} else {
+  throw 'Unknown credential-anchor operation'
+}
+`;
 
 const anchorSchema = z
   .object({
@@ -19,6 +112,7 @@ const anchorSchema = z
 export interface OsCredentialAnchorStoreOptions {
   readonly dataDir: string;
   readonly platform?: NodeJS.Platform;
+  readonly spawn?: typeof spawnSync;
 }
 
 function parseAnchor(value: string): CredentialAnchor | null {
@@ -37,30 +131,47 @@ function parseAnchor(value: string): CredentialAnchor | null {
 export class OsCredentialAnchorStore implements CredentialAnchorStore {
   private readonly account: string;
   private readonly platform: NodeJS.Platform;
+  private readonly run: typeof spawnSync;
 
   constructor(options: OsCredentialAnchorStoreOptions) {
     this.account = createHash('sha256').update(options.dataDir).digest('hex');
     this.platform = options.platform ?? process.platform;
+    this.run = options.spawn ?? spawnSync;
   }
 
   isAvailable(): boolean {
     if (this.platform === 'darwin') return existsSync('/usr/bin/security');
     if (this.platform === 'linux') {
-      const result = spawnSync('secret-tool', ['--help'], { encoding: 'utf8', stdio: 'ignore' });
+      const result = this.run('secret-tool', ['--help'], { encoding: 'utf8', stdio: 'ignore' });
       return result.error === undefined;
+    }
+    if (this.platform === 'win32') {
+      const result = this.run(
+        'powershell.exe',
+        ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$PSVersionTable.PSVersion.Major'],
+        {
+          encoding: 'utf8',
+          stdio: 'ignore',
+        },
+      );
+      return result.status === 0;
     }
     return false;
   }
 
   read(): CredentialAnchor | null {
     if (this.platform === 'darwin') {
-      const result = spawnSync('/usr/bin/security', ['find-generic-password', '-a', this.account, '-s', SERVICE, '-w'], {
+      const result = this.run('/usr/bin/security', ['find-generic-password', '-a', this.account, '-s', SERVICE, '-w'], {
         encoding: 'utf8',
       });
       return result.status === 0 ? parseAnchor(result.stdout.trim()) : null;
     }
     if (this.platform === 'linux') {
-      const result = spawnSync('secret-tool', ['lookup', 'service', SERVICE, 'account', this.account], { encoding: 'utf8' });
+      const result = this.run('secret-tool', ['lookup', 'service', SERVICE, 'account', this.account], { encoding: 'utf8' });
+      return result.status === 0 ? parseAnchor(result.stdout.trim()) : null;
+    }
+    if (this.platform === 'win32') {
+      const result = this.windows('read');
       return result.status === 0 ? parseAnchor(result.stdout.trim()) : null;
     }
     return null;
@@ -70,21 +181,43 @@ export class OsCredentialAnchorStore implements CredentialAnchorStore {
     const value = JSON.stringify(anchorSchema.parse(anchor));
     const result =
       this.platform === 'darwin'
-        ? spawnSync('/usr/bin/security', ['add-generic-password', '-U', '-a', this.account, '-s', SERVICE, '-w', value], {
+        ? this.run('/usr/bin/security', ['add-generic-password', '-U', '-a', this.account, '-s', SERVICE, '-w', value], {
             encoding: 'utf8',
           })
-        : spawnSync('secret-tool', ['store', '--label=Overlook app-lock anchor', 'service', SERVICE, 'account', this.account], {
-            encoding: 'utf8',
-            input: value,
-          });
+        : this.platform === 'linux'
+          ? this.run('secret-tool', ['store', '--label=Overlook app-lock anchor', 'service', SERVICE, 'account', this.account], {
+              encoding: 'utf8',
+              input: value,
+            })
+          : this.platform === 'win32'
+            ? this.windows('write', value)
+            : { status: 1 };
     if (result.status !== 0) throw new Error('OS credential store refused the app-lock anchor');
   }
 
   clear(): void {
     if (this.platform === 'darwin') {
-      spawnSync('/usr/bin/security', ['delete-generic-password', '-a', this.account, '-s', SERVICE], { stdio: 'ignore' });
+      this.run('/usr/bin/security', ['delete-generic-password', '-a', this.account, '-s', SERVICE], { stdio: 'ignore' });
     } else if (this.platform === 'linux') {
-      spawnSync('secret-tool', ['clear', 'service', SERVICE, 'account', this.account], { stdio: 'ignore' });
+      this.run('secret-tool', ['clear', 'service', SERVICE, 'account', this.account], { stdio: 'ignore' });
+    } else if (this.platform === 'win32') {
+      this.windows('clear');
     }
+  }
+
+  private windows(operation: 'read' | 'write' | 'clear', value = '') {
+    return this.run(
+      'powershell.exe',
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', WINDOWS_SCRIPT],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          OVERLOOK_ANCHOR_OPERATION: operation,
+          OVERLOOK_ANCHOR_TARGET: `${SERVICE}:${this.account}`,
+          OVERLOOK_ANCHOR_VALUE: value,
+        },
+      },
+    );
   }
 }
