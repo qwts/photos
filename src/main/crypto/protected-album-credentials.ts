@@ -344,15 +344,16 @@ export async function changeProtectedAlbumPassword(
   const unlocked = await unlockProtectedAlbumCustody(context, credentialRecord, sealedMetadata, currentPassword);
   const record = parseCredentialRecord(credentialRecord, context);
   const salt = createPasswordSaltV1();
-  const passwordKey = await derivePasswordKeyV1(nextPassword, salt);
+  let passwordKey: Buffer | undefined;
   try {
+    passwordKey = await derivePasswordKeyV1(nextPassword, salt);
     const next = recordWithPasswordSlot(context, record, record.passwordGeneration + 1, salt, passwordKey, unlocked.albumKey);
     return { credentialRecord: encode(CREDENTIAL_MAGIC, next), albumKey: unlocked.albumKey, metadata: unlocked.metadata };
   } catch (error) {
     unlocked.albumKey.fill(0);
     throw error;
   } finally {
-    passwordKey.fill(0);
+    passwordKey?.fill(0);
   }
 }
 
