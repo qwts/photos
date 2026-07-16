@@ -66,6 +66,16 @@ export const SingleSelection: Story = {
   args: { count: 1, onClear: fn() },
 };
 
+export const ActiveAlbumMode: Story = {
+  args: { count: 3, onClear: fn(), onDelete: fn(), onAddToAlbum: fn(), onRemoveFromAlbum: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole('button', { name: 'Delete' })).toBeNull();
+    await userEvent.click(canvas.getByRole('button', { name: 'Remove from album' }));
+    await expect(args.onRemoveFromAlbum).toHaveBeenCalledTimes(1);
+  },
+};
+
 // Trash mode (#120/#121): Restore is the headline; the red Delete opens
 // the purge ceremony; Export leaves.
 export const TrashRestoreMode: Story = {

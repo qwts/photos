@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import { useEffect } from 'react';
 
@@ -14,6 +14,8 @@ import { AppStateProvider, useAppDispatch } from '../state/app-state-context';
 // persists under the mock's own localStorage key across mounts.
 
 const COLLAPSE_KEY = 'overlook.sidebarCollapsed';
+const renameAlbum = fn();
+const deleteAlbum = fn();
 
 function installStub(): void {
   // Sidebar listens to backup progress; AppStateProvider to pending pushes.
@@ -23,7 +25,17 @@ function installStub(): void {
     onProgress: () => () => undefined,
     onCompleted: () => () => undefined,
   } as unknown as OverlookApi['backup'];
-  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { library, backup };
+  const albumActions = {
+    rename: (request: unknown) => {
+      renameAlbum(request);
+      return Promise.resolve({});
+    },
+    delete: (request: unknown) => {
+      deleteAlbum(request);
+      return Promise.resolve({});
+    },
+  } as unknown as OverlookApi['albums'];
+  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { library, backup, albums: albumActions };
 }
 
 const counts: SourceCounts = { all: 204318, favorites: 11, recent: 96, offloaded: 12, deleted: 3 };
@@ -184,5 +196,53 @@ export const OffloadedHiddenWhenEmpty: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('All Photos')).toBeVisible();
     await expect(canvas.queryByText('Offloaded')).not.toBeInTheDocument();
+  },
+};
+
+export const AlbumManagement: Story = {
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      renameAlbum.mockClear();
+      deleteAlbum.mockClear();
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.hover(canvas.getByText('Iceland'));
+    const actions = canvas.getByRole('button', { name: 'Actions for Iceland' });
+    await userEvent.click(actions);
+    await userEvent.click(canvas.getByRole('menuitem', { name: 'Rename album…' }));
+    const renameDialog = within(canvas.getByRole('dialog', { name: 'Rename album' }));
+    await userEvent.clear(renameDialog.getByRole('textbox', { name: 'Album name' }));
+    await userEvent.type(renameDialog.getByRole('textbox', { name: 'Album name' }), '  Iceland selects  ');
+    await userEvent.click(renameDialog.getByRole('button', { name: 'Rename' }));
+    await waitFor(() => expect(renameAlbum).toHaveBeenCalledWith({ albumId: 'a1', name: 'Iceland selects' }));
+    await waitFor(() => expect(actions).toHaveFocus());
+
+    await userEvent.click(actions);
+    await userEvent.click(canvas.getByRole('menuitem', { name: 'Delete album…' }));
+    const deleteDialog = within(canvas.getByRole('dialog', { name: 'Delete album' }));
+    await expect(deleteDialog.getByText(/All 214 photos stay in your library/u)).toBeVisible();
+    await userEvent.click(deleteDialog.getByRole('button', { name: 'Delete album' }));
+    await waitFor(() => expect(deleteAlbum).toHaveBeenCalledWith({ albumId: 'a1' }));
+  },
+};
+
+export const CollapsedAlbumKeyboardActions: Story = {
+  loaders: [
+    () => {
+      window.localStorage.setItem(COLLAPSE_KEY, '1');
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const albumRow = canvas.getByRole('button', { name: 'Iceland · 214' });
+    albumRow.focus();
+    await fireEvent.keyDown(albumRow, { key: 'F10', shiftKey: true });
+    await expect(canvas.getByRole('menu', { name: 'Actions for Iceland' })).toBeVisible();
+    await expect(canvas.getByRole('menuitem', { name: 'Rename album…' })).toHaveFocus();
   },
 };

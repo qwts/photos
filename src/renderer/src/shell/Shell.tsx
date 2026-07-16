@@ -371,7 +371,11 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
       <div className="ovl-shell__body">
         <Sidebar counts={counts} stats={stats} albums={albums} />
         <main className="ovl-shell__content" data-testid="content-region">
-          <LibraryGridView knownTotal={counts === null ? null : counts[state.source]} onOffload={offload.open} />
+          <LibraryGridView
+            knownTotal={counts === null ? null : counts[state.source]}
+            activeAlbum={albums.find((album) => album.id === state.album) ?? null}
+            onOffload={offload.open}
+          />
         </main>
         {state.inspectorOpen ? (
           <aside className="ovl-shell__inspector" aria-label="Inspector">

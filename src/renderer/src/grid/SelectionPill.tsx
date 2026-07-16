@@ -20,6 +20,8 @@ export interface SelectionPillProps {
   readonly onRestore?: (() => void) | undefined;
   /** Adds the selection to the picked album (#118). */
   readonly onAddToAlbum?: ((album: AlbumSummary) => void) | undefined;
+  /** Active-album mode: removes membership without deleting photos (#282). */
+  readonly onRemoveFromAlbum?: (() => void) | undefined;
   /** Trash-only destructive path (#121) — opens the confirm ceremony. */
   readonly onPurge?: (() => void) | undefined;
 }
@@ -34,6 +36,7 @@ export function SelectionPill({
   onDelete,
   onRestore,
   onAddToAlbum,
+  onRemoveFromAlbum,
   onPurge,
 }: SelectionPillProps): ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -83,9 +86,15 @@ export function SelectionPill({
               >
                 Add to album
               </Button>
-              <Button size="sm" variant="danger" icon="trash-2" onClick={onDelete}>
-                Delete
-              </Button>
+              {onRemoveFromAlbum === undefined ? (
+                <Button size="sm" variant="danger" icon="trash-2" onClick={onDelete}>
+                  Delete
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" icon="x" onClick={onRemoveFromAlbum}>
+                  Remove from album
+                </Button>
+              )}
             </div>
             <div className="ovl-pill__more">
               <IconButton icon="sliders-horizontal" label="More selection actions" size="sm" onClick={() => setMoreOpen((open) => !open)} />
@@ -104,9 +113,15 @@ export function SelectionPill({
                   >
                     Add to album
                   </button>
-                  <button type="button" role="menuitem" className="ovl-pill__menuDanger" onClick={onDelete}>
-                    Delete
-                  </button>
+                  {onRemoveFromAlbum === undefined ? (
+                    <button type="button" role="menuitem" className="ovl-pill__menuDanger" onClick={onDelete}>
+                      Delete
+                    </button>
+                  ) : (
+                    <button type="button" role="menuitem" onClick={onRemoveFromAlbum}>
+                      Remove from album
+                    </button>
+                  )}
                 </div>
               ) : null}
             </div>
