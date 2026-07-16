@@ -62,6 +62,11 @@ export class ProtectedAlbumService {
         password,
       );
       try {
+        const current = this.options.repository.get(albumId);
+        if (current === undefined || !current.credentialRecord.equals(stored.credentialRecord)) {
+          this.options.authorities.relock(albumId);
+          throw new ProtectedAlbumServiceError('protected album credentials changed concurrently');
+        }
         this.options.authorities.authorize(albumId, unlocked.albumKey);
         return { ok: true, metadata: unlocked.metadata };
       } finally {
@@ -174,7 +179,7 @@ export class ProtectedAlbumService {
       );
       albumKey = unlocked.albumKey;
       this.options.authorities.relock(albumId);
-      return this.options.repository.deleteStaged(albumId);
+      return this.options.repository.deleteStaged({ albumId, expectedCredentialRecord: stored.credentialRecord });
     } catch (error) {
       if (error instanceof ProtectedAlbumCredentialError && error.reason === 'wrong-password') return false;
       throw error;
