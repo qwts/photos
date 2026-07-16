@@ -34,6 +34,8 @@ export interface ProtectedPhotoMigrationServiceOptions {
   readonly protectedBlobs: ProtectedBlobStore;
   readonly photos: PhotosRepository;
   readonly migrations: ProtectedPhotoMigrationRepository;
+  /** Protection removes an ordinary row from the backup manifest. */
+  readonly oweManifest: () => void;
   readonly createMigrationId?: () => string;
 }
 
@@ -124,7 +126,9 @@ export class ProtectedPhotoMigrationService {
         source.sealedMetadata,
       );
       if (this.options.photos.hasContentHash(metadata.photo.contentHash)) {
-        throw new ProtectedPhotoMigrationServiceError(`ordinary domain already contains ${photoId} plaintext`);
+        throw new ProtectedPhotoMigrationServiceError(
+          `ordinary domain already contains content hash ${metadata.photo.contentHash} while unprotecting ${photoId}`,
+        );
       }
       return {
         photoId,
@@ -203,6 +207,7 @@ export class ProtectedPhotoMigrationService {
       case 'verify':
         await this.verifyTarget(journal, authority);
         this.commit(journal, authority);
+        if (journal.operation === 'protect') this.options.oweManifest();
         break;
       case 'commit':
         this.options.migrations.markPurging(migrationId);
@@ -227,6 +232,7 @@ export class ProtectedPhotoMigrationService {
     const awaitingAuthority: string[] = [];
     for (const journal of this.options.migrations.listJournals()) {
       if (journal.phase === 'commit' || journal.phase === 'purge') {
+        if (journal.operation === 'protect') this.options.oweManifest();
         awaitingAuthority.push(journal.migrationId);
         continue;
       }
@@ -408,8 +414,10 @@ export class ProtectedPhotoMigrationService {
   private async purgeSource(journal: ProtectedMigrationJournal): Promise<void> {
     for (const item of journal.items) {
       if (journal.operation === 'protect') {
-        await this.options.ordinaryBlobs.deleteOriginal(item.sourceBlobRef);
-        await this.options.ordinaryBlobs.deleteThumbs(item.sourceBlobRef);
+        if (this.options.migrations.countOrdinaryBlobOwners(item.sourceBlobRef) === 0) {
+          await this.options.ordinaryBlobs.deleteOriginal(item.sourceBlobRef);
+          await this.options.ordinaryBlobs.deleteThumbs(item.sourceBlobRef);
+        }
         continue;
       }
       const sourceAlbumId = journal.sourceAlbumId!;

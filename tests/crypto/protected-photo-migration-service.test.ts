@@ -36,6 +36,7 @@ interface World {
   readonly albumKeyB: Buffer;
   readonly contentHash: string;
   readonly protectAuthority: ProtectedMigrationAuthority;
+  readonly manifestDebts: { count: number };
 }
 
 async function world(): Promise<World> {
@@ -93,6 +94,7 @@ async function world(): Promise<World> {
   });
   photos.addToAlbum('ordinary-a', [PHOTO_ID]);
   const migrations = new ProtectedPhotoMigrationRepository(db);
+  const manifestDebts = { count: 0 };
   let sequence = 0;
   const service = new ProtectedPhotoMigrationService({
     libraryId: LIBRARY_ID,
@@ -100,6 +102,9 @@ async function world(): Promise<World> {
     protectedBlobs,
     photos,
     migrations,
+    oweManifest: () => {
+      manifestDebts.count += 1;
+    },
     createMigrationId: () => `migration-${String(++sequence)}`,
   });
   return {
@@ -115,6 +120,7 @@ async function world(): Promise<World> {
     albumKeyB,
     contentHash,
     protectAuthority: { targetAlbumKey: albumKeyA, libraryResolver: (keyId) => (keyId === 1 ? libraryKey : undefined) },
+    manifestDebts,
   };
 }
 
@@ -136,6 +142,7 @@ describe('ProtectedPhotoMigrationService', () => {
     const w = await world();
     const protectId = w.service.prepareProtect({ albumId: 'protected-a', albumKey: w.albumKeyA, photoIds: [PHOTO_ID] });
     await w.service.runToCompletion(protectId, w.protectAuthority);
+    assert.equal(w.manifestDebts.count, 1, 'removing ordinary custody owes a fresh backup manifest');
     assert.equal(w.photos.get(PHOTO_ID), undefined);
     assert.equal(w.ordinary.hasOriginal(w.contentHash), false);
     const record = w.migrations.getProtected(PHOTO_ID)!;
@@ -169,9 +176,15 @@ describe('ProtectedPhotoMigrationService', () => {
       const migrationId = w.service.prepareProtect({ albumId: 'protected-a', albumKey: w.albumKeyA, photoIds: [PHOTO_ID] });
       for (let step = 0; step < advances; step += 1) await w.service.advance(migrationId, w.protectAuthority);
       const phase = w.migrations.get(migrationId)?.phase;
+      const debtBeforeRepair = w.manifestDebts.count;
       const repaired = await w.service.repairStartup();
       if (phase === 'commit' || phase === 'purge') {
         assert.deepEqual(repaired, { rolledBack: [], awaitingAuthority: [migrationId] });
+        assert.equal(
+          w.manifestDebts.count,
+          debtBeforeRepair + 1,
+          'restart reconstructs manifest debt after the ordinary row committed away',
+        );
         assert.equal(w.ordinary.hasOriginal(w.contentHash), true);
         await w.service.runToCompletion(migrationId, w.protectAuthority);
         assert.equal(w.migrations.getProtected(PHOTO_ID)?.albumId, 'protected-a');
@@ -182,6 +195,16 @@ describe('ProtectedPhotoMigrationService', () => {
       }
       w.db.close();
     }
+  });
+
+  test('protect retains shared ordinary blobs while another row owns the content hash', async () => {
+    const w = await world();
+    w.migrations.countOrdinaryBlobOwners = () => 1;
+    const migrationId = w.service.prepareProtect({ albumId: 'protected-a', albumKey: w.albumKeyA, photoIds: [PHOTO_ID] });
+    await w.service.runToCompletion(migrationId, w.protectAuthority);
+    assert.equal(w.ordinary.hasOriginal(w.contentHash), true);
+    assert.equal(await w.ordinary.verifyThumbs(w.contentHash, w.protectAuthority.libraryResolver!, PHOTO_ID), true);
+    w.db.close();
   });
 
   test('corrupt destination never purges the last verified source; authorized move changes domains', async () => {
