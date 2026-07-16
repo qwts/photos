@@ -279,12 +279,6 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         }}
         onTransfer={() => openInterop(state.selection.size > 0 ? 'selection' : 'settings', [...state.selection])}
       />
-      {interopEntry === null ? null : (
-        <InteropWorkflowDialog
-          state={blockedInteropWorkflow(interopEntry.context, interopEntry.total)}
-          onClose={() => setInteropEntry(null)}
-        />
-      )}
       {state.importOpen ? (
         <ImportDialog
           open
@@ -413,6 +407,12 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         </div>
       )}
       <StatusBar stats={stats} />
+      {interopEntry === null ? null : (
+        <InteropWorkflowDialog
+          state={blockedInteropWorkflow(interopEntry.context, interopEntry.total)}
+          onClose={() => setInteropEntry(null)}
+        />
+      )}
     </div>
   );
 }
