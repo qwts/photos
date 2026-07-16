@@ -62,7 +62,9 @@ Automated coding agents follow the same hygiene as human contributors, plus:
   Development is trunk-based; there is no separate integration branch.
 - Before implementing a GitHub issue, check for active claim signals: `[WIP]` in
   the title, an assignee, an in-progress label, an open linked PR, or a recent
-  claim comment. Treat any active claim as a stop sign.
+  claim comment. Use those signals to coordinate visibly: describe the intended
+  slice on the issue, avoid overwriting work in flight, and continue with
+  independent or explicitly shared work when it is safe.
 - Open PRs as drafts; link them to their issue with a closing reference
   (`Closes #N`) in the body. The merged-PR body is what the close-linked-issues
   automation parses.
