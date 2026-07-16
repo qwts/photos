@@ -7,6 +7,7 @@ import type { AppLockStatus, ConfigureAppLockInput, UnlockResult } from '../../s
 class FakeCredentials {
   credentialStatus: AppLockStatus = { state: 'locked', libraryId: 'library-a' };
   unlockResult: UnlockResult = { ok: true, masterKey: Buffer.alloc(32, 7) };
+  recoveries = 0;
 
   status(): AppLockStatus {
     return this.credentialStatus;
@@ -25,6 +26,7 @@ class FakeCredentials {
   }
 
   recover(_input: ConfigureAppLockInput): Promise<void> {
+    this.recoveries += 1;
     return Promise.resolve();
   }
 
@@ -128,5 +130,22 @@ describe('app-lock authority state machine (#311)', () => {
     await controller.configure({ libraryId: 'library-a', password: 'Strong Password 1!', masterKey: Buffer.alloc(32, 3) });
     assert.equal(closes, 1);
     assert.equal(controller.snapshot().state, 'locked');
+  });
+
+  test('recovery cannot rewrite custody while an authorized library remains open', async () => {
+    const credentials = new FakeCredentials();
+    const controller = new AppLockController({
+      credentials,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => undefined,
+    });
+    await controller.unlock('password');
+
+    await assert.rejects(
+      controller.recover({ libraryId: 'library-a', password: 'Strong Password 1!', masterKey: Buffer.alloc(32, 3) }),
+      AppLockedError,
+    );
+    assert.equal(credentials.recoveries, 0);
+    assert.equal(controller.snapshot().state, 'unlocked');
   });
 });

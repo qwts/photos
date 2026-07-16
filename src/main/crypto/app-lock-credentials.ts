@@ -189,8 +189,16 @@ export class AppLockCredentialStore {
   }
 
   status(): AppLockStatus {
-    if (!existsSync(this.masterPath)) return { state: 'unconfigured' };
     this.reconcilePendingTransition();
+    if (!existsSync(this.masterPath)) {
+      const pendingExists = existsSync(this.pendingPath);
+      if (!this.options.anchorStore.isAvailable()) {
+        return pendingExists ? { state: 'recovery-required', reason: 'anchor-unavailable' } : { state: 'unconfigured' };
+      }
+      const anchor = this.options.anchorStore.read();
+      if (anchor !== null) return { state: 'recovery-required', reason: 'anchor-mismatch' };
+      return pendingExists ? { state: 'recovery-required', reason: 'anchor-missing' } : { state: 'unconfigured' };
+    }
     const raw = readFileSync(this.masterPath);
     if (!raw.subarray(0, MAGIC.length).equals(MAGIC)) {
       if (!this.options.anchorStore.isAvailable()) return { state: 'unconfigured' };
@@ -300,7 +308,6 @@ export class AppLockCredentialStore {
   private reconcilePendingTransition(): void {
     if (!existsSync(this.pendingPath) || !this.options.anchorStore.isAvailable()) return;
     const pending = readFileSync(this.pendingPath);
-    const current = readFileSync(this.masterPath);
     const anchor = this.options.anchorStore.read();
     if (anchor?.recordHash === recordHash(pending)) {
       const pendingRecord = parseRecord(pending);
@@ -311,6 +318,8 @@ export class AppLockCredentialStore {
       if (pendingRecord === null) this.clearAnchorOrThrow();
       return;
     }
+    if (!existsSync(this.masterPath)) return;
+    const current = readFileSync(this.masterPath);
     const currentRecord = parseRecord(current);
     const currentIsCommitted =
       currentRecord === null
