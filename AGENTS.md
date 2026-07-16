@@ -118,9 +118,12 @@ possible, enforced as executable checks._
   merge is tagged `v0.x.y` automatically and the Release workflow publishes
   mac + win builds, CHANGELOG notes, and the design-package zip. Signing is
   env-gated on repo secrets (#128): with `CSC_LINK` present the mac build is
-  signed + notarized and the tag becomes a full release; without it, an
-  unsigned pre-release. Never hand-tag versions or hand-run
-  `changeset version`.
+  signed + notarized and the tag becomes a full release; restricted Touch ID
+  identity entitlements are included only when `MAC_PROVISIONING_PROFILE` is
+  also present and validated. Without `CSC_LINK`, the tag is an unsigned
+  pre-release. The macOS release gate extracts the generated ZIP and launches
+  it in an isolated smoke mode. Never hand-tag releases or invoke Changesets
+  versioning directly.
 
 ## Tooling
 

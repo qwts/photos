@@ -1,9 +1,11 @@
 # Packaging config (#53, #128). Signed-capable but env-gated: `npm run
 # package` forces unsigned builds via the `-c.mac.identity=null` CLI override
 # (electron-builder coerces the string to null and skips signing);
-# `npm run package:signed` uses this file as-is, signing with
+# `npm run package:signed` uses the profile-free entitlement baseline, signing with
 # CSC_LINK/CSC_KEY_PASSWORD and notarizing via notarytool with
 # APPLE_API_KEY (path to .p8) / APPLE_API_KEY_ID / APPLE_API_ISSUER.
+# `npm run package:signed:provisioned` validates and embeds a Developer ID
+# profile before enabling the restricted Touch ID identity entitlements.
 # Windows signing stays out until a cert exists (#128).
 appId: com.qwts.overlook
 productName: Overlook
@@ -35,9 +37,9 @@ mac:
     - dmg
     - zip
   # Notarization requires the hardened runtime; entitlements come from
-  # our pinned copy of electron-builder's Electron template plus the owner
-  # release team's private Data Protection Keychain application identifier.
-  # No Keychain sharing entitlement is requested.
+  # our pinned profile-free copy of electron-builder's Electron template.
+  # Restricted identity entitlements are enabled only by the explicit
+  # provisioned packaging path; signing them without a profile prevents launch.
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   # Helpers/native children get only Electron's runtime allowances; Keychain

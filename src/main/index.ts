@@ -55,6 +55,7 @@ import { registerAppServices } from './register-app-services.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
 import { ThumbService } from './thumbs/thumb-service.js';
+import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 
 // Test/dev harness hooks (#72): OVERLOOK_USER_DATA isolates profiles (E2E
 // temp profile per run); OVERLOOK_SEED seeds an empty library at startup;
@@ -807,6 +808,7 @@ function getRestoreRuntime(): RestoreRuntime {
 }
 
 void app.whenReady().then(async () => {
+  if (exitForReleaseSmokeIfRequested(app)) return;
   // Recover the activation rename crash window before IPC can classify/open the library.
   await recoverInterruptedActivation(restorePaths(path.join(app.getPath('userData'), 'library')));
   const lock = getAppLockController();
