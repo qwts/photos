@@ -3,6 +3,7 @@ import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 import { ProtectedBlobStore } from '../blobs/protected-blob-store.js';
 import type { BlobStore } from '../blobs/blob-store.js';
 import { ProtectedBackupService } from '../backup/protected-backup-service.js';
+import type { BackupEngineDeps } from '../backup/backup-engine.js';
 import type { StorageProvider } from '../backup/provider.js';
 import { ProtectedAlbumAuthorityRegistry } from '../crypto/protected-album-authority.js';
 import { ProtectedAlbumService } from '../crypto/protected-album-service.js';
@@ -70,8 +71,8 @@ export class ProtectedRuntime {
     void blobsReady.then(() => this.migrations.repairStartup()).catch(options.repairFailure);
   }
 
-  backup(provider: StorageProvider, audit: (line: string) => void): ProtectedBackupService {
-    return new ProtectedBackupService({
+  backupBinding(provider: StorageProvider, audit: (line: string) => void): NonNullable<BackupEngineDeps['protectedBackup']> {
+    const service = new ProtectedBackupService({
       provider,
       repository: this.recovery,
       blobs: this.blobs,
@@ -79,6 +80,13 @@ export class ProtectedRuntime {
       now: () => new Date(),
       audit,
     });
+    return {
+      run: (signal) => service.run(signal),
+      scrub: () => service.scrub(),
+      hasManifestDebt: () => this.recovery.hasManifestDebt(),
+      snapshot: () => this.recovery.snapshot(),
+      settleManifest: (snapshot) => this.recovery.settleManifest(snapshot),
+    };
   }
 
   media(): ProtectedMediaService {

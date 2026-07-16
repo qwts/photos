@@ -62,7 +62,7 @@ export class ProtectedBackupService {
     for (const object of objects) {
       const path = protectedObjectPath(object.blobRef, object.kind);
       const expected = this.expected(object);
-      let damaged = false;
+      let damaged: boolean;
       try {
         const remote = await this.options.provider.verify(path);
         damaged = remote.sha256 !== expected.sha256 || remote.bytes !== expected.bytes;
