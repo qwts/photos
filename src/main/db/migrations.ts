@@ -360,6 +360,14 @@ const SCHEMA_V8: Migration = {
         UNIQUE (album_id, blob_ref)
       ) WITHOUT ROWID;
       CREATE INDEX idx_protected_photo_album ON protected_photo_records (album_id);
+
+      -- Public ordinary-library reads use this view. A photo disappears as
+      -- soon as prepare commits and cannot flicker back between copy phases.
+      CREATE VIEW ordinary_visible_photos AS
+        SELECT p.* FROM photos p
+        WHERE NOT EXISTS (
+          SELECT 1 FROM protected_photo_migration_items item WHERE item.photo_id = p.id
+        );
     `);
   },
 };
