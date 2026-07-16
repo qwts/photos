@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Owner release identity from the notarized v0.18.0 artifact. The app
+         identifier is its private Data Protection Keychain access group; no
+         shared Keychain group is requested. -->
+    <key>com.apple.application-identifier</key>
+    <string>Z5DM34QS5U.com.qwts.overlook</string>
+    <key>com.apple.developer.team-identifier</key>
+    <string>Z5DM34QS5U</string>
+    <!-- Electron's hardened-runtime baseline. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

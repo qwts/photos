@@ -45,11 +45,29 @@ bool HasTrustedSignature(const std::string& expectedBundleId) {
 
     const auto* identifier = static_cast<CFStringRef>(CFDictionaryGetValue(information, kSecCodeInfoIdentifier));
     const auto* teamIdentifier = static_cast<CFStringRef>(CFDictionaryGetValue(information, kSecCodeInfoTeamIdentifier));
+    const auto* entitlements = static_cast<CFDictionaryRef>(CFDictionaryGetValue(information, kSecCodeInfoEntitlementsDict));
     const auto* flagsValue = static_cast<CFNumberRef>(CFDictionaryGetValue(information, kSecCodeInfoFlags));
+    if (identifier == nullptr || teamIdentifier == nullptr || entitlements == nullptr || flagsValue == nullptr ||
+        CFGetTypeID(identifier) != CFStringGetTypeID() || CFGetTypeID(teamIdentifier) != CFStringGetTypeID() ||
+        CFGetTypeID(entitlements) != CFDictionaryGetTypeID() || CFGetTypeID(flagsValue) != CFNumberGetTypeID() ||
+        CFStringGetLength(teamIdentifier) == 0) {
+      CFRelease(information);
+      return false;
+    }
     std::uint32_t flags = 0;
-    if (flagsValue != nullptr) CFNumberGetValue(flagsValue, kCFNumberSInt32Type, &flags);
-    const bool valid = identifier != nullptr && teamIdentifier != nullptr && CFStringGetLength(teamIdentifier) > 0 &&
+    CFNumberGetValue(flagsValue, kCFNumberSInt32Type, &flags);
+    const auto* applicationIdentifier = static_cast<CFStringRef>(
+        CFDictionaryGetValue(entitlements, CFSTR("com.apple.application-identifier")));
+    const auto* entitlementTeam =
+        static_cast<CFStringRef>(CFDictionaryGetValue(entitlements, CFSTR("com.apple.developer.team-identifier")));
+    NSString* expectedApplicationIdentifier = [NSString stringWithFormat:@"%@.%@", (__bridge NSString*)teamIdentifier, expected];
+    const bool valid = applicationIdentifier != nullptr && entitlementTeam != nullptr &&
+                       CFGetTypeID(applicationIdentifier) == CFStringGetTypeID() &&
+                       CFGetTypeID(entitlementTeam) == CFStringGetTypeID() &&
                        CFStringCompare(identifier, (__bridge CFStringRef)expected, 0) == kCFCompareEqualTo &&
+                       CFStringCompare(applicationIdentifier, (__bridge CFStringRef)expectedApplicationIdentifier, 0) ==
+                           kCFCompareEqualTo &&
+                       CFStringCompare(entitlementTeam, teamIdentifier, 0) == kCFCompareEqualTo &&
                        (flags & kSecCodeSignatureAdhoc) == 0;
     CFRelease(information);
     return valid;
