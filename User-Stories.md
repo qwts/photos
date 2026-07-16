@@ -24,6 +24,7 @@ and `README.md` there (the spec), plus ADRs 0003–0007 as they land.
 | [M09](User-Story-M09-Settings-preferences) | Settings & preferences | [#44](https://github.com/qwts/photos/issues/44) | Lane C — Settings |
 | [M10](User-Story-M10-Albums-organization-deletion) | Albums, organization & deletion | [#45](https://github.com/qwts/photos/issues/45) | Lane A — UI (tail) |
 | [M11](User-Story-M11-Scale-hardening-release-readiness) | Scale, hardening & release readiness | [#46](https://github.com/qwts/photos/issues/46) | Closing |
+| [M20](User-Story-M20-Privacy-lock-protected-albums) | Privacy lock, Touch ID & protected albums | [#305](https://github.com/qwts/photos/issues/305) | Lane B — Core with Lane A/C UI |
 
 ## Parallelism
 
