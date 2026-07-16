@@ -110,7 +110,7 @@ export class InteropTranslationService {
     const recordIds = new Map(
       compatibility.entries.map((entry) => [entry.uuid, deterministicInteropId('image-trail', entry.uuid)] as const),
     );
-    const albums = compatibility.albums.map((album) => translateImageTrailAlbum(album, recordIds));
+    const translatedAlbums = compatibility.albums.map((album) => translateImageTrailAlbum(album, recordIds));
     const albumIdsByRecord = new Map<string, string[]>();
     for (const album of compatibility.albums) {
       const albumInteropId = deterministicInteropId('image-trail-album', album.id);
@@ -127,8 +127,15 @@ export class InteropTranslationService {
         receivedAt,
       }),
     );
+    const persistedRecordIds = new Set(records.filter((result) => result.persisted).map((result) => result.record.identity.interopId));
+    const albums = translatedAlbums.map((album) =>
+      interopAlbumSchema.parse({
+        ...album,
+        members: album.members.filter((member) => persistedRecordIds.has(member.recordInteropId)),
+      }),
+    );
     for (const album of albums) {
-      this.repository.putAlbum({ album: interopAlbumSchema.parse(album), receivedAt });
+      this.repository.putAlbum({ album, receivedAt });
     }
     return {
       records,
