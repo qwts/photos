@@ -39,7 +39,7 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, o
       role="menu"
       aria-label={`Actions for ${album.name}`}
       className="ovl-album-menu"
-      style={{ left: Math.max(8, Math.min(x, window.innerWidth - 210)), top: Math.max(8, Math.min(y, window.innerHeight - 96)) }}
+      style={{ left: Math.max(8, Math.min(x, window.innerWidth - 210)), top: Math.max(8, Math.min(y, window.innerHeight - 128)) }}
       onPointerDown={(event) => event.stopPropagation()}
       onKeyDown={(event) => {
         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -57,10 +57,6 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, o
         target?.focus();
       }}
     >
-      <button type="button" role="menuitem" onClick={onTransfer}>
-        <Icon name="refresh-cw" size={14} />
-        Transfer &amp; Sync…
-      </button>
       <button
         type="button"
         role="menuitem"
@@ -81,6 +77,10 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, o
       >
         <Icon name="trash-2" size={14} />
         Delete album…
+      </button>
+      <button type="button" role="menuitem" onClick={onTransfer}>
+        <Icon name="refresh-cw" size={14} />
+        Transfer &amp; Sync…
       </button>
     </div>
   );
