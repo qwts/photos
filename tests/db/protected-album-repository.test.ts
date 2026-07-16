@@ -33,17 +33,22 @@ function metadata(name: string): ProtectedAlbumMetadata {
   };
 }
 
-function world(): {
+function world(existing?: { readonly path: string; readonly dbKey: Buffer }): {
+  readonly path: string;
+  readonly dbKey: Buffer;
   readonly db: ReturnType<typeof openLibraryDatabase>;
   readonly repository: ProtectedAlbumRepository;
   readonly authorities: ProtectedAlbumAuthorityRegistry;
   readonly service: ProtectedAlbumService;
 } {
-  const path = join(mkdtempSync(join(tmpdir(), 'overlook-protected-album-')), 'library.db');
-  const db = openLibraryDatabase({ path, dbKey: randomBytes(32) });
+  const path = existing?.path ?? join(mkdtempSync(join(tmpdir(), 'overlook-protected-album-')), 'library.db');
+  const dbKey = existing?.dbKey ?? randomBytes(32);
+  const db = openLibraryDatabase({ path, dbKey });
   const repository = new ProtectedAlbumRepository(db, LIBRARY_ID);
   const authorities = new ProtectedAlbumAuthorityRegistry();
   return {
+    path,
+    dbKey,
     db,
     repository,
     authorities,
@@ -75,6 +80,25 @@ describe('protected album persistence and service (#325)', () => {
     masterKey.fill(0);
     w.service.close();
     w.db.close();
+  });
+
+  test('restart exposes only opaque identity until the album password releases custody', async () => {
+    const first = world();
+    const masterKey = randomBytes(32);
+    await first.service.provision({ albumId: 'PROTECTED', password: PASSWORD, masterKey, metadata: metadata('Private family') });
+    first.service.close();
+    first.db.close();
+
+    const restarted = world({ path: first.path, dbKey: first.dbKey });
+    assert.deepEqual(restarted.repository.listOpaque(), [{ albumId: 'PROTECTED', migrationState: 'staged' }]);
+    assert.throws(() => restarted.service.metadata('PROTECTED'), ProtectedAlbumAuthorityError);
+    assert.equal((await restarted.service.unlock('PROTECTED', PASSWORD)).ok, true);
+    assert.equal(restarted.service.metadata('PROTECTED').name, 'Private family');
+
+    restarted.service.close();
+    restarted.db.close();
+    first.dbKey.fill(0);
+    masterKey.fill(0);
   });
 });
 
