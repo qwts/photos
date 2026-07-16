@@ -33,6 +33,9 @@ function relaxCspForDev(): Plugin {
 
 export default defineConfig({
   main: {
+    define: {
+      __OVERLOOK_GOOGLE_DRIVE_CLIENT_ID__: JSON.stringify(process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_ID'] ?? ''),
+    },
     build: {
       rollupOptions: {
         input: {

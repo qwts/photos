@@ -2,8 +2,8 @@ import type { StorageProvider } from './provider.js';
 
 // The active-provider delegator (#256). The backup engine, offload service,
 // and consistency checker each hold ONE provider for their lifetime, but the
-// user can switch mid-session (connect pCloud, fall back to the mock in
-// dev) — so they get a facade that re-reads the current choice on every
+// user can switch providers mid-session without rebuilding the engine, so
+// they get a facade that re-reads the current choice on every
 // call and forwards to the registered instance.
 
 export interface ActiveProviderOptions {

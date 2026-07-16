@@ -453,16 +453,15 @@ export const channels = {
     z.object({
       provider: providerDescriptorSchema,
       connected: z.boolean(),
-      /** Account label when the provider knows one (pCloud email); the mock
-       * has no account and reports null. */
+      /** Account label when the provider exposes one; otherwise null. */
       account: z.string().nullable(),
       usedBytes: z.number().nonnegative().nullable(),
       totalBytes: z.number().nonnegative().nullable(),
     }),
   ),
   // Provider connect/disconnect (#254): connect runs whatever handshake the
-  // registered provider needs — the mock connects instantly, pCloud opens
-  // the system browser for the OAuth loopback flow. The token never crosses
+  // registered provider needs — local providers connect instantly while
+  // interactive providers open a system-browser OAuth flow. Tokens never cross
   // this boundary; the renderer only learns ok/reason.
   backupConnect: defineChannel(
     'backup:connect',

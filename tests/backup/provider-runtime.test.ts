@@ -68,12 +68,24 @@ describe('provider runtime policy (#256)', () => {
       'pcloud',
     );
     assert.equal(runtime({ harnessEnv: () => 'garbage' }).runtime.defaultTarget(), 'mock');
+    assert.equal(
+      runtime({
+        harnessEnv: (name) => (name === 'OVERLOOK_PROVIDER' ? 'google-drive' : undefined),
+        googleDriveClientId: () => 'desktop.apps.googleusercontent.com',
+      }).runtime.defaultTarget(),
+      'google-drive',
+    );
   });
 
   test("activeId: packaged corrects a stale/default 'mock' to disconnected; dev passes it through", () => {
     assert.equal(runtime({ providerId: () => 'mock', isPackaged: true }).runtime.activeId(), null);
     assert.equal(runtime({ providerId: () => 'mock' }).runtime.activeId(), 'mock');
     assert.equal(runtime({ providerId: () => 'pcloud', isPackaged: true }).runtime.activeId(), 'pcloud');
+    assert.equal(runtime({ providerId: () => 'google-drive' }).runtime.activeId(), null, 'an unconfigured Drive build is disconnected');
+    assert.equal(
+      runtime({ providerId: () => 'google-drive', googleDriveClientId: () => 'desktop.apps.googleusercontent.com' }).runtime.activeId(),
+      'google-drive',
+    );
     assert.equal(runtime({ providerId: () => null }).runtime.activeId(), null);
     const { runtime: unavailable } = runtime({ providerId: () => 'missing-provider' });
     unavailable.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
@@ -102,9 +114,16 @@ describe('provider runtime policy (#256)', () => {
       r.descriptors().map(({ id, capabilities }) => ({ id, quota: capabilities.quota })),
       [
         { id: 'pcloud', quota: 'known' },
+        { id: 'google-drive', quota: 'known' },
         { id: 'mock', quota: 'known' },
       ],
     );
+    const drive = r.descriptors().find(({ id }) => id === 'google-drive');
+    assert.deepEqual(
+      { available: drive?.available, reason: drive?.unavailableReason },
+      { available: false, reason: 'Google Drive OAuth is not configured in this build.' },
+    );
+    assert.equal((await r.connect('google-drive')).ok, false);
     assert.equal((await r.connect('mock')).ok, false);
     assert.equal(r.disconnect('mock').ok, false);
     active = false;
@@ -127,6 +146,25 @@ describe('provider runtime policy (#256)', () => {
     assert.deepEqual(r.tokenStore().load(), record);
     assert.equal(existsSync(join(credentialDir, 'pcloud-auth.bin')), true);
     assert.equal(existsSync(join(dataDir, 'pcloud-auth.bin')), false, 'legacy token is removed after migration');
+  });
+
+  test('provider-specific custody directories keep Google refresh tokens outside the library', () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-google-custody-'));
+    const { runtime: r } = runtime({
+      dataDir: () => join(root, 'library'),
+      providerCredentialDir: (id) => join(root, 'provider-auth', id),
+      googleDriveClientId: () => 'desktop.apps.googleusercontent.com',
+    });
+    r.googleTokenStore().save({
+      clientId: 'desktop.apps.googleusercontent.com',
+      refreshToken: 'refresh-1',
+      connectedAt: '2026-07-16T00:00:00.000Z',
+    });
+    assert.equal(existsSync(join(root, 'provider-auth', 'google-drive', 'google-drive-auth.bin')), true);
+    r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
+    assert.equal(r.descriptors().find(({ id }) => id === 'google-drive')?.available, true);
+    assert.equal(r.disconnect('google-drive').ok, true);
+    assert.equal(r.googleTokenStore().load(), null);
   });
 });
 

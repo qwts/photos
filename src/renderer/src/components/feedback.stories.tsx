@@ -56,7 +56,7 @@ export const Metadata: StoryObj = {
       <MetadataRow label="File" value="IMG_4021.RAF" />
       <MetadataRow label="Size" value="26.1 MP · 6240×4160 · 54.2 MB" />
       <MetadataRow label="Camera" value="FUJIFILM X-T5" />
-      <MetadataRow label="Backup" value="ENCRYPTED · PCLOUD · 2H AGO" tone="var(--accent-green)" />
+      <MetadataRow label="Backup" value="ENCRYPTED · GOOGLE DRIVE · 2H AGO" tone="var(--accent-green)" />
       <MetadataRow label="Place" value="Kyoto, Japan" mono={false} />
     </div>
   ),

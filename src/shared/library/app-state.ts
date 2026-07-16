@@ -37,7 +37,7 @@ export interface AppState {
   readonly pendingCount: number;
   readonly lastBackupLabel: string;
   /** Mirrors settings.providerId !== null (#239): disconnected hides every
-   * pCloud surface (toolbar backup, status-bar sync, sidebar progress). */
+   * selected-provider surface (toolbar backup, status-bar sync, sidebar progress). */
   readonly providerConnected: boolean;
   /** Descriptor-driven label for the selected/default backup provider. */
   readonly providerLabel: string;

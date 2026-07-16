@@ -19,11 +19,11 @@ export const Tones: Story = {
     <div style={{ display: 'grid', gap: 'var(--space-4)', padding: 'var(--space-7)', justifyItems: 'start' }}>
       <Toast title="Import complete" detail="1,204 photos added" />
       <Toast tone="green" title="Backup verified" detail="All photos backed up" />
-      <Toast tone="amber" title="Encrypting 42 → pCloud" />
+      <Toast tone="amber" title="Encrypting 42 → Google Drive" />
       <Toast
         tone="red"
         title="Backup failed"
-        detail="pCloud unreachable"
+        detail="Cloud provider unreachable"
         action={
           <Button variant="ghost" size="sm">
             Retry

@@ -350,8 +350,7 @@ export interface BackupFacade {
     usedBytes: number | null;
     totalBytes: number | null;
   }>;
-  /** Runs the registered provider's handshake (#254): instant for the mock,
-   * the OAuth loopback flow for pCloud. */
+  /** Runs the addressed provider's instant or interactive handshake. */
   connect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;
   disconnect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;
 }

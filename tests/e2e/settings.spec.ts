@@ -30,10 +30,15 @@ test('settings round-trip: set() persists in main and the changed event reaches 
 
     const providerCatalog = await page.evaluate<{
       defaultProviderId: string;
-      providers: { id: string; label: string; capabilities: { quota: string; verification: string } }[];
+      providers: { id: string; label: string; available: boolean; capabilities: { quota: string; verification: string } }[];
     }>(`window.overlook.backup.providers()`);
     expect(providerCatalog.defaultProviderId).toBe('mock');
-    expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['pcloud', 'mock']);
+    expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['pcloud', 'google-drive', 'mock']);
+    expect(providerCatalog.providers.find(({ id }) => id === 'google-drive')).toMatchObject({
+      label: 'Google Drive',
+      available: false,
+      capabilities: { quota: 'known', verification: 'server-checksum' },
+    });
     expect(providerCatalog.providers.find(({ id }) => id === 'mock')?.capabilities).toMatchObject({
       quota: 'known',
       verification: 'server-checksum',
@@ -87,6 +92,8 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(card).toContainText('Connected');
     await page.getByRole('button', { name: 'Disconnect' }).click();
     await expect(card).toContainText('Not connected');
+    await expect(page.getByRole('radio', { name: 'Google Drive' })).toBeDisabled();
+    await expect(page.getByText('Google Drive: Google Drive OAuth is not configured in this build.')).toBeVisible();
     await expect(page.getByText('Back up new imports automatically')).toBeHidden();
     await expect(page.getByText('Wi-Fi only')).toBeHidden();
     await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeHidden();

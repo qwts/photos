@@ -201,7 +201,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
             {connected ? null : (
               <Button
                 variant="primary"
-                disabled={providerId === null || connecting}
+                disabled={providerId === null || connecting || descriptor?.available === false}
                 onClick={() => {
                   if (providerId === null) return;
                   setConnecting(true);
@@ -216,6 +216,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
                 {connecting ? 'Connecting…' : `Connect ${descriptor?.label ?? 'provider'}`}
               </Button>
             )}
+            {descriptor?.available === false && descriptor.unavailableReason !== null ? <span>{descriptor.unavailableReason}</span> : null}
           </div>
           <div className="ovl-restore__keyrow">
             <Button

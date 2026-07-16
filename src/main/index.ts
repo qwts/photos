@@ -68,6 +68,7 @@ import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
+import { bundledGoogleDriveClientId } from './build-config.js';
 import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 
@@ -344,12 +345,10 @@ function providerIdle(): Promise<void> {
   return new Promise((resolve) => providerIdleWaiters.add(resolve));
 }
 
-/** Provider selection + pCloud custody policy (#256) — logic lives in
- * backup/provider-runtime.ts; only the Electron seams are wired here. */
 function getProviderRuntime(): ProviderRuntime {
   providerRuntime ??= new ProviderRuntime({
     dataDir: () => path.join(app.getPath('userData'), 'library'),
-    credentialDir: () => path.join(app.getPath('userData'), 'provider-auth', 'pcloud'),
+    providerCredentialDir: (providerId) => path.join(app.getPath('userData'), 'provider-auth', providerId),
     safeStorage: pickSafeStorage,
     openExternal: async (url) => shell.openExternal(url),
     setProviderId: (id) => getSettingsStore().set({ providerId: id }),
@@ -357,6 +356,7 @@ function getProviderRuntime(): ProviderRuntime {
     isWorkActive: () => providerWorkCount > 0,
     isPackaged: app.isPackaged,
     harnessEnv,
+    googleDriveClientId: bundledGoogleDriveClientId,
   });
   return providerRuntime;
 }
@@ -378,7 +378,7 @@ function ensureRestoreProviderRegistry(): ProviderRuntime {
 let autoBackupTrigger: (() => void) | undefined;
 
 /** Dirtying EDITS auto-backup like imports do (#267) — before this, an
- * album add or favorite left "ENCRYPTING n → PCLOUD" standing until a
+ * album add or favorite left the provider progress standing until a
  * manual run. Trailing debounce; convergence lives in autoBackupTrigger. */
 const scheduleAutoBackup = createAutoBackupScheduler(() => {
   getBackupEngine();
@@ -443,7 +443,6 @@ function getBackupEngine(): BackupEngine {
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    // Provider selection + fault harness live in ProviderRuntime (#256).
     const provider = getProviderRuntime().buildProvider({
       mockRootDir: path.join(app.getPath('userData'), 'mock-remote'),
       fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),
