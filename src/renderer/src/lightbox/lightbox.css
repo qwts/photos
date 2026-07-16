@@ -12,10 +12,73 @@
   background: var(--gray-0);
 }
 
+.ovl-lightbox__viewport {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  overscroll-behavior: none;
+}
+
 .ovl-lightbox__img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  max-width: none;
+  max-height: none;
+  object-fit: fill;
+  pointer-events: auto;
+  user-select: none;
+  will-change: transform;
+}
+
+.ovl-lightbox__gesture-hint {
+  position: absolute;
+  bottom: 106px;
+  left: 50%;
+  translate: -50% 0;
+  max-width: calc(100% - var(--space-6));
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: oklch(0.1 0.005 250 / 0.82);
+  color: var(--text-muted);
+  font: var(--type-meta);
+  letter-spacing: 0.04em;
+  text-align: center;
+  pointer-events: none;
+  animation: ovl-lightbox-hint-in var(--duration-normal) var(--ease-out);
+}
+
+.ovl-lightbox__zoom {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  translate: -50% 0;
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: oklch(0.1 0.005 250 / 0.78);
+}
+
+.ovl-lightbox__zoom.ovl-lightbox__chrome--on {
+  pointer-events: auto;
+}
+
+.ovl-lightbox__zoom-reset {
+  min-width: 58px;
+  justify-content: center;
+  font: var(--type-meta);
+  letter-spacing: 0.04em;
+}
+
+@keyframes ovl-lightbox-hint-in {
+  from {
+    opacity: 0;
+    translate: -50% var(--space-1);
+  }
 }
 
 .ovl-lightbox__preview {
@@ -138,6 +201,12 @@
 
   .ovl-lightbox__custody {
     order: -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-lightbox__gesture-hint {
+    animation: none;
   }
 }
 

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
-import { fullUrl } from '../../../shared/library/full-url.js';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import type { PhotoRecord } from '../../../shared/library/types.js';
+import { LightboxViewport } from './LightboxViewport';
 
 import './lightbox.css';
 
@@ -19,6 +19,8 @@ const CHROME_IDLE_MS = 2200;
 
 export interface LightboxProps {
   readonly photo: PhotoRecord;
+  /** Storybook supplies a bundled real-photo URL; production uses the decrypted protocol. */
+  readonly imageSrc?: string | undefined;
   readonly onClose: () => void;
   readonly onPrev: () => void;
   readonly onNext: () => void;
@@ -52,6 +54,7 @@ function exifStrip(photo: PhotoRecord): string {
 
 export function Lightbox({
   photo,
+  imageSrc,
   onClose,
   onPrev,
   onNext,
@@ -86,6 +89,11 @@ export function Lightbox({
     }, CHROME_IDLE_MS);
   }, []);
 
+  const wakeChrome = useCallback(() => {
+    setChrome(true);
+    armTimer();
+  }, [armTimer]);
+
   // Mousemove wakes the chrome and pushes the idle deadline out. Chromium
   // re-dispatches a synthetic mousemove when hit-testing changes under a
   // STATIONARY cursor (our own pointer-events flip on fade!) — ignore
@@ -99,10 +107,9 @@ export function Lightbox({
       if (previous !== null && previous.x === event.clientX && previous.y === event.clientY) {
         return;
       }
-      setChrome(true);
-      armTimer();
+      wakeChrome();
     },
-    [armTimer],
+    [wakeChrome],
   );
 
   // (Re)arm the hide timer on mount and on every photo change.
@@ -150,12 +157,13 @@ export function Lightbox({
       data-chrome={chrome ? 'on' : 'off'}
       onMouseMove={wake}
     >
-      <img
-        key={`${photo.id}-${suppressRehydrate ? 'synced' : photo.syncState}`}
-        className="ovl-lightbox__img"
-        src={fullUrl(photo.id)}
-        alt={photo.fileName}
-        data-orientation={photo.width >= photo.height ? 'landscape' : 'portrait'}
+      <LightboxViewport
+        key={`${photo.id}-${inspectorOpen ? 'docked' : 'wide'}`}
+        photo={photo}
+        suppressRehydrate={suppressRehydrate}
+        imageSrc={imageSrc}
+        chromeClass={chromeClass}
+        onActivity={wakeChrome}
       />
       {photo.fileKind === 'raw' ? <span className="ovl-lightbox__preview mono-data">PREVIEW</span> : null}
       <div className={`ovl-lightbox__top ovl-lightbox__chrome${chromeClass}`}>
