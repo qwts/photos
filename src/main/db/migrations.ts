@@ -372,7 +372,84 @@ const SCHEMA_V8: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8];
+const SCHEMA_V9: Migration = {
+  version: 9,
+  name: 'interop-sync-journals',
+  // #334: Sync decisions, receipts, tombstone reviews, and controls must
+  // survive restart independently of provider transport and renderer state.
+  up(db) {
+    db.exec(`
+      CREATE TABLE interop_sync_sessions (
+        session_id TEXT PRIMARY KEY,
+        pairing_id TEXT NOT NULL,
+        source_product TEXT NOT NULL CHECK (source_product IN ('image-trail', 'overlook')),
+        target_product TEXT NOT NULL CHECK (target_product IN ('image-trail', 'overlook')),
+        direction TEXT NOT NULL CHECK (direction IN ('image-trail-to-overlook', 'overlook-to-image-trail', 'two-way')),
+        scope_json TEXT NOT NULL CHECK (json_valid(scope_json)),
+        phase TEXT NOT NULL CHECK (phase IN ('reviewing', 'transferring', 'paused', 'completed', 'cancelled', 'failed')),
+        connected INTEGER NOT NULL DEFAULT 1 CHECK (connected IN (0, 1)),
+        image_trail_checkpoint INTEGER NOT NULL DEFAULT 0 CHECK (image_trail_checkpoint >= 0),
+        overlook_checkpoint INTEGER NOT NULL DEFAULT 0 CHECK (overlook_checkpoint >= 0),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (source_product <> target_product)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE interop_sync_items (
+        session_id TEXT NOT NULL REFERENCES interop_sync_sessions (session_id) ON DELETE CASCADE,
+        interop_id TEXT NOT NULL,
+        image_trail_record_json TEXT CHECK (image_trail_record_json IS NULL OR json_valid(image_trail_record_json)),
+        overlook_record_json TEXT CHECK (overlook_record_json IS NULL OR json_valid(overlook_record_json)),
+        analysis_json TEXT NOT NULL CHECK (json_valid(analysis_json)),
+        decisions_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(decisions_json)),
+        delete_decision TEXT CHECK (delete_decision IN ('apply', 'keep')),
+        state TEXT NOT NULL CHECK (state IN (
+          'eligible', 'duplicate', 'conflict', 'delete-review', 'ready', 'applied', 'skipped', 'failed'
+        )),
+        error_json TEXT CHECK (error_json IS NULL OR json_valid(error_json)),
+        received_at TEXT NOT NULL,
+        applied_at TEXT,
+        PRIMARY KEY (session_id, interop_id)
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_interop_sync_items_state ON interop_sync_items (session_id, state, interop_id);
+
+      CREATE TABLE interop_sync_receipts (
+        pairing_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        session_id TEXT NOT NULL REFERENCES interop_sync_sessions (session_id) ON DELETE CASCADE,
+        interop_id TEXT NOT NULL,
+        envelope_json TEXT NOT NULL CHECK (json_valid(envelope_json)),
+        received_at TEXT NOT NULL,
+        PRIMARY KEY (pairing_id, message_id)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE interop_sync_audit (
+        event_key TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES interop_sync_sessions (session_id) ON DELETE CASCADE,
+        interop_id TEXT,
+        event TEXT NOT NULL CHECK (event IN (
+          'started', 'received', 'decision', 'delete-reviewed', 'paused', 'resumed',
+          'cancelled', 'disconnected', 'applied', 'skipped', 'failed', 'checkpoint'
+        )),
+        details_json TEXT NOT NULL CHECK (json_valid(details_json)),
+        created_at TEXT NOT NULL
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_interop_sync_audit_session ON interop_sync_audit (session_id, created_at, event_key);
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [
+  SCHEMA_V1,
+  SCHEMA_V2,
+  SCHEMA_V3,
+  SCHEMA_V4,
+  SCHEMA_V5,
+  SCHEMA_V6,
+  SCHEMA_V7,
+  SCHEMA_V8,
+  SCHEMA_V9,
+];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {
