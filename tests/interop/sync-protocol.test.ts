@@ -16,6 +16,8 @@ const DB_KEY = randomBytes(32);
 const SESSION_ID = '0f55fc4f-e49f-49cf-b9d7-cf849b0f7daf';
 const SECOND_SESSION_ID = '3dbf3151-2061-47ef-b91e-3b7bcbad167c';
 const SECOND_MESSAGE_ID = '56d3d0a4-b271-4037-80cf-ec98a436910f';
+const THIRD_SESSION_ID = '52ac49fd-df53-4a0e-807f-ea95e415c75c';
+const THIRD_MESSAGE_ID = '26b2eaf7-d7da-48f7-87f8-b809b90b1e64';
 
 type RecordEnvelope = InteropEnvelope & { payload: { kind: 'record'; record: InteropRecord } };
 
@@ -198,6 +200,77 @@ describe('SyncProtocolService', () => {
     });
     assert.throws(() => opened.service.receive(SECOND_SESSION_ID, later, base), /disconnected or cancelled/u);
     assert.equal(opened.repository.counts(SECOND_SESSION_ID).skipped, 1);
+    opened.db.close();
+  });
+
+  test('keeps a concurrent tombstone blocked after conflict fields are decided', async () => {
+    const path = databasePath();
+    const now = clock();
+    const base = fixture().payload.record;
+    const local: InteropRecord = {
+      ...base,
+      title: 'Overlook title',
+      revision: { imageTrail: 1, overlook: 3 },
+      fieldRevisions: { ...base.fieldRevisions, title: { imageTrail: 1, overlook: 3 } },
+    };
+    const remote: InteropRecord = {
+      ...base,
+      title: 'Image Trail title',
+      deletedAt: '2026-07-16T18:20:00.000Z',
+      revision: { imageTrail: 3, overlook: 1 },
+      fieldRevisions: {
+        ...base.fieldRevisions,
+        title: { imageTrail: 3, overlook: 1 },
+        deleted: { imageTrail: 3, overlook: 1 },
+      },
+    };
+    const envelope = syncEnvelope({ sessionId: THIRD_SESSION_ID, messageId: THIRD_MESSAGE_ID, record: remote });
+    const opened = open(path, now);
+    start(opened.service, envelope, THIRD_SESSION_ID);
+    assert.equal(opened.service.receive(THIRD_SESSION_ID, envelope, local).state, 'conflict');
+    assert.equal(
+      opened.service.decide(THIRD_SESSION_ID, base.identity.interopId, 'title', 'keep-image-trail', true).state,
+      'delete-review',
+    );
+    await assert.rejects(
+      opened.service.apply(THIRD_SESSION_ID, base.identity.interopId, { apply: () => Promise.resolve() }),
+      /requires conflict or delete review/u,
+    );
+    assert.equal(opened.service.reviewDelete(THIRD_SESSION_ID, base.identity.interopId, 'apply').state, 'ready');
+    assert.equal(opened.service.cancel(THIRD_SESSION_ID).phase, 'cancelled');
+    assert.throws(() => opened.service.resume(THIRD_SESSION_ID), /cannot resume/u);
+    opened.db.close();
+  });
+
+  test('rejects unreviewed direction, scope, and cross-session messages', () => {
+    const opened = open(databasePath(), clock());
+    assert.throws(
+      () =>
+        opened.service.start({
+          sessionId: THIRD_SESSION_ID,
+          pairingId: fixture().header.pairingId,
+          sourceProduct: 'overlook',
+          targetProduct: 'image-trail',
+          direction: 'image-trail-to-overlook',
+          scope: { kind: 'all', localIds: [] },
+        }),
+      /direction does not match/u,
+    );
+    assert.throws(
+      () =>
+        opened.service.start({
+          sessionId: THIRD_SESSION_ID,
+          pairingId: fixture().header.pairingId,
+          sourceProduct: 'overlook',
+          targetProduct: 'image-trail',
+          direction: 'overlook-to-image-trail',
+          scope: { kind: 'selected', localIds: [] },
+        }),
+      /scope ids/u,
+    );
+    const envelope = syncEnvelope({ sessionId: SECOND_SESSION_ID, messageId: THIRD_MESSAGE_ID });
+    start(opened.service, envelope, THIRD_SESSION_ID);
+    assert.throws(() => opened.service.receive(THIRD_SESSION_ID, envelope, fixture().payload.record), /durable session identity/u);
     opened.db.close();
   });
 });
