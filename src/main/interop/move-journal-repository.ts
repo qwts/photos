@@ -395,6 +395,31 @@ export class MoveJournalRepository {
     const response: AcknowledgementEnvelope = acknowledgement;
     const item = this.requireItem(response.header.transferId, response.payload.recordInteropId);
     const accepted = response.payload.status === 'accepted';
+    if (item.acknowledgedAt !== null) {
+      this.db.transaction(() => {
+        runNamed(
+          this.db,
+          `INSERT OR IGNORE INTO interop_move_receipts (
+             pairing_id, message_id, transfer_id, response_message_id, received_at
+           ) VALUES (@pairingId, @messageId, @transferId, NULL, @at)`,
+          {
+            pairingId: response.header.pairingId,
+            messageId: response.header.messageId,
+            transferId: response.header.transferId,
+            at,
+          },
+        );
+        this.putAudit({
+          eventKey: `${response.header.messageId}:${accepted ? 'acknowledged' : 'rejected'}`,
+          transferId: response.header.transferId,
+          interopId: response.payload.recordInteropId,
+          event: accepted ? 'acknowledged' : 'rejected',
+          details: { acknowledgementMessageId: response.header.messageId, ignoredAfterAccepted: true },
+          at,
+        });
+      })();
+      return this.requireJournal(response.header.transferId);
+    }
     this.db.transaction(() => {
       runNamed(
         this.db,
