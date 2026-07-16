@@ -3,21 +3,23 @@ import { describe, test } from 'node:test';
 
 import { ZOOM_MAX, ZOOM_MIN, clampTransform, fillZoom, fitSize, panBy, zoomAround } from '../../src/renderer/src/lightbox/geometry.js';
 
+function assertClose(actual: number, expected: number): void {
+  assert.ok(Math.abs(actual - expected) < 1e-9, `${String(actual)} should be close to ${String(expected)}`);
+}
+
 describe('lightbox transform geometry (#307)', () => {
   test('fit keeps landscape and portrait images wholly visible', () => {
-    assert.deepEqual(fitSize({ width: 600, height: 400 }, { width: 400, height: 400 }), {
-      width: 400,
-      height: 400 / 1.5,
-    });
-    assert.deepEqual(fitSize({ width: 400, height: 600 }, { width: 400, height: 400 }), {
-      width: 400 / 1.5,
-      height: 400,
-    });
+    const landscape = fitSize({ width: 600, height: 400 }, { width: 400, height: 400 });
+    assert.equal(landscape.width, 400);
+    assertClose(landscape.height, 400 / 1.5);
+    const portrait = fitSize({ width: 400, height: 600 }, { width: 400, height: 400 });
+    assertClose(portrait.width, 400 / 1.5);
+    assert.equal(portrait.height, 400);
   });
 
   test('fill is orientation-aware and a deterministic no-op when already filled', () => {
-    assert.equal(fillZoom({ width: 600, height: 400 }, { width: 400, height: 400 }), 1.5);
-    assert.equal(fillZoom({ width: 400, height: 600 }, { width: 400, height: 400 }), 1.5);
+    assertClose(fillZoom({ width: 600, height: 400 }, { width: 400, height: 400 }), 1.5);
+    assertClose(fillZoom({ width: 400, height: 600 }, { width: 400, height: 400 }), 1.5);
     assert.equal(fillZoom({ width: 6000, height: 4000 }, { width: 1200, height: 800 }), 1);
   });
 
