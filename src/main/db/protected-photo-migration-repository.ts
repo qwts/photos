@@ -135,7 +135,7 @@ export class ProtectedPhotoMigrationRepository {
       queryGet<{ photoId: string }>(
         this.db,
         `UPDATE protected_photo_records
-            SET sealed_metadata = @sealedMetadata, updated_at = @now
+            SET sealed_metadata = @sealedMetadata, updated_at = @now, manifest_dirty = 1
           WHERE album_id = @albumId AND photo_id = @photoId AND sealed_metadata = @expected
             AND NOT EXISTS (
               SELECT 1 FROM protected_photo_migration_items item WHERE item.photo_id = protected_photo_records.photo_id
@@ -275,6 +275,7 @@ export class ProtectedPhotoMigrationRepository {
             now,
           },
         );
+        this.insertRemoteObjects(item.photoId, item.hasThumb, item.hasMid);
         run(this.db, 'DELETE FROM photos WHERE id = ?', item.photoId);
       }
       this.transition(migrationId, 'verify', 'commit', now);
@@ -312,10 +313,12 @@ export class ProtectedPhotoMigrationRepository {
     this.db.transaction(() => {
       const journal = this.require(migrationId, 'move', 'verify');
       for (const item of journal.items) {
+        run(this.db, 'DELETE FROM protected_remote_objects WHERE photo_id = ?', item.photoId);
         const updated = queryGet<{ photoId: string }>(
           this.db,
           `UPDATE protected_photo_records
-              SET album_id = @albumId, blob_ref = @blobRef, sealed_metadata = @sealedMetadata, updated_at = @now
+              SET album_id = @albumId, blob_ref = @blobRef, sealed_metadata = @sealedMetadata,
+                  updated_at = @now, manifest_dirty = 1
             WHERE photo_id = @photoId AND album_id = @sourceAlbumId AND blob_ref = @sourceBlobRef
             RETURNING photo_id AS photoId`,
           {
@@ -329,6 +332,7 @@ export class ProtectedPhotoMigrationRepository {
           },
         );
         if (updated === undefined) throw new ProtectedPhotoMigrationRepositoryError('protected source changed during migration');
+        this.insertRemoteObjects(item.photoId, item.hasThumb, item.hasMid);
       }
       this.transition(migrationId, 'verify', 'commit', now);
     })();
@@ -360,6 +364,12 @@ export class ProtectedPhotoMigrationRepository {
       throw new ProtectedPhotoMigrationRepositoryError(`expected ${operation} migration in ${phase}`);
     }
     return journal;
+  }
+
+  private insertRemoteObjects(photoId: string, hasThumb: boolean, hasMid: boolean): void {
+    for (const kind of ['original', ...(hasThumb ? (['thumb'] as const) : []), ...(hasMid ? (['mid'] as const) : [])] as const) {
+      runNamed(this.db, 'INSERT INTO protected_remote_objects (photo_id, kind) VALUES (@photoId, @kind)', { photoId, kind });
+    }
   }
 
   private validateSource(

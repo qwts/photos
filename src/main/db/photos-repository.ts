@@ -2,7 +2,7 @@ import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { markDirty } from '../backup/sync-ledger.js';
 import type { BackupIntegrityItem } from '../backup/integrity-scrubber.js';
-import type { BackupManifestPhotoV2, BackupManifestSnapshot, BackupManifestV2 } from '../backup/backup-manifest.js';
+import type { BackupManifestPhotoV2, BackupManifestSnapshot, RestorableBackupManifest } from '../backup/backup-manifest.js';
 import type { WrappedKeyRecord } from '../crypto/keystore.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
@@ -595,7 +595,7 @@ export class PhotosRepository {
    * DB must be empty: merge semantics could retain local-only rows and turn
    * disaster recovery into silent data loss. All restored originals are
    * already verified remote copies, so their ledgers start clean + synced. */
-  restoreManifest(manifest: BackupManifestV2, keys: readonly WrappedKeyRecord[]): void {
+  restoreManifest(manifest: RestorableBackupManifest, keys: readonly WrappedKeyRecord[]): void {
     this.db.transaction(() => {
       const occupied = queryGet<{ count: number }>(
         this.db,

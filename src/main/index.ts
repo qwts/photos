@@ -497,6 +497,7 @@ function getBackupEngine(): BackupEngine {
       },
       audit,
     });
+    const protectedBackup = parts.protected.backup(provider, audit);
     backupEngine = new BackupEngine({
       provider,
       ledger,
@@ -528,6 +529,13 @@ function getBackupEngine(): BackupEngine {
       audit,
       integrityScrub: () => integrityScrubber.scrub(),
       recoveryGenerationHealthy: createRecoveryHealthCheck(provider, () => getProviderRuntime().libraryId(), parts.keyStore),
+      protectedBackup: {
+        run: (signal) => protectedBackup.run(signal),
+        scrub: () => protectedBackup.scrub(),
+        hasManifestDebt: () => parts.protected.recovery.hasManifestDebt(),
+        snapshot: () => parts.protected.recovery.snapshot(),
+        settleManifest: (snapshot) => parts.protected.recovery.settleManifest(snapshot),
+      },
     });
     const emitEphemeralState = createEmitter(events.ephemeralOriginalState, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));

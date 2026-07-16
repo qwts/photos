@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   BACKUP_MANIFEST_SCHEMA_VERSION,
   BackupManifestError,
+  backupManifestV3Schema,
   backupManifestV2Schema,
   parseBackupManifest,
   type BackupManifestV2,
@@ -13,7 +14,7 @@ const HASH = 'ab'.repeat(32);
 
 function manifest(): BackupManifestV2 {
   return {
-    schema: BACKUP_MANIFEST_SCHEMA_VERSION,
+    schema: 2,
     libraryId: '01JZZZZZZZZZZZZZZZZZZZZZZZ',
     databaseSchema: 3,
     generatedAt: '2026-07-14T23:00:00.000Z',
@@ -131,7 +132,72 @@ describe('backup manifest schema (#289)', () => {
     );
   });
 
+  test('schema 3 preserves sealed protected records behind opaque provider paths', () => {
+    const ordinary = manifest();
+    const blobRef = 'cd'.repeat(32);
+    const source = {
+      ...ordinary,
+      schema: BACKUP_MANIFEST_SCHEMA_VERSION,
+      protectedAlbums: [
+        {
+          id: 'secret-album-id',
+          credentialGeneration: 1,
+          metadataGeneration: 1,
+          credentialRecord: Buffer.from('credential').toString('base64'),
+          sealedMetadata: Buffer.from('album metadata').toString('base64'),
+          createdAt: ordinary.generatedAt,
+          updatedAt: ordinary.generatedAt,
+        },
+      ],
+      protectedPhotos: [
+        {
+          id: 'secret-photo-id',
+          albumId: 'secret-album-id',
+          blobRef,
+          sealedMetadata: Buffer.from('photo metadata').toString('base64'),
+          createdAt: ordinary.generatedAt,
+          updatedAt: ordinary.generatedAt,
+          objects: [
+            {
+              kind: 'original' as const,
+              path: `protected/cd/${blobRef}.original`,
+              sha256: 'ef'.repeat(32),
+              bytes: 99,
+              status: 'synced' as const,
+            },
+          ],
+        },
+      ],
+    };
+    assert.deepEqual(backupManifestV3Schema.parse(source), source);
+    assert.ok(!source.protectedPhotos[0]?.objects[0]?.path.includes('secret'));
+  });
+
+  test('schema 3 rejects protected membership and ciphertext claim inconsistencies', () => {
+    const ordinary = manifest();
+    assert.throws(
+      () =>
+        parseBackupManifest({
+          ...ordinary,
+          schema: BACKUP_MANIFEST_SCHEMA_VERSION,
+          protectedAlbums: [],
+          protectedPhotos: [
+            {
+              id: 'P',
+              albumId: 'missing',
+              blobRef: HASH,
+              sealedMetadata: 'c2VhbGVk',
+              createdAt: ordinary.generatedAt,
+              updatedAt: ordinary.generatedAt,
+              objects: [{ kind: 'original', path: '../leak', sha256: HASH, bytes: 1, status: 'synced' }],
+            },
+          ],
+        }),
+      /protected album is missing|protected object path does not match/u,
+    );
+  });
+
   test('unknown schemas fail closed', () => {
-    assert.throws(() => parseBackupManifest({ schema: 3 }), /unsupported manifest schema 3/u);
+    assert.throws(() => parseBackupManifest({ schema: BACKUP_MANIFEST_SCHEMA_VERSION + 1 }), /unsupported manifest schema 4/u);
   });
 });

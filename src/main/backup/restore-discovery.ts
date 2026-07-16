@@ -3,7 +3,7 @@ import { addAbortSignal, Readable } from 'node:stream';
 
 import { createDecryptStream, type KeyResolver } from '../crypto/envelope.js';
 import { MIGRATIONS } from '../db/migrations.js';
-import { parseBackupManifest, type BackupManifestV2 } from './backup-manifest.js';
+import { parseBackupManifest, type RestorableBackupManifest } from './backup-manifest.js';
 import { openRecoveryBootstrap, recoveryBootstrapResolver, type RecoveryBootstrap } from './recovery-bootstrap.js';
 import type { RemoteEntry, StorageProvider } from './provider.js';
 import { RestoreError, toRestoreError } from './restore-types.js';
@@ -17,7 +17,7 @@ export interface RestoreCandidate {
   readonly path: string;
   readonly generation: number;
   readonly sealedSha256: string;
-  readonly manifest: BackupManifestV2;
+  readonly manifest: RestorableBackupManifest;
 }
 
 export interface RestoreDiscovery {
@@ -55,7 +55,7 @@ function generationOf(entry: RemoteEntry): number | null {
   return Number.isSafeInteger(generation) && generation > 0 ? generation : null;
 }
 
-function validateManifest(manifest: BackupManifestV2, bootstrap: RecoveryBootstrap, resolveKey: KeyResolver): void {
+function validateManifest(manifest: RestorableBackupManifest, bootstrap: RecoveryBootstrap, resolveKey: KeyResolver): void {
   if (manifest.libraryId !== bootstrap.libraryId) {
     throw new RestoreError('corrupt', 'manifest library id does not match the recovery bootstrap');
   }

@@ -439,6 +439,48 @@ const SCHEMA_V9: Migration = {
   },
 };
 
+const SCHEMA_V10: Migration = {
+  version: 10,
+  name: 'protected-cloud-ledger',
+  // #328: protected ciphertext has an independent remote ledger. Provider
+  // object identity is derived only from the opaque blob ref; album names,
+  // plaintext hashes, and membership never enter this table or remote paths.
+  up(db) {
+    db.exec(`
+      ALTER TABLE protected_album_records
+        ADD COLUMN manifest_dirty INTEGER NOT NULL DEFAULT 1 CHECK (manifest_dirty IN (0, 1));
+      ALTER TABLE protected_photo_records
+        ADD COLUMN manifest_dirty INTEGER NOT NULL DEFAULT 1 CHECK (manifest_dirty IN (0, 1));
+
+      CREATE TABLE protected_remote_objects (
+        photo_id TEXT NOT NULL REFERENCES protected_photo_records (photo_id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK (kind IN ('original', 'thumb', 'mid')),
+        status TEXT NOT NULL DEFAULT 'local' CHECK (status IN ('local', 'synced', 'offloaded', 'error')),
+        dirty INTEGER NOT NULL DEFAULT 1 CHECK (dirty IN (0, 1)),
+        ciphertext_sha256 TEXT CHECK (
+          ciphertext_sha256 IS NULL OR
+          (length(ciphertext_sha256) = 64 AND ciphertext_sha256 NOT GLOB '*[^0-9a-f]*')
+        ),
+        ciphertext_bytes INTEGER CHECK (ciphertext_bytes IS NULL OR ciphertext_bytes >= 0),
+        last_backup_at TEXT,
+        PRIMARY KEY (photo_id, kind),
+        CHECK (
+          (ciphertext_sha256 IS NULL AND ciphertext_bytes IS NULL) OR
+          (ciphertext_sha256 IS NOT NULL AND ciphertext_bytes IS NOT NULL)
+        )
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_protected_remote_status ON protected_remote_objects (status, dirty, photo_id, kind);
+
+      INSERT INTO protected_remote_objects (photo_id, kind)
+        SELECT photo_id, 'original' FROM protected_photo_records;
+      INSERT INTO protected_remote_objects (photo_id, kind)
+        SELECT photo_id, 'thumb' FROM protected_photo_records WHERE has_thumb = 1;
+      INSERT INTO protected_remote_objects (photo_id, kind)
+        SELECT photo_id, 'mid' FROM protected_photo_records WHERE has_mid = 1;
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -449,6 +491,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V7,
   SCHEMA_V8,
   SCHEMA_V9,
+  SCHEMA_V10,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */
