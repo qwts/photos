@@ -52,12 +52,15 @@ export class PurgeService {
 
   /** Purges soft-deleted rows: DB row → local blobs → remote (retried).
    * Live rows are skipped, never forced. */
-  async purge(photoIds: readonly string[]): Promise<PurgeSummary> {
+  async purge(photoIds: readonly string[], signal?: AbortSignal): Promise<PurgeSummary> {
     let purged = 0;
     let skipped = 0;
     let remoteFailures = 0;
     const changed: string[] = [];
     for (const photoId of photoIds) {
+      // A purge that already removed a row finishes that photo's repairable
+      // local/remote cleanup. Cancellation takes effect only between photos.
+      if (signal?.aborted === true) break;
       const photo = this.deps.repo.getDeleted(photoId);
       if (photo === undefined) {
         skipped += 1;
@@ -85,14 +88,14 @@ export class PurgeService {
   }
 
   /** The retention sweep (#121): everything older than the window goes. */
-  async purgeExpired(): Promise<PurgeSummary> {
+  async purgeExpired(signal?: AbortSignal): Promise<PurgeSummary> {
     const cutoff = new Date(this.deps.now() - PURGE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const expired = this.deps.repo.expiredDeleted(cutoff);
     if (expired.length === 0) {
       return { purged: 0, skipped: 0, remoteFailures: 0 };
     }
     this.deps.audit(`PURGE-RETENTION count=${String(expired.length)} cutoff=${cutoff}`);
-    return this.purge(expired);
+    return this.purge(expired, signal);
   }
 
   /** Remote last, tolerated: 'not-found' is success (already gone),

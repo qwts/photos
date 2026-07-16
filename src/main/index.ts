@@ -45,6 +45,7 @@ import { recoverInterruptedActivation, restorePaths } from './backup/restore-sta
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
+import { createPurgeRuntime, type DrainablePurgeFacade } from './library/purge-runtime.js';
 import { StartupMaintenance } from './library/startup-maintenance.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
@@ -385,6 +386,7 @@ const scheduleAutoBackup = createAutoBackupScheduler(() => {
 });
 let manifestSyncTrigger: (() => void) | undefined;
 let purgeService: PurgeService | undefined;
+let purgeRuntime: DrainablePurgeFacade | undefined;
 let consistencyChecker: ConsistencyChecker | undefined;
 const startupMaintenance = new StartupMaintenance({
   purge: () => getPurgeService().purgeExpired(),
@@ -401,7 +403,11 @@ function getPurgeService(): PurgeService {
   if (purgeService === undefined) throw new Error('backup bootstrap failed; purge unavailable');
   return purgeService;
 }
-
+function getPurgeRuntime(): DrainablePurgeFacade {
+  getPurgeService();
+  if (purgeRuntime === undefined) throw new Error('backup bootstrap failed; purge runtime unavailable');
+  return purgeRuntime;
+}
 function getOffloadService(): OffloadService {
   getBackupEngine();
   if (offloadService === undefined) throw new Error('backup bootstrap failed; offload unavailable');
@@ -535,6 +541,7 @@ function getBackupEngine(): BackupEngine {
       now: () => Date.now(),
       sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     });
+    purgeRuntime = createPurgeRuntime(purgeService);
     consistencyChecker = new ConsistencyChecker({
       rows: () => repo.allRows(),
       blobs: {
@@ -679,10 +686,12 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   manifestSyncTrigger = undefined;
   importService?.close();
   exportFacade?.close();
+  purgeRuntime?.close();
   for (const controller of activeBackupControllers) controller.abort();
   await drainWithCancellationFence(cancelScheduledLibraryWork, [
     importService?.drain() ?? Promise.resolve(),
     exportFacade?.drain() ?? Promise.resolve(),
+    purgeRuntime?.drain() ?? Promise.resolve(),
     startupMaintenance.drain(),
     Promise.allSettled([...activeBackupRuns]),
     drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
@@ -702,7 +711,7 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   backupEngine = undefined;
   offloadService = undefined;
   ephemeralOriginalService = undefined;
-  purgeService = undefined;
+  [purgeService, purgeRuntime] = [undefined, undefined];
   consistencyChecker = undefined;
   exportFacade = undefined;
   if (drainRestore) restoreRuntime = undefined;
@@ -846,7 +855,7 @@ void app.whenReady().then(async () => {
     }),
   );
   registerPurgeHandlers(() => ({
-    purge: async (photoIds) => getPurgeService().purge(photoIds),
+    purge: (photoIds) => getPurgeRuntime().purge(photoIds),
   }));
   registerSettingsHandlers(() => getSettingsStore());
   // Change pushes (#111): the store notifies, every window re-renders from
