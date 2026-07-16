@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import type { SafeStorageLike } from '../crypto/keystore.js';
 import { ulid } from '../import/ulid.js';
+import { bundledGoogleDriveClientId } from '../build-config.js';
 import { createActiveProvider } from './active-provider.js';
 import { GoogleDriveAuthClient } from './google-drive/auth-client.js';
 import { createGoogleDriveConnect } from './google-drive/connect.js';
@@ -100,7 +101,7 @@ export class ProviderRuntime {
   }
 
   private googleClientId(): string | null {
-    const value = this.options.googleDriveClientId?.()?.trim() ?? '';
+    const value = (this.options.googleDriveClientId?.() ?? bundledGoogleDriveClientId())?.trim() ?? '';
     return value.endsWith('.apps.googleusercontent.com') ? value : null;
   }
 

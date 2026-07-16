@@ -24,11 +24,16 @@ function world(options: { clientId?: string | null; browser: (url: URL, port: nu
   const port = nextPort++;
   const tokenStore = new GoogleDriveTokenStore({ safeStorage, dataDir: mkdtempSync(join(tmpdir(), 'overlook-google-connect-')) });
   const clientId = options.clientId === undefined ? CLIENT_ID : options.clientId;
-  const fetchImpl: typeof fetch = async () =>
-    options.tokenResponse ??
-    new Response(JSON.stringify({ access_token: 'access-1', refresh_token: 'refresh-1', expires_in: 3600, scope: GOOGLE_DRIVE_SCOPE }), {
-      status: 200,
-    });
+  const fetchImpl: typeof fetch = () =>
+    Promise.resolve(
+      options.tokenResponse ??
+        new Response(
+          JSON.stringify({ access_token: 'access-1', refresh_token: 'refresh-1', expires_in: 3600, scope: GOOGLE_DRIVE_SCOPE }),
+          {
+            status: 200,
+          },
+        ),
+    );
   const authClient = new GoogleDriveAuthClient({ clientId: () => clientId, tokenStore, fetchImpl });
   let connected = 0;
   const connect = createGoogleDriveConnect({
@@ -49,7 +54,7 @@ function world(options: { clientId?: string | null; browser: (url: URL, port: nu
 
 describe('Google Drive connect flow (#277)', () => {
   test('system-browser PKCE handshake seals the refresh token then connects', async () => {
-    const state = await world({
+    const state = world({
       browser: async (url, port) => {
         assert.equal(url.searchParams.get('scope'), GOOGLE_DRIVE_SCOPE);
         assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
@@ -67,7 +72,7 @@ describe('Google Drive connect flow (#277)', () => {
   });
 
   test('unconfigured builds and denied exchanges do not write custody or flip selection', async () => {
-    const unavailable = world({ clientId: null, browser: async () => undefined });
+    const unavailable = world({ clientId: null, browser: () => Promise.resolve() });
     assert.deepEqual(await unavailable.connect(), { ok: false, reason: 'Google Drive is not configured in this build.' });
     const denied = world({
       browser: async (url, port) => {

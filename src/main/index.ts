@@ -68,7 +68,6 @@ import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
-import { bundledGoogleDriveClientId } from './build-config.js';
 import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 
@@ -356,7 +355,6 @@ function getProviderRuntime(): ProviderRuntime {
     isWorkActive: () => providerWorkCount > 0,
     isPackaged: app.isPackaged,
     harnessEnv,
-    googleDriveClientId: bundledGoogleDriveClientId,
   });
   return providerRuntime;
 }

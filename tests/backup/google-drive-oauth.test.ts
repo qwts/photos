@@ -12,6 +12,12 @@ import {
 
 const CLIENT_ID = 'desktop.apps.googleusercontent.com';
 
+function bodyText(body: RequestInit['body']): string {
+  if (typeof body === 'string') return body;
+  if (body instanceof URLSearchParams) return body.toString();
+  throw new Error('expected a string or URLSearchParams body');
+}
+
 describe('Google Drive OAuth helpers (#277)', () => {
   test('PKCE and authorization URL use the desktop loopback drive.file contract', () => {
     const pkce = createPkce();
@@ -37,16 +43,18 @@ describe('Google Drive OAuth helpers (#277)', () => {
 
   test('authorization code exchange sends no client secret and accepts the required scope', async () => {
     let body = '';
-    const fetchImpl: typeof fetch = async (_input, init) => {
-      body = String(init?.body);
-      return new Response(
-        JSON.stringify({
-          access_token: 'access-1',
-          refresh_token: 'refresh-1',
-          expires_in: 1800,
-          scope: GOOGLE_DRIVE_SCOPE,
-        }),
-        { status: 200 },
+    const fetchImpl: typeof fetch = (_input, init) => {
+      body = bodyText(init?.body);
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            access_token: 'access-1',
+            refresh_token: 'refresh-1',
+            expires_in: 1800,
+            scope: GOOGLE_DRIVE_SCOPE,
+          }),
+          { status: 200 },
+        ),
       );
     };
     const result = await exchangeGoogleDriveCode({
@@ -71,7 +79,7 @@ describe('Google Drive OAuth helpers (#277)', () => {
         code: 'code',
         verifier: 'verifier',
         redirectUri: 'http://127.0.0.1:1/callback',
-        fetchImpl: async () => new Response(JSON.stringify(payload), { status: 200 }),
+        fetchImpl: () => Promise.resolve(new Response(JSON.stringify(payload), { status: 200 })),
       });
     await assert.rejects(exchange({ access_token: 'a', refresh_token: 'r', scope: 'other' }), /drive\.file scope/u);
     await assert.rejects(exchange({ access_token: 'a', scope: GOOGLE_DRIVE_SCOPE }), /refresh token/u);
@@ -86,7 +94,7 @@ describe('Google Drive OAuth helpers (#277)', () => {
         code: 'secret',
         verifier: 'verifier',
         redirectUri: 'http://127.0.0.1:1/callback',
-        fetchImpl: async () => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }),
+        fetchImpl: () => Promise.resolve(new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 })),
       }),
       (error: unknown) => error instanceof GoogleDriveOAuthError && /invalid_grant/u.test(error.message),
     );
@@ -96,9 +104,7 @@ describe('Google Drive OAuth helpers (#277)', () => {
         code: 'secret',
         verifier: 'verifier',
         redirectUri: 'http://127.0.0.1:1/callback',
-        fetchImpl: async () => {
-          throw new Error('access_token=SECRET');
-        },
+        fetchImpl: () => Promise.reject(new Error('access_token=SECRET')),
       }),
       (error: unknown) => error instanceof GoogleDriveOAuthError && !error.message.includes('SECRET'),
     );

@@ -46,6 +46,17 @@ interface UploadSession {
   completed: StoredFile | null;
 }
 
+function inputUrl(input: Parameters<typeof fetch>[0]): URL {
+  if (input instanceof URL) return input;
+  if (typeof input === 'string') return new URL(input);
+  return new URL(input.url);
+}
+
+function bodyText(body: RequestInit['body']): string {
+  if (typeof body === 'string') return body;
+  throw new Error('expected a string request body');
+}
+
 class DriveWorld {
   readonly files = new Map<string, StoredFile>();
   readonly sessions = new Map<string, UploadSession>();
@@ -62,7 +73,7 @@ class DriveWorld {
   private nextSession = 1;
 
   readonly fetch: typeof fetch = async (input, init) => {
-    const url = new URL(String(input));
+    const url = inputUrl(input);
     if (url.hostname === 'oauth2.googleapis.com') {
       this.refreshCalls += 1;
       return new Response(JSON.stringify({ access_token: `refreshed-${String(this.refreshCalls)}`, expires_in: 3600 }), { status: 200 });
@@ -114,7 +125,7 @@ class DriveWorld {
   }
 
   private createFolder(init: RequestInit | undefined): Response {
-    const metadata = JSON.parse(String(init?.body)) as {
+    const metadata = JSON.parse(bodyText(init?.body)) as {
       name: string;
       mimeType: string;
       parents: string[];
@@ -125,7 +136,7 @@ class DriveWorld {
   }
 
   private startUpload(url: URL, init: RequestInit | undefined): Response {
-    const metadata = JSON.parse(String(init?.body)) as UploadSession['metadata'];
+    const metadata = JSON.parse(bodyText(init?.body)) as UploadSession['metadata'];
     const match = /^\/upload\/drive\/v3\/files\/(.+)$/u.exec(url.pathname);
     const existingId = match?.[1] === undefined ? null : decodeURIComponent(match[1]);
     const sessionId = `session-${String(this.nextSession++)}`;
