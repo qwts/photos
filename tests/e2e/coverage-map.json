@@ -130,6 +130,28 @@
       ]
     },
     {
+      "id": "m06-lightbox-transform",
+      "wiki": "User-Story-M06-Lightbox-Inspector",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/lightbox.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/lightbox/lightbox-geometry.test.ts"
+        },
+        {
+          "type": "manual",
+          "reason": "Physical macOS trackpad inertia and two-finger delta feel cannot be reproduced faithfully by Playwright wheel events; verify Option-scroll focal zoom and two-axis pan in the packaged app."
+        }
+      ]
+    },
+    {
       "id": "m05-import-dialog",
       "wiki": "User-Story-M05-Import-pipeline",
       "coverage": [
