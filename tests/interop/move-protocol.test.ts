@@ -19,6 +19,7 @@ const SOURCE_KEY = randomBytes(32);
 const TARGET_KEY = randomBytes(32);
 const FIRST_ACK_ID = '37813aa3-a4f4-4d23-8f35-43f64127388a';
 const RETRY_ACK_ID = '0e3d566f-626d-4a94-9cb1-c20c11db0e76';
+const STALE_ACK_ID = '72612e33-901d-40f6-b2f5-e9c4592343a6';
 
 function databasePath(name: string): string {
   return join(mkdtempSync(join(tmpdir(), `overlook-move-${name}-`)), 'library.db');
@@ -235,6 +236,15 @@ describe('MoveProtocolService', () => {
     assert.equal(accepted.payload.originalVerification, 'verified');
     assert.notEqual(accepted.header.messageId, rejected.header.messageId, 'retry emitted a fresh acknowledgement');
     source.service.acknowledge(accepted);
+
+    const staleRejection = interopEnvelopeSchema.parse({
+      ...rejected,
+      header: { ...rejected.header, messageId: STALE_ACK_ID },
+    });
+    const afterStaleRejection = source.service.acknowledge(staleRejection);
+    assert.equal(afterStaleRejection.phase, 'acknowledged');
+    assert.equal(afterStaleRejection.counts.acknowledged, 1);
+    assert.equal(afterStaleRejection.counts.failed, 0);
 
     const completed = await source.service.resumeFinalization(request.header.transferId, {
       finalize: (input) => {
