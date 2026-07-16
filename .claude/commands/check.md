@@ -3,8 +3,9 @@ description: Run the full validation gates and report each result explicitly.
 argument-hint: '[none]'
 ---
 
-Run photos' validation gates, then report the result. Do not skip a step; if a
-gate fails, stop and surface the failure verbatim.
+Run all of photos' validation gates and report every result. When a gate fails,
+surface the failure verbatim, fix it when in scope, rerun it, and continue
+through the remaining gates.
 
 ## 1. Run the gates (in order)
 

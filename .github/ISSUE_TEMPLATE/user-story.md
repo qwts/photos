@@ -61,7 +61,7 @@ As a <!-- user/persona -->, I want <!-- capability or behavior --> so I can <!--
 
 ## Planning Discipline To Apply Before Build
 
-- **Shift-left validation:** Confirm contracts, threat model notes, edge cases, and regression checks before implementation begins. Add fixtures or manual checks before wiring broad UI behavior.
+- **Shared implementation context:** Summarize the contracts, threat model notes, edge cases, assumptions, and regression checks guiding the work. Keep decisions visible as they evolve, and add fixtures or manual checks before wiring broad UI behavior.
 - **DRY and explicit interfaces:** Centralize repeated schemas, actions, repository calls, and status codes rather than copying logic into views.
 - **Single responsibility:** Keep data model, storage, import/processing pipelines, and UI rendering in their own bounded modules.
 - **UI-ready modularity:** Views should render from serializable state and dispatch named actions; no view should own persistence, processing, or library business rules.
