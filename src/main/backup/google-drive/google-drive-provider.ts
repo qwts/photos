@@ -147,7 +147,7 @@ export class GoogleDriveProvider implements StorageProvider {
       const libraryId = candidate.name as string;
       const candidateId = idOf(candidate);
       if (candidateId === null) continue;
-      this.options.paths.setFolderId(libraryId, '', candidateId);
+      this.options.paths.setFolderId(this.pathLibraryId(libraryId), '', candidateId);
       const scoped = this.forLibrary(libraryId) as GoogleDriveProvider;
       if ((await scoped.resolveFile('recovery/bootstrap.ovrb')) !== null) libraries.push(libraryId);
     }
@@ -194,7 +194,7 @@ export class GoogleDriveProvider implements StorageProvider {
     if (id === null || recordedBytes === null) {
       throw new ProviderError('Google Drive upload returned incomplete file metadata', 'transient');
     }
-    this.options.paths.setFileId(this.options.libraryId, path, id);
+    this.options.paths.setFileId(this.pathLibraryId(), path, id);
     this.validatedIds.add(id);
     return { bytes: recordedBytes };
   }
@@ -225,7 +225,7 @@ export class GoogleDriveProvider implements StorageProvider {
     if (file === null) return;
     const response = await this.authorizedFetch(`${API}/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' });
     if (!response.ok && response.status !== 404) throw await this.responseError(response, 'delete');
-    this.options.paths.setFileId(this.options.libraryId, path, null);
+    this.options.paths.setFileId(this.pathLibraryId(), path, null);
     this.validatedIds.delete(file.id);
   }
 
@@ -263,6 +263,24 @@ export class GoogleDriveProvider implements StorageProvider {
     return { overlookOwner: this.owner, overlookPathHash: pathHash(identity) };
   }
 
+  private pathLibraryId(libraryId = this.options.libraryId): string {
+    if (this.rootName === 'Overlook' && this.owner === BACKUP_OWNER) return libraryId;
+    return `interop_${pathHash(`${this.rootName}\0${this.owner}\0${libraryId}`).slice(0, 56)}`;
+  }
+
+  private cachedRootId(): string | null {
+    if (this.rootName === 'Overlook' && this.owner === BACKUP_OWNER) return this.options.paths.overlookFolderId();
+    return this.options.paths.folderId(`root_${pathHash(`${this.rootName}\0${this.owner}`).slice(0, 59)}`, '');
+  }
+
+  private setCachedRootId(id: string | null): void {
+    if (this.rootName === 'Overlook' && this.owner === BACKUP_OWNER) {
+      this.options.paths.setOverlookFolderId(id);
+      return;
+    }
+    this.options.paths.setFolderId(`root_${pathHash(`${this.rootName}\0${this.owner}`).slice(0, 59)}`, '', id);
+  }
+
   private async walk(folderId: string, relativePath: string, out: RemoteEntry[]): Promise<void> {
     for (const child of await this.listChildren(folderId)) {
       const id = idOf(child);
@@ -270,12 +288,12 @@ export class GoogleDriveProvider implements StorageProvider {
       if (id === null || name === null || name.includes('/')) continue;
       const childPath = relativePath === '' ? name : `${relativePath}/${name}`;
       if (isFolder(child)) {
-        this.options.paths.setFolderId(this.options.libraryId, childPath, id);
+        this.options.paths.setFolderId(this.pathLibraryId(), childPath, id);
         await this.walk(id, childPath, out);
       } else {
         const bytes = bytesOf(child.size);
         if (bytes !== null) {
-          this.options.paths.setFileId(this.options.libraryId, childPath, id);
+          this.options.paths.setFileId(this.pathLibraryId(), childPath, id);
           out.push({ path: childPath, bytes });
         }
       }
@@ -283,9 +301,9 @@ export class GoogleDriveProvider implements StorageProvider {
   }
 
   private async resolveOverlookFolder(create: boolean): Promise<string | null> {
-    const cached = this.options.paths.overlookFolderId();
+    const cached = this.cachedRootId();
     if (cached !== null && (await this.validFolder(cached))) return cached;
-    if (cached !== null) this.options.paths.setOverlookFolderId(null);
+    if (cached !== null) this.setCachedRootId(null);
     const identity = 'overlook-root';
     const found = await this.findOne([
       `name = '${quoteQuery(this.rootName)}'`,
@@ -296,21 +314,22 @@ export class GoogleDriveProvider implements StorageProvider {
     ]);
     const foundId = found === null ? null : idOf(found);
     if (foundId !== null) {
-      this.options.paths.setOverlookFolderId(foundId);
+      this.setCachedRootId(foundId);
       this.validatedIds.add(foundId);
       return foundId;
     }
     if (!create) return null;
     const id = await this.createFolder(this.rootName, 'root', identity);
-    this.options.paths.setOverlookFolderId(id);
+    this.setCachedRootId(id);
     return id;
   }
 
   private async resolveFolder(path: string, create: boolean): Promise<string | null> {
     if (path !== '') assertSafeRemotePath(path);
-    const cached = this.options.paths.folderId(this.options.libraryId, path);
+    const cacheLibraryId = this.pathLibraryId();
+    const cached = this.options.paths.folderId(cacheLibraryId, path);
     if (cached !== null && (await this.validFolder(cached))) return cached;
-    if (cached !== null) this.options.paths.setFolderId(this.options.libraryId, path, null);
+    if (cached !== null) this.options.paths.setFolderId(cacheLibraryId, path, null);
 
     const root = await this.resolveOverlookFolder(create);
     if (root === null) return null;
@@ -325,7 +344,7 @@ export class GoogleDriveProvider implements StorageProvider {
       ]);
       let id = found === null ? null : idOf(found);
       if (id === null && create) id = await this.createFolder(this.options.libraryId, root, identity);
-      if (id !== null) this.options.paths.setFolderId(this.options.libraryId, '', id);
+      if (id !== null) this.options.paths.setFolderId(cacheLibraryId, '', id);
       return id;
     }
 
@@ -343,17 +362,18 @@ export class GoogleDriveProvider implements StorageProvider {
     ]);
     let id = found === null ? null : idOf(found);
     if (id === null && create) id = await this.createFolder(name, parentId, identity);
-    if (id !== null) this.options.paths.setFolderId(this.options.libraryId, path, id);
+    if (id !== null) this.options.paths.setFolderId(cacheLibraryId, path, id);
     return id;
   }
 
   private async resolveFile(path: string, refresh = false): Promise<{ id: string; metadata: DriveFile } | null> {
     assertSafeRemotePath(path);
-    const cached = this.options.paths.fileId(this.options.libraryId, path);
+    const cacheLibraryId = this.pathLibraryId();
+    const cached = this.options.paths.fileId(cacheLibraryId, path);
     if (cached !== null) {
       const metadata = await this.validFile(cached, refresh);
       if (metadata !== null) return { id: cached, metadata };
-      this.options.paths.setFileId(this.options.libraryId, path, null);
+      this.options.paths.setFileId(cacheLibraryId, path, null);
     }
     const parentPath = posix.dirname(path) === '.' ? '' : posix.dirname(path);
     const parentId = await this.resolveFolder(parentPath, false);
@@ -368,7 +388,7 @@ export class GoogleDriveProvider implements StorageProvider {
     ]);
     const id = found === null ? null : idOf(found);
     if (id === null) return null;
-    this.options.paths.setFileId(this.options.libraryId, path, id);
+    this.options.paths.setFileId(cacheLibraryId, path, id);
     this.validatedIds.add(id);
     return { id, metadata: found as DriveFile };
   }

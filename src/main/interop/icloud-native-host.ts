@@ -21,6 +21,9 @@ const requestSchema = z
   })
   .strict()
   .superRefine((request, context) => {
+    const pathRequired = ['put-file', 'materialize-file', 'list', 'delete', 'verify'].includes(request.operation);
+    if (pathRequired && request.path === undefined)
+      context.addIssue({ code: 'custom', message: `${request.operation} requires an iCloud interoperability path.` });
     if (request.path !== undefined) {
       try {
         assertSafeInteropPath(request.path);
