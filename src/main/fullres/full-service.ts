@@ -85,6 +85,10 @@ export class FullService {
     this.lru.delete(photoId);
   }
 
+  close(): Promise<void> {
+    return this.lru.close();
+  }
+
   private async resolvePayload(photoId: string, purpose: 'view' | 'prefetch'): Promise<FullPayload | null> {
     const original = await this.loadOriginal(photoId, purpose);
     if (original === null) {

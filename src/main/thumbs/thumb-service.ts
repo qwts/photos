@@ -51,4 +51,8 @@ export class ThumbService {
   stats(): { readonly cachedBytes: number; readonly peakConcurrent: number } {
     return this.lru.stats();
   }
+
+  close(): Promise<void> {
+    return this.lru.close();
+  }
 }

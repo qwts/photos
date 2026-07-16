@@ -27,6 +27,7 @@ export class ByteLru<V extends ByteSized> {
   private active = 0;
   private peak = 0;
   private readonly queue: (() => void)[] = [];
+  private closed = false;
 
   constructor(options: ByteLruOptions) {
     this.maxCacheBytes = options.maxCacheBytes;
@@ -42,6 +43,7 @@ export class ByteLru<V extends ByteSized> {
    * land back on an id whose first requester already paged away).
    */
   async get(key: string, load: () => Promise<V | null>, signal?: AbortSignal): Promise<V | null> {
+    if (this.closed) return null;
     const cached = this.cache.get(key);
     if (cached !== undefined) {
       // Refresh recency.
@@ -88,6 +90,22 @@ export class ByteLru<V extends ByteSized> {
     return { cachedBytes: this.cacheBytes, peakConcurrent: this.peak };
   }
 
+  /** Stops admission, drains already-started loads, and zeroizes every
+   * plaintext buffer held by the cache or returned from an in-flight load. */
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    const pending = [...this.inFlight.entries()];
+    for (const [key] of pending) this.generations.set(key, (this.generations.get(key) ?? 0) + 1);
+    const settled = await Promise.allSettled(pending.map(([, entry]) => entry.promise));
+    for (const result of settled) {
+      if (result.status === 'fulfilled') result.value?.bytes.fill(0);
+    }
+    for (const value of this.cache.values()) value.bytes.fill(0);
+    this.cache.clear();
+    this.cacheBytes = 0;
+  }
+
   private async runJob(
     key: string,
     load: () => Promise<V | null>,
@@ -101,7 +119,7 @@ export class ByteLru<V extends ByteSized> {
         return null;
       }
       const value = await load();
-      if (value !== null && (this.generations.get(key) ?? 0) === generation) {
+      if (value !== null && !this.closed && (this.generations.get(key) ?? 0) === generation) {
         this.store(key, value);
       }
       return value;

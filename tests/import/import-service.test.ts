@@ -66,6 +66,37 @@ describe('import service serialization (#87)', () => {
     await service.run(sourceDir, 'copy'); // must not hang or reject
     assert.equal(calls, 2);
   });
+
+  test('drain waits until serialized library writes finish', async () => {
+    let entered: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const engine = {
+      importFiles: () => Promise.resolve(null),
+      resume: async () => {
+        entered?.();
+        await gate;
+        return null;
+      },
+    } as unknown as ImportEngine;
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, engine);
+    const resume = service.resume();
+    await started;
+    let drained = false;
+    const drain = service.drain().then(() => {
+      drained = true;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(drained, false);
+    release?.();
+    await Promise.all([resume, drain]);
+    assert.equal(drained, true);
+  });
 });
 
 describe('import service fixture source is injector-gated (#129 F1)', () => {

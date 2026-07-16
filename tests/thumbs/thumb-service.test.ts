@@ -104,6 +104,34 @@ describe('ThumbService', () => {
     assert.equal(r2?.bytes.length, 10);
   });
 
+  test('close drains loads, zeroizes plaintext, and rejects later admission', async () => {
+    let entered: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const service = new ThumbService({
+      loadThumb: async () => {
+        entered?.();
+        await gate;
+        return loaded(10);
+      },
+    });
+    const pending = service.getThumb('a', 'thumb');
+    await started;
+    const closing = service.close();
+    release?.();
+    const result = await pending;
+    await closing;
+
+    assert.deepEqual(result?.bytes, Buffer.alloc(10), 'the in-flight plaintext was zeroized before teardown completed');
+    assert.equal(service.stats().cachedBytes, 0);
+    assert.equal(await service.getThumb('b', 'thumb'), null);
+  });
+
   test('decrypt concurrency is capped; queued aborts never load', async () => {
     const releases: (() => void)[] = [];
     const service = new ThumbService({

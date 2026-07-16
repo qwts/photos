@@ -3,10 +3,23 @@
 
 export const AUTO_BACKUP_EDIT_DEBOUNCE_MS = 1500;
 
-export function createAutoBackupScheduler(fire: () => void, debounceMs: number = AUTO_BACKUP_EDIT_DEBOUNCE_MS): () => void {
+export interface AutoBackupScheduler {
+  (): void;
+  cancel(): void;
+}
+
+export function createAutoBackupScheduler(fire: () => void, debounceMs: number = AUTO_BACKUP_EDIT_DEBOUNCE_MS): AutoBackupScheduler {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  return () => {
+  const schedule: AutoBackupScheduler = () => {
     clearTimeout(timer);
-    timer = setTimeout(fire, debounceMs);
+    timer = setTimeout(() => {
+      timer = undefined;
+      fire();
+    }, debounceMs);
   };
+  schedule.cancel = () => {
+    clearTimeout(timer);
+    timer = undefined;
+  };
+  return schedule;
 }
