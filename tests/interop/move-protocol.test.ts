@@ -172,6 +172,7 @@ describe('MoveProtocolService', () => {
       (await source.service.resumeFinalization(request.header.transferId, { finalize: () => assert.fail('already final') })).finalized,
       0,
     );
+    assert.equal(source.service.queue(request).phase, 'completed', 'late queue replay did not regress the completed journal');
     assert.deepEqual(
       source.journals.audit(request.header.transferId).map((event) => event.event),
       ['queued', 'acknowledged', 'finalizing', 'failed', 'finalized'],
