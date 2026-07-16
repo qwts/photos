@@ -18,7 +18,11 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onClose }: Al
     menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     const close = (): void => onClose();
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') close();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+      }
     };
     document.addEventListener('pointerdown', close);
     document.addEventListener('keydown', onKeyDown);
