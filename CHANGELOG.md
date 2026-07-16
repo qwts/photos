@@ -1,5 +1,17 @@
 # photos
 
+## 0.22.0
+
+### Minor Changes
+
+- f081192: Add accessible album rename, delete, and remove-membership workflows.
+- 589622b: Add Google Drive as an encrypted backup, offload, and disaster-recovery provider.
+- d870623: Add crash-safe, domain-isolated migration custody for protected album photos and derivatives.
+
+### Patch Changes
+
+- 566ad50: Ship Windows packages without compiling the macOS-only Touch ID bridge.
+
 ## 0.21.0
 
 ### Minor Changes
