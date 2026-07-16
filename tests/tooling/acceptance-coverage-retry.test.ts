@@ -12,3 +12,9 @@ test('acceptance coverage retries transient GitHub API failures (#357)', () => {
   assert.match(source, /git', \['diff', '--name-only'/u);
   assert.match(source, /signed pull-request event snapshot/u);
 });
+
+test('E2E report freshness does not depend on the pull-request metadata API (#357)', () => {
+  const workflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
+  assert.match(workflow, /git ls-remote/u);
+  assert.doesNotMatch(workflow, /current=\$\(gh api/u);
+});
