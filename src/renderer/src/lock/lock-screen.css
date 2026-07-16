@@ -1,0 +1,94 @@
+.ovl-lock-screen {
+  min-height: 100%;
+  background: var(--surface-window);
+}
+
+.ovl-lock-screen__stage {
+  min-height: calc(100vh - 30px);
+  display: grid;
+  place-items: center;
+  padding: var(--space-8);
+  box-sizing: border-box;
+}
+
+.ovl-lock-screen__card {
+  width: min(352px, calc(100vw - var(--space-9)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-3);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-3);
+}
+
+.ovl-lock-screen__mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  background: var(--surface-raised);
+}
+
+.ovl-lock-screen__wordmark {
+  align-self: center;
+  color: var(--accent-iris);
+}
+
+.ovl-lock-screen h1 {
+  margin: calc(var(--space-3) * -1) 0 var(--space-3);
+  color: var(--text-body);
+  font: var(--type-body);
+  font-weight: 500;
+  text-align: center;
+}
+
+.ovl-lock-screen__unlock {
+  width: 100%;
+  justify-content: center;
+}
+
+.ovl-lock-screen__status {
+  min-height: var(--space-5);
+  color: var(--accent-red);
+  font: var(--type-meta);
+  text-align: center;
+}
+
+.ovl-lock-screen__recovery {
+  margin: 0;
+  color: var(--text-muted);
+  font: var(--type-body);
+  line-height: 1.55;
+  text-align: center;
+}
+
+.ovl-lock-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ovl-lock-screen__seal {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  align-items: center;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-1);
+  color: var(--text-faint);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-lock-screen *,
+  .ovl-lock-screen *::before,
+  .ovl-lock-screen *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

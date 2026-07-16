@@ -7,6 +7,7 @@ import { KeyDialog, type KeyDialogMode } from './KeyDialog';
 import { PrivacyPane } from './PrivacyPane';
 import { StoragePane } from './StoragePane';
 import { RestoreWorkflow } from '../restore/RestoreWorkflow';
+import { AppPasswordDialog, type AppPasswordMode } from './AppPasswordDialog';
 import type { AppSettings, SettingsPatch } from '../../../shared/settings/settings.js';
 
 import './settings.css';
@@ -36,6 +37,8 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
   // Recovery-key dialog (#240): layered over Settings, per the mock.
   const [keyMode, setKeyMode] = useState<KeyDialogMode | null>(null);
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const [passwordMode, setPasswordMode] = useState<AppPasswordMode | null>(null);
+  const [appLockConfigured, setAppLockConfigured] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -47,6 +50,13 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
     return window.overlook.settings.onChanged((payload) => {
       setSettings(payload.settings);
     });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const sync = (state: string): void => setAppLockConfigured(state === 'unlocked');
+    void window.overlook.appLock.status().then(({ state }) => sync(state));
+    return window.overlook.appLock.onChanged(({ state }) => sync(state));
   }, [open]);
 
   if (!open) {
@@ -87,7 +97,14 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
           ) : section === 'storage' ? (
             <StoragePane settings={settings} selectedPhotoIds={selectedPhotoIds} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
           ) : (
-            <PrivacyPane settings={settings} onPatch={patch} onKeyAction={setKeyMode} />
+            <PrivacyPane
+              settings={settings}
+              onPatch={patch}
+              onKeyAction={setKeyMode}
+              appLockConfigured={appLockConfigured}
+              onPasswordAction={setPasswordMode}
+              onLockNow={() => void window.overlook.appLock.lockNow()}
+            />
           )}
         </div>
       </div>
@@ -105,6 +122,9 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
           <RestoreWorkflow context="settings" />
         </Dialog>
       ) : null}
+      {passwordMode === null ? null : (
+        <AppPasswordDialog mode={passwordMode} onClose={() => setPasswordMode(null)} onDone={() => setPasswordMode(null)} />
+      )}
     </Dialog>
   );
 }

@@ -22,6 +22,8 @@ export const settingsSchema = z.object({
   /** Percent of available upload, 10–100; 100 = unlimited. */
   bandwidthLimit: z.number().int().min(10).max(100),
   shareDiagnostics: z.boolean(),
+  appLockIdle: z.enum(['1', '5', '15', '30', 'never']),
+  lockWhenHidden: z.boolean(),
   /** Connected provider; null = disconnected (backup controls disable). */
   providerId: providerIdSchema.nullable(),
 });
@@ -42,6 +44,8 @@ export const defaultSettings: AppSettings = {
   wifiOnly: true,
   bandwidthLimit: 100,
   shareDiagnostics: false,
+  appLockIdle: '5',
+  lockWhenHidden: false,
   providerId: 'mock',
 };
 
@@ -59,6 +63,8 @@ const recoverySchema = z
     wifiOnly: settingsSchema.shape.wifiOnly.catch(defaultSettings.wifiOnly),
     bandwidthLimit: settingsSchema.shape.bandwidthLimit.catch(defaultSettings.bandwidthLimit),
     shareDiagnostics: settingsSchema.shape.shareDiagnostics.catch(defaultSettings.shareDiagnostics),
+    appLockIdle: settingsSchema.shape.appLockIdle.catch(defaultSettings.appLockIdle),
+    lockWhenHidden: settingsSchema.shape.lockWhenHidden.catch(defaultSettings.lockWhenHidden),
     providerId: settingsSchema.shape.providerId.catch(defaultSettings.providerId),
   })
   .catch(defaultSettings);
@@ -86,6 +92,8 @@ export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSe
     wifiOnly: patch.wifiOnly ?? current.wifiOnly,
     bandwidthLimit: patch.bandwidthLimit ?? current.bandwidthLimit,
     shareDiagnostics: patch.shareDiagnostics ?? current.shareDiagnostics,
+    appLockIdle: patch.appLockIdle ?? current.appLockIdle,
+    lockWhenHidden: patch.lockWhenHidden ?? current.lockWhenHidden,
     providerId: patch.providerId !== undefined ? patch.providerId : current.providerId,
   };
 }

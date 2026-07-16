@@ -9,6 +9,7 @@ import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/back
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
 import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from './backup/offload.js';
+import type { AppLockState, AppUnlockResult, LockStateSnapshot } from './crypto/app-lock-controller.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -21,6 +22,73 @@ const wrapHandler: typeof validateHandler = (channel, handler) =>
     contentAdmission();
     return handler(request);
   });
+
+export interface AppLockFacade {
+  snapshot(): LockStateSnapshot;
+  retryAfterMs(): number;
+  unlock(password: string): Promise<AppUnlockResult>;
+  configure(password: string): Promise<void>;
+  lock(): Promise<void>;
+  changePassword(currentPassword: string, nextPassword: string): Promise<boolean>;
+  remove(password: string): Promise<boolean>;
+  pickRecovery(): Promise<string | null>;
+  recover(
+    path: string,
+    recoveryPassword: string,
+    nextPassword: string,
+  ): Promise<{
+    recovered: boolean;
+    reason: 'invalid' | 'wrong-password' | 'mismatch' | null;
+  }>;
+}
+
+function lockStatus(facade: AppLockFacade): { state: AppLockState; libraryId: string | null; retryAfterMs: number } {
+  return { ...facade.snapshot(), retryAfterMs: facade.retryAfterMs() };
+}
+
+export function registerAppLockHandlers(getFacade: () => AppLockFacade): void {
+  ipcMain.handle(channels.appLockStatus.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockStatus, () => lockStatus(getFacade()))(request),
+  );
+  ipcMain.handle(channels.appLockUnlock.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockUnlock, async ({ password }) => {
+      const result = await getFacade().unlock(password);
+      return {
+        ok: result.ok,
+        reason: result.ok ? null : result.reason,
+        retryAfterMs: result.ok ? 0 : (result.retryAfterMs ?? getFacade().retryAfterMs()),
+      };
+    })(request),
+  );
+  ipcMain.handle(channels.appLockConfigure.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockConfigure, async ({ password }) => {
+      await getFacade().configure(password);
+      return lockStatus(getFacade());
+    })(request),
+  );
+  ipcMain.handle(channels.appLockNow.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockNow, async () => {
+      await getFacade().lock();
+      return lockStatus(getFacade());
+    })(request),
+  );
+  ipcMain.handle(channels.appLockChangePassword.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockChangePassword, async ({ currentPassword, nextPassword }) => ({
+      changed: await getFacade().changePassword(currentPassword, nextPassword),
+    }))(request),
+  );
+  ipcMain.handle(channels.appLockRemove.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockRemove, async ({ password }) => ({ removed: await getFacade().remove(password) }))(request),
+  );
+  ipcMain.handle(channels.appLockPickRecovery.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockPickRecovery, async () => ({ path: await getFacade().pickRecovery() }))(request),
+  );
+  ipcMain.handle(channels.appLockRecover.name, (_event, request: unknown) =>
+    validateHandler(channels.appLockRecover, ({ path, recoveryPassword, nextPassword }) =>
+      getFacade().recover(path, recoveryPassword, nextPassword),
+    )(request),
+  );
+}
 
 function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
   const win = BrowserWindow.fromWebContents(event.sender);

@@ -37,10 +37,24 @@ const keysStatus = createInvoker(channels.keysStatus, invokeTransport);
 const keysPickFile = createInvoker(channels.keysPickFile, invokeTransport);
 const restoreProfileStatus = createInvoker(channels.restoreProfileStatus, invokeTransport);
 const restorePickKey = createInvoker(channels.restorePickKey, invokeTransport);
+const appLockStatus = createInvoker(channels.appLockStatus, invokeTransport);
+const appLockNow = createInvoker(channels.appLockNow, invokeTransport);
+const appLockPickRecovery = createInvoker(channels.appLockPickRecovery, invokeTransport);
 
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
   onFocusChanged: createSubscriber(events.focusChanged, subscribeTransport),
+  appLock: Object.freeze({
+    status: async () => appLockStatus({}),
+    unlock: createInvoker(channels.appLockUnlock, invokeTransport),
+    configure: createInvoker(channels.appLockConfigure, invokeTransport),
+    lockNow: async () => appLockNow({}),
+    changePassword: createInvoker(channels.appLockChangePassword, invokeTransport),
+    remove: createInvoker(channels.appLockRemove, invokeTransport),
+    pickRecovery: async () => appLockPickRecovery({}),
+    recover: createInvoker(channels.appLockRecover, invokeTransport),
+    onChanged: createSubscriber(events.appLockStateChanged, subscribeTransport),
+  }),
   library: Object.freeze({
     page: createInvoker(channels.libraryPage, invokeTransport),
     get: createInvoker(channels.libraryGet, invokeTransport),
