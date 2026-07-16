@@ -160,7 +160,45 @@ const SCHEMA_V4: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4];
+const SCHEMA_V5: Migration = {
+  version: 5,
+  name: 'interop-record-custody',
+  // #332: canonical Image Trail records remain first-class interop data.
+  // Metadata-only web bookmarks are not fabricated as native camera-photo
+  // rows; a local link is populated only when translation creates one.
+  up(db) {
+    db.exec(`
+      CREATE TABLE interop_records (
+        interop_id TEXT PRIMARY KEY,
+        origin_product TEXT NOT NULL CHECK (origin_product IN ('image-trail', 'overlook')),
+        origin_local_id TEXT NOT NULL,
+        content_hash TEXT,
+        local_photo_id TEXT REFERENCES photos (id) ON DELETE SET NULL,
+        review_category TEXT NOT NULL CHECK (
+          review_category IN ('eligible', 'duplicate', 'conflict', 'metadata-only', 'unsupported', 'skipped')
+        ),
+        record_json TEXT NOT NULL CHECK (json_valid(record_json)),
+        received_at TEXT NOT NULL,
+        UNIQUE (origin_product, origin_local_id)
+      );
+      CREATE INDEX idx_interop_records_content_hash ON interop_records (content_hash) WHERE content_hash IS NOT NULL;
+      CREATE INDEX idx_interop_records_local_photo ON interop_records (local_photo_id) WHERE local_photo_id IS NOT NULL;
+
+      CREATE TABLE interop_albums (
+        interop_id TEXT PRIMARY KEY,
+        origin_product TEXT NOT NULL CHECK (origin_product IN ('image-trail', 'overlook')),
+        origin_local_id TEXT NOT NULL,
+        local_album_id TEXT REFERENCES albums (id) ON DELETE SET NULL,
+        album_json TEXT NOT NULL CHECK (json_valid(album_json)),
+        received_at TEXT NOT NULL,
+        UNIQUE (origin_product, origin_local_id)
+      );
+      CREATE INDEX idx_interop_albums_local_album ON interop_albums (local_album_id) WHERE local_album_id IS NOT NULL;
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {
