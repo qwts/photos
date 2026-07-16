@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
 import { AppStateProvider, useAppDispatch } from '../state/app-state-context';
+import { beginPhotoDrag } from '../grid/photo-drag-session';
 
 // #238 exit criteria: the sidebar collapses to the 56px icon rail (labels
 // and counts move to right-side tooltips, headings become dividers, the
@@ -16,6 +17,10 @@ import { AppStateProvider, useAppDispatch } from '../state/app-state-context';
 const COLLAPSE_KEY = 'overlook.sidebarCollapsed';
 const renameAlbum = fn();
 const deleteAlbum = fn();
+const addPhotos = fn((request: { photoIds: readonly string[] }) => Promise.resolve({ added: request.photoIds.length }));
+const movePhotos = fn((request: { photoIds: readonly string[] }) =>
+  Promise.resolve({ moved: request.photoIds.length, alreadyInTarget: 0 }),
+);
 
 function installStub(): void {
   // Sidebar listens to backup progress; AppStateProvider to pending pushes.
@@ -34,6 +39,8 @@ function installStub(): void {
       deleteAlbum(request);
       return Promise.resolve({});
     },
+    addPhotos,
+    movePhotos,
   } as unknown as OverlookApi['albums'];
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { library, backup, albums: albumActions };
 }
@@ -245,5 +252,54 @@ export const CollapsedAlbumKeyboardActions: Story = {
     await fireEvent.keyDown(albumRow, { key: 'F10', shiftKey: true });
     await expect(canvas.getByRole('menu', { name: 'Actions for Iceland' })).toBeVisible();
     await expect(canvas.getByRole('menuitem', { name: 'Rename album…' })).toHaveFocus();
+  },
+};
+
+function dataTransfer(): DataTransfer {
+  return new DataTransfer();
+}
+
+export const AlbumDropStates: Story = {
+  tags: ['album-drop'],
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      addPhotos.mockClear();
+      movePhotos.mockClear();
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const iceland = canvas.getByText('Iceland').closest('.ovl-sidebar__albumrow');
+    const studio = canvas.getByText('Studio scans').closest('.ovl-sidebar__albumrow');
+    await expect(iceland).not.toBeNull();
+    await expect(studio).not.toBeNull();
+    if (iceland === null || studio === null) return;
+
+    const addTransfer = dataTransfer();
+    beginPhotoDrag(addTransfer, { version: 1, photoIds: ['P1', 'P2'], sourceAlbumId: null });
+    await fireEvent.dragEnter(iceland, { dataTransfer: addTransfer });
+    await waitFor(() => expect(canvas.getByText('Drop')).toBeVisible());
+    await fireEvent.drop(iceland, { dataTransfer: addTransfer });
+    await waitFor(() => expect(addPhotos).toHaveBeenCalledWith({ albumId: 'a1', photoIds: ['P1', 'P2'] }));
+    await expect(canvas.getByText('Added')).toBeVisible();
+
+    const moveTransfer = dataTransfer();
+    beginPhotoDrag(moveTransfer, { version: 1, photoIds: ['P3'], sourceAlbumId: 'a1' });
+    await fireEvent.drop(studio, { dataTransfer: moveTransfer });
+    const choice = within(canvas.getByRole('dialog', { name: 'Add or move photo?' }));
+    await expect(choice.getByText(/Add keeps the photo in both albums/u)).toBeVisible();
+    await userEvent.click(choice.getByRole('button', { name: 'Move to Studio scans' }));
+    await waitFor(() => expect(movePhotos).toHaveBeenCalledWith({ sourceAlbumId: 'a1', targetAlbumId: 'a2', photoIds: ['P3'] }));
+    await expect(canvas.getByText('Moved')).toBeVisible();
+
+    const noOpTransfer = dataTransfer();
+    beginPhotoDrag(noOpTransfer, { version: 1, photoIds: ['P4'], sourceAlbumId: 'a1' });
+    await fireEvent.dragEnter(iceland, { dataTransfer: noOpTransfer });
+    await waitFor(() => expect(canvas.getByText('Already here')).toBeVisible());
+    await fireEvent.drop(iceland, { dataTransfer: noOpTransfer });
+    await expect(addPhotos).toHaveBeenCalledTimes(1);
+    await expect(movePhotos).toHaveBeenCalledTimes(1);
   },
 };

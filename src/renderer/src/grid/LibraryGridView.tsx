@@ -13,6 +13,7 @@ import { PhotoContextMenu } from './PhotoContextMenu';
 import { PurgeConfirm } from './PurgeConfirm';
 import { SelectionPill } from './SelectionPill';
 import { VirtualGrid } from './VirtualGrid';
+import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
 
 // Library view (#76/#77): PhotoTile or ListRow over the #74 engine, thumbs
 // via the #75 protocol, empty state per the mock. Totals: sidebar counts
@@ -65,6 +66,14 @@ export function LibraryGridView({
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
+        onDragStart={(event) => {
+          beginPhotoDrag(event.dataTransfer, {
+            version: 1,
+            photoIds: state.selection.has(photo.id) ? [...state.selection] : [photo.id],
+            sourceAlbumId: state.album,
+          });
+        }}
+        onDragEnd={endPhotoDrag}
       />
     ) : (
       <PhotoTile
@@ -80,6 +89,14 @@ export function LibraryGridView({
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
+        onDragStart={(event) => {
+          beginPhotoDrag(event.dataTransfer, {
+            version: 1,
+            photoIds: state.selection.has(photo.id) ? [...state.selection] : [photo.id],
+            sourceAlbumId: state.album,
+          });
+        }}
+        onDragEnd={endPhotoDrag}
       />
     );
 
