@@ -140,13 +140,16 @@ export class ProtectedAlbumRepository {
     return row !== undefined;
   }
 
-  deleteStaged(albumId: string): boolean {
-    this.context(albumId);
+  deleteStaged(input: { readonly albumId: string; readonly expectedCredentialRecord: Buffer }): boolean {
+    this.context(input.albumId);
     return (
       queryGet<{ albumId: string }>(
         this.db,
-        `DELETE FROM protected_album_records WHERE album_id = ? AND migration_state = 'staged' RETURNING album_id AS albumId`,
-        albumId,
+        `DELETE FROM protected_album_records
+          WHERE album_id = ? AND migration_state = 'staged' AND credential_record = ?
+          RETURNING album_id AS albumId`,
+        input.albumId,
+        input.expectedCredentialRecord,
       ) !== undefined
     );
   }

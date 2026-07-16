@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
 import { ProtectedAlbumAuthorityError, ProtectedAlbumAuthorityRegistry } from '../../src/main/crypto/protected-album-authority.js';
-import type { ProtectedAlbumMetadata } from '../../src/main/crypto/protected-album-credentials.js';
-import { ProtectedAlbumService } from '../../src/main/crypto/protected-album-service.js';
+import { changeProtectedAlbumPassword, type ProtectedAlbumMetadata } from '../../src/main/crypto/protected-album-credentials.js';
+import { ProtectedAlbumService, ProtectedAlbumServiceError } from '../../src/main/crypto/protected-album-service.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { ProtectedAlbumRepository } from '../../src/main/db/protected-album-repository.js';
 import { queryGet, run } from '../../src/main/db/sql.js';
@@ -162,11 +162,73 @@ describe('protected album ceremonies and lifecycle (#325)', () => {
     assert.equal(w.repository.transition('ACTIVE', 'staged', 'active', '2026-07-16T01:00:00.000Z'), true);
     assert.equal(w.repository.transition('ACTIVE', 'staged', 'retiring'), false);
     assert.equal(await w.service.discardStaged('ACTIVE', PASSWORD), false);
-    assert.equal(w.repository.deleteStaged('ACTIVE'), false);
+    const active = w.repository.get('ACTIVE');
+    assert.ok(active);
+    assert.equal(w.repository.deleteStaged({ albumId: 'ACTIVE', expectedCredentialRecord: active.credentialRecord }), false);
     assert.equal(w.repository.get('ACTIVE')?.migrationState, 'active');
 
     masterKey.fill(0);
     w.service.close();
     w.db.close();
+  });
+
+  test('credential rotation wins over in-flight unlock and staged discard', async () => {
+    const w = world();
+    const masterKey = randomBytes(32);
+    try {
+      await w.service.provision({ albumId: 'UNLOCK-RACE', password: PASSWORD, masterKey, metadata: metadata('Unlock race') });
+      w.service.relock('UNLOCK-RACE');
+      const unlockStored = w.repository.get('UNLOCK-RACE');
+      assert.ok(unlockStored);
+      const unlockRotated = await changeProtectedAlbumPassword(
+        { libraryId: LIBRARY_ID, albumId: 'UNLOCK-RACE' },
+        unlockStored.credentialRecord,
+        unlockStored.sealedMetadata,
+        PASSWORD,
+        NEXT_PASSWORD,
+      );
+      unlockRotated.albumKey.fill(0);
+
+      const unlocking = w.service.unlock('UNLOCK-RACE', PASSWORD);
+      assert.equal(
+        w.repository.replaceCredentials({
+          albumId: 'UNLOCK-RACE',
+          expectedCredentialRecord: unlockStored.credentialRecord,
+          credentialRecord: unlockRotated.credentialRecord,
+        }),
+        true,
+      );
+      await assert.rejects(unlocking, ProtectedAlbumServiceError);
+      assert.throws(() => w.service.metadata('UNLOCK-RACE'), ProtectedAlbumAuthorityError);
+
+      await w.service.provision({ albumId: 'DISCARD-RACE', password: PASSWORD, masterKey, metadata: metadata('Discard race') });
+      w.service.relock('DISCARD-RACE');
+      const discardStored = w.repository.get('DISCARD-RACE');
+      assert.ok(discardStored);
+      const discardRotated = await changeProtectedAlbumPassword(
+        { libraryId: LIBRARY_ID, albumId: 'DISCARD-RACE' },
+        discardStored.credentialRecord,
+        discardStored.sealedMetadata,
+        PASSWORD,
+        NEXT_PASSWORD,
+      );
+      discardRotated.albumKey.fill(0);
+
+      const discarding = w.service.discardStaged('DISCARD-RACE', PASSWORD);
+      assert.equal(
+        w.repository.replaceCredentials({
+          albumId: 'DISCARD-RACE',
+          expectedCredentialRecord: discardStored.credentialRecord,
+          credentialRecord: discardRotated.credentialRecord,
+        }),
+        true,
+      );
+      assert.equal(await discarding, false);
+      assert.deepEqual(w.repository.get('DISCARD-RACE')?.credentialRecord, discardRotated.credentialRecord);
+    } finally {
+      masterKey.fill(0);
+      w.service.close();
+      w.db.close();
+    }
   });
 });
