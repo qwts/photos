@@ -44,6 +44,11 @@ export interface ExportEngineDeps {
   readonly repo: { readonly get: (id: string) => PhotoRecord | undefined };
   readonly blobs: { readonly getStream: (contentHash: string, resolveKey: KeyResolver, photoId: string) => Readable };
   readonly resolveKey: KeyResolver;
+  /** Policy-aware original custody. Production uses this so offloaded
+   * originals export from verified temporary ciphertext without becoming
+   * durable; legacy/unit seams fall back to blobs.getStream. */
+  readonly openOriginal?:
+    ((photo: PhotoRecord) => Promise<{ readonly stream: Readable; readonly release?: (() => Promise<void>) | undefined }>) | undefined;
   /** Streams plaintext to `path`; rejects on IO failure (fs seam). */
   readonly writeFile: (path: string, plaintext: Readable) => Promise<void>;
   readonly exists: (path: string) => Promise<boolean>;
@@ -115,11 +120,14 @@ export class ExportEngine {
         break;
       }
       const photo = photos[index];
+      let releaseOriginal: (() => Promise<void>) | undefined;
       try {
         if (photo === undefined) {
           throw new Error(`photo ${id} is not in the library`);
         }
-        const stream = this.deps.blobs.getStream(photo.contentHash, this.deps.resolveKey, photo.id);
+        const opened = this.deps.openOriginal === undefined ? null : await this.deps.openOriginal(photo);
+        const stream = opened?.stream ?? this.deps.blobs.getStream(photo.contentHash, this.deps.resolveKey, photo.id);
+        releaseOriginal = opened?.release;
         let plaintext: Readable = stream;
         let targetName = photo.fileName;
         let fromPreview = false;
@@ -135,6 +143,8 @@ export class ExportEngine {
       } catch (error) {
         failed += 1;
         console.error(`[overlook] export failed for ${photo?.fileName ?? id}: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        await releaseOriginal?.();
       }
       done += 1;
       this.deps.events.progress(done, total);

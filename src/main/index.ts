@@ -651,6 +651,11 @@ function getExportFacade(): ExportFacade {
       repo: { get: (id) => repo.get(id) },
       blobs: parts.blobStore,
       resolveKey: parts.keyStore.resolver(),
+      openOriginal: async (photo) => {
+        const service = getEphemeralOriginalService();
+        const opened = await service.open(photo.id, 'export');
+        return { stream: opened.stream, release: opened.custody === 'ephemeral' ? () => service.release(photo.id) : undefined };
+      },
       writeFile: writeFileCleanly,
       exists: async (filePath) =>
         access(filePath).then(

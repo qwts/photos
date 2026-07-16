@@ -125,6 +125,31 @@ describe('export engine (#97)', () => {
     );
   });
 
+  test('offloaded originals export from policy-aware temporary custody and release it (#306)', async () => {
+    const world = await seededWorld(1);
+    const row = world.rows.get('PHOTO0');
+    assert.notEqual(row, undefined);
+    if (row !== undefined) world.rows.set(row.id, { ...row, syncState: 'offloaded' });
+    let released = 0;
+    const engine = new ExportEngine({
+      ...world.deps,
+      openOriginal: (photo) =>
+        Promise.resolve({
+          stream: Readable.from([world.bytesById.get(photo.id) ?? Buffer.alloc(0)]),
+          release: () => {
+            released += 1;
+            return Promise.resolve();
+          },
+        }),
+    });
+
+    const summary = await engine.exportPhotos(['PHOTO0'], world.destination);
+    assert.equal(summary.exported, 1);
+    assert.deepEqual(readFileSync(join(world.destination, row?.fileName ?? '')), world.bytesById.get('PHOTO0'));
+    assert.equal(released, 1, 'temporary encrypted custody releases after the destination write');
+    assert.equal(world.rows.get('PHOTO0')?.syncState, 'offloaded');
+  });
+
   test('collisions get a recorded numbered suffix — existing files never clobbered', async () => {
     const world = await seededWorld(1);
     const row = [...world.rows.values()][0];
