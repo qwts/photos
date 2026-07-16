@@ -82,6 +82,11 @@ export class GoogleDrivePathStore {
     this.update(libraryId, 'files', path, id);
   }
 
+  clear(): void {
+    this.index = emptyIndex();
+    this.write();
+  }
+
   private update(libraryId: string, kind: 'folders' | 'files', path: string, id: string | null): void {
     const current = this.index.libraries[libraryId] ?? { folders: {}, files: {} };
     const entries = { ...current[kind] };

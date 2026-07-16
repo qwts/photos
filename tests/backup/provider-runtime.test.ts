@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ProviderRuntime, type ProviderRuntimeOptions } from '../../src/main/backup/provider-runtime.js';
+import { GoogleDrivePathStore } from '../../src/main/backup/google-drive/path-store.js';
 import { PCloudTokenStore } from '../../src/main/backup/pcloud/token-store.js';
 import type { SafeStorageLike } from '../../src/main/crypto/keystore.js';
 
@@ -160,11 +161,18 @@ describe('provider runtime policy (#256)', () => {
       refreshToken: 'refresh-1',
       connectedAt: '2026-07-16T00:00:00.000Z',
     });
+    const driveCredentialDir = join(root, 'provider-auth', 'google-drive');
+    const paths = new GoogleDrivePathStore(driveCredentialDir);
+    paths.setOverlookFolderId('old-account-root');
+    paths.setFolderId('LIB_1', '', 'old-account-library');
     assert.equal(existsSync(join(root, 'provider-auth', 'google-drive', 'google-drive-auth.bin')), true);
     r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
     assert.equal(r.descriptors().find(({ id }) => id === 'google-drive')?.available, true);
     assert.equal(r.disconnect('google-drive').ok, true);
     assert.equal(r.googleTokenStore().load(), null);
+    const cleared = new GoogleDrivePathStore(driveCredentialDir);
+    assert.equal(cleared.overlookFolderId(), null);
+    assert.equal(cleared.folderId('LIB_1', ''), null);
   });
 });
 
