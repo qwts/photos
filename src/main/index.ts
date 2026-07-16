@@ -45,6 +45,7 @@ import { recoverInterruptedActivation, restorePaths } from './backup/restore-sta
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
 import { PurgeService } from './library/purge-service.js';
+import { StartupMaintenance } from './library/startup-maintenance.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
@@ -138,30 +139,7 @@ function getLibraryService(): LibraryService {
       new Date().toISOString(),
     );
     libraryParts = { db, blobStore: store, blobStoreReady, keyStore };
-    // Retention sweep (#121): once per session when the library first
-    // opens — deferred so bootstrap stays sync and the smoke test's
-    // lazy-bootstrap stance holds (nothing runs unless the library does).
-    setTimeout(() => {
-      void getPurgeService()
-        .purgeExpired()
-        .catch((error: unknown) => {
-          console.error('[overlook] retention purge failed', error);
-        });
-      // Startup lightweight check (#125): repair what is safe, surface the
-      // rest as red glyphs via the status the repair writes.
-      void consistencyChecker
-        ?.repair()
-        .then((summary) => {
-          const issues =
-            summary.orphanOriginals.length + summary.orphanThumbs.length + summary.stagedLeftovers.length + summary.lyingRows.length;
-          if (issues > 0) {
-            console.warn('[overlook] consistency repair:', JSON.stringify(summary));
-          }
-        })
-        .catch((error: unknown) => {
-          console.error('[overlook] consistency check failed', error);
-        });
-    }, 0);
+    startupMaintenance.schedule();
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -408,6 +386,15 @@ const scheduleAutoBackup = createAutoBackupScheduler(() => {
 let manifestSyncTrigger: (() => void) | undefined;
 let purgeService: PurgeService | undefined;
 let consistencyChecker: ConsistencyChecker | undefined;
+const startupMaintenance = new StartupMaintenance({
+  purge: () => getPurgeService().purgeExpired(),
+  repair: () => consistencyChecker?.repair(),
+});
+
+function cancelScheduledLibraryWork(): void {
+  scheduleAutoBackup.cancel();
+  startupMaintenance.cancel();
+}
 
 function getPurgeService(): PurgeService {
   getBackupEngine();
@@ -693,19 +680,17 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   importService?.close();
   exportFacade?.close();
   for (const controller of activeBackupControllers) controller.abort();
-  await drainWithCancellationFence(
-    () => scheduleAutoBackup.cancel(),
-    [
-      importService?.drain() ?? Promise.resolve(),
-      exportFacade?.drain() ?? Promise.resolve(),
-      Promise.allSettled([...activeBackupRuns]),
-      drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
-      drainRestore ? providerIdle() : Promise.resolve(),
-      Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),
-      thumbnailPool?.close() ?? Promise.resolve(),
-      ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
-    ],
-  );
+  await drainWithCancellationFence(cancelScheduledLibraryWork, [
+    importService?.drain() ?? Promise.resolve(),
+    exportFacade?.drain() ?? Promise.resolve(),
+    startupMaintenance.drain(),
+    Promise.allSettled([...activeBackupRuns]),
+    drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
+    drainRestore ? providerIdle() : Promise.resolve(),
+    Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),
+    thumbnailPool?.close() ?? Promise.resolve(),
+    ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
+  ]);
   libraryParts?.db.close();
   libraryParts?.keyStore.close();
   libraryService = undefined;

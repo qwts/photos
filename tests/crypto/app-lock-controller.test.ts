@@ -72,6 +72,26 @@ describe('app-lock authority state machine (#311)', () => {
     assert.equal(controller.snapshot().state, 'locked');
   });
 
+  test('throttle write failure restores locked state after a wrong password', async () => {
+    const credentials = new FakeCredentials();
+    credentials.unlockResult = { ok: false, reason: 'wrong-password' };
+    const controller = new AppLockController({
+      credentials,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => undefined,
+      throttle: {
+        remainingMs: () => 0,
+        recordFailure: () => {
+          throw new Error('keychain unavailable');
+        },
+        reset: () => undefined,
+      },
+    });
+
+    await assert.rejects(controller.unlock('wrong'), /keychain unavailable/u);
+    assert.equal(controller.snapshot().state, 'locked');
+  });
+
   test('locking revokes admission before asynchronous cleanup finishes', async () => {
     const credentials = new FakeCredentials();
     let release: (() => void) | undefined;

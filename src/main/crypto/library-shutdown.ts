@@ -10,6 +10,25 @@ export async function drainBeforeDeadline(tasks: readonly Promise<unknown>[], ti
   }
 }
 
+export class CustodyWorkTracker {
+  private readonly active = new Set<Promise<unknown>>();
+
+  track<T>(work: Promise<T>): Promise<T> {
+    this.active.add(work);
+    const remove = (): void => {
+      this.active.delete(work);
+    };
+    void work.then(remove, remove);
+    return work;
+  }
+
+  async drain(): Promise<void> {
+    while (this.active.size > 0) {
+      await Promise.allSettled([...this.active]);
+    }
+  }
+}
+
 /** Cancel before and after draining: an in-flight completion callback may
  * re-arm scheduled work while the barrier is waiting. */
 export async function drainWithCancellationFence(
