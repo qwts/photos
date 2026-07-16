@@ -215,8 +215,13 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     expect(libraryStats.photos).toBe(4);
 
     // Rail mode retains the context-menu keyboard gesture and arrow-key
-    // navigation. Escape closes and restores focus to the icon-only row.
+    // navigation. Escape closes and restores focus to the icon-only row
+    // without leaking to the global selection-clear shortcut.
     await createAlbum('Keyboard album');
+    const selectedCell = page.locator('.ovl-grid__cell').first();
+    await selectedCell.hover();
+    await selectedCell.locator('.ovl-tile__select').click();
+    await expect(pill).toContainText('1 SELECTED');
     await page.getByRole('button', { name: 'Collapse sidebar' }).click();
     const collapsedAlbum = page.getByRole('button', { name: 'Keyboard album · 0' });
     await collapsedAlbum.focus();
@@ -228,6 +233,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await page.keyboard.press('Escape');
     await expect(keyboardMenu).toHaveCount(0);
     await expect(collapsedAlbum).toBeFocused();
+    await expect(pill).toContainText('1 SELECTED');
   } finally {
     await app.close();
   }
