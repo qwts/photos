@@ -72,8 +72,8 @@ export class AppLockController {
         return { ...result, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) };
       }
       try {
-        await this.options.openAuthorized(result.masterKey);
         this.options.throttle?.reset();
+        await this.options.openAuthorized(result.masterKey);
         this.publish({ ...this.current, state: 'unlocked' });
         return { ok: true };
       } catch {
@@ -148,7 +148,13 @@ export class AppLockController {
 
   private publish(snapshot: LockStateSnapshot): void {
     this.current = snapshot;
-    for (const listener of this.listeners) listener(this.snapshot());
+    for (const listener of this.listeners) {
+      try {
+        listener(this.snapshot());
+      } catch {
+        // Observer delivery is best-effort and must never interrupt custody transitions.
+      }
+    }
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
