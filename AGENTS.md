@@ -26,12 +26,14 @@ this file in the same PR as the change — never after the fact.
 
 ## Before Changing Code
 
-- **New issue work:** investigate and root-cause (or confirm scope) before
-  editing. State your understanding — problem, cause or confirmed scope, and
-  intended changes — and ask if it is correct. Do not edit files until the user
-  confirms or explicitly tells you to proceed.
-- **After confirmation:** update the issue with the agreed problem, root cause
-  or scope, and plan (issue comment per the wiki claim flow).
+- **New issue work:** investigate and root-cause (or confirm scope), then share a
+  concise working note covering the problem, cause or scope, intended changes,
+  assumptions, and likely tradeoffs. This keeps the user oriented; it is not an
+  approval gate. Proceed from the user's stated goal, and surface only decisions
+  that would materially change scope or risk.
+- **Shared issue context:** add the same working note to the issue (issue comment
+  per the wiki claim flow) so the user and other contributors can work from the
+  same information.
 - **During implementation:** post issue comments for each meaningful change
   slice: what changed and why.
 - **Before editing:** state in one short line each: likely fix, why it may not
