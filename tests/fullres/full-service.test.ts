@@ -109,16 +109,22 @@ describe('FullService (#91)', () => {
 
   test('EXIT CRITERIA: RAW records resolve to a preview-marked viewable payload', async () => {
     const jpeg = sampleJpeg(1);
+    const expected = Buffer.from(jpeg);
+    const decryptedRaf = rafContaining(jpeg);
+    const decryptedSeedRaw = Buffer.from(jpeg);
     const service = new FullService({
       loadOriginal: (photoId) =>
-        Promise.resolve(photoId === 'raf' ? original(rafContaining(jpeg), 'raw', 'rafhash') : original(jpeg, 'raw', 'jpghash')),
+        Promise.resolve(photoId === 'raf' ? original(decryptedRaf, 'raw', 'rafhash') : original(decryptedSeedRaw, 'raw', 'jpghash')),
     });
     const fromRaf = await service.getFull('raf');
-    assert.deepEqual(fromRaf, { bytes: jpeg, contentHash: 'rafhash', mime: 'image/jpeg', preview: true });
+    assert.deepEqual(fromRaf, { bytes: expected, contentHash: 'rafhash', mime: 'image/jpeg', preview: true });
+    assert.deepEqual(decryptedRaf, Buffer.alloc(decryptedRaf.length), 'the complete decrypted RAF owner is wiped after extraction');
+    assert.notEqual(fromRaf?.bytes.buffer, decryptedRaf.buffer, 'the cached preview owns its backing allocation');
     // A raw record whose bytes are already JPEG (dev seeds) serves as-is.
     const fromJpegBytes = await service.getFull('seedraw');
     assert.equal(fromJpegBytes?.preview, true);
-    assert.deepEqual(fromJpegBytes?.bytes, jpeg);
+    assert.deepEqual(fromJpegBytes?.bytes, expected);
+    assert.deepEqual(decryptedSeedRaw, Buffer.alloc(decryptedSeedRaw.length), 'pre-converted RAW custody is also wiped after copying');
   });
 
   test('a RAW with no viewable payload is a placeholder (null), never a throw', async () => {

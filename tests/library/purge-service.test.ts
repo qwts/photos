@@ -153,4 +153,21 @@ describe('purge (#121)', () => {
     assert.notEqual(w.repo.getDeleted('P1'), undefined, 'the fresh trash row survives');
     assert.ok(w.audits.some((line) => line.startsWith('PURGE-RETENTION count=1')));
   });
+
+  test('cancellation finishes the current destructive item and stops before the next row', async () => {
+    const w = await world(2);
+    w.repo.softDelete(['P0', 'P1']);
+    const controller = new AbortController();
+    const originalDelete = w.provider.delete.bind(w.provider);
+    w.provider.delete = async (remotePath) => {
+      controller.abort();
+      await originalDelete(remotePath);
+    };
+
+    const summary = await w.service.purge(['P0', 'P1'], controller.signal);
+    assert.equal(summary.purged, 1);
+    assert.equal(w.repo.get('P0'), undefined, 'the active item completed its repairable delete order');
+    assert.notEqual(w.repo.getDeleted('P1'), undefined, 'the next row was never admitted after cancellation');
+    assert.deepEqual(w.changed, [['P0']]);
+  });
 });
