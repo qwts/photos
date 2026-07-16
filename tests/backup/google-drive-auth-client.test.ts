@@ -17,6 +17,12 @@ const safeStorage: SafeStorageLike = {
   decryptString: (value) => value.toString(),
 };
 
+function bodyText(body: RequestInit['body']): string {
+  if (typeof body === 'string') return body;
+  if (body instanceof URLSearchParams) return body.toString();
+  throw new Error('expected a string or URLSearchParams body');
+}
+
 function world(fetchImpl: typeof fetch, clientId: string | null = CLIENT_ID) {
   const store = new GoogleDriveTokenStore({ safeStorage, dataDir: mkdtempSync(join(tmpdir(), 'overlook-google-client-')) });
   let now = 1_000_000;
@@ -26,7 +32,7 @@ function world(fetchImpl: typeof fetch, clientId: string | null = CLIENT_ID) {
 
 describe('Google Drive access-token client (#277)', () => {
   test('missing or client-mismatched custody is disconnected and fails with auth', async () => {
-    const { auth, store } = world(async () => new Response('{}'));
+    const { auth, store } = world(() => Promise.resolve(new Response('{}')));
     assert.equal(auth.authState(), 'not-connected');
     await assert.rejects(auth.accessToken(), (error: unknown) => error instanceof ProviderError && error.kind === 'auth');
     store.save({ clientId: 'other.apps.googleusercontent.com', refreshToken: 'r', connectedAt: 'now' });
@@ -36,11 +42,11 @@ describe('Google Drive access-token client (#277)', () => {
 
   test('refresh is shared, cached, expires early, invalidates, and clears', async () => {
     let calls = 0;
-    const { auth, store, advance } = world(async (_input, init) => {
+    const { auth, store, advance } = world((_input, init) => {
       calls += 1;
-      const params = new URLSearchParams(String(init?.body));
+      const params = new URLSearchParams(bodyText(init?.body));
       assert.equal(params.get('refresh_token'), 'refresh-1');
-      return new Response(JSON.stringify({ access_token: `access-${String(calls)}`, expires_in: 120 }), { status: 200 });
+      return Promise.resolve(new Response(JSON.stringify({ access_token: `access-${String(calls)}`, expires_in: 120 }), { status: 200 }));
     });
     store.save({ clientId: CLIENT_ID, refreshToken: 'refresh-1', connectedAt: 'now' });
     assert.equal(auth.authState(), 'connected');
@@ -67,11 +73,9 @@ describe('Google Drive access-token client (#277)', () => {
         (error: unknown) => error instanceof ProviderError && error.kind === kind && !error.message.includes('SECRET'),
       );
     };
-    await check(async () => {
-      throw new Error('refresh_token=SECRET');
-    }, 'transient');
-    await check(async () => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }), 'auth');
-    await check(async () => new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 }), 'transient');
-    await check(async () => new Response('{}', { status: 200 }), 'transient');
+    await check(() => Promise.reject(new Error('refresh_token=SECRET')), 'transient');
+    await check(() => Promise.resolve(new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 })), 'auth');
+    await check(() => Promise.resolve(new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 })), 'transient');
+    await check(() => Promise.resolve(new Response('{}', { status: 200 })), 'transient');
   });
 });
