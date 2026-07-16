@@ -210,8 +210,9 @@ export const AlbumManagement: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.hover(canvas.getByText('Iceland'));
     const actions = canvas.getByRole('button', { name: 'Actions for Iceland' });
+    actions.focus();
+    await waitFor(() => expect(window.getComputedStyle(actions).pointerEvents).toBe('auto'));
     await userEvent.click(actions);
     await userEvent.click(canvas.getByRole('menuitem', { name: 'Rename album…' }));
     const renameDialog = within(canvas.getByRole('dialog', { name: 'Rename album' }));
