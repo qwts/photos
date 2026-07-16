@@ -114,6 +114,31 @@ conflict, metadata-only, unsupported, and skipped records, and presents counts
 before transfer. Acknowledged field revisions merge component-wise. Reviewed
 conflict and delete decisions are journaled so retries are idempotent.
 
+#### Durable Move state machine
+
+The Overlook implementation persists five independently recoverable boundaries
+inside SQLCipher: transfer journals, per-record state, encrypted-message outbox
+metadata, replay receipts, and append-only audit events. Counts are derived from
+the durable item rows rather than incremented when messages arrive, so replay
+cannot inflate eligible, duplicate, skipped, failed, acknowledged, or finalized
+totals.
+
+A target receipt is idempotent by pairing id and message id. An accepted
+acknowledgement requires durable canonical metadata. Records that claim an
+available original additionally require target-side content verification before
+the acknowledgement can say `verified`. Metadata-only and unavailable records
+retain those exact states; they never borrow a verified-original claim.
+
+The source records an accepted acknowledgement before entering finalization.
+Finalization receives either `remove-after-verified-copy` or
+`preserve-original`; the former is impossible unless the source record claimed
+an available original and the target acknowledgement proved it. A crash or
+failure after finalization starts leaves the acknowledged item resumable, and
+the source finalizer must be idempotent. Retryable target verification failures
+supersede their earlier rejection with a fresh acknowledgement while retaining
+the audit history. Cancellation and rejected acknowledgements never enter
+source finalization.
+
 ### Transports
 
 Transport adapters implement the same encrypted-object operations and honest
