@@ -124,10 +124,10 @@ test('large backup preserves deep selection and an open lightbox', async () => {
   }
 });
 
-// #110: edits re-dirty (amber returns) and the offloaded → rehydrate
-// journey — the tile dims, the card split shifts, and the lightbox brings
-// the original back.
-test('edit re-dirties after a backup; offload → lightbox rehydrate round-trips', async () => {
+// #110 + #306: edits re-dirty (amber returns) and the offloaded → temporary
+// view journey — the tile dims, the card split shifts, and verified viewing
+// preserves the user's offloaded storage choice.
+test('edit re-dirties after a backup; offload → temporary lightbox stream round-trips', async () => {
   const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup2-'));
   const app = await electron.launch({
     args: ['.'],
@@ -157,16 +157,17 @@ test('edit re-dirties after a backup; offload → lightbox rehydrate round-trips
     expect(offloaded.offloaded).toBe(1);
     await expect(page.getByTestId('backup-card')).not.toContainText('· 0 B LOCAL MOCK');
 
-    // Open it in the lightbox: rehydrate fires and the row returns synced.
+    // Default-on re-offload policy verifies temporary encrypted custody while
+    // the durable row remains offloaded.
     await page.locator('.ovl-grid__cell').first().click();
-    await expect(page.getByTestId('lightbox')).toBeVisible();
-    await expect
-      .poll(
-        async () =>
-          page.evaluate<string>(`window.overlook.library.get({ id: '01J8SEEDPHOTO0000' }).then((r) => r.photo?.syncState ?? '?')`),
-        { timeout: 15_000 },
-      )
-      .toBe('synced');
+    const lightbox = page.getByTestId('lightbox');
+    await expect(lightbox).toBeVisible();
+    await expect(lightbox.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible({ timeout: 15_000 });
+    const state = await page.evaluate<string>(
+      `window.overlook.library.get({ id: '01J8SEEDPHOTO0000' }).then((r) => r.photo?.syncState ?? '?')`,
+    );
+    expect(state).toBe('offloaded');
+    await lightbox.getByRole('button', { name: 'Close (Esc)' }).click();
   } finally {
     await app.close();
   }
