@@ -136,6 +136,17 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     assert.deepEqual(store.status(), { state: 'locked', libraryId: 'library-a' });
 
     assert.deepEqual(await store.unlock('wrong password'), { ok: false, reason: 'wrong-password' });
+    const released = await store.releaseUnlockKey('correct horse battery staple');
+    assert.equal(released.ok, true);
+    if (released.ok) {
+      assert.equal(released.unlockKey.length, 32);
+      assert.equal(released.unlockKey.equals(masterKey), false, 'password and biometric authority release U, never M');
+      const throughReleasedKey = store.unlockWithKey(released.unlockKey);
+      assert.equal(throughReleasedKey.ok, true);
+      if (throughReleasedKey.ok) assert.deepEqual(throughReleasedKey.masterKey, masterKey);
+      released.unlockKey.fill(0);
+    }
+    assert.deepEqual(store.unlockWithKey(Buffer.alloc(32)), { ok: false, reason: 'invalid-unlock-key' });
     const unlocked = await store.unlock('correct horse battery staple');
     assert.equal(unlocked.ok, true);
     if (unlocked.ok) assert.deepEqual(unlocked.masterKey, masterKey);

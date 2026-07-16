@@ -45,6 +45,12 @@ export type AppLockStatus =
 export type UnlockResult =
   { readonly ok: true; readonly masterKey: Buffer } | { readonly ok: false; readonly reason: 'wrong-password' | 'recovery-required' };
 
+export type UnlockKeyResult =
+  { readonly ok: true; readonly unlockKey: Buffer } | { readonly ok: false; readonly reason: 'wrong-password' | 'recovery-required' };
+
+export type MasterReleaseResult =
+  { readonly ok: true; readonly masterKey: Buffer } | { readonly ok: false; readonly reason: 'invalid-unlock-key' | 'recovery-required' };
+
 export interface AppLockCredentialStoreOptions {
   readonly dataDir: string;
   readonly anchorStore: CredentialAnchorStore;
@@ -238,6 +244,19 @@ export class AppLockCredentialStore {
   }
 
   async unlock(password: string): Promise<UnlockResult> {
+    const released = await this.releaseUnlockKey(password);
+    if (!released.ok) return released;
+    try {
+      const master = this.unlockWithKey(released.unlockKey);
+      return master.ok ? master : { ok: false, reason: 'recovery-required' };
+    } finally {
+      released.unlockKey.fill(0);
+    }
+  }
+
+  /** Password authentication releases U only. The caller owns and must wipe
+   * the returned buffer; biometric opt-in stores U under native access control. */
+  async releaseUnlockKey(password: string): Promise<UnlockKeyResult> {
     if (this.status().state !== 'locked') return { ok: false, reason: 'recovery-required' };
     if (password.length < 1 || password.length > 1024) return { ok: false, reason: 'wrong-password' };
     const record = parseRecord(readFileSync(this.masterPath));
@@ -246,13 +265,27 @@ export class AppLockCredentialStore {
     let unlockKey: Buffer | undefined;
     try {
       unlockKey = open(passwordKey, record.passwordSlot, aad(record, 'password'));
-      const masterKey = open(unlockKey, record.masterSlot, aad(record, 'master'));
-      return masterKey.length === KEY_BYTES ? { ok: true, masterKey } : { ok: false, reason: 'recovery-required' };
+      if (unlockKey.length !== KEY_BYTES) return { ok: false, reason: 'recovery-required' };
+      return { ok: true, unlockKey };
     } catch {
       return { ok: false, reason: 'wrong-password' };
     } finally {
       passwordKey.fill(0);
-      unlockKey?.fill(0);
+      if (unlockKey !== undefined && unlockKey.length !== KEY_BYTES) unlockKey.fill(0);
+    }
+  }
+
+  /** Opens U → M only after password or native biometric authority released U. */
+  unlockWithKey(unlockKey: Buffer): MasterReleaseResult {
+    if (this.status().state !== 'locked') return { ok: false, reason: 'recovery-required' };
+    if (unlockKey.length !== KEY_BYTES) return { ok: false, reason: 'invalid-unlock-key' };
+    const record = parseRecord(readFileSync(this.masterPath));
+    if (record === null) return { ok: false, reason: 'recovery-required' };
+    try {
+      const masterKey = open(unlockKey, record.masterSlot, aad(record, 'master'));
+      return masterKey.length === KEY_BYTES ? { ok: true, masterKey } : { ok: false, reason: 'recovery-required' };
+    } catch {
+      return { ok: false, reason: 'invalid-unlock-key' };
     }
   }
 
