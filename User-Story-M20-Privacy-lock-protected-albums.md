@@ -13,6 +13,12 @@ M20 adds a cryptographic whole-app lock, opt-in native Touch ID release on suppo
 | [#310](https://github.com/qwts/photos/issues/310) | Native Touch ID with password fallback          | #308 and #311 key-release seam |
 | [#309](https://github.com/qwts/photos/issues/309) | Protected albums and leakage isolation          | #308                           |
 
+## Implementation status
+
+- #308 contract: complete; ADR-0013 accepted.
+- #311 app-lock lifecycle: implemented by [PR #323](https://github.com/qwts/photos/pull/323). Configured launch withholds the master key until password release; main-process IPC/protocol admission, crash-resumable OVLK/anchor transitions, persistent throttling, recovery-file re-establishment, lifecycle locking, work drain, cache zeroization, Privacy controls, and the dedicated lock surface are covered.
+- #310 Touch ID and #309 protected albums remain separate deferred deliveries. The disabled Touch ID control is intentional until the native signed-build adapter exists.
+
 ## Product and privacy rules
 
 - Configured launch starts locked before database, key store, thumbnails, or library UI opens.
@@ -33,10 +39,18 @@ The app password releases a random unlock key that wraps the existing master. Th
 
 ## Acceptance coverage
 
-The complete testable matrix is in ADR-0013. The repo ledger reserves:
+The complete testable matrix is in ADR-0013. The repo ledger tracks:
 
-- `m20-app-lock-lifecycle` → #311
+- `m20-app-lock-lifecycle` → `tests/e2e/app-lock.spec.ts`, lock-screen Storybook interactions, custody/state-machine tests, and packaged manual evidence
 - `m20-touch-id-unlock` → #310
 - `m20-protected-albums` → #309
 
-Each child replaces its deferred entry with unit, Storybook, Electron E2E, security-review, and required signed-build/manual evidence. The epic closes only after the bypass, crash/restart, accessibility, recovery, and leakage matrices all pass.
+Each remaining child replaces its deferred entry with unit, Storybook, Electron E2E, security-review, and required signed-build/manual evidence. The epic closes only after the bypass, crash/restart, accessibility, recovery, and leakage matrices all pass.
+
+### #311 packaged acceptance checklist
+
+1. Configure an app password, quit, and confirm the next launch shows no library frame before the lock surface.
+2. Exercise Lock now, native screen lock, suspend/resume, user switch, idle choices, and optional minimize/hide on macOS and Windows.
+3. Confirm password-manager behavior, keyboard-only focus order, screen-reader announcements, reduced motion, and minimum-window layout.
+4. Run backup/import/export before locking and confirm lock cancels or drains it without corrupting the library; a hung operation must relaunch locked.
+5. Change and remove the password with correct and incorrect current credentials; recover with the matching exported key and reject another library's key.

@@ -177,7 +177,11 @@ The design does not protect against a compromised OS/kernel, keylogger, debugger
 | Password, key, biometric, metadata, and route-state log/telemetry sweep                     | #311, #310, #309 | Security review with explicit sink inventory                            |
 | Keyboard, focus, screen reader, reduced motion, minimum window, honest error copy           | Each child       | Storybook interaction states, Electron E2E, manual acceptance           |
 
-The repo acceptance ledger reserves `m20-app-lock-lifecycle`, `m20-touch-id-unlock`, and `m20-protected-albums` as deferred entries owned by those issues. Each implementation replaces its deferred entry with real evidence in the same PR.
+The repo acceptance ledger tracks `m20-app-lock-lifecycle`, `m20-touch-id-unlock`, and `m20-protected-albums`. #311 has replaced its deferred entry with real evidence; #310 and #309 remain deferred until their implementation PRs do the same.
+
+### #311 implementation evidence
+
+PR [#323](https://github.com/qwts/photos/pull/323) implements the app-lock portion of this ADR. The evidence is `tests/e2e/app-lock.spec.ts`, `src/renderer/src/lock/LockScreen.stories.tsx`, the `tests/crypto/app-lock-*` and unlock-throttle suites, the credential-anchor platform contract, and the library-shutdown/cache tests. The Electron spec covers configured restart, wrong-password delay, main-process IPC and protocol rejection, mandatory lifecycle events, password rotation/removal, and safe unlock. Physical OS screen/session behavior, idle timing, password-manager integration, accessibility, reduced motion, and packaged Windows/macOS layout remain explicit manual evidence in the M20 story. Touch ID and protected-domain rows remain deferred to #310 and #309.
 
 ## Security review
 
