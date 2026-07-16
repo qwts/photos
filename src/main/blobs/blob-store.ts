@@ -72,17 +72,23 @@ export class BlobStore {
   private readonly blobsDir: string;
   private readonly thumbsDir: string;
   private readonly tmpDir: string;
+  private readonly viewCacheDir: string;
 
   constructor(options: BlobStoreOptions) {
     this.blobsDir = join(options.dataDir, 'blobs');
     this.thumbsDir = join(options.dataDir, 'thumbs');
     this.tmpDir = join(options.dataDir, 'tmp');
+    this.viewCacheDir = join(options.dataDir, 'ephemeral');
   }
 
   async init(): Promise<void> {
     await mkdir(this.blobsDir, { recursive: true });
     await mkdir(this.thumbsDir, { recursive: true });
     await mkdir(this.tmpDir, { recursive: true });
+    // Ephemeral viewing custody never survives a process lifetime. Clearing
+    // first also recovers crashes during fetch, verify, or promotion.
+    await rm(this.viewCacheDir, { recursive: true, force: true });
+    await mkdir(this.viewCacheDir, { recursive: true });
   }
 
   private originalPath(contentHash: string): string {
@@ -247,6 +253,71 @@ export class BlobStore {
     }
   }
 
+  /** Stores provider ciphertext in process-lifetime custody only. The
+   * envelope is fully authenticated and its plaintext content address is
+   * checked before the cache entry becomes visible. */
+  async stageEphemeralOriginal(contentHash: string, ciphertext: Readable, resolveKey: KeyResolver, photoId: string): Promise<number> {
+    assertHash(contentHash);
+    const stagePath = join(this.viewCacheDir, `stage-${randomBytes(8).toString('hex')}`);
+    const finalPath = join(this.viewCacheDir, contentHash);
+    try {
+      await pipeline(ciphertext, createWriteStream(stagePath, { flags: 'wx' }));
+      const handle = await open(stagePath, 'r');
+      try {
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      if (!(await this.verifyEnvelopePath(stagePath, contentHash, resolveKey, photoId))) {
+        throw new BlobStoreError(`ephemeral blob ${contentHash} failed verification`);
+      }
+      try {
+        await link(stagePath, finalPath);
+      } catch (error) {
+        if (!isErrno(error, 'EEXIST')) throw error;
+      }
+      await rm(stagePath, { force: true });
+      await fsyncDir(this.viewCacheDir);
+      return (await stat(finalPath)).size;
+    } catch (error) {
+      await rm(stagePath, { force: true });
+      throw error;
+    }
+  }
+
+  hasEphemeralOriginal(contentHash: string): boolean {
+    assertHash(contentHash);
+    return existsSync(join(this.viewCacheDir, contentHash));
+  }
+
+  getEphemeralStream(contentHash: string, resolveKey: KeyResolver, photoId: string): Readable {
+    assertHash(contentHash);
+    const path = join(this.viewCacheDir, contentHash);
+    if (!existsSync(path)) throw new BlobStoreError(`ephemeral blob ${contentHash} is not available`);
+    return createReadStream(path).pipe(createDecryptStream(resolveKey, { photoId }));
+  }
+
+  /** Atomically adds an already verified ephemeral envelope to durable
+   * custody. The cache link remains until its viewer releases it. */
+  async promoteEphemeralOriginal(contentHash: string): Promise<void> {
+    assertHash(contentHash);
+    const source = join(this.viewCacheDir, contentHash);
+    if (!existsSync(source)) throw new BlobStoreError(`ephemeral blob ${contentHash} is not available`);
+    const destination = this.originalPath(contentHash);
+    await mkdir(dirname(destination), { recursive: true });
+    try {
+      await link(source, destination);
+    } catch (error) {
+      if (!isErrno(error, 'EEXIST')) throw error;
+    }
+    await fsyncDir(dirname(destination));
+  }
+
+  async deleteEphemeralOriginal(contentHash: string): Promise<void> {
+    assertHash(contentHash);
+    await rm(join(this.viewCacheDir, contentHash), { force: true });
+  }
+
   /** RAW ciphertext stream for an original — backup uploads envelopes
    * as-is (ADR-0007 encrypt-once); never decrypts. */
   getEncryptedStream(contentHash: string): Readable {
@@ -320,6 +391,19 @@ export class BlobStore {
       // type-coverage:ignore-next-line -- Readable yields untyped chunks
       for await (const chunk of stream) {
         // type-coverage:ignore-next-line -- Readable yields untyped chunks
+        hasher.update(chunk as Buffer);
+      }
+    } catch {
+      return false;
+    }
+    return hasher.digest('hex') === contentHash;
+  }
+
+  private async verifyEnvelopePath(path: string, contentHash: string, resolveKey: KeyResolver, photoId: string): Promise<boolean> {
+    const hasher = createHash('sha256');
+    try {
+      const stream = createReadStream(path).pipe(createDecryptStream(resolveKey, { photoId }));
+      for await (const chunk of stream) {
         hasher.update(chunk as Buffer);
       }
     } catch {

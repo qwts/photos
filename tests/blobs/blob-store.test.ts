@@ -84,6 +84,52 @@ describe('BlobStore', () => {
     assert.equal(await store.verifyOriginal(ref.contentHash, RESOLVE, 'photo-4'), false);
   });
 
+  test('ephemeral ciphertext verifies, promotes atomically, and never becomes plaintext at rest (#306)', async () => {
+    const { store, dataDir } = await freshStore();
+    const marker = Buffer.from('EPHEMERAL-PLAINTEXT-MUST-NOT-PERSIST');
+    const plaintext = Buffer.concat(Array.from({ length: 1000 }, () => marker));
+    const ref = await store.putOriginal(Readable.from([plaintext]), KEY, 'photo-view');
+    const ciphertext = await buffer(store.getEncryptedStream(ref.contentHash));
+    await store.deleteOriginal(ref.contentHash);
+
+    const encryptedBytes = await store.stageEphemeralOriginal(ref.contentHash, Readable.from([ciphertext]), RESOLVE, 'photo-view');
+    assert.equal(encryptedBytes, ciphertext.length);
+    assert.equal(store.hasOriginal(ref.contentHash), false, 'ledger may remain offloaded');
+    assert.equal(store.hasEphemeralOriginal(ref.contentHash), true);
+    assert.deepEqual(await buffer(store.getEphemeralStream(ref.contentHash, RESOLVE, 'photo-view')), plaintext);
+    for (const file of walkFiles(join(dataDir, 'ephemeral'))) {
+      assert.equal(readFileSync(file).includes(marker), false, `plaintext marker found in ${file}`);
+    }
+
+    await store.promoteEphemeralOriginal(ref.contentHash);
+    assert.equal(store.hasOriginal(ref.contentHash), true);
+    assert.deepEqual(await buffer(store.getStream(ref.contentHash, RESOLVE, 'photo-view')), plaintext);
+    await store.deleteEphemeralOriginal(ref.contentHash);
+    assert.equal(store.hasEphemeralOriginal(ref.contentHash), false);
+    assert.equal(store.hasOriginal(ref.contentHash), true, 'promotion has independent durable custody');
+  });
+
+  test('ephemeral corruption fails closed and restart cleanup removes abandoned custody (#306)', async () => {
+    const { store, dataDir } = await freshStore();
+    const plaintext = randomBytes(4096);
+    const ref = await store.putOriginal(Readable.from([plaintext]), KEY, 'photo-crash');
+    const ciphertext = await buffer(store.getEncryptedStream(ref.contentHash));
+    await store.deleteOriginal(ref.contentHash);
+
+    const corrupt = Buffer.from(ciphertext);
+    const corruptAt = Math.floor(corrupt.length / 2);
+    corrupt[corruptAt] = (corrupt[corruptAt] ?? 0) ^ 0xff;
+    await assert.rejects(store.stageEphemeralOriginal(ref.contentHash, Readable.from([corrupt]), RESOLVE, 'photo-crash'), BlobStoreError);
+    assert.equal(store.hasEphemeralOriginal(ref.contentHash), false);
+
+    await store.stageEphemeralOriginal(ref.contentHash, Readable.from([ciphertext]), RESOLVE, 'photo-crash');
+    assert.equal(store.hasEphemeralOriginal(ref.contentHash), true);
+    const reborn = new BlobStore({ dataDir });
+    await reborn.init();
+    assert.equal(reborn.hasEphemeralOriginal(ref.contentHash), false, 'process restart clears temporary custody');
+    assert.equal(reborn.hasOriginal(ref.contentHash), false, 'cleanup never changes durable custody');
+  });
+
   test('wrong photo context cannot read a blob', async () => {
     const { store } = await freshStore();
     const ref = await store.putOriginal(Readable.from([randomBytes(64)]), KEY, 'photo-5');
