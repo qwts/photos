@@ -25,7 +25,7 @@ export interface FullPayload {
 
 export interface FullServiceOptions {
   /** Resolves and decrypts an original; null = missing/offloaded. */
-  readonly loadOriginal: (photoId: string) => Promise<LoadedOriginal | null>;
+  readonly loadOriginal: (photoId: string, purpose: 'view' | 'prefetch') => Promise<LoadedOriginal | null>;
   /** LRU cap over decrypted full-res bytes. Default 256 MiB. */
   readonly maxCacheBytes?: number | undefined;
   /** Concurrent decrypts. Default 2 — full-res reads are large. */
@@ -60,7 +60,7 @@ export class FullService {
    * frames the user already left).
    */
   async getFull(photoId: string, signal?: AbortSignal): Promise<FullPayload | null> {
-    return this.lru.get(photoId, () => this.resolvePayload(photoId), signal);
+    return this.lru.get(photoId, () => this.resolvePayload(photoId, 'view'), signal);
   }
 
   /**
@@ -71,7 +71,7 @@ export class FullService {
   prefetch(photoIds: readonly string[]): void {
     for (const photoId of photoIds) {
       if (!this.lru.isWarm(photoId)) {
-        void this.getFull(photoId).catch(() => undefined);
+        void this.lru.get(photoId, () => this.resolvePayload(photoId, 'prefetch')).catch(() => undefined);
       }
     }
   }
@@ -81,8 +81,8 @@ export class FullService {
     return this.lru.stats();
   }
 
-  private async resolvePayload(photoId: string): Promise<FullPayload | null> {
-    const original = await this.loadOriginal(photoId);
+  private async resolvePayload(photoId: string, purpose: 'view' | 'prefetch'): Promise<FullPayload | null> {
+    const original = await this.loadOriginal(photoId, purpose);
     if (original === null) {
       return null;
     }

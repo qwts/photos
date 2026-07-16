@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { fullUrl } from '../../../shared/library/full-url.js';
+import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 
@@ -60,11 +61,14 @@ export function Lightbox({
   onExport,
   onOffload,
   onRehydrateError,
-  suppressRehydrate = false,
   onDelete,
 }: LightboxProps): ReactElement {
   const [chrome, setChrome] = useState(true);
   const [wokenFor, setWokenFor] = useState(photo.id);
+  const [ephemeralState, setEphemeralState] = useState<{
+    readonly photoId: string;
+    readonly stage: 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
+  } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Wake on photo change — a during-render adjustment, so the effect below
@@ -108,26 +112,29 @@ export function Lightbox({
     };
   }, [armTimer, photo.id]);
 
-  // Rehydrate on touch (#107): an offloaded photo downloads back on open;
-  // failure surfaces as offloaded + red toast from the host — never a
-  // half-restored record. The changed push flips syncState and the img
-  // re-keys to retry the (previously 404) full-res URL. Refs keep this to
-  // ONE request per photo — parent rerenders change the inline callback's
-  // identity and refreshes can rerender before syncState lands (PR #205
-  // review).
   const offloaded = photo.syncState === 'offloaded';
   const rehydrateErrorRef = useRef(onRehydrateError);
   useEffect(() => {
     rehydrateErrorRef.current = onRehydrateError;
   });
-  const rehydrateRequestedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!offloaded || suppressRehydrate || rehydrateRequestedFor.current === photo.id) {
-      return;
-    }
-    rehydrateRequestedFor.current = photo.id;
-    void window.overlook.backup.rehydrate({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
-  }, [offloaded, photo.id, suppressRehydrate]);
+    let active = true;
+    const unsubscribe = window.overlook.backup.onEphemeralState((state) => {
+      if (state.photoId !== photo.id) return;
+      setEphemeralState(state);
+      if (state.stage === 'error') rehydrateErrorRef.current?.();
+    });
+    void window.overlook.backup.ephemeralStatus({ photoId: photo.id }).then(({ stage }) => {
+      if (active && stage !== null) setEphemeralState({ photoId: photo.id, stage });
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+      void window.overlook.backup.releaseEphemeral({ photoId: photo.id });
+    };
+  }, [photo.id]);
+
+  const ephemeralStage = ephemeralState?.photoId === photo.id ? ephemeralState.stage : null;
 
   const taken = photo.takenAt ?? photo.importedAt;
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
@@ -157,6 +164,17 @@ export function Lightbox({
         {photo.syncState === 'synced' && photo.deletedAt === null ? (
           <IconButton icon="cloud-upload" label="Offload original" onClick={onOffload} />
         ) : null}
+        {offloaded && ephemeralStage === 'ready' ? (
+          <Button
+            size="sm"
+            icon="cloud-download"
+            onClick={() => {
+              void window.overlook.backup.keepDownloaded({ photoId: photo.id }).catch(() => rehydrateErrorRef.current?.());
+            }}
+          >
+            Keep downloaded
+          </Button>
+        ) : null}
         <IconButton icon="info" label="Inspector (I)" active={inspectorOpen} onClick={onToggleInspector} />
         {photo.deletedAt === null ? (
           // Already-deleted rows offer no Delete (PR #218 review) — the
@@ -173,6 +191,9 @@ export function Lightbox({
       </div>
       <div className={`ovl-lightbox__strip ovl-lightbox__chrome${chromeClass}`}>
         <span className="mono-data">{exifStrip(photo)}</span>
+        {offloaded && ephemeralStage === 'fetching' ? <span className="mono-data">FETCHING ORIGINAL…</span> : null}
+        {offloaded && ephemeralStage === 'verifying' ? <span className="mono-data">VERIFYING ORIGINAL…</span> : null}
+        {offloaded && ephemeralStage === 'ready' ? <span className="mono-data">STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE</span> : null}
       </div>
     </div>
   );

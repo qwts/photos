@@ -343,6 +343,13 @@ export const channels = {
     }),
   ),
   backupRehydrate: defineChannel('backup:rehydrate', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
+  backupKeepDownloaded: defineChannel('backup:keep-downloaded', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
+  backupReleaseEphemeral: defineChannel('backup:release-ephemeral', z.object({ photoId: z.string() }), z.object({ ok: z.boolean() })),
+  backupEphemeralStatus: defineChannel(
+    'backup:ephemeral-status',
+    z.object({ photoId: z.string() }),
+    z.object({ stage: z.enum(['fetching', 'verifying', 'ready', 'released', 'error']).nullable() }),
+  ),
   backupRestoreOriginals: defineChannel(
     'backup:restore-originals',
     z.object({ photoIds: z.array(z.string()).min(1).optional() }),
@@ -424,6 +431,10 @@ export const events = {
     z.object({ updates: z.array(z.object({ id: z.string(), syncState: syncStatusSchema })) }),
   ),
   storageChanged: defineEvent('library:storage-changed', z.object({})),
+  ephemeralOriginalState: defineEvent(
+    'backup:ephemeral-original-state',
+    z.object({ photoId: z.string(), stage: z.enum(['fetching', 'verifying', 'ready', 'released', 'error']) }),
+  ),
   pendingCountChanged: defineEvent('library:pending-count', z.object({ count: z.number().int().nonnegative() })),
   // Progressive scan counts for big cards (#84).
   scanProgress: defineEvent(

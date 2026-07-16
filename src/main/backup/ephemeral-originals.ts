@@ -63,6 +63,7 @@ function remotePath(contentHash: string): string {
 export class EphemeralOriginalService {
   private readonly cache = new Map<string, CacheEntry>();
   private readonly inFlight = new Map<string, Promise<CacheEntry>>();
+  private readonly states = new Map<string, EphemeralStage>();
   private readonly maxCacheBytes: number;
   private cachedBytes = 0;
 
@@ -80,7 +81,7 @@ export class EphemeralOriginalService {
       return { stream: this.deps.blobs.durableStream(photo.contentHash, photoId), custody: 'durable' };
     }
     if (!this.deps.reOffloadAfterViewing()) {
-      await this.deps.permanentRestore(photoId);
+      await this.permanentlyRestore(photoId);
       return { stream: this.deps.blobs.durableStream(photo.contentHash, photoId), custody: 'durable' };
     }
 
@@ -95,7 +96,7 @@ export class EphemeralOriginalService {
     if (photo === undefined) throw new EphemeralOriginalError(`photo ${photoId} does not exist`, 'not-found');
     if (this.deps.ledger.status(photoId) !== 'offloaded') return;
     if (!this.deps.reOffloadAfterViewing()) {
-      await this.deps.permanentRestore(photoId);
+      await this.permanentlyRestore(photoId);
       return;
     }
     await this.ensure(photoId, photo.contentHash);
@@ -107,6 +108,10 @@ export class EphemeralOriginalService {
     await this.release(photoId);
   }
 
+  status(photoId: string): EphemeralStage | null {
+    return this.states.get(photoId) ?? null;
+  }
+
   async release(photoId: string): Promise<void> {
     const photo = this.deps.repo.get(photoId);
     if (photo === undefined) return;
@@ -115,7 +120,7 @@ export class EphemeralOriginalService {
     entry.activePhotoIds.delete(photoId);
     if (entry.activePhotoIds.size > 0) return;
     await this.remove(photo.contentHash, entry);
-    this.deps.stateChanged({ photoId, stage: 'released' });
+    this.changeState(photoId, 'released');
   }
 
   stats(): { readonly cachedBytes: number; readonly entries: number; readonly inFlight: number } {
@@ -142,7 +147,7 @@ export class EphemeralOriginalService {
 
   private async fetch(photoId: string, contentHash: string): Promise<CacheEntry> {
     this.deps.workChanged(1);
-    this.deps.stateChanged({ photoId, stage: 'fetching' });
+    this.changeState(photoId, 'fetching');
     let staged = false;
     let published = false;
     try {
@@ -156,7 +161,7 @@ export class EphemeralOriginalService {
           error instanceof ProviderError && error.kind === 'not-found' ? 'remote-missing' : 'provider-unavailable',
         );
       }
-      this.deps.stateChanged({ photoId, stage: 'verifying' });
+      this.changeState(photoId, 'verifying');
       let bytes: number;
       try {
         bytes = await this.deps.blobs.stageEphemeral(contentHash, ciphertext, photoId);
@@ -173,12 +178,12 @@ export class EphemeralOriginalService {
       this.cache.set(contentHash, entry);
       this.cachedBytes += bytes;
       published = true;
-      this.deps.stateChanged({ photoId, stage: 'ready' });
+      this.changeState(photoId, 'ready');
       this.deps.audit(`EPHEMERAL-READY photo=${photoId} bytes=${String(bytes)}`);
       return entry;
     } catch (error) {
       if (staged && !published) await this.deps.blobs.deleteEphemeral(contentHash);
-      this.deps.stateChanged({ photoId, stage: 'error' });
+      this.changeState(photoId, 'error');
       throw error;
     } finally {
       this.deps.workChanged(-1);
@@ -194,6 +199,15 @@ export class EphemeralOriginalService {
     } catch (error) {
       if (error instanceof EphemeralOriginalError) throw error;
       throw new EphemeralOriginalError('provider is offline', 'provider-unavailable');
+    }
+  }
+
+  private async permanentlyRestore(photoId: string): Promise<void> {
+    this.deps.workChanged(1);
+    try {
+      await this.deps.permanentRestore(photoId);
+    } finally {
+      this.deps.workChanged(-1);
     }
   }
 
@@ -216,5 +230,10 @@ export class EphemeralOriginalService {
     this.cache.delete(contentHash);
     this.cachedBytes -= entry.bytes;
     await this.deps.blobs.deleteEphemeral(contentHash);
+  }
+
+  private changeState(photoId: string, stage: EphemeralStage): void {
+    this.states.set(photoId, stage);
+    this.deps.stateChanged({ photoId, stage });
   }
 }

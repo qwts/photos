@@ -47,6 +47,12 @@ export interface OverlookApi {
     ) => Promise<Res<typeof channels.backupOffloadPreflight>>;
     readonly offload: (request: Req<typeof channels.backupOffload>) => Promise<Res<typeof channels.backupOffload>>;
     readonly rehydrate: (request: Req<typeof channels.backupRehydrate>) => Promise<Res<typeof channels.backupRehydrate>>;
+    readonly keepDownloaded: (request: Req<typeof channels.backupKeepDownloaded>) => Promise<Res<typeof channels.backupKeepDownloaded>>;
+    readonly releaseEphemeral: (
+      request: Req<typeof channels.backupReleaseEphemeral>,
+    ) => Promise<Res<typeof channels.backupReleaseEphemeral>>;
+    readonly ephemeralStatus: (request: Req<typeof channels.backupEphemeralStatus>) => Promise<Res<typeof channels.backupEphemeralStatus>>;
+    readonly onEphemeralState: (listener: (payload: z.output<typeof events.ephemeralOriginalState.payload>) => void) => () => void;
     readonly restoreOriginals: (
       request: Req<typeof channels.backupRestoreOriginals>,
     ) => Promise<Res<typeof channels.backupRestoreOriginals>>;
