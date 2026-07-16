@@ -37,6 +37,7 @@ const ACK_TOKEN = 'no-acceptance-impact';
 const ACK_CHECKBOX = /-\s*\[x\][^\n]*no-acceptance-impact/iu;
 const ACCEPTANCE_SOURCE = /^src\/renderer\/src\/.*\.(ts|tsx|css)$/u;
 const NON_FLOW = /(\.test\.tsx?|\.stories\.tsx?|\.d\.ts)$/u;
+const GH_ATTEMPTS = 3;
 
 function isAcceptanceSource(file) {
   return ACCEPTANCE_SOURCE.test(file) && !NON_FLOW.test(file);
@@ -68,8 +69,18 @@ function splitList(value) {
     .filter(Boolean);
 }
 
-function gh(args) {
-  return execFileSync('gh', args, { encoding: 'utf8' });
+async function gh(args) {
+  for (let attempt = 1; attempt <= GH_ATTEMPTS; attempt += 1) {
+    try {
+      return execFileSync('gh', args, { encoding: 'utf8' });
+    } catch (error) {
+      if (attempt === GH_ATTEMPTS) throw error;
+      const delayMs = attempt * 1_000;
+      console.warn(`GitHub API request failed (attempt ${attempt}/${GH_ATTEMPTS}); retrying in ${delayMs}ms.`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error('GitHub API retry loop exhausted');
 }
 
 async function gatherInputs() {
@@ -86,9 +97,9 @@ async function gatherInputs() {
     const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
     const repo = process.env.GITHUB_REPOSITORY;
     const number = event.pull_request?.number ?? event.number;
-    const changedFiles = splitList(gh(['api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--jq', '.[].filename']));
+    const changedFiles = splitList(await gh(['api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--jq', '.[].filename']));
     // Read PR body/labels live so an edited opt-out is honored on a re-run.
-    const pr = JSON.parse(gh(['api', `repos/${repo}/pulls/${number}`]));
+    const pr = JSON.parse(await gh(['api', `repos/${repo}/pulls/${number}`]));
     return {
       changedFiles,
       body: pr.body ?? '',
