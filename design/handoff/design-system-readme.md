@@ -31,7 +31,7 @@ Core v1 features the system covers:
 - [github.com/qwts/image-trail](https://github.com/qwts/image-trail) — a related sibling product (browser extension, encrypted URL/image bookmarking with pCloud backup). Its real source informs `guidelines/image-trail-interop.md` (data-format/pCloud interop notes) — read that repo directly for anything beyond what's summarized there.
 - Fonts copied from [google/fonts](https://github.com/google/fonts) (OFL — see `assets/fonts/OFL.txt`).
 - Icons: **Lucide** via CDN (see ICONOGRAPHY).
-- Placeholder "photos" in `assets/thumbs/` are programmatically generated abstract gradients — **replace with real sample images** for true evaluation.
+- `assets/thumbs/` contains real-photo derivatives for true visual evaluation; source, author, license, and transformations are recorded in `tests/fixtures/photos/manifest.json`.
 
 ## CONTENT FUNDAMENTALS
 
@@ -73,9 +73,8 @@ Core v1 features the system covers:
 - `components/feedback/` — Dialog, Toast, ProgressBar.
 - `components/media/` — PhotoTile, StatusGlyph, MetadataRow.
 - `ui_kits/app/` — interactive desktop app mock (grid → lightbox → inspector, import flow, export flow, settings, backup states). See its README.
-- `assets/fonts/` — IBM Plex binaries (OFL). `assets/thumbs/` — generated placeholder "photos" (replace with real samples).
+- `assets/fonts/` — IBM Plex binaries (OFL). `assets/thumbs/` — licensed real-photo sample derivatives.
 - `SKILL.md` — agent skill entry point.
 
 ### Intentional additions
 No source defined a component inventory (from-scratch system), so the standard set above was authored to the app's needs. `StatusGlyph`, `PhotoTile`, `MetadataRow`, and `SearchField` are domain components invented for this product.
-

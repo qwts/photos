@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -21,6 +22,17 @@ interface FixtureManifest {
     readonly author: string;
     readonly sha256: string;
   }[];
+  readonly designThumbs: readonly {
+    readonly file: string;
+    readonly source: string;
+    readonly width: number;
+    readonly height: number;
+    readonly sha256: string;
+  }[];
+}
+
+function sha256(bytes: Buffer): string {
+  return createHash('sha256').update(bytes).digest('hex');
 }
 
 test('EXIT CRITERIA #127: licensed real-photo fixtures cover varied orientations', async () => {
@@ -35,7 +47,9 @@ test('EXIT CRITERIA #127: licensed real-photo fixtures cover varied orientations
     assert.match(source.sourcePage, /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
     assert.ok(source.author.length > 0);
     assert.match(source.sha256, /^[a-f0-9]{64}$/);
-    const metadata = await sharp(join(PHOTO_FIXTURES, source.file)).metadata();
+    const bytes = readFileSync(join(PHOTO_FIXTURES, source.file));
+    assert.equal(sha256(bytes), source.sha256);
+    const metadata = await sharp(bytes).metadata();
     assert.ok((metadata.width ?? 0) >= 640);
     assert.ok((metadata.height ?? 0) >= 640);
     const ratio = (metadata.width ?? 1) / (metadata.height ?? 1);
@@ -60,12 +74,14 @@ test('EXIT CRITERIA #127: dev seed and import variants decode as real photograph
 });
 
 test('EXIT CRITERIA #127: every design handoff thumbnail is a real-photo derivative', async () => {
-  const sourcePixels = new Set<string>();
-  for (let index = 1; index <= 28; index += 1) {
-    const file = join(DESIGN_THUMBS, `t${String(index).padStart(2, '0')}.png`);
-    const { data, info } = await sharp(file).resize(8, 8, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });
-    assert.ok(info.width === 8 && info.height === 8);
-    sourcePixels.add(data.toString('base64'));
+  const manifest = JSON.parse(readFileSync(join(PHOTO_FIXTURES, 'manifest.json'), 'utf8')) as FixtureManifest;
+  assert.equal(manifest.designThumbs.length, 28);
+  assert.ok(new Set(manifest.designThumbs.map(({ source }) => source)).size >= 4);
+  for (const thumb of manifest.designThumbs) {
+    const bytes = readFileSync(join(DESIGN_THUMBS, thumb.file));
+    assert.equal(sha256(bytes), thumb.sha256);
+    const metadata = await sharp(bytes).metadata();
+    assert.equal(metadata.width, thumb.width);
+    assert.equal(metadata.height, thumb.height);
   }
-  assert.ok(sourcePixels.size >= 4, 'the handoff needs multiple distinct photographs');
 });
