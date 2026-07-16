@@ -133,6 +133,16 @@ describe('MoveProtocolService', () => {
       await target.service.receive(request, { verify: () => assert.fail('accepted replay must not verify again') }),
       acknowledgement,
     );
+    await assert.rejects(
+      target.service.receive(
+        interopEnvelopeSchema.parse({
+          ...request,
+          header: { ...request.header, transferId: '59999999-9999-4999-8999-999999999999' },
+        }),
+        { verify: () => assert.fail('cross-transfer replay must fail first') },
+      ),
+      /replay identity was reused/u,
+    );
     assert.equal(target.journals.getJournal(request.header.transferId)?.counts.acknowledged, 1);
     target.db.close();
 

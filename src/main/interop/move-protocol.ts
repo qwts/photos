@@ -100,6 +100,15 @@ export class MoveProtocolService {
     const replayed = this.journals.responseForReceipt(request.header.pairingId, request.header.messageId);
     if (
       replayed !== undefined &&
+      (replayed.header.transferId !== request.header.transferId ||
+        replayed.header.pairingId !== request.header.pairingId ||
+        replayed.header.sourceProduct !== request.header.targetProduct ||
+        replayed.header.targetProduct !== request.header.sourceProduct)
+    ) {
+      throw new MoveProtocolError('Move replay identity was reused across transfer identities.');
+    }
+    if (
+      replayed !== undefined &&
       (!isAcknowledgementEnvelope(replayed) ||
         replayed.payload.status === 'accepted' ||
         !replayed.payload.errors.some((error) => error.retryable))
@@ -207,7 +216,7 @@ export class MoveProtocolService {
     ) {
       throw new MoveProtocolError('Move acknowledgement does not match the source transfer identity.');
     }
-    if (this.journals.hasReceipt(response.header.pairingId, response.header.messageId)) return existing;
+    if (this.journals.hasReceipt(response.header.pairingId, response.header.messageId, response.header.transferId)) return existing;
 
     const item = this.journals.getItem(response.header.transferId, response.payload.recordInteropId);
     if (item === undefined) throw new MoveProtocolError('Move acknowledgement does not match a queued item.');
