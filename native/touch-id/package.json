@@ -4,6 +4,9 @@
   "private": true,
   "description": "Overlook's signed macOS Touch ID and Data Protection Keychain bridge",
   "main": "index.cjs",
+  "os": [
+    "darwin"
+  ],
   "gypfile": true,
   "files": [
     "index.cjs",
