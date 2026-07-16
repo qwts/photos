@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
-import type { PhotoRecord } from '../../../shared/library/types.js';
+import type { AlbumSummary, PhotoRecord } from '../../../shared/library/types.js';
 import { formatCount } from '../../../shared/library/format.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import { Icon } from '../components/Icon';
@@ -21,9 +21,11 @@ import { VirtualGrid } from './VirtualGrid';
 // with #79.
 export function LibraryGridView({
   knownTotal,
+  activeAlbum,
   onOffload,
 }: {
   readonly knownTotal: number | null;
+  readonly activeAlbum: AlbumSummary | null;
   readonly onOffload: (photoIds: readonly string[], clearSelection?: boolean) => void;
 }): ReactElement {
   const state = useAppState();
@@ -112,6 +114,24 @@ export function LibraryGridView({
                 },
               }
             : {
+                ...(state.album === null
+                  ? {}
+                  : {
+                      onRemoveFromAlbum: () => {
+                        const photoIds = [...state.selection];
+                        const albumId = state.album;
+                        if (albumId === null) return;
+                        void window.overlook.albums.removePhotos({ albumId, photoIds }).then(({ removed }) => {
+                          dispatch({
+                            type: 'toast/shown',
+                            toast: {
+                              title: `Removed ${formatCount(removed)} ${removed === 1 ? 'photo' : 'photos'} from ${activeAlbum?.name ?? 'album'}`,
+                              tone: 'neutral',
+                            },
+                          });
+                        });
+                      },
+                    }),
                 onDelete: () => {
                   const photoIds = [...state.selection];
                   void window.overlook.library.delete({ photoIds }).then(({ deleted }) => {

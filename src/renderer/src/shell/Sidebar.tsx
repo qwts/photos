@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import type { ReactElement } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactElement, Ref } from 'react';
 
 import { formatBytes, formatCount } from '../../../shared/library/format.js';
 import type { AlbumSummary, LibraryStats, SourceCounts, SourceFilter } from '../../../shared/library/types.js';
@@ -7,6 +7,8 @@ import { Icon, type IconName } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tooltip } from '../components/Tooltip';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
+import { AlbumActionMenu } from './AlbumActionMenu';
+import { DeleteAlbumDialog, RenameAlbumDialog } from './AlbumDialogs';
 
 // The shell stylesheet carries the sidebar/rail rules; importing it here
 // (not just in Shell) keeps the component styled when mounted alone, e.g.
@@ -39,18 +41,41 @@ interface SideRowProps {
   readonly active?: boolean;
   readonly onClick?: (() => void) | undefined;
   readonly collapsed?: boolean;
+  readonly buttonRef?: Ref<HTMLButtonElement> | undefined;
+  readonly onOpenActions?: ((position: { readonly x: number; readonly y: number }, origin: HTMLButtonElement) => void) | undefined;
 }
 
-function SideRow({ icon, label, count, active = false, onClick, collapsed = false }: SideRowProps): ReactElement {
+function SideRow({ icon, label, count, active = false, onClick, collapsed = false, buttonRef, onOpenActions }: SideRowProps): ReactElement {
   const hint = count === null ? label : `${label} · ${formatCount(count)}`;
   const row = (
     <button
+      ref={buttonRef}
       type="button"
       className={`ovl-siderow${active ? ' ovl-siderow--active' : ''}${collapsed ? ' ovl-siderow--collapsed' : ''}`}
       onClick={onClick}
       disabled={onClick === undefined}
       // Collapsed rows are icon-only; the hint is their accessible name.
       aria-label={collapsed ? hint : undefined}
+      aria-haspopup={onOpenActions === undefined ? undefined : 'menu'}
+      onContextMenu={
+        onOpenActions === undefined
+          ? undefined
+          : (event) => {
+              event.preventDefault();
+              onOpenActions({ x: event.clientX, y: event.clientY }, event.currentTarget);
+            }
+      }
+      onKeyDown={
+        onOpenActions === undefined
+          ? undefined
+          : (event) => {
+              if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                event.preventDefault();
+                const bounds = event.currentTarget.getBoundingClientRect();
+                onOpenActions({ x: bounds.right + 4, y: bounds.top }, event.currentTarget);
+              }
+            }
+      }
     >
       <Icon name={icon} size={14} color={active ? 'var(--accent-cyan)' : 'var(--text-faint)'} />
       {collapsed ? null : <span className="ovl-siderow__label">{label}</span>}
@@ -74,8 +99,8 @@ export interface SidebarProps {
   readonly albums: readonly AlbumSummary[];
 }
 
-// The 216px navigation rail (#80) per the design's Sidebar.jsx. Albums are
-// display-only until M10's CRUD (the + affordance is inert); the backup card
+// The 216px navigation rail (#80) per the design's Sidebar.jsx. Album
+// creation and management are keyboard-accessible here; the backup card
 // shows the encrypted badge, the settings gear (opens the M09 dialog), a
 // live aggregate bar while a backup runs (#108), and the mono storage line.
 export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
@@ -99,6 +124,18 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
   // Inline album creation (#117) — the design gives the + affordance but no
   // flow; an inline name row keeps it keyboard-first (Enter/Escape).
   const [namingAlbum, setNamingAlbum] = useState(false);
+  const [albumMenu, setAlbumMenu] = useState<{ readonly album: AlbumSummary; readonly x: number; readonly y: number } | null>(null);
+  const [renamingAlbum, setRenamingAlbum] = useState<AlbumSummary | null>(null);
+  const [deletingAlbum, setDeletingAlbum] = useState<AlbumSummary | null>(null);
+  const allPhotosRef = useRef<HTMLButtonElement>(null);
+  const albumActionOriginRef = useRef<HTMLElement | null>(null);
+  const restoreAlbumActionFocus = (fallback: HTMLElement | null = allPhotosRef.current): void => {
+    const origin = albumActionOriginRef.current;
+    albumActionOriginRef.current = null;
+    requestAnimationFrame(() => {
+      (origin?.isConnected === true ? origin : fallback)?.focus();
+    });
+  };
   useEffect(() => {
     const offProgress = window.overlook.backup.onProgress(({ done, total }) => {
       setBackupRun(total === 0 ? null : { done, total });
@@ -147,6 +184,7 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
           count={counts === null ? null : counts[key]}
           active={state.album === null && state.source === key}
           collapsed={collapsed}
+          buttonRef={key === 'all' ? allPhotosRef : undefined}
           onClick={() => {
             dispatch({ type: 'source/set', source: key });
           }}
@@ -195,18 +233,97 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
         />
       ) : null}
       {albums.map((album) => (
-        <SideRow
-          key={album.id}
-          icon="album"
-          label={album.name}
-          count={album.count}
-          active={state.album === album.id}
-          collapsed={collapsed}
-          onClick={() => {
-            dispatch({ type: 'album/set', albumId: album.id });
+        <div className="ovl-sidebar__albumrow" key={album.id}>
+          <SideRow
+            icon="album"
+            label={album.name}
+            count={album.count}
+            active={state.album === album.id}
+            collapsed={collapsed}
+            onClick={() => {
+              dispatch({ type: 'album/set', albumId: album.id });
+            }}
+            onOpenActions={(position, origin) => {
+              albumActionOriginRef.current = origin;
+              setAlbumMenu({ album, ...position });
+            }}
+          />
+          {collapsed ? null : (
+            <button
+              type="button"
+              className="ovl-sidebar__album-actions"
+              aria-label={`Actions for ${album.name}`}
+              aria-haspopup="menu"
+              onClick={(event) => {
+                const bounds = event.currentTarget.getBoundingClientRect();
+                albumActionOriginRef.current = event.currentTarget;
+                setAlbumMenu({ album, x: bounds.right - 190, y: bounds.bottom + 4 });
+              }}
+            >
+              <Icon name="sliders-horizontal" size={12} />
+            </button>
+          )}
+        </div>
+      ))}
+      {albumMenu === null ? null : (
+        <AlbumActionMenu
+          album={albumMenu.album}
+          x={albumMenu.x}
+          y={albumMenu.y}
+          onClose={() => {
+            setAlbumMenu(null);
+            restoreAlbumActionFocus();
+          }}
+          onRename={() => {
+            setAlbumMenu(null);
+            setRenamingAlbum(albumMenu.album);
+          }}
+          onDelete={() => {
+            setAlbumMenu(null);
+            setDeletingAlbum(albumMenu.album);
           }}
         />
-      ))}
+      )}
+      {renamingAlbum === null ? null : (
+        <RenameAlbumDialog
+          key={renamingAlbum.id}
+          album={renamingAlbum}
+          onClose={() => {
+            setRenamingAlbum(null);
+            restoreAlbumActionFocus();
+          }}
+          onComplete={(name) => {
+            setRenamingAlbum(null);
+            dispatch({ type: 'toast/shown', toast: { title: `Renamed album to ${name}`, tone: 'green' } });
+            restoreAlbumActionFocus();
+          }}
+        />
+      )}
+      {deletingAlbum === null ? null : (
+        <DeleteAlbumDialog
+          key={deletingAlbum.id}
+          album={deletingAlbum}
+          onClose={() => {
+            setDeletingAlbum(null);
+            restoreAlbumActionFocus();
+          }}
+          onComplete={() => {
+            if (state.album === deletingAlbum.id) dispatch({ type: 'source/set', source: 'all' });
+            dispatch({
+              type: 'toast/shown',
+              toast: {
+                title: `Deleted ${deletingAlbum.name} · ${formatCount(deletingAlbum.count)} ${deletingAlbum.count === 1 ? 'photo' : 'photos'} kept`,
+                tone: 'neutral',
+              },
+            });
+            setDeletingAlbum(null);
+            // The opener belongs to the row being removed. Move focus to a
+            // stable destination instead of leaving keyboard focus on body.
+            albumActionOriginRef.current = null;
+            requestAnimationFrame(() => allPhotosRef.current?.focus());
+          }}
+        />
+      )}
       <div className="ovl-sidebar__spacer" />
       {collapsed ? (
         <Tooltip label={`Library encrypted${backupRun !== null && backupRun.done < backupRun.total ? ' · backing up' : ''}`} side="right">

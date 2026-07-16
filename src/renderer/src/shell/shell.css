@@ -345,6 +345,102 @@
   color: var(--text-faint);
 }
 
+.ovl-sidebar__albumrow {
+  position: relative;
+  width: 100%;
+}
+
+.ovl-sidebar--collapsed .ovl-sidebar__albumrow {
+  width: 36px;
+}
+
+.ovl-sidebar__albumrow .ovl-siderow:not(.ovl-siderow--collapsed) {
+  padding-right: 34px;
+}
+
+.ovl-sidebar__album-actions {
+  position: absolute;
+  right: 4px;
+  top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ovl-sidebar__albumrow:hover .ovl-sidebar__album-actions,
+.ovl-sidebar__albumrow:focus-within .ovl-sidebar__album-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ovl-album-menu {
+  position: fixed;
+  z-index: 210;
+  min-width: 190px;
+  padding: var(--space-1);
+  background: var(--gray-2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-1);
+  box-shadow: var(--shadow-2);
+}
+
+.ovl-album-menu button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  text-align: left;
+}
+
+.ovl-album-menu button:hover,
+.ovl-album-menu button:focus-visible {
+  background: var(--gray-4);
+  outline: none;
+}
+
+.ovl-album-menu .ovl-album-menu__danger,
+.ovl-album-dialog__error {
+  color: var(--accent-red);
+}
+
+.ovl-album-dialog__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+}
+
+.ovl-album-dialog__input {
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+  color: var(--text-body);
+  font: inherit;
+}
+
+.ovl-album-dialog__safe-copy,
+.ovl-album-dialog__error {
+  margin-top: var(--space-3);
+}
+
 /* Full-window drop overlay (#237) — the mock's own metrics. */
 .ovl-shell__dropOverlay {
   position: absolute;
