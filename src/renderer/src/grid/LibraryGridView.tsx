@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ReactElement } from 'react';
+import type { DragEvent, ReactElement } from 'react';
 
 import type { AlbumSummary, PhotoRecord } from '../../../shared/library/types.js';
 import { formatCount } from '../../../shared/library/format.js';
@@ -54,8 +54,19 @@ export function LibraryGridView({
     );
   }
 
-  const renderTile = (photo: PhotoRecord): ReactElement =>
-    state.view === 'list' ? (
+  const renderTile = (photo: PhotoRecord): ReactElement => {
+    const onDragStart =
+      state.source === 'deleted'
+        ? undefined
+        : (event: DragEvent<HTMLDivElement>): void => {
+            beginPhotoDrag(event.dataTransfer, {
+              version: 1,
+              photoIds: state.selection.has(photo.id) ? [...state.selection] : [photo.id],
+              sourceAlbumId: state.album,
+            });
+          };
+    const onDragEnd = onDragStart === undefined ? undefined : endPhotoDrag;
+    return state.view === 'list' ? (
       <ListRow
         photo={photo}
         selected={state.selection.has(photo.id)}
@@ -66,14 +77,8 @@ export function LibraryGridView({
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
-        onDragStart={(event) => {
-          beginPhotoDrag(event.dataTransfer, {
-            version: 1,
-            photoIds: state.selection.has(photo.id) ? [...state.selection] : [photo.id],
-            sourceAlbumId: state.album,
-          });
-        }}
-        onDragEnd={endPhotoDrag}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
       />
     ) : (
       <PhotoTile
@@ -89,16 +94,11 @@ export function LibraryGridView({
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
-        onDragStart={(event) => {
-          beginPhotoDrag(event.dataTransfer, {
-            version: 1,
-            photoIds: state.selection.has(photo.id) ? [...state.selection] : [photo.id],
-            sourceAlbumId: state.album,
-          });
-        }}
-        onDragEnd={endPhotoDrag}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
       />
     );
+  };
 
   return (
     <>
