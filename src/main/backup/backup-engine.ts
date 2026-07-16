@@ -4,7 +4,14 @@ import { pipeline } from 'node:stream/promises';
 
 import { ProviderError, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
-import { buildBackupManifestV2, type BackupManifestSnapshot } from './backup-manifest.js';
+import {
+  buildBackupManifestV2,
+  buildBackupManifestV3,
+  type BackupManifestSnapshot,
+  type BackupManifestSnapshotV3,
+  type ProtectedBackupAlbumV3,
+  type ProtectedBackupPhotoV3,
+} from './backup-manifest.js';
 import type { SyncStatus } from '../../shared/library/types.js';
 import type { BackupIntegritySummary } from './integrity-scrubber.js';
 
@@ -79,6 +86,19 @@ export interface BackupEngineDeps {
   readonly audit: (line: string) => void;
   readonly integrityScrub: () => Promise<BackupIntegritySummary>;
   readonly recoveryGenerationHealthy: () => Promise<boolean>;
+  readonly protectedBackup?: {
+    readonly run: (signal?: AbortSignal) => Promise<{ readonly uploaded: number; readonly failed: number }>;
+    readonly scrub: () => Promise<BackupIntegritySummary>;
+    readonly hasManifestDebt: () => boolean;
+    readonly snapshot: () => {
+      readonly protectedAlbums: readonly ProtectedBackupAlbumV3[];
+      readonly protectedPhotos: readonly ProtectedBackupPhotoV3[];
+    };
+    readonly settleManifest: (snapshot: {
+      readonly protectedAlbums: readonly ProtectedBackupAlbumV3[];
+      readonly protectedPhotos: readonly ProtectedBackupPhotoV3[];
+    }) => void;
+  };
 }
 
 const MAX_ATTEMPTS = 3;
@@ -197,6 +217,14 @@ export class BackupEngine {
       await this.throttle(settings, this.deps.now() - started);
     }
 
+    if (signal?.aborted !== true && this.deps.protectedBackup !== undefined) {
+      if (this.deps.protectedBackup.hasManifestDebt()) this.manifestOwed = true;
+      const protectedResult = await this.deps.protectedBackup.run(signal);
+      uploaded += protectedResult.uploaded;
+      failed += protectedResult.failed;
+      if (protectedResult.uploaded > 0) this.manifestOwed = true;
+    }
+
     let manifestUploaded = true;
     if (uploaded > 0 || this.manifestOwed) {
       try {
@@ -223,7 +251,16 @@ export class BackupEngine {
     let integrity = EMPTY_INTEGRITY;
     if (failed === 0 && manifestUploaded) {
       try {
-        const summary = await this.deps.integrityScrub();
+        const ordinary = await this.deps.integrityScrub();
+        const protectedSummary =
+          this.deps.protectedBackup === undefined
+            ? { checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: true }
+            : await this.deps.protectedBackup.scrub();
+        const summary = {
+          checked: ordinary.checked + protectedSummary.checked,
+          repaired: ordinary.repaired + protectedSummary.repaired,
+          unrecoverable: ordinary.unrecoverable + protectedSummary.unrecoverable,
+        };
         const recoveryRepaired = !(await this.deps.recoveryGenerationHealthy());
         if (summary.unrecoverable > 0 || recoveryRepaired) {
           // A remote-only loss can change which deleted rows are honestly
@@ -300,11 +337,15 @@ export class BackupEngine {
   /** Seals and uploads the next manifest generation; prunes past N=2. */
   private async uploadManifest(): Promise<void> {
     const generatedAt = new Date(this.deps.now()).toISOString();
-    const manifest = buildBackupManifestV2({
-      libraryId: this.deps.libraryId(),
-      generatedAt,
-      snapshot: this.deps.manifestSnapshot(),
-    });
+    const protectedSnapshot = this.deps.protectedBackup?.snapshot();
+    const manifest =
+      protectedSnapshot === undefined
+        ? buildBackupManifestV2({ libraryId: this.deps.libraryId(), generatedAt, snapshot: this.deps.manifestSnapshot() })
+        : buildBackupManifestV3({
+            libraryId: this.deps.libraryId(),
+            generatedAt,
+            snapshot: { ...this.deps.manifestSnapshot(), ...protectedSnapshot } satisfies BackupManifestSnapshotV3,
+          });
     const json = JSON.stringify(manifest);
     const sealed = await this.deps.sealManifest(json);
     // The bootstrap is a superset across rotations and lands first: a crash
@@ -323,6 +364,7 @@ export class BackupEngine {
     for (const stale of sorted.slice(0, Math.max(0, sorted.length - MANIFEST_KEEP))) {
       await this.deps.provider.delete(stale.path);
     }
+    if (protectedSnapshot !== undefined) this.deps.protectedBackup?.settleManifest(protectedSnapshot);
   }
 
   private async putBufferVerified(path: string, bytes: Buffer): Promise<void> {

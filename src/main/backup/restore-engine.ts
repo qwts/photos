@@ -5,10 +5,12 @@ import { addAbortSignal } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 
 import { BlobStore, BlobStoreError } from '../blobs/blob-store.js';
+import { ProtectedBlobStore, ProtectedBlobStoreError } from '../blobs/protected-blob-store.js';
 import type { SafeStorageLike } from '../crypto/keystore.js';
 import { installRecoveredMaster } from '../crypto/recovery.js';
 import { openLibraryDatabase } from '../db/database.js';
 import { PhotosRepository } from '../db/photos-repository.js';
+import { ProtectedRecoveryRepository } from '../db/protected-recovery-repository.js';
 import type { ThumbnailService } from '../import/thumbnail-service.js';
 import type { BackupManifestPhotoV2 } from './backup-manifest.js';
 import { discoverRestore, type RestoreCandidate, type RestoreDiscovery } from './restore-discovery.js';
@@ -64,6 +66,7 @@ function checkpointFor(discovery: RestoreDiscovery, candidate: RestoreCandidate)
     sealedManifestSha256: candidate.sealedSha256,
     completedBlobIds: [],
     completedThumbnailIds: [],
+    completedProtectedObjectIds: [],
   };
 }
 
@@ -121,18 +124,22 @@ export class RestoreEngine {
     let resumed = false;
     if (loaded !== null && checkpointMatches(loaded, discovery, candidate)) {
       checkpoint = loaded;
-      resumed = loaded.completedBlobIds.length > 0 || loaded.completedThumbnailIds.length > 0;
+      resumed =
+        loaded.completedBlobIds.length > 0 || loaded.completedThumbnailIds.length > 0 || loaded.completedProtectedObjectIds.length > 0;
     } else {
       await resetStaging(paths);
       checkpoint = checkpointFor(discovery, candidate);
       await saveCheckpoint(paths, checkpoint);
     }
     const store = new BlobStore({ dataDir: paths.stagingDir });
+    const protectedStore = new ProtectedBlobStore(paths.stagingDir);
     await store.init();
+    await protectedStore.init();
     checkpoint = await this.restoreBlobs(paths, store, discovery, candidate, checkpoint, request.signal);
+    checkpoint = await this.restoreProtectedBlobs(paths, protectedStore, candidate, checkpoint, request.signal);
     await this.restoreThumbnails(paths, store, discovery, candidate, checkpoint, request.signal);
     this.emit('rebuilding', 0, candidate.manifest.photos.length, null);
-    await this.rebuildCatalog(paths, store, discovery, candidate, request.masterKey);
+    await this.rebuildCatalog(paths, store, protectedStore, discovery, candidate, request.masterKey);
     assertNotAborted(request.signal);
     this.emit('activating', 0, 1, null);
     await this.deps.beforeActivate?.();
@@ -145,6 +152,65 @@ export class RestoreEngine {
       photos: candidate.manifest.photos.length,
       resumed,
     };
+  }
+
+  private async restoreProtectedBlobs(
+    paths: RestorePaths,
+    store: ProtectedBlobStore,
+    candidate: RestoreCandidate,
+    checkpoint: RestoreCheckpoint,
+    signal?: AbortSignal,
+  ): Promise<RestoreCheckpoint> {
+    if (candidate.manifest.schema !== 3) return checkpoint;
+    const entries = candidate.manifest.protectedPhotos.flatMap((photo) =>
+      photo.objects.filter((object) => object.status === 'synced').map((object) => ({ photo, object, id: `${photo.id}:${object.kind}` })),
+    );
+    const ids = new Set(entries.map((entry) => entry.id));
+    const completed = new Set(checkpoint.completedProtectedObjectIds.filter((id) => ids.has(id)));
+    for (const entry of entries) {
+      if (!completed.has(entry.id)) continue;
+      if (!store.has(entry.photo.albumId, entry.photo.blobRef, entry.object.kind)) {
+        completed.delete(entry.id);
+        continue;
+      }
+      const actual = await store.ciphertextInfo(entry.photo.albumId, entry.photo.blobRef, entry.object.kind);
+      if (actual.sha256 !== entry.object.sha256 || actual.bytes !== entry.object.bytes) {
+        completed.delete(entry.id);
+        await store.deleteKind(entry.photo.albumId, entry.photo.blobRef, entry.object.kind);
+      }
+    }
+    checkpoint = { ...checkpoint, completedProtectedObjectIds: [...completed] };
+    await saveCheckpoint(paths, checkpoint);
+    const pending = entries.filter((entry) => !completed.has(entry.id));
+    const requiredBytes = SCRATCH_BYTES + pending.reduce((sum, entry) => sum + entry.object.bytes, 0);
+    const available = await (this.deps.availableBytes ?? defaultAvailableBytes)(dirname(paths.targetDir));
+    if (available < requiredBytes) {
+      throw new RestoreError('disk-space', `restore needs ${String(requiredBytes)} bytes but only ${String(available)} are available`);
+    }
+    let done = completed.size;
+    this.emit('downloading', done, entries.length, null);
+    for (const entry of pending) {
+      assertNotAborted(signal);
+      try {
+        const remote = await this.deps.provider.getStream(entry.object.path);
+        await store.restoreEncrypted({
+          albumId: entry.photo.albumId,
+          blobRef: entry.photo.blobRef,
+          kind: entry.object.kind,
+          ciphertext: signal === undefined ? remote : addAbortSignal(signal, remote),
+          sha256: entry.object.sha256,
+          bytes: entry.object.bytes,
+        });
+      } catch (error) {
+        if (error instanceof ProtectedBlobStoreError) throw new RestoreError('corrupt', error.message);
+        throw error;
+      }
+      completed.add(entry.id);
+      checkpoint = { ...checkpoint, completedProtectedObjectIds: [...completed] };
+      await saveCheckpoint(paths, checkpoint);
+      this.emit('downloading', ++done, entries.length, null);
+    }
+    return checkpoint;
   }
 
   private async restoreBlobs(
@@ -259,6 +325,7 @@ export class RestoreEngine {
   private async rebuildCatalog(
     paths: RestorePaths,
     store: BlobStore,
+    protectedStore: ProtectedBlobStore,
     discovery: RestoreDiscovery,
     candidate: RestoreCandidate,
     masterKey: Buffer,
@@ -282,6 +349,7 @@ export class RestoreEngine {
     try {
       const repo = new PhotosRepository(db);
       repo.restoreManifest(candidate.manifest, discovery.bootstrap.keys);
+      if (candidate.manifest.schema === 3) new ProtectedRecoveryRepository(db).restore(candidate.manifest);
       const rebuilt = repo.manifestSnapshot();
       const expected = {
         keyIds: candidate.manifest.keyIds,
@@ -294,6 +362,25 @@ export class RestoreEngine {
       for (const photo of candidate.manifest.photos) {
         if (!(await store.verifyOriginal(photo.contentHash, discovery.resolveKey, photo.id))) {
           throw new RestoreError('corrupt', `final verification failed for ${photo.id}`);
+        }
+      }
+      if (candidate.manifest.schema === 3) {
+        const protectedRepo = new ProtectedRecoveryRepository(db);
+        const protectedExpected = {
+          protectedAlbums: candidate.manifest.protectedAlbums,
+          protectedPhotos: candidate.manifest.protectedPhotos,
+        };
+        if (!isDeepStrictEqual(protectedRepo.snapshot(), protectedExpected)) {
+          throw new RestoreError('corrupt', 'rebuilt protected catalog does not match the manifest');
+        }
+        for (const photo of candidate.manifest.protectedPhotos) {
+          for (const object of photo.objects) {
+            if (object.status === 'offloaded') continue;
+            const actual = await protectedStore.ciphertextInfo(photo.albumId, photo.blobRef, object.kind);
+            if (actual.sha256 !== object.sha256 || actual.bytes !== object.bytes) {
+              throw new RestoreError('corrupt', 'final protected ciphertext verification failed');
+            }
+          }
         }
       }
     } finally {

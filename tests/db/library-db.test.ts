@@ -95,7 +95,21 @@ describe('migrations', () => {
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    );
+    db.close();
+  });
+
+  test('schema v10 tracks protected ciphertext remotely without plaintext addresses', () => {
+    const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
+    const columns = queryAll<{ name: string }>(db, 'PRAGMA table_info(protected_remote_objects)');
+    assert.deepEqual(
+      columns.map((column) => column.name),
+      ['photo_id', 'kind', 'status', 'dirty', 'ciphertext_sha256', 'ciphertext_bytes', 'last_backup_at'],
+    );
+    assert.deepEqual(
+      queryAll<{ name: string }>(db, `SELECT name FROM pragma_table_info('protected_remote_objects') WHERE name LIKE '%hash%'`),
+      [],
     );
     db.close();
   });
@@ -118,7 +132,18 @@ describe('migrations', () => {
     const recordColumns = queryAll<{ name: string }>(db, 'PRAGMA table_info(protected_photo_records)');
     assert.deepEqual(
       recordColumns.map((column) => column.name),
-      ['photo_id', 'album_id', 'record_version', 'blob_ref', 'sealed_metadata', 'has_thumb', 'has_mid', 'created_at', 'updated_at'],
+      [
+        'photo_id',
+        'album_id',
+        'record_version',
+        'blob_ref',
+        'sealed_metadata',
+        'has_thumb',
+        'has_mid',
+        'created_at',
+        'updated_at',
+        'manifest_dirty',
+      ],
     );
     db.close();
   });
@@ -186,18 +211,18 @@ describe('migrations', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 12, name: 'twelve', up: () => order.push(12) },
       { version: 11, name: 'eleven', up: () => order.push(11) },
-      { version: 10, name: 'ten', up: () => order.push(10) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [10, 11]);
+    assert.deepEqual(order, [11, 12]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 10,
+      version: 11,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -206,7 +231,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 9);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 10);
     db.close();
   });
 });

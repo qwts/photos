@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const BACKUP_MANIFEST_SCHEMA_VERSION = 2 as const;
+export const BACKUP_MANIFEST_SCHEMA_VERSION = 3 as const;
 
 const ulidSchema = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u, 'expected a Crockford ULID');
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u, 'expected a lowercase SHA-256 digest');
@@ -57,7 +57,7 @@ export const backupManifestAlbumV2Schema = z.strictObject({
 
 export const backupManifestV2Schema = z
   .strictObject({
-    schema: z.literal(BACKUP_MANIFEST_SCHEMA_VERSION),
+    schema: z.literal(2),
     libraryId: ulidSchema,
     databaseSchema: z.number().int().positive(),
     generatedAt: isoTimestampSchema,
@@ -135,10 +135,126 @@ export const backupManifestV2Schema = z
     }
   });
 
+const sealedRecordSchema = z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u, 'expected base64');
+
+export const protectedBackupAlbumV3Schema = z.strictObject({
+  id: z.string().min(1),
+  credentialGeneration: z.number().int().positive(),
+  metadataGeneration: z.number().int().positive(),
+  credentialRecord: sealedRecordSchema,
+  sealedMetadata: sealedRecordSchema,
+  createdAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema,
+});
+
+export const protectedBackupObjectV3Schema = z.strictObject({
+  kind: z.enum(['original', 'thumb', 'mid']),
+  path: z.string().min(1),
+  sha256: sha256Schema,
+  bytes: z.number().int().nonnegative(),
+  status: z.enum(['synced', 'offloaded']),
+});
+
+export const protectedBackupPhotoV3Schema = z.strictObject({
+  id: z.string().min(1),
+  albumId: z.string().min(1),
+  blobRef: sha256Schema,
+  sealedMetadata: sealedRecordSchema,
+  createdAt: isoTimestampSchema,
+  updatedAt: isoTimestampSchema,
+  objects: z.array(protectedBackupObjectV3Schema).min(1).readonly(),
+});
+
+export const backupManifestV3Schema = z
+  .strictObject({
+    schema: z.literal(BACKUP_MANIFEST_SCHEMA_VERSION),
+    libraryId: ulidSchema,
+    databaseSchema: z.number().int().positive(),
+    generatedAt: isoTimestampSchema,
+    keyIds: z.array(keyIdSchema).readonly(),
+    totals: backupManifestV2Schema.shape.totals,
+    photos: z.array(backupManifestPhotoV2Schema).readonly(),
+    albums: z.array(backupManifestAlbumV2Schema).readonly(),
+    protectedAlbums: z.array(protectedBackupAlbumV3Schema).readonly(),
+    protectedPhotos: z.array(protectedBackupPhotoV3Schema).readonly(),
+  })
+  .superRefine((manifest, context) => {
+    const ordinary = backupManifestV2Schema.safeParse({
+      schema: 2,
+      libraryId: manifest.libraryId,
+      databaseSchema: manifest.databaseSchema,
+      generatedAt: manifest.generatedAt,
+      keyIds: manifest.keyIds,
+      totals: manifest.totals,
+      photos: manifest.photos,
+      albums: manifest.albums,
+    });
+    if (!ordinary.success) {
+      context.addIssue({ code: 'custom', message: `ordinary recovery records are inconsistent: ${z.prettifyError(ordinary.error)}` });
+    }
+    const albumIds = new Set<string>();
+    for (const [index, album] of manifest.protectedAlbums.entries()) {
+      if (albumIds.has(album.id))
+        context.addIssue({ code: 'custom', path: ['protectedAlbums', index, 'id'], message: 'protected album IDs must be unique' });
+      albumIds.add(album.id);
+    }
+    const photoIds = new Set<string>();
+    const remotePaths = new Map<string, { readonly sha256: string; readonly bytes: number }>();
+    for (const [photoIndex, photo] of manifest.protectedPhotos.entries()) {
+      if (photoIds.has(photo.id)) {
+        context.addIssue({ code: 'custom', path: ['protectedPhotos', photoIndex, 'id'], message: 'protected photo IDs must be unique' });
+      }
+      photoIds.add(photo.id);
+      if (!albumIds.has(photo.albumId)) {
+        context.addIssue({ code: 'custom', path: ['protectedPhotos', photoIndex, 'albumId'], message: 'protected album is missing' });
+      }
+      const kinds = new Set<string>();
+      for (const [objectIndex, object] of photo.objects.entries()) {
+        if (kinds.has(object.kind)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['protectedPhotos', photoIndex, 'objects', objectIndex, 'kind'],
+            message: 'protected object kinds must be unique per photo',
+          });
+        }
+        kinds.add(object.kind);
+        const expectedPath = `protected/${photo.blobRef.slice(0, 2)}/${photo.blobRef}.${object.kind}`;
+        if (object.path !== expectedPath) {
+          context.addIssue({
+            code: 'custom',
+            path: ['protectedPhotos', photoIndex, 'objects', objectIndex, 'path'],
+            message: 'protected object path does not match its opaque reference',
+          });
+        }
+        const previous = remotePaths.get(object.path);
+        if (previous !== undefined && (previous.sha256 !== object.sha256 || previous.bytes !== object.bytes)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['protectedPhotos', photoIndex, 'objects', objectIndex, 'path'],
+            message: 'shared protected object claims must agree',
+          });
+        }
+        remotePaths.set(object.path, object);
+      }
+      if (!kinds.has('original')) {
+        context.addIssue({
+          code: 'custom',
+          path: ['protectedPhotos', photoIndex, 'objects'],
+          message: 'protected photo requires an original',
+        });
+      }
+    }
+  });
+
 export type BackupManifestV1 = z.infer<typeof backupManifestV1Schema>;
 export type BackupManifestPhotoV2 = z.infer<typeof backupManifestPhotoV2Schema>;
 export type BackupManifestAlbumV2 = z.infer<typeof backupManifestAlbumV2Schema>;
 export type BackupManifestV2 = z.infer<typeof backupManifestV2Schema>;
+export type ProtectedBackupAlbumV3 = z.infer<typeof protectedBackupAlbumV3Schema>;
+export type ProtectedBackupObjectV3 = z.infer<typeof protectedBackupObjectV3Schema>;
+export type ProtectedBackupPhotoV3 = z.infer<typeof protectedBackupPhotoV3Schema>;
+export type BackupManifestV3 = z.infer<typeof backupManifestV3Schema>;
+export type RestorableBackupManifest = BackupManifestV2 | BackupManifestV3;
 
 export interface BackupManifestSnapshot {
   readonly databaseSchema: number;
@@ -148,8 +264,14 @@ export interface BackupManifestSnapshot {
   readonly albums: readonly BackupManifestAlbumV2[];
 }
 
+export interface BackupManifestSnapshotV3 extends BackupManifestSnapshot {
+  readonly protectedAlbums: readonly ProtectedBackupAlbumV3[];
+  readonly protectedPhotos: readonly ProtectedBackupPhotoV3[];
+}
+
 export type ParsedBackupManifest =
-  { readonly restorable: false; readonly manifest: BackupManifestV1 } | { readonly restorable: true; readonly manifest: BackupManifestV2 };
+  | { readonly restorable: false; readonly manifest: BackupManifestV1 }
+  | { readonly restorable: true; readonly manifest: RestorableBackupManifest };
 
 export class BackupManifestError extends Error {
   override readonly name = 'BackupManifestError';
@@ -161,6 +283,19 @@ export function buildBackupManifestV2(input: {
   readonly snapshot: BackupManifestSnapshot;
 }): BackupManifestV2 {
   return backupManifestV2Schema.parse({
+    schema: 2,
+    libraryId: input.libraryId,
+    generatedAt: input.generatedAt,
+    ...input.snapshot,
+  });
+}
+
+export function buildBackupManifestV3(input: {
+  readonly libraryId: string;
+  readonly generatedAt: string;
+  readonly snapshot: BackupManifestSnapshotV3;
+}): BackupManifestV3 {
+  return backupManifestV3Schema.parse({
     schema: BACKUP_MANIFEST_SCHEMA_VERSION,
     libraryId: input.libraryId,
     generatedAt: input.generatedAt,
@@ -180,10 +315,17 @@ export function parseBackupManifest(input: unknown): ParsedBackupManifest {
     }
     return { restorable: false, manifest: parsed.data };
   }
-  if (version.data.schema === BACKUP_MANIFEST_SCHEMA_VERSION) {
+  if (version.data.schema === 2) {
     const parsed = backupManifestV2Schema.safeParse(input);
     if (!parsed.success) {
       throw new BackupManifestError(`invalid schema-2 manifest: ${z.prettifyError(parsed.error)}`);
+    }
+    return { restorable: true, manifest: parsed.data };
+  }
+  if (version.data.schema === BACKUP_MANIFEST_SCHEMA_VERSION) {
+    const parsed = backupManifestV3Schema.safeParse(input);
+    if (!parsed.success) {
+      throw new BackupManifestError(`invalid schema-3 manifest: ${z.prettifyError(parsed.error)}`);
     }
     return { restorable: true, manifest: parsed.data };
   }

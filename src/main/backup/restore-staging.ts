@@ -13,6 +13,7 @@ const checkpointSchema = z.strictObject({
   sealedManifestSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   completedBlobIds: z.array(z.string().min(1)).readonly(),
   completedThumbnailIds: z.array(z.string().min(1)).readonly(),
+  completedProtectedObjectIds: z.array(z.string().min(1)).readonly().default([]),
 });
 
 export interface RestorePaths {

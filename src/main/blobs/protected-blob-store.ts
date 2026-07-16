@@ -108,6 +108,65 @@ export class ProtectedBlobStore {
     );
   }
 
+  /** Raw encrypted envelope for provider upload; no album authority or
+   * plaintext enters the provider adapter. */
+  getEncryptedStream(albumId: string, blobRef: string, kind: ProtectedBlobKind): Readable {
+    const path = this.path(albumId, blobRef, kind);
+    if (!existsSync(path)) throw new ProtectedBlobStoreError(`protected ${kind} is not in the store`);
+    return createReadStream(path);
+  }
+
+  async ciphertextInfo(
+    albumId: string,
+    blobRef: string,
+    kind: ProtectedBlobKind,
+  ): Promise<{ readonly sha256: string; readonly bytes: number }> {
+    return this.encryptedDigest(this.getEncryptedStream(albumId, blobRef, kind));
+  }
+
+  /** Fresh-machine restore publishes only ciphertext whose digest is bound
+   * by the authenticated manifest. Album keys remain closed. */
+  async restoreEncrypted(input: {
+    readonly albumId: string;
+    readonly blobRef: string;
+    readonly kind: ProtectedBlobKind;
+    readonly ciphertext: Readable;
+    readonly sha256: string;
+    readonly bytes: number;
+  }): Promise<void> {
+    const finalPath = this.path(input.albumId, input.blobRef, input.kind);
+    const stagePath = join(this.stagingDir, `restore-${randomBytes(12).toString('hex')}`);
+    const hasher = createHash('sha256');
+    let bytes = 0;
+    input.ciphertext.on('data', (chunk: Buffer) => {
+      bytes += chunk.length;
+      hasher.update(chunk);
+    });
+    try {
+      await pipeline(input.ciphertext, createWriteStream(stagePath, { flags: 'wx' }));
+      await syncFile(stagePath);
+      const sha256 = hasher.digest('hex');
+      if (sha256 !== input.sha256 || bytes !== input.bytes) {
+        throw new ProtectedBlobStoreError(`protected ${input.kind} ciphertext failed manifest verification`);
+      }
+      await mkdir(dirname(finalPath), { recursive: true });
+      try {
+        await link(stagePath, finalPath);
+      } catch (error) {
+        if (!isErrno(error, 'EEXIST')) throw error;
+        const existing = await this.ciphertextInfo(input.albumId, input.blobRef, input.kind);
+        if (existing.sha256 !== sha256 || existing.bytes !== bytes) {
+          throw new ProtectedBlobStoreError(`protected ${input.kind} restore conflicts with existing ciphertext`);
+        }
+      }
+      await rm(stagePath, { force: true });
+      await syncDirectory(dirname(finalPath));
+    } catch (error) {
+      await rm(stagePath, { force: true });
+      throw error;
+    }
+  }
+
   async verify(albumId: string, blobRef: string, kind: ProtectedBlobKind, albumKey: Buffer, expectedHash?: string): Promise<boolean> {
     const hash = await this.plaintextHash(albumId, blobRef, kind, albumKey);
     return hash !== undefined && (expectedHash === undefined || hash === expectedHash);
@@ -115,6 +174,10 @@ export class ProtectedBlobStore {
 
   async deleteBlob(albumId: string, blobRef: string): Promise<void> {
     for (const kind of ['original', 'thumb', 'mid'] as const) await rm(this.path(albumId, blobRef, kind), { force: true });
+  }
+
+  async deleteKind(albumId: string, blobRef: string, kind: ProtectedBlobKind): Promise<void> {
+    await rm(this.path(albumId, blobRef, kind), { force: true });
   }
 
   private async put(
@@ -166,6 +229,16 @@ export class ProtectedBlobStore {
     } catch {
       return undefined;
     }
+  }
+
+  private async encryptedDigest(stream: Readable): Promise<{ readonly sha256: string; readonly bytes: number }> {
+    const hasher = createHash('sha256');
+    let bytes = 0;
+    stream.on('data', (chunk: Buffer) => {
+      bytes += chunk.length;
+    });
+    await pipeline(stream, hasher);
+    return { sha256: hasher.digest('hex'), bytes };
   }
 
   private path(albumId: string, blobRef: string, kind: ProtectedBlobKind): string {

@@ -30,6 +30,7 @@ export interface RestoreCheckpoint {
   readonly sealedManifestSha256: string;
   readonly completedBlobIds: readonly string[];
   readonly completedThumbnailIds: readonly string[];
+  readonly completedProtectedObjectIds: readonly string[];
 }
 
 export function isAbortError(error: unknown): boolean {

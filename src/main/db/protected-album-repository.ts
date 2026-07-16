@@ -108,7 +108,7 @@ export class ProtectedAlbumRepository {
     const row = queryGet<{ albumId: string }>(
       this.db,
       `UPDATE protected_album_records
-          SET credential_generation = ?, metadata_generation = ?, credential_record = ?, updated_at = ?
+          SET credential_generation = ?, metadata_generation = ?, credential_record = ?, updated_at = ?, manifest_dirty = 1
         WHERE album_id = ? AND credential_record = ?
         RETURNING album_id AS albumId`,
       generations.passwordGeneration,
@@ -130,7 +130,7 @@ export class ProtectedAlbumRepository {
     this.context(albumId);
     const row = queryGet<{ albumId: string }>(
       this.db,
-      `UPDATE protected_album_records SET migration_state = ?, updated_at = ?
+      `UPDATE protected_album_records SET migration_state = ?, updated_at = ?, manifest_dirty = 1
         WHERE album_id = ? AND migration_state = ? RETURNING album_id AS albumId`,
       to,
       now,

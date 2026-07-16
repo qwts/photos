@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -7,17 +8,24 @@ import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 import { test } from 'node:test';
 
-import { buildBackupManifestV2, type BackupManifestPhotoV2, type BackupManifestV2 } from '../../src/main/backup/backup-manifest.js';
+import {
+  buildBackupManifestV2,
+  buildBackupManifestV3,
+  type BackupManifestPhotoV2,
+  type BackupManifestV2,
+} from '../../src/main/backup/backup-manifest.js';
 import { FaultInjectingProvider, MockProvider } from '../../src/main/backup/mock-provider.js';
 import type { ProviderAuthState, ProviderQuota, RemoteEntry, StorageProvider } from '../../src/main/backup/provider.js';
 import { sealRecoveryBootstrap } from '../../src/main/backup/recovery-bootstrap.js';
 import { RestoreEngine, type RestoreEngineDeps } from '../../src/main/backup/restore-engine.js';
 import { RestoreError, type RestoreProgress } from '../../src/main/backup/restore-types.js';
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
+import { ProtectedBlobStore } from '../../src/main/blobs/protected-blob-store.js';
 import { createEncryptStream } from '../../src/main/crypto/envelope.js';
 import { KeyStore, type SafeStorageLike } from '../../src/main/crypto/keystore.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
+import { ProtectedRecoveryRepository } from '../../src/main/db/protected-recovery-repository.js';
 import { queryGet } from '../../src/main/db/sql.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 
@@ -235,6 +243,74 @@ test('restore engine: fresh staging rebuilds keys, catalog, originals, thumbnail
     assert.equal(await restoredStore.verifyThumbs(photo.contentHash, restoredKeys.resolver(), photo.id), true);
   }
   assert.equal(world.progress.at(-1)?.stage, 'complete');
+});
+
+test('restore engine: schema 3 stages verified protected ciphertext and restores sealed records closed (#328)', async () => {
+  const world = await restoreWorld();
+  const protectedSource = new ProtectedBlobStore(mkdtempSync(join(tmpdir(), 'overlook-protected-restore-source-')));
+  await protectedSource.init();
+  const albumId = 'protected-album';
+  const photoId = 'protected-photo';
+  const albumKey = randomBytes(32);
+  const plaintext = Buffer.from('protected restore original');
+  const contentHash = createHash('sha256').update(plaintext).digest('hex');
+  const blobRef = await protectedSource.putOriginal({ albumId, albumKey, contentHash, plaintext: Readable.from(plaintext) });
+  const ciphertext = await buffer(protectedSource.getEncryptedStream(albumId, blobRef, 'original'));
+  const sha256 = createHash('sha256').update(ciphertext).digest('hex');
+  const path = `protected/${blobRef.slice(0, 2)}/${blobRef}.original`;
+  await put(world.provider, path, ciphertext);
+  const ordinary = makeManifest(world.photos);
+  const credentialRecord = Buffer.from('sealed credential record').toString('base64');
+  const sealedAlbum = Buffer.from('sealed album metadata').toString('base64');
+  const sealedPhoto = Buffer.from('sealed photo metadata').toString('base64');
+  const manifest = buildBackupManifestV3({
+    libraryId: LIBRARY_ID,
+    generatedAt: GENERATED_AT,
+    snapshot: {
+      databaseSchema: 10,
+      keyIds: ordinary.keyIds,
+      totals: ordinary.totals,
+      photos: ordinary.photos,
+      albums: ordinary.albums,
+      protectedAlbums: [
+        {
+          id: albumId,
+          credentialGeneration: 1,
+          metadataGeneration: 1,
+          credentialRecord,
+          sealedMetadata: sealedAlbum,
+          createdAt: GENERATED_AT,
+          updatedAt: GENERATED_AT,
+        },
+      ],
+      protectedPhotos: [
+        {
+          id: photoId,
+          albumId,
+          blobRef,
+          sealedMetadata: sealedPhoto,
+          createdAt: GENERATED_AT,
+          updatedAt: GENERATED_AT,
+          objects: [{ kind: 'original', path, sha256, bytes: ciphertext.length, status: 'synced' }],
+        },
+      ],
+    },
+  });
+  await put(world.provider, 'manifest/gen-2.ovlk', await sealManifest(manifest, world.keyStore));
+
+  const result = await new RestoreEngine(world.deps).run({ masterKey: world.masterKey, allowReplace: false });
+  assert.equal(result.generation, 2);
+  const restoredKeys = KeyStore.open({ safeStorage: fakeSafeStorage, dataDir: world.targetDir });
+  const dbKey = restoredKeys.resolver()(1);
+  assert.ok(dbKey !== undefined);
+  const db = openLibraryDatabase({ path: join(world.targetDir, 'library.db'), dbKey });
+  const snapshot = new ProtectedRecoveryRepository(db).snapshot();
+  assert.deepEqual(snapshot.protectedAlbums, manifest.protectedAlbums);
+  assert.deepEqual(snapshot.protectedPhotos, manifest.protectedPhotos);
+  db.close();
+  const restored = new ProtectedBlobStore(world.targetDir);
+  await restored.init();
+  assert.deepEqual(await restored.ciphertextInfo(albumId, blobRef, 'original'), { sha256, bytes: ciphertext.length });
 });
 
 test('restore engine: corrupt newest-generation blob falls back without contaminating the previous generation (#288)', async () => {
