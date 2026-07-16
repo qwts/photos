@@ -1,5 +1,17 @@
 # photos
 
+## 0.21.0
+
+### Minor Changes
+
+- a68b86e: Add crash-safe acknowledged Move journals that preserve source originals until target metadata and byte custody are verified.
+- 5dae313: Add opt-in native Touch ID unlock on supported signed macOS builds while preserving app-password fallback and fail-closed key custody.
+- 5dbbe39: Add the protected-album key-slot, sealed-metadata, and session-authority foundation.
+
+### Patch Changes
+
+- 2cce89b: Keep the root application releasable after adding the local Touch ID native dependency.
+
 ## 0.20.0
 
 ### Minor Changes
