@@ -74,11 +74,15 @@ export const EscapeCloses: Story = {
     await waitFor(async () => {
       await expect(dialog).toHaveFocus();
     });
+    const escapedPastDialog = fn();
+    window.addEventListener('keydown', escapedPastDialog);
     await userEvent.keyboard('{Escape}');
+    window.removeEventListener('keydown', escapedPastDialog);
     await waitFor(async () => {
       await expect(canvas.queryByRole('dialog')).not.toBeInTheDocument();
     });
     await expect(args.onClose).toHaveBeenCalledOnce();
+    await expect(escapedPastDialog).not.toHaveBeenCalled();
   },
 };
 

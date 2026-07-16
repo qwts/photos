@@ -4,27 +4,13 @@ import type { OverlookApi } from '../../../shared/ipc/api.js';
 import { formatBytes, formatCount } from '../../../shared/library/format.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
+import { offloadReasonLabel } from './offload-summary';
 
 import './offload.css';
 
 type Preflight = Awaited<ReturnType<OverlookApi['backup']['offloadPreflight']>>;
 type OffloadResult = Awaited<ReturnType<OverlookApi['backup']['offload']>>;
 type SkipReason = NonNullable<Preflight['items'][number]['reason']>;
-
-const REASON_COPY: Record<SkipReason, string> = {
-  'missing-photo': 'No longer in this library',
-  deleted: 'Recently deleted',
-  'provider-disconnected': 'Cloud provider is disconnected',
-  'provider-expired': 'Cloud connection has expired',
-  'provider-offline': 'Cloud provider is offline',
-  local: 'Not backed up yet',
-  syncing: 'Backup is still in progress',
-  'already-offloaded': 'Already offloaded',
-  error: 'Backup needs attention',
-  dirty: 'Changed since the last verified backup',
-  'shared-original': 'Original is shared by another live photo',
-  'missing-original': 'Local original is missing',
-};
 
 export interface OffloadDialogProps {
   readonly photoIds: readonly string[];
@@ -109,7 +95,7 @@ export function OffloadDialog({ photoIds, onClose, onComplete }: OffloadDialogPr
                 <ul>
                   {[...reasons].map(([reason, count]) => (
                     <li key={reason}>
-                      {formatCount(count)} · {REASON_COPY[reason]}
+                      {formatCount(count)} · {offloadReasonLabel(reason)}
                     </li>
                   ))}
                 </ul>

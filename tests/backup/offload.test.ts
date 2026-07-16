@@ -189,6 +189,51 @@ describe('offload + rehydrate (#107)', () => {
     assert.equal(w.store.hasOriginal(w.repo.get('P0')?.contentHash ?? ''), true);
   });
 
+  test('expired and offline providers block eviction with actionable reasons (#281)', async () => {
+    const expired = await world(1);
+    await expired.engine.run();
+    expired.provider.authState = () => Promise.resolve('expired');
+    assert.equal((await expired.service.preflight(['P0'])).items[0]?.reason, 'provider-expired');
+    assert.equal((await expired.service.offload(['P0'])).results[0]?.reason, 'provider-expired');
+    assert.equal(expired.store.hasOriginal(expired.repo.get('P0')?.contentHash ?? ''), true);
+
+    const offline = await world(1);
+    await offline.engine.run();
+    offline.provider.authState = () => Promise.reject(new Error('offline'));
+    assert.equal((await offline.service.preflight(['P0'])).items[0]?.reason, 'provider-offline');
+    assert.equal((await offline.service.offload(['P0'])).results[0]?.reason, 'provider-offline');
+    assert.equal(offline.store.hasOriginal(offline.repo.get('P0')?.contentHash ?? ''), true);
+  });
+
+  test('execution rechecks provider state after preflight before deleting bytes (#281)', async () => {
+    const w = await world(1);
+    await w.engine.run();
+    let authChecks = 0;
+    w.provider.authState = () => Promise.resolve(authChecks++ === 0 ? 'connected' : 'expired');
+
+    const result = await w.service.offload(['P0']);
+    assert.deepEqual(result.results, [{ photoId: 'P0', outcome: 'skipped', reason: 'provider-expired' }]);
+    assert.equal(w.store.hasOriginal(w.repo.get('P0')?.contentHash ?? ''), true);
+    assert.equal(w.ledger.status('P0'), 'synced');
+  });
+
+  test('a partial delete failure preserves that source and reports exact mixed results (#281)', async () => {
+    const w = await world(2);
+    await w.engine.run();
+    const deleteOriginal = w.store.deleteOriginal.bind(w.store);
+    const failedHash = w.repo.get('P0')?.contentHash;
+    w.store.deleteOriginal = (hash) => (hash === failedHash ? Promise.reject(new Error('disk busy')) : deleteOriginal(hash));
+
+    const result = await w.service.offload(['P0', 'P1']);
+    assert.deepEqual(result.results, [
+      { photoId: 'P0', outcome: 'failed', reason: 'delete-failed' },
+      { photoId: 'P1', outcome: 'offloaded', reason: null },
+    ]);
+    assert.equal(w.store.hasOriginal(failedHash ?? ''), true);
+    assert.equal(w.ledger.status('P0'), 'synced');
+    assert.equal(w.ledger.status('P1'), 'offloaded');
+  });
+
   test('EXIT CRITERIA: rehydrate restores byte-identical, verifies, and flips synced', async () => {
     const w = await world(1);
     await w.engine.run();
@@ -257,5 +302,25 @@ describe('offload + rehydrate (#107)', () => {
     const summary = await w.service.restoreOriginals(['P0']);
     assert.deepEqual(summary.results, [{ photoId: 'P0', outcome: 'failed', reason: 'provider-disconnected' }]);
     assert.equal(w.ledger.status('P0'), 'offloaded');
+  });
+
+  test('batch restore keeps remote-only rows offloaded for expired and offline providers (#281)', async () => {
+    const expired = await world(1);
+    await expired.engine.run();
+    await expired.service.offload(['P0']);
+    expired.provider.authState = () => Promise.resolve('expired');
+    assert.deepEqual((await expired.service.restoreOriginals(['P0'])).results, [
+      { photoId: 'P0', outcome: 'failed', reason: 'provider-expired' },
+    ]);
+    assert.equal(expired.ledger.status('P0'), 'offloaded');
+
+    const offline = await world(1);
+    await offline.engine.run();
+    await offline.service.offload(['P0']);
+    offline.provider.authState = () => Promise.reject(new Error('offline'));
+    assert.deepEqual((await offline.service.restoreOriginals(['P0'])).results, [
+      { photoId: 'P0', outcome: 'failed', reason: 'provider-offline' },
+    ]);
+    assert.equal(offline.ledger.status('P0'), 'offloaded');
   });
 });
