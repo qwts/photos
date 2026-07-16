@@ -500,6 +500,36 @@
       ]
     },
     {
+      "id": "m20-app-lock-lifecycle",
+      "wiki": "User-Story-M20-Privacy-lock-protected-albums",
+      "coverage": [
+        {
+          "type": "deferred",
+          "issue": 311
+        }
+      ]
+    },
+    {
+      "id": "m20-touch-id-unlock",
+      "wiki": "User-Story-M20-Privacy-lock-protected-albums",
+      "coverage": [
+        {
+          "type": "deferred",
+          "issue": 310
+        }
+      ]
+    },
+    {
+      "id": "m20-protected-albums",
+      "wiki": "User-Story-M20-Privacy-lock-protected-albums",
+      "coverage": [
+        {
+          "type": "deferred",
+          "issue": 309
+        }
+      ]
+    },
+    {
       "id": "deferred-semantic-search-results",
       "wiki": "User-Stories",
       "coverage": [
