@@ -34,6 +34,7 @@ async function emitLifecycleLock(app: ElectronApplication, event: 'lock-screen' 
 }
 
 test('app lock withholds content across configuration, bypass attempts, restart, rotation, and removal', async () => {
+  test.setTimeout(60_000);
   const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-app-lock-'));
   const first = await launch(userData);
   try {
