@@ -149,6 +149,10 @@ describe('SyncProtocolService', () => {
     });
     assert.equal(applied.state, 'applied');
     assert.equal(opened.repository.counts(SESSION_ID).applied, 1);
+    assert.throws(
+      () => opened.service.decide(SESSION_ID, remote.identity.interopId, 'title', 'keep-image-trail'),
+      /not awaiting conflict resolution/u,
+    );
     assert.equal(opened.repository.changesAfter(SESSION_ID, 'image-trail', 2).length, 1);
     assert.equal(opened.repository.advanceCheckpoint(SESSION_ID, 'image-trail', 3, now()).checkpoints['image-trail'], 3);
     opened.db.close();
@@ -271,6 +275,22 @@ describe('SyncProtocolService', () => {
     const envelope = syncEnvelope({ sessionId: SECOND_SESSION_ID, messageId: THIRD_MESSAGE_ID });
     start(opened.service, envelope, THIRD_SESSION_ID);
     assert.throws(() => opened.service.receive(THIRD_SESSION_ID, envelope, fixture().payload.record), /durable session identity/u);
+    opened.db.close();
+  });
+
+  test('reuses a session when the reviewed scope has different property order', () => {
+    const opened = open(databasePath(), clock());
+    const envelope = syncEnvelope();
+    start(opened.service, envelope);
+    const restarted = opened.service.start({
+      sessionId: SESSION_ID,
+      pairingId: envelope.header.pairingId,
+      sourceProduct: envelope.header.sourceProduct,
+      targetProduct: envelope.header.targetProduct,
+      direction: 'two-way',
+      scope: { localIds: [], kind: 'all' },
+    });
+    assert.deepEqual(restarted.scope, { kind: 'all', localIds: [] });
     opened.db.close();
   });
 });

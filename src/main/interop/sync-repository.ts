@@ -237,6 +237,7 @@ export class SyncRepository {
     readonly at: string;
   }): StoredSyncSession {
     const at = timestampSchema.parse(input.at);
+    const scope = scopeSchema.parse(input.scope);
     if (input.sourceProduct === input.targetProduct) throw new SyncRepositoryError('Sync source and target products must differ.');
     if (
       (input.direction === 'image-trail-to-overlook' && (input.sourceProduct !== 'image-trail' || input.targetProduct !== 'overlook')) ||
@@ -258,7 +259,7 @@ export class SyncRepository {
         sourceProduct: interopProductSchema.parse(input.sourceProduct),
         targetProduct: interopProductSchema.parse(input.targetProduct),
         direction: directionSchema.parse(input.direction),
-        scopeJson: JSON.stringify(scopeSchema.parse(input.scope)),
+        scopeJson: JSON.stringify(scope),
         at,
       },
     );
@@ -268,11 +269,11 @@ export class SyncRepository {
       session.sourceProduct !== input.sourceProduct ||
       session.targetProduct !== input.targetProduct ||
       session.direction !== input.direction ||
-      JSON.stringify(session.scope) !== JSON.stringify(input.scope)
+      JSON.stringify(session.scope) !== JSON.stringify(scope)
     ) {
       throw new SyncRepositoryError('Sync session identity was reused with different first-run choices.');
     }
-    this.auditEvent(`${input.sessionId}:started`, input.sessionId, null, 'started', { direction: input.direction, scope: input.scope }, at);
+    this.auditEvent(`${input.sessionId}:started`, input.sessionId, null, 'started', { direction: input.direction, scope }, at);
     return session;
   }
 
@@ -421,6 +422,7 @@ export class SyncRepository {
   ): StoredSyncItem {
     this.requireActiveSession(sessionId);
     const item = this.requireItem(sessionId, interopId);
+    if (item.state !== 'conflict') throw new SyncRepositoryError('Sync item is not awaiting conflict resolution.');
     const at = timestampSchema.parse(atInput);
     const conflictFields = item.analysis.conflicts.map((conflict) => conflict.field);
     if (!conflictFields.includes(field)) throw new SyncRepositoryError(`Sync field ${field} is not conflicted.`);
