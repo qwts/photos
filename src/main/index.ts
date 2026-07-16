@@ -281,6 +281,7 @@ function getThumbService(): ThumbService {
     }
     const repo = new PhotosRepository(parts.db);
     thumbService = new ThumbService({
+      admit: (photoId) => repo.get(photoId) !== undefined,
       loadThumb: async (photoId, size) => {
         const photo = repo.get(photoId);
         if (photo === undefined) {
@@ -541,6 +542,7 @@ function getBackupEngine(): BackupEngine {
     purgeRuntime = createPurgeRuntime(purgeService);
     consistencyChecker = new ConsistencyChecker({
       rows: () => repo.allRows(),
+      hiddenOwnedHashes: () => repo.migrationOwnedContentHashes(),
       blobs: {
         listOriginalHashes: async () => parts.blobStore.listOriginalHashes(),
         listThumbHashes: async () => parts.blobStore.listThumbHashes(),

@@ -17,6 +17,8 @@ export interface LoadedThumb {
 export interface ThumbServiceOptions {
   /** Resolves and decrypts a thumb; null means "no thumb for this photo". */
   readonly loadThumb: (photoId: string, size: ThumbUrlSize) => Promise<LoadedThumb | null>;
+  /** Rechecked before and after cache/decrypt work. False revokes both sizes. */
+  readonly admit?: ((photoId: string) => boolean) | undefined;
   /** LRU cap over decrypted bytes. Default 32 MiB. */
   readonly maxCacheBytes?: number | undefined;
   /** Concurrent decrypts. Default 4. */
@@ -28,10 +30,12 @@ const DEFAULT_CONCURRENT = 4;
 
 export class ThumbService {
   private readonly loadThumb: ThumbServiceOptions['loadThumb'];
+  private readonly admit: NonNullable<ThumbServiceOptions['admit']>;
   private readonly lru: ByteLru<LoadedThumb>;
 
   constructor(options: ThumbServiceOptions) {
     this.loadThumb = options.loadThumb;
+    this.admit = options.admit ?? (() => true);
     this.lru = new ByteLru({
       maxCacheBytes: options.maxCacheBytes ?? DEFAULT_CACHE_BYTES,
       maxConcurrent: options.maxConcurrent ?? DEFAULT_CONCURRENT,
@@ -44,7 +48,21 @@ export class ThumbService {
    * spend decrypt work).
    */
   async getThumb(photoId: string, size: ThumbUrlSize, signal?: AbortSignal): Promise<LoadedThumb | null> {
-    return this.lru.get(`${photoId} ${size}`, () => this.loadThumb(photoId, size), signal);
+    if (!this.admit(photoId)) {
+      this.invalidate(photoId);
+      return null;
+    }
+    const loaded = await this.lru.get(`${photoId} ${size}`, () => this.loadThumb(photoId, size), signal);
+    if (!this.admit(photoId)) {
+      this.invalidate(photoId);
+      return null;
+    }
+    return loaded;
+  }
+
+  invalidate(photoId: string): void {
+    this.lru.delete(`${photoId} thumb`);
+    this.lru.delete(`${photoId} mid`);
   }
 
   /** {cachedBytes, peakConcurrent} — observability for tests and M11. */

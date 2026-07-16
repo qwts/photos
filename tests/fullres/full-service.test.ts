@@ -307,10 +307,24 @@ describe('FullService (#91)', () => {
     await entered;
     service.invalidate('P0');
     finish?.();
-    assert.notEqual(await stale, null, 'the existing protocol request can settle');
+    assert.equal(await stale, null, 'revocation prevents the existing protocol request from settling');
     assert.equal(service.stats().cachedBytes, 0, 'its invalidated plaintext generation is never cached');
     await service.getFull('P0');
     assert.equal(loads, 2, 'a later view starts a fresh custody-aware load');
+  });
+
+  test('admission is rechecked around cache hits and zeroizes revoked plaintext', async () => {
+    let admitted = true;
+    const plaintext = Buffer.from('cached-view');
+    const service = new FullService({
+      admit: () => admitted,
+      loadOriginal: () => Promise.resolve({ bytes: plaintext, contentHash: 'hash', fileKind: 'jpeg' }),
+    });
+    assert.notEqual(await service.getFull('P0'), null);
+    admitted = false;
+    assert.equal(await service.getFull('P0'), null);
+    assert.deepEqual(plaintext, Buffer.alloc(plaintext.length));
+    assert.equal(service.stats().cachedBytes, 0);
   });
 
   test('EXIT CRITERIA: real-store originals decrypt in memory, never touch disk', async () => {

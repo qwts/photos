@@ -33,6 +33,9 @@ export interface RepairSummary extends ConsistencyReport {
 
 export interface ConsistencyDeps {
   readonly rows: () => readonly { id: string; contentHash: string; syncState: string }[];
+  /** Ownership-only references that must prevent orphan cleanup but must not
+   * appear in row diagnostics or repair audit output. */
+  readonly hiddenOwnedHashes?: (() => readonly string[]) | undefined;
   readonly blobs: {
     readonly listOriginalHashes: () => Promise<{ hash: string; ageMs: number }[]>;
     readonly listThumbHashes: () => Promise<{ hash: string; ageMs: number }[]>;
@@ -55,7 +58,7 @@ export class ConsistencyChecker {
   /** Observe-only: detect DB↔blob↔ledger drift. */
   async scan(): Promise<ConsistencyReport> {
     const rows = this.deps.rows();
-    const owned = new Set(rows.map((row) => row.contentHash));
+    const owned = new Set([...rows.map((row) => row.contentHash), ...(this.deps.hiddenOwnedHashes?.() ?? [])]);
     // Age-gated like staging: a just-published blob whose row hasn't
     // committed yet is a live import, not an orphan (PR #223 review).
     const orphanOriginals = (await this.deps.blobs.listOriginalHashes())

@@ -73,9 +73,11 @@ const item = (photoId: string, sourceBlobRef = 'a'.repeat(64), targetBlobRef = '
 });
 
 describe('ProtectedPhotoMigrationRepository', () => {
-  test('prepare hides both domains; rollback reveals the unchanged ordinary source', () => {
+  test('prepare hides every ordinary query, dedupe, action, and diagnostic surface; rollback restores the source', () => {
     const { db, photos, migrations } = world();
+    photos.createAlbum('ordinary-a', 'Ordinary');
     photos.insert(photo('photo-a'));
+    photos.addToAlbum('ordinary-a', ['photo-a']);
     migrations.prepare({
       migrationId: 'migration-a',
       operation: 'protect',
@@ -85,7 +87,35 @@ describe('ProtectedPhotoMigrationRepository', () => {
     });
     assert.equal(photos.get('photo-a'), undefined);
     assert.deepEqual(migrations.listProtected('protected-a'), []);
-    assert.ok(photos.allRows().some((row) => row.contentHash === 'a'.repeat(64)));
+    for (const source of ['all', 'favorites', 'recent', 'offloaded', 'deleted'] as const) {
+      assert.deepEqual(
+        photos.page({ source, limit: 10, ...(source === 'recent' ? { recentSince: '2020-01-01T00:00:00.000Z' } : {}) }).photos,
+        [],
+        source,
+      );
+    }
+    assert.deepEqual(photos.counts('2020-01-01T00:00:00.000Z'), {
+      all: 0,
+      favorites: 0,
+      recent: 0,
+      offloaded: 0,
+      deleted: 0,
+    });
+    assert.deepEqual(photos.albums(), [{ id: 'ordinary-a', name: 'Ordinary', count: 0 }]);
+    assert.deepEqual(photos.albumMembers('ordinary-a'), []);
+    assert.equal(photos.stats().photos, 0);
+    assert.equal(photos.stats().bytes, 0);
+    assert.equal(photos.hasContentHash('a'.repeat(64)), false, 'ordinary dedupe cannot reveal a protected match');
+    assert.deepEqual(photos.softDelete(['photo-a']), []);
+    assert.deepEqual(photos.restore(['photo-a']), []);
+    assert.deepEqual(photos.addToAlbum('ordinary-a', ['photo-a']), []);
+    assert.deepEqual(photos.removeFromAlbum('ordinary-a', ['photo-a']), []);
+    assert.throws(() => photos.toggleFavorite('photo-a'), /does not exist/u);
+    assert.deepEqual(photos.allRows(), [], 'diagnostics receive no hidden row or identifier');
+    assert.deepEqual(photos.migrationOwnedContentHashes(), ['a'.repeat(64)], 'orphan repair retains ownership without a row');
+    assert.deepEqual(photos.dirtyPhotos(), []);
+    assert.deepEqual(photos.integrityItems({ afterId: null, limit: 10 }), []);
+    assert.deepEqual(photos.manifestSnapshot().photos, []);
     migrations.rollbackPrecommit('migration-a');
     assert.equal(photos.get('photo-a')?.fileName, 'photo-a.jpg');
     db.close();

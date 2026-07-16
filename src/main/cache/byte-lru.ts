@@ -73,9 +73,9 @@ export class ByteLru<V extends ByteSized> {
     return this.cache.has(key) || this.inFlight.has(key);
   }
 
-  /** Drops a completed value and detaches in-flight work. The load may finish
-   * for its existing waiter, but its stale generation cannot repopulate this
-   * cache or satisfy a new request after external custody closes. */
+  /** Revokes a completed value and any in-flight generation. Plaintext from
+   * either generation is zeroized and cannot settle an existing or later
+   * request after external custody closes. */
   delete(key: string): void {
     this.generations.set(key, (this.generations.get(key) ?? 0) + 1);
     this.inFlight.delete(key);
@@ -83,6 +83,7 @@ export class ByteLru<V extends ByteSized> {
     if (value === undefined) return;
     this.cache.delete(key);
     this.cacheBytes -= value.bytes.length;
+    value.bytes.fill(0);
   }
 
   /** {cachedBytes, peakConcurrent} — observability for tests and M11. */
@@ -122,7 +123,11 @@ export class ByteLru<V extends ByteSized> {
         return null;
       }
       const value = await load();
-      if (value !== null && !this.closed && (this.generations.get(key) ?? 0) === generation) {
+      if (value !== null) {
+        if (this.closed || (this.generations.get(key) ?? 0) !== generation) {
+          value.bytes.fill(0);
+          return null;
+        }
         this.store(key, value);
       }
       return value;
