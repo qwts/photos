@@ -170,9 +170,11 @@ describe('pCloud and Drive namespace isolation (#335)', () => {
       fetchImpl,
     });
     auth.seed('access', 3600);
+    const paths = new GoogleDrivePathStore(mkdtempSync(join(tmpdir(), 'overlook-interop-drive-')));
+    paths.setOverlookFolderId('backup-root');
     const store = createGoogleDriveInteropStore({
       auth,
-      paths: new GoogleDrivePathStore(mkdtempSync(join(tmpdir(), 'overlook-interop-drive-'))),
+      paths,
       fetchImpl,
     });
     await store.put('object.bin', Buffer.from([1, 2, 3]));
@@ -182,6 +184,7 @@ describe('pCloud and Drive namespace isolation (#335)', () => {
       overlookPathHash: createHash('sha256').update('overlook-root').digest('hex'),
     });
     assert.equal('listLibraries' in store, false);
+    assert.equal(paths.overlookFolderId(), 'backup-root', 'interop must not reuse or overwrite the backup root cache');
   });
 });
 
@@ -219,6 +222,29 @@ describe('signed iCloud native host (#335)', () => {
         })
       ).ok,
       true,
+    );
+    assert.deepEqual(calls, ['pairings/a/object.bin:staging/encrypted.bin']);
+    assert.equal(
+      (
+        await host.handle({
+          schemaVersion: 1,
+          operation: 'put-file',
+          extensionId: 'released-extension-id',
+          sourceFile: 'staging/encrypted.bin',
+        })
+      ).ok,
+      false,
+    );
+    assert.equal(
+      (
+        await host.handle({
+          schemaVersion: 1,
+          operation: 'materialize-file',
+          extensionId: 'released-extension-id',
+          destinationFile: 'staging/encrypted.bin',
+        })
+      ).ok,
+      false,
     );
     assert.deepEqual(calls, ['pairings/a/object.bin:staging/encrypted.bin']);
     assert.equal((await host.handle({ schemaVersion: 1, operation: 'status', extensionId: 'wrong' })).ok, false);
