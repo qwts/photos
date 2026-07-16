@@ -182,6 +182,19 @@ describe('protected album credential isolation (#325, ADR-0013)', () => {
       createProtectedAlbumCustody({ ...CONTEXT, password: PASSWORD, masterKey, metadata: duplicateMembership }),
       /duplicate album/,
     );
+
+    const sharedPosition = metadata();
+    sharedPosition.members[0]!.ordinaryMemberships = [
+      { albumId: 'TRAVEL', position: 0 },
+      { albumId: 'FAVORITES', position: 0 },
+    ];
+    const custody = await createProtectedAlbumCustody({
+      ...CONTEXT,
+      password: PASSWORD,
+      masterKey,
+      metadata: sharedPosition,
+    });
+    custody.albumKey.fill(0);
     masterKey.fill(0);
   });
 });
