@@ -124,6 +124,10 @@ export class ProtectedPhotoMigrationRepository {
     );
   }
 
+  countOrdinaryBlobOwners(contentHash: string): number {
+    return queryGet<{ count: number }>(this.db, 'SELECT count(*) AS count FROM photos WHERE content_hash = ?', contentHash)?.count ?? 0;
+  }
+
   prepare(input: {
     readonly migrationId: string;
     readonly operation: ProtectedMigrationOperation;
