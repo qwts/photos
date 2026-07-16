@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Readable } from 'node:stream';
 
 import type { BlobStore } from '../blobs/blob-store.js';
@@ -19,21 +21,25 @@ const STATUSES = ['local', 'synced', 'synced', 'synced', 'offloaded', 'syncing',
 
 export const SEED_ALBUMS = ['Travel 2026', 'Family', 'Big Sur', 'Kyoto Spring'] as const;
 
-// A real decodable 1x1 JPEG (baseline JFIF) — thumbs served over the #75
-// protocol must load in an actual <img>, not just round-trip bytes.
-const ONE_PIXEL_JPEG = Buffer.from(
-  '/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAAQABAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMAAgICAgICBAICBAYEBAQGCAYGBgYICggICAgICgwKCgoKCgoMDAwMDAwMDA4ODg4ODhAQEBAQEhISEhISEhISEv/bAEMBAwMDBQQFCAQECBMNCw0TExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE//dAAQAAf/aAAwDAQACEQMRAD8A/KuiiiugyP/Z',
-  'base64',
-);
+const SEED_PHOTO_FILES = ['summer-landscape.jpg', 'street-city.jpg', 'flower-landscape.jpg', 'street-square.jpg'] as const;
+let seedPhotoBytes: readonly Buffer[] | null = null;
 
-/** A tiny DECODABLE JPEG whose bytes vary by index (COM segment after SOI). */
+function realSeedPhotos(): readonly Buffer[] {
+  seedPhotoBytes ??= SEED_PHOTO_FILES.map((file) => readFileSync(join(process.cwd(), 'tests/fixtures/photos', file)));
+  return seedPhotoBytes;
+}
+
+/** A licensed real photograph whose bytes vary by index (COM after SOI). */
 export function sampleJpeg(index: number): Buffer {
+  const photos = realSeedPhotos();
+  const photo = photos[index % photos.length];
+  if (!photo) throw new Error('real seed-photo fixture set is empty');
   const comment = Buffer.from(`overlook-seed-${String(index).padStart(6, '0')}`, 'ascii');
   const com = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from([(comment.length + 2) >> 8, (comment.length + 2) & 0xff]), comment]);
   return Buffer.concat([
-    ONE_PIXEL_JPEG.subarray(0, 2), // SOI
+    photo.subarray(0, 2), // SOI
     com,
-    ONE_PIXEL_JPEG.subarray(2), // JFIF header, tables, scan, EOI
+    photo.subarray(2), // JFIF header, tables, scan, EOI
   ]);
 }
 
@@ -84,8 +90,7 @@ export async function seedLibrary(db: BetterSqlite3.Database, blobStore: BlobSto
     const meta = seedPhoto(index);
     const bytes = sampleJpeg(index);
     const ref = await blobStore.putOriginal(Readable.from([bytes]), key, meta.id);
-    // Real encrypted thumbs so the grid exercises the #75 protocol; the
-    // sample doubles as its own thumb until M05 generates real pyramids.
+    // Real encrypted photo thumbs so the grid exercises the #75 protocol.
     await blobStore.putThumb(Readable.from([bytes]), key, meta.id, ref.contentHash, 'thumb');
     repo.insert({ ...meta, contentHash: ref.contentHash, bytes: ref.bytes, keyId: key.id });
     const status = STATUSES[index % 8] ?? 'local';

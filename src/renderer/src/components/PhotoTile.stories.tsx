@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
+import realPhoto from '../../../../design/handoff/assets/thumbs/t01.png';
 import { PhotoTile } from './PhotoTile';
 import type { SyncState } from './StatusGlyph';
 
@@ -12,14 +13,6 @@ const meta: Meta<typeof PhotoTile> = {
 
 export default meta;
 type Story = StoryObj<typeof PhotoTile>;
-
-// Inline gradient placeholder — the design bundle's thumbs are generated
-// gradients too; a data URI keeps stories network-free.
-const THUMB =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2c4a5e"/><stop offset="1" stop-color="#0e1c26"/></linearGradient></defs><rect width="200" height="200" fill="url(#g)"/></svg>',
-  );
 
 const STATUSES: readonly SyncState[] = ['local', 'synced', 'syncing', 'offloaded', 'error'];
 
@@ -35,12 +28,12 @@ function Matrix(): ReactElement {
     >
       {STATUSES.map((status) => (
         <div key={status} style={{ aspectRatio: '1' }}>
-          <PhotoTile src={THUMB} alt={status} status={status} />
+          <PhotoTile src={realPhoto} alt={status} status={status} />
         </div>
       ))}
       {STATUSES.map((status) => (
         <div key={`sel-${status}`} style={{ aspectRatio: '1' }}>
-          <PhotoTile src={THUMB} alt={`${status} selected`} status={status} selected favorite />
+          <PhotoTile src={realPhoto} alt={`${status} selected`} status={status} selected favorite />
         </div>
       ))}
     </div>
@@ -53,7 +46,7 @@ export const StateMatrix: Story = {
 
 export const ClickTargetsAreIndependent: Story = {
   args: {
-    src: THUMB,
+    src: realPhoto,
     alt: 'IMG_4021.RAF',
     onClick: fn(),
     onToggleSelect: fn(),

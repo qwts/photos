@@ -35,7 +35,7 @@ test('browse + zoom: tiles render thumbs and rescale with the slider', async () 
   const { app, page } = await launchSeeded();
   try {
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
-    await expect(page.locator('.ovl-tile__img').first()).toHaveJSProperty('naturalWidth', 1);
+    await expect(page.locator('.ovl-tile__img').first()).toHaveJSProperty('naturalWidth', 1280);
 
     const before = await page.locator('.ovl-grid__cell').first().boundingBox();
     await page.getByRole('slider', { name: 'Zoom' }).fill('320');

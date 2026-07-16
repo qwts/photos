@@ -2,12 +2,9 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
+import realPhoto from '../../../../design/handoff/assets/thumbs/t02.png';
 import type { PhotoRecord, SyncStatus } from '../../../shared/library/types.js';
 import { ListRow } from './ListRow';
-
-const THUMB =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#2c4a5e"/></svg>');
 
 const meta: Meta<typeof ListRow> = {
   title: 'Grid/ListRow',
@@ -52,11 +49,11 @@ function Matrix(): ReactElement {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 'var(--space-3)', maxWidth: 720 }}>
       {STATES.map((syncState, index) => (
         <div key={syncState} style={{ height: 52 }}>
-          <ListRow photo={photo(index, syncState, index === 0)} src={THUMB} selected={false} onOpen={fn()} onToggleSelect={fn()} />
+          <ListRow photo={photo(index, syncState, index === 0)} src={realPhoto} selected={false} onOpen={fn()} onToggleSelect={fn()} />
         </div>
       ))}
       <div style={{ height: 52 }}>
-        <ListRow photo={photo(9, 'synced', true)} src={THUMB} selected onOpen={fn()} onToggleSelect={fn()} />
+        <ListRow photo={photo(9, 'synced', true)} src={realPhoto} selected onOpen={fn()} onToggleSelect={fn()} />
       </div>
     </div>
   );
@@ -73,7 +70,7 @@ const onToggle = fn();
 export const ClickTargetsAreIndependent: Story = {
   render: () => (
     <div style={{ height: 52, maxWidth: 720, padding: 'var(--space-3)' }}>
-      <ListRow photo={photo(0, 'synced')} src={THUMB} selected={false} onOpen={onOpen} onToggleSelect={onToggle} />
+      <ListRow photo={photo(0, 'synced')} src={realPhoto} selected={false} onOpen={onOpen} onToggleSelect={onToggle} />
     </div>
   ),
   play: async ({ canvasElement }) => {
