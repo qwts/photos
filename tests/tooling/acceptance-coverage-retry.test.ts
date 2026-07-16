@@ -9,4 +9,6 @@ test('acceptance coverage retries transient GitHub API failures (#357)', () => {
   assert.match(source, /attempt === GH_ATTEMPTS/u);
   assert.match(source, /await new Promise/u);
   assert.match(source, /await gh\(\['api'/u);
+  assert.match(source, /git', \['diff', '--name-only'/u);
+  assert.match(source, /signed pull-request event snapshot/u);
 });

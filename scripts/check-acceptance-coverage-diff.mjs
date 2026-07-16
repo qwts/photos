@@ -97,9 +97,16 @@ async function gatherInputs() {
     const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
     const repo = process.env.GITHUB_REPOSITORY;
     const number = event.pull_request?.number ?? event.number;
-    const changedFiles = splitList(await gh(['api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--jq', '.[].filename']));
-    // Read PR body/labels live so an edited opt-out is honored on a re-run.
-    const pr = JSON.parse(await gh(['api', `repos/${repo}/pulls/${number}`]));
+    const base = event.pull_request?.base?.sha;
+    if (typeof base !== 'string' || base === '') throw new Error('pull-request event has no base SHA');
+    const changedFiles = splitList(execFileSync('git', ['diff', '--name-only', base, 'HEAD'], { encoding: 'utf8' }));
+    let pr = event.pull_request;
+    try {
+      // Prefer live metadata so an edited opt-out is honored on a re-run.
+      pr = JSON.parse(await gh(['api', `repos/${repo}/pulls/${number}`]));
+    } catch {
+      console.warn('GitHub API remained unavailable; using the signed pull-request event snapshot.');
+    }
     return {
       changedFiles,
       body: pr.body ?? '',
