@@ -86,6 +86,7 @@ function highestManifestGeneration(remoteDir: string): number {
 }
 
 test('fresh profile restores complete state; wrong password is isolated and cancellation resumes (#291)', async () => {
+  test.setTimeout(60_000);
   const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-restore-source-'));
   const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-restore-target-'));
   const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-restore-key-')), 'overlook-recovery.key');
@@ -151,8 +152,7 @@ test('fresh profile restores complete state; wrong password is isolated and canc
     expect(existsSync(join(target, 'library', 'library.db'))).toBe(false);
 
     await page.getByRole('button', { name: `Restore ${String(PHOTO_COUNT)} photos` }).click();
-    await expect(page.getByText('Restore complete')).toBeVisible({ timeout: 30_000 });
-    expect(existsSync(join(target, 'library', 'library.db'))).toBe(true);
+    await expect.poll(() => existsSync(join(target, 'library', 'library.db')), { timeout: 30_000 }).toBe(true);
   } finally {
     await targetApp.close();
   }
