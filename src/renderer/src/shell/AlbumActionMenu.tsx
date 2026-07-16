@@ -9,10 +9,11 @@ export interface AlbumActionMenuProps {
   readonly y: number;
   readonly onRename: () => void;
   readonly onDelete: () => void;
+  readonly onTransfer: () => void;
   readonly onClose: () => void;
 }
 
-export function AlbumActionMenu({ album, x, y, onRename, onDelete, onClose }: AlbumActionMenuProps): ReactElement {
+export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, onClose }: AlbumActionMenuProps): ReactElement {
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
@@ -56,6 +57,10 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onClose }: Al
         target?.focus();
       }}
     >
+      <button type="button" role="menuitem" onClick={onTransfer}>
+        <Icon name="refresh-cw" size={14} />
+        Transfer &amp; Sync…
+      </button>
       <button
         type="button"
         role="menuitem"

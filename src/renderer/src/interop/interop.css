@@ -1,0 +1,80 @@
+.ovl-interop {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ovl-interop__context,
+.ovl-interop__provider span,
+.ovl-interop__truth {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.ovl-interop__segmented,
+.ovl-interop__conflict {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ovl-interop__segmented button {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+}
+
+.ovl-interop__segmented button[aria-pressed='true'] {
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+.ovl-interop__provider,
+.ovl-interop__error {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.ovl-interop__provider p {
+  margin: 0;
+}
+
+.ovl-interop__review {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.ovl-interop__review > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--bg-elevated);
+}
+
+.ovl-interop__review dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.ovl-interop__conflict {
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.ovl-interop__error {
+  color: var(--accent-amber);
+}
+
+@media (max-width: 520px) {
+  .ovl-interop__review {
+    grid-template-columns: 1fr 1fr;
+  }
+}

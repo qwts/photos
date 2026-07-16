@@ -2,6 +2,36 @@
   "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered \u2014 automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
   "entries": [
     {
+      "id": "m21-image-trail-transfer-sync-ui",
+      "wiki": "Acceptance-Test-Image-Trail-Transfer-And-Sync-UI",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "path": "tests/interop/visible-workflow.test.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx"
+        },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/lightbox.spec.ts"
+        },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/albums.spec.ts"
+        },
+        {
+          "type": "manual",
+          "reason": "Live provider credentials and the packaged signed iCloud host are owner-run closeout evidence in issue #337. Verify selection, album, lightbox, and settings entry points; exact review and custody counts; keyboard and narrow states; preserved selection/view/album; honest unavailable originals; and no backup namespace reuse."
+        }
+      ]
+    },
+    {
       "id": "m04-browse-zoom",
       "wiki": "User-Story-M04-Library-browsing",
       "coverage": [

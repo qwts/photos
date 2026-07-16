@@ -33,9 +33,10 @@ export interface ToolbarProps {
   /** Opens the ImportDialog (#88); wired by the shell. */
   readonly onImport?: (() => void) | undefined;
   readonly onLock?: (() => void) | undefined;
+  readonly onTransfer?: (() => void) | undefined;
 }
 
-export function Toolbar({ onImport, onLock }: ToolbarProps = {}): ReactElement {
+export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -127,6 +128,9 @@ export function Toolbar({ onImport, onLock }: ToolbarProps = {}): ReactElement {
             <IconButton icon="lock" label="Lock now" onClick={onLock} />
           </Tooltip>
         )}
+        <Button variant="secondary" icon="refresh-cw" size="md" onClick={onTransfer}>
+          Transfer &amp; Sync
+        </Button>
         <Button
           variant="primary"
           icon="download"

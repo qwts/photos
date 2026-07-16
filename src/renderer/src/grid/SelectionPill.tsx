@@ -13,6 +13,7 @@ export interface SelectionPillProps {
   /** Opens the ExportDialog with the selection set (#100). */
   readonly onExport?: (() => void) | undefined;
   readonly onOffload?: (() => void) | undefined;
+  readonly onTransfer?: (() => void) | undefined;
   /** Soft-deletes the selection (#120) — "Delete" per the language rules
    * because the photos leave the library view (restorable in trash). */
   readonly onDelete?: (() => void) | undefined;
@@ -33,6 +34,7 @@ export function SelectionPill({
   onClear,
   onExport,
   onOffload,
+  onTransfer,
   onDelete,
   onRestore,
   onAddToAlbum,
@@ -73,6 +75,9 @@ export function SelectionPill({
               Offload
             </Button>
             <div className="ovl-pill__wide-actions">
+              <Button size="sm" variant="secondary" icon="refresh-cw" onClick={onTransfer}>
+                Transfer &amp; Sync
+              </Button>
               <Button size="sm" variant="secondary" icon="share" onClick={onExport}>
                 Export
               </Button>
@@ -100,6 +105,9 @@ export function SelectionPill({
               <IconButton icon="sliders-horizontal" label="More selection actions" size="sm" onClick={() => setMoreOpen((open) => !open)} />
               {moreOpen ? (
                 <div className="ovl-pill__menu" role="menu">
+                  <button type="button" role="menuitem" onClick={onTransfer}>
+                    Transfer &amp; Sync
+                  </button>
                   <button type="button" role="menuitem" onClick={onExport}>
                     Export
                   </button>

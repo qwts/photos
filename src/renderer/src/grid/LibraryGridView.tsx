@@ -24,10 +24,12 @@ export function LibraryGridView({
   knownTotal,
   activeAlbum,
   onOffload,
+  onTransfer,
 }: {
   readonly knownTotal: number | null;
   readonly activeAlbum: AlbumSummary | null;
   readonly onOffload: (photoIds: readonly string[], clearSelection?: boolean) => void;
+  readonly onTransfer: (entry: 'selection' | 'lightbox', photoIds: readonly string[]) => void;
 }): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -113,6 +115,7 @@ export function LibraryGridView({
             dispatch({ type: 'dialog/set', dialog: 'export', open: true });
           }}
           onOffload={() => onOffload([...state.selection], true)}
+          onTransfer={() => onTransfer('selection', [...state.selection])}
           // Soft delete / restore (#120): the visible page refreshes off
           // the change push; the reducer intersects the selection away.
           {...(state.source === 'deleted'
@@ -183,6 +186,7 @@ export function LibraryGridView({
           y={contextPhoto.y}
           onClose={() => setContextPhoto(null)}
           onOffload={() => onOffload([contextPhoto.photo.id])}
+          onTransfer={() => onTransfer('lightbox', [contextPhoto.photo.id])}
         />
       )}
       {purgeIds !== null && purgeIds.length > 0 ? (

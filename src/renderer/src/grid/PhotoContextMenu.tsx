@@ -10,10 +10,11 @@ export interface PhotoContextMenuProps {
   readonly x: number;
   readonly y: number;
   readonly onOffload: () => void;
+  readonly onTransfer: () => void;
   readonly onClose: () => void;
 }
 
-export function PhotoContextMenu({ photo, x, y, onOffload, onClose }: PhotoContextMenuProps): ReactElement {
+export function PhotoContextMenu({ photo, x, y, onOffload, onTransfer, onClose }: PhotoContextMenuProps): ReactElement {
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     menuRef.current?.focus();
@@ -48,6 +49,17 @@ export function PhotoContextMenu({ photo, x, y, onOffload, onClose }: PhotoConte
       >
         <Icon name="cloud-upload" size={14} />
         Offload original…
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          onClose();
+          onTransfer();
+        }}
+      >
+        <Icon name="refresh-cw" size={14} />
+        Transfer &amp; Sync…
       </button>
     </div>
   );

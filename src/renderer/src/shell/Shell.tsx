@@ -23,6 +23,8 @@ import { StatusBar } from './StatusBar';
 import { ToastAction } from './ToastAction';
 import { useOffloadWorkflow } from '../offload/use-offload-workflow';
 import { Toolbar } from './Toolbar';
+import { InteropWorkflowDialog } from '../interop/InteropWorkflowDialog';
+import { blockedInteropWorkflow, type InteropEntryContext } from '../interop/visible-workflow.js';
 
 // 4s per the design's ToastHost (#89 exit criteria).
 const TOAST_DISMISS_MS = 4000;
@@ -43,6 +45,10 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   const [dragging, setDragging] = useState(false);
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
+  const [interopEntry, setInteropEntry] = useState<{ readonly context: InteropEntryContext; readonly total: number } | null>(null);
+  const openInterop = (context: InteropEntryContext, records: readonly string[] | number): void => {
+    setInteropEntry({ context, total: typeof records === 'number' ? records : records.length });
+  };
 
   useEffect(() => {
     const refreshStats = (): void => {
@@ -271,7 +277,14 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
           setDropped(null);
           dispatch({ type: 'dialog/set', dialog: 'import', open: true });
         }}
+        onTransfer={() => openInterop(state.selection.size > 0 ? 'selection' : 'settings', [...state.selection])}
       />
+      {interopEntry === null ? null : (
+        <InteropWorkflowDialog
+          state={blockedInteropWorkflow(interopEntry.context, interopEntry.total)}
+          onClose={() => setInteropEntry(null)}
+        />
+      )}
       {state.importOpen ? (
         <ImportDialog
           open
@@ -309,6 +322,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         <SettingsDialog
           open
           selectedPhotoIds={[...state.selection]}
+          onTransfer={() => openInterop('settings', [...state.selection])}
           onClose={() => {
             dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
           }}
@@ -348,6 +362,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
               // Lightbox entry point (#100): count=1, the focused photo.
               dispatch({ type: 'dialog/set', dialog: 'export', open: true });
             }}
+            onTransfer={() => openInterop('lightbox', [current.id])}
             onOffload={() => {
               offload.open([current.id], false, () => dispatch({ type: 'lightbox/closed' }));
             }}
@@ -369,12 +384,13 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         );
       })()}
       <div className="ovl-shell__body">
-        <Sidebar counts={counts} stats={stats} albums={albums} />
+        <Sidebar counts={counts} stats={stats} albums={albums} onTransferAlbum={(album) => openInterop('album', album.count)} />
         <main className="ovl-shell__content" data-testid="content-region">
           <LibraryGridView
             knownTotal={counts === null ? null : counts[state.source]}
             activeAlbum={albums.find((album) => album.id === state.album) ?? null}
             onOffload={offload.open}
+            onTransfer={openInterop}
           />
         </main>
         {state.inspectorOpen ? (

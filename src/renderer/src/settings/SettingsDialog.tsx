@@ -17,21 +17,23 @@ import './settings.css';
 // default-open section per the design. The dialog reads the store once on
 // open and follows changed pushes — one truth for every pane (#113+).
 
-export type SettingsSection = 'general' | 'storage' | 'privacy';
+export type SettingsSection = 'general' | 'storage' | 'transfer' | 'privacy';
 
 export interface SettingsDialogProps {
   readonly open: boolean;
   readonly onClose: () => void;
   readonly selectedPhotoIds?: readonly string[] | undefined;
+  readonly onTransfer?: (() => void) | undefined;
 }
 
 const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: string }[] = [
   { key: 'general', icon: 'sliders-horizontal', label: 'General' },
   { key: 'storage', icon: 'cloud', label: 'Storage & Backup' },
+  { key: 'transfer', icon: 'refresh-cw', label: 'Transfer & Sync' },
   { key: 'privacy', icon: 'shield-check', label: 'Privacy' },
 ];
 
-export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: SettingsDialogProps): ReactElement | null {
+export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfer }: SettingsDialogProps): ReactElement | null {
   const [section, setSection] = useState<SettingsSection>('storage');
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Recovery-key dialog (#240): layered over Settings, per the mock.
@@ -107,6 +109,18 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [] }: Setting
             <GeneralPane settings={settings} onPatch={patch} />
           ) : section === 'storage' ? (
             <StoragePane settings={settings} selectedPhotoIds={selectedPhotoIds} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
+          ) : section === 'transfer' ? (
+            <section className="ovl-settings__transfer" aria-label="Transfer and Sync settings">
+              <h3>Transfer &amp; Sync</h3>
+              <p>
+                Pair Overlook with Image Trail through an isolated encrypted provider namespace. Backup credentials and files are never
+                reused.
+              </p>
+              <p className="mono-data">NOT PAIRED · PROVIDER NOT CONNECTED</p>
+              <button type="button" onClick={onTransfer}>
+                Open Transfer &amp; Sync
+              </button>
+            </section>
           ) : (
             <PrivacyPane
               settings={settings}
