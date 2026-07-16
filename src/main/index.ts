@@ -687,7 +687,7 @@ function getExportFacade(): DrainableExportFacade {
   return exportFacade;
 }
 
-async function closeLibraryForRestore(): Promise<void> {
+async function closeLibrary(drainRestore: boolean): Promise<void> {
   scheduleAutoBackup.cancel();
   autoBackupTrigger = undefined;
   manifestSyncTrigger = undefined;
@@ -698,8 +698,8 @@ async function closeLibraryForRestore(): Promise<void> {
     importService?.drain() ?? Promise.resolve(),
     exportFacade?.drain() ?? Promise.resolve(),
     Promise.allSettled([...activeBackupRuns]),
-    restoreRuntime?.close() ?? Promise.resolve(),
-    providerIdle(),
+    drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
+    drainRestore ? providerIdle() : Promise.resolve(),
     thumbService?.close() ?? Promise.resolve(),
     fullService?.close() ?? Promise.resolve(),
     thumbnailPool?.close() ?? Promise.resolve(),
@@ -718,8 +718,11 @@ async function closeLibraryForRestore(): Promise<void> {
   purgeService = undefined;
   consistencyChecker = undefined;
   exportFacade = undefined;
-  restoreRuntime = undefined;
+  if (drainRestore) restoreRuntime = undefined;
 }
+
+const closeLibraryForRestore = (): Promise<void> => closeLibrary(false);
+const closeLibraryForLock = (): Promise<void> => closeLibrary(true);
 
 let appLockController: ReturnType<typeof createAppLockRuntime> | undefined;
 
@@ -743,7 +746,7 @@ function getAppLockController(): ReturnType<typeof createAppLockRuntime> {
           releasedMaster = undefined;
         }
       },
-      closeAuthorized: closeLibraryForRestore,
+      closeAuthorized: closeLibraryForLock,
       failClosed: relaunchLocked,
     });
   }
