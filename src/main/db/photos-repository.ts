@@ -87,7 +87,7 @@ const ORDERINGS = {
 function select(order: keyof typeof ORDERINGS): string {
   return `
   SELECT p.*, l.status AS sync_state, ${ORDERINGS[order].expr} AS sort_key
-  FROM photos p
+  FROM ordinary_visible_photos p
   LEFT JOIN sync_ledger l ON l.photo_id = p.id
 `;
 }
@@ -254,13 +254,13 @@ export class PhotosRepository {
   stats(): LibraryStats {
     const row = queryAll<{ n: number; b: number | null }>(
       this.db,
-      'SELECT count(*) AS n, sum(bytes) AS b FROM photos p WHERE p.deleted_at IS NULL',
+      'SELECT count(*) AS n, sum(bytes) AS b FROM ordinary_visible_photos p WHERE p.deleted_at IS NULL',
     )[0];
     const lastBackupAt = queryAll<{ at: string | null }>(this.db, 'SELECT max(last_backup_at) AS at FROM sync_ledger')[0]?.at ?? null;
     const offloadedBytes =
       queryAll<{ b: number | null }>(
         this.db,
-        `SELECT sum(p.bytes) AS b FROM photos p JOIN sync_ledger l ON l.photo_id = p.id
+        `SELECT sum(p.bytes) AS b FROM ordinary_visible_photos p JOIN sync_ledger l ON l.photo_id = p.id
           WHERE l.status = 'offloaded' AND p.deleted_at IS NULL`,
       )[0]?.b ?? 0;
     return { photos: row?.n ?? 0, bytes: row?.b ?? 0, pending: this.pendingCount(), lastBackupAt, offloadedBytes };
@@ -278,7 +278,10 @@ export class PhotosRepository {
     return queryAll<{ id: string; name: string; n: number }>(
       this.db,
       `SELECT a.id, a.name, count(ap.photo_id) AS n
-       FROM albums a LEFT JOIN album_photos ap ON ap.album_id = a.id
+       FROM albums a
+       LEFT JOIN album_photos ap
+         ON ap.album_id = a.id
+        AND ap.photo_id IN (SELECT id FROM ordinary_visible_photos)
        GROUP BY a.id ORDER BY a.position`,
     ).map((row) => ({ id: row.id, name: row.name, count: row.n }));
   }
@@ -286,9 +289,13 @@ export class PhotosRepository {
   /** Album members — the rows an album edit dirties (manifest-relevant
    * per ADR-0007). */
   albumMembers(albumId: string): string[] {
-    return queryAll<{ photo_id: string }>(this.db, 'SELECT photo_id FROM album_photos WHERE album_id = @albumId ORDER BY position', {
-      albumId,
-    }).map((row) => row.photo_id);
+    return queryAll<{ photo_id: string }>(
+      this.db,
+      `SELECT ap.photo_id FROM album_photos ap
+        JOIN ordinary_visible_photos p ON p.id = ap.photo_id
+       WHERE ap.album_id = @albumId ORDER BY ap.position`,
+      { albumId },
+    ).map((row) => row.photo_id);
   }
 
   /** Albums CRUD (#117). Deleting an album NEVER deletes photos — the
@@ -413,7 +420,18 @@ export class PhotosRepository {
   allRows(): readonly { id: string; contentHash: string; syncState: string }[] {
     return queryAll<{ id: string; content_hash: string; status: string | null }>(
       this.db,
-      'SELECT p.id, p.content_hash, l.status FROM photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id',
+      `SELECT p.id, p.content_hash, l.status
+         FROM photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id
+       UNION ALL
+       SELECT 'migration:' || item.migration_id || ':' || item.photo_id AS id,
+              CASE journal.operation
+                WHEN 'protect' THEN item.source_blob_ref
+                ELSE item.target_blob_ref
+              END AS content_hash,
+              'local' AS status
+         FROM protected_photo_migration_items item
+         JOIN protected_photo_migrations journal ON journal.migration_id = item.migration_id
+        WHERE journal.operation IN ('protect', 'unprotect')`,
     ).map((row) => ({ id: row.id, contentHash: row.content_hash, syncState: row.status ?? 'local' }));
   }
 
@@ -432,7 +450,7 @@ export class PhotosRepository {
     return queryAll<{ id: string }>(
       this.db,
       `SELECT p.id
-         FROM photos p JOIN sync_ledger l ON l.photo_id = p.id
+         FROM ordinary_visible_photos p JOIN sync_ledger l ON l.photo_id = p.id
         WHERE p.deleted_at IS NULL AND l.status = 'offloaded'
         ORDER BY p.imported_at, p.id`,
     ).map(({ id }) => id);
@@ -464,7 +482,7 @@ export class PhotosRepository {
         `SELECT ap.album_id AS albumId, ap.photo_id AS photoId
            FROM album_photos ap
            JOIN albums a ON a.id = ap.album_id
-           JOIN photos p ON p.id = ap.photo_id
+           JOIN ordinary_visible_photos p ON p.id = ap.photo_id
            JOIN sync_ledger l ON l.photo_id = p.id
           WHERE ${recoverable}
           ORDER BY a.position, a.id, ap.position, ap.photo_id`,
@@ -557,7 +575,7 @@ export class PhotosRepository {
     return queryAll<{ id: string; contentHash: string; bytes: number; fileName: string; keyId: number }>(
       this.db,
       `SELECT p.id, p.content_hash AS contentHash, p.bytes, p.file_name AS fileName, p.key_id AS keyId
-         FROM photos p JOIN sync_ledger l ON l.photo_id = p.id
+         FROM ordinary_visible_photos p JOIN sync_ledger l ON l.photo_id = p.id
         WHERE l.dirty = 1 AND p.deleted_at IS NULL
         ORDER BY p.imported_at, p.id`,
     );
@@ -570,7 +588,7 @@ export class PhotosRepository {
     return queryAll<BackupIntegrityItem>(
       this.db,
       `SELECT p.id, p.content_hash AS contentHash, l.status AS syncState
-         FROM photos p
+         FROM ordinary_visible_photos p
          JOIN sync_ledger l ON l.photo_id = p.id
         WHERE l.status IN ('synced', 'offloaded')
           AND (@afterId IS NULL OR p.id > @afterId)
@@ -587,7 +605,7 @@ export class PhotosRepository {
     return (
       queryAll<{ n: number }>(
         this.db,
-        'SELECT count(*) AS n FROM sync_ledger l JOIN photos p ON p.id = l.photo_id WHERE l.dirty = 1 AND p.deleted_at IS NULL',
+        'SELECT count(*) AS n FROM sync_ledger l JOIN ordinary_visible_photos p ON p.id = l.photo_id WHERE l.dirty = 1 AND p.deleted_at IS NULL',
       )[0]?.n ?? 0
     );
   }
@@ -602,7 +620,7 @@ export class PhotosRepository {
     const filters = sources.map((source) => `count(*) FILTER (WHERE ${sourceWhere(source)}) AS "${source}"`).join(', ');
     const row = queryAll<Record<(typeof sources)[number], number>>(
       this.db,
-      `SELECT ${filters} FROM photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id`,
+      `SELECT ${filters} FROM ordinary_visible_photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id`,
       { recentSince },
     )[0];
     return {
