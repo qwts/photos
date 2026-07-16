@@ -14,15 +14,8 @@
       8
     ]
   },
-  "os": [
-    "darwin"
-  ],
-  "cpu": [
-    "arm64",
-    "x64"
-  ],
   "scripts": {
-    "install": "node-gyp rebuild && node prepare-prebuild.cjs"
+    "install": "node install.cjs"
   },
   "dependencies": {
     "node-addon-api": "8.9.0"
