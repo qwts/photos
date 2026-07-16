@@ -17,6 +17,9 @@ const REASON_COPY: Record<OffloadReason, string> = {
   dirty: 'changed since verified backup',
   'shared-original': 'original shared by another photo',
   'missing-original': 'local original missing',
+  'remote-missing': 'cloud original missing',
+  'remote-mismatch': 'cloud original failed verification',
+  'remote-unverified': 'cloud original could not be verified',
   'delete-failed': 'local removal failed',
 };
 

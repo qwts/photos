@@ -99,6 +99,7 @@ async function world(count: number, providerConnected = true) {
     blobs: {
       deleteOriginal: async (hash) => store.deleteOriginal(hash),
       hasOriginal: (hash) => store.hasOriginal(hash),
+      encryptedStream: (hash) => store.getEncryptedStream(hash),
       restoreOriginal: async (hash, ciphertext, photoId) => store.restoreOriginal(hash, ciphertext, () => key.key, photoId),
     },
     syncStateChanged: (updates) => changed.push([...updates]),
@@ -208,13 +209,33 @@ describe('offload + rehydrate (#107)', () => {
   test('execution rechecks provider state after preflight before deleting bytes (#281)', async () => {
     const w = await world(1);
     await w.engine.run();
-    let authChecks = 0;
-    w.provider.authState = () => Promise.resolve(authChecks++ === 0 ? 'connected' : 'expired');
+    assert.equal((await w.service.preflight(['P0'])).eligible, 1);
+    w.provider.authState = () => Promise.resolve('expired');
 
     const result = await w.service.offload(['P0']);
     assert.deepEqual(result.results, [{ photoId: 'P0', outcome: 'skipped', reason: 'provider-expired' }]);
     assert.equal(w.store.hasOriginal(w.repo.get('P0')?.contentHash ?? ''), true);
     assert.equal(w.ledger.status('P0'), 'synced');
+  });
+
+  test('active-provider remote loss or mismatch blocks eviction despite a synced ledger (#281 review)', async () => {
+    const missing = await world(1);
+    await missing.engine.run();
+    const missingPhoto = missing.repo.get('P0');
+    const missingPath = `blobs/${missingPhoto?.contentHash.slice(0, 2) ?? ''}/${missingPhoto?.contentHash ?? ''}`;
+    await missing.provider.delete(missingPath);
+    assert.equal((await missing.service.preflight(['P0'])).items[0]?.reason, 'remote-missing');
+    assert.equal((await missing.service.offload(['P0'])).results[0]?.reason, 'remote-missing');
+    assert.equal(missing.store.hasOriginal(missingPhoto?.contentHash ?? ''), true);
+
+    const mismatch = await world(1);
+    await mismatch.engine.run();
+    const mismatchPhoto = mismatch.repo.get('P0');
+    const mismatchPath = `blobs/${mismatchPhoto?.contentHash.slice(0, 2) ?? ''}/${mismatchPhoto?.contentHash ?? ''}`;
+    await mismatch.provider.put(mismatchPath, Readable.from([Buffer.from('wrong active-provider object')]));
+    assert.equal((await mismatch.service.preflight(['P0'])).items[0]?.reason, 'remote-mismatch');
+    assert.equal((await mismatch.service.offload(['P0'])).results[0]?.reason, 'remote-mismatch');
+    assert.equal(mismatch.store.hasOriginal(mismatchPhoto?.contentHash ?? ''), true);
   });
 
   test('a partial delete failure preserves that source and reports exact mixed results (#281)', async () => {

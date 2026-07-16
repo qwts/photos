@@ -1,4 +1,6 @@
 import type { Readable } from 'node:stream';
+import { createHash } from 'node:crypto';
+import { pipeline } from 'node:stream/promises';
 
 import { ProviderError, type ProviderAuthState, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
@@ -23,7 +25,10 @@ export type OffloadSkipReason =
   | 'error'
   | 'dirty'
   | 'shared-original'
-  | 'missing-original';
+  | 'missing-original'
+  | 'remote-missing'
+  | 'remote-mismatch'
+  | 'remote-unverified';
 
 export interface OffloadPreflightItem {
   readonly photoId: string;
@@ -96,6 +101,7 @@ export interface OffloadDeps {
   readonly blobs: {
     readonly deleteOriginal: (contentHash: string) => Promise<void>;
     readonly hasOriginal: (contentHash: string) => boolean;
+    readonly encryptedStream: (contentHash: string) => Readable;
     /** Atomic restore of raw ciphertext; must verify before publishing. */
     readonly restoreOriginal: (contentHash: string, ciphertext: Readable, photoId: string) => Promise<void>;
   };
@@ -118,7 +124,8 @@ export class OffloadService {
   /** Read-only, exact plan used by every confirmation surface. */
   async preflight(photoIds: readonly string[]): Promise<OffloadPreflight> {
     const providerState = await this.providerState();
-    const items = [...new Set(photoIds)].map((photoId) => this.classify(photoId, providerState));
+    const items: OffloadPreflightItem[] = [];
+    for (const photoId of new Set(photoIds)) items.push(await this.classify(photoId, providerState));
     const eligibleItems = items.filter((item) => item.eligible);
     return {
       eligible: eligibleItems.length,
@@ -131,7 +138,6 @@ export class OffloadService {
   /** Evicts verified-synced originals; anything else is reported with an
    * exact reason, never silently forced. Thumbs stay browsable offline. */
   async offload(photoIds: readonly string[]): Promise<OffloadSummary> {
-    const plan = await this.preflight(photoIds);
     const providerState = await this.providerState();
     let offloaded = 0;
     let skipped = 0;
@@ -139,9 +145,12 @@ export class OffloadService {
     let freedBytes = 0;
     const changed: string[] = [];
     const results: OffloadResultItem[] = [];
-    for (const planned of plan.items) {
-      const photoId = planned.photoId;
-      const current = this.classify(photoId, providerState);
+    for (const photoId of new Set(photoIds)) {
+      // The provider-switch lock covers this entire method. Verify the
+      // active provider's ciphertext immediately before local deletion so
+      // a stale synced ledger entry from another account/provider cannot
+      // authorize eviction.
+      const current = await this.classify(photoId, providerState);
       const photo = this.deps.repo.get(photoId);
       if (!current.eligible || photo === undefined) {
         skipped += 1;
@@ -181,7 +190,7 @@ export class OffloadService {
     }
   }
 
-  private classify(photoId: string, providerState: ProviderAuthState | 'offline'): OffloadPreflightItem {
+  private async classify(photoId: string, providerState: ProviderAuthState | 'offline'): Promise<OffloadPreflightItem> {
     const photo = this.deps.repo.get(photoId);
     if (photo === undefined) return { photoId, bytes: 0, eligible: false, reason: 'missing-photo' };
     if (photo.deletedAt !== null) return { photoId, bytes: photo.bytes, eligible: false, reason: 'deleted' };
@@ -206,7 +215,53 @@ export class OffloadService {
     }
     if (providerState === 'expired') return { photoId, bytes: photo.bytes, eligible: false, reason: 'provider-expired' };
     if (providerState === 'offline') return { photoId, bytes: photo.bytes, eligible: false, reason: 'provider-offline' };
+    const remoteReason = await this.verifyActiveRemote(photoId, photo.contentHash);
+    if (remoteReason !== null) return { photoId, bytes: photo.bytes, eligible: false, reason: remoteReason };
     return { photoId, bytes: photo.bytes, eligible: true, reason: null };
+  }
+
+  private async verifyActiveRemote(photoId: string, contentHash: string): Promise<OffloadSkipReason | null> {
+    let local: { readonly sha256: string; readonly bytes: number };
+    try {
+      local = await this.hashLocalCiphertext(contentHash);
+    } catch (error) {
+      this.deps.audit(`OFFLOAD-VERIFY-FAIL photo=${photoId} side=local reason=${error instanceof Error ? error.message : String(error)}`);
+      return 'missing-original';
+    }
+    try {
+      const remote = await this.deps.provider.verify(blobPath(contentHash));
+      if (remote.sha256 !== local.sha256 || remote.bytes !== local.bytes) {
+        this.deps.audit(`OFFLOAD-VERIFY-FAIL photo=${photoId} side=remote reason=mismatch`);
+        return 'remote-mismatch';
+      }
+      return null;
+    } catch (error) {
+      const reason =
+        error instanceof ProviderError
+          ? error.kind === 'auth'
+            ? 'provider-expired'
+            : error.kind === 'not-found'
+              ? 'remote-missing'
+              : error.kind === 'corrupt'
+                ? 'remote-mismatch'
+                : error.kind === 'transient'
+                  ? 'provider-offline'
+                  : 'remote-unverified'
+          : 'remote-unverified';
+      this.deps.audit(`OFFLOAD-VERIFY-FAIL photo=${photoId} side=remote reason=${reason}`);
+      return reason;
+    }
+  }
+
+  private async hashLocalCiphertext(contentHash: string): Promise<{ sha256: string; bytes: number }> {
+    const hasher = createHash('sha256');
+    let bytes = 0;
+    const stream = this.deps.blobs.encryptedStream(contentHash);
+    stream.on('data', (chunk: Buffer) => {
+      bytes += chunk.length;
+    });
+    await pipeline(stream, hasher);
+    return { sha256: hasher.digest('hex'), bytes };
   }
 
   /** Download → staged restore → decrypt-and-rehash verify → synced. */

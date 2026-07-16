@@ -34,7 +34,7 @@ export function createBackupFacade(options: BackupFacadeOptions) {
       }
       return options.run();
     },
-    offloadPreflight: (photoIds: readonly string[]) => options.offloadService().preflight(photoIds),
+    offloadPreflight: (photoIds: readonly string[]) => withProviderWork(() => options.offloadService().preflight(photoIds)),
     offload: (photoIds: readonly string[]) => withProviderWork(() => options.offloadService().offload(photoIds)),
     rehydrate: (photoId: string) => withProviderWork(() => options.offloadService().rehydrate(photoId)),
     restoreOriginals: (photoIds?: readonly string[]) => withProviderWork(() => options.offloadService().restoreOriginals(photoIds)),
