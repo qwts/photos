@@ -31,7 +31,7 @@ test('albums: inline create, live counts, album-as-source grid filter', async ()
     await page.getByRole('button', { name: 'New album' }).click();
     await page.getByRole('textbox', { name: 'Album name' }).fill('Kyoto trip');
     await page.getByRole('textbox', { name: 'Album name' }).press('Enter');
-    const albumRow = page.getByRole('button', { name: /Kyoto trip/u });
+    const albumRow = page.locator('.ovl-sidebar__albumrow', { hasText: 'Kyoto trip' }).locator(':scope > .ovl-siderow');
     await expect(albumRow).toContainText('0');
 
     // Membership over IPC (the selection pill lands with #118): the count
