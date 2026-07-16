@@ -43,6 +43,12 @@ async function exerciseListAndRail(page: Page): Promise<void> {
   await expect(page.getByRole('status')).toContainText('Added 1 photo to Drop inbox');
   await expect(albumButton(page, 'Drop inbox')).toContainText('4');
 
+  await page.evaluate(`window.overlook.library.delete({ photoIds: ['01J8SEEDPHOTO0006'] })`);
+  await page.getByRole('button', { name: /Recently deleted/u }).click();
+  await expect(photo(page, 'IMG_4063.JPG')).toHaveAttribute('draggable', 'false');
+  await expect(albumButton(page, 'Drop inbox')).toContainText('4');
+  await page.getByRole('button', { name: /All Photos/u }).click();
+
   await expect
     .poll(() => page.evaluate(`window.overlook.library.get({ id: '01J8SEEDPHOTO0004' }).then((r) => r.photo?.syncState)`))
     .toBe('offloaded');
