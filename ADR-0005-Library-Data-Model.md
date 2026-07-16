@@ -47,6 +47,16 @@ addressed by the same hash + size suffix. The plaintext `content_hash` in the
 DB is the integrity anchor and the duplicate-import check; the envelope's
 per-chunk GCM tags authenticate the ciphertext.
 
+**Protected-domain store (ADR-0013 amendment).** Protected originals and both
+derivatives live under `protected-blobs/`, never `blobs/` or `thumbs/`. The
+album directory is an opaque stable digest and each blob reference is an
+album-key HMAC, not the ordinary plaintext content hash. `protected-tmp/` is a
+separate ciphertext-only staging area. Ordinary consistency/orphan scans do
+not enumerate either directory. Schema v7 adds `protected_photo_records` plus
+the `protected_photo_migrations` / `protected_photo_migration_items` journal;
+the `ordinary_visible_photos` view suppresses every in-flight source and
+destination until purge completes.
+
 **On-disk layout** under Electron `userData`:
 
 ```
@@ -55,6 +65,8 @@ blobs/              # encrypted originals, content-addressed
 thumbs/             # encrypted derivatives
 tmp/                # import staging — same volume, so finalizing a blob
                     # is an atomic rename, never a cross-device copy
+protected-blobs/    # album-key encrypted originals + thumb + mid, opaque ids
+protected-tmp/      # isolated protected-domain ciphertext staging
 ```
 
 **Pagination is keyset (cursor), never offset.** The library list/grid reads
@@ -93,3 +105,7 @@ ratchet culture.
   the design's "Recently deleted" sidebar source needs a deletion marker the
   original draft omitted; counts-by-source treats `deleted_at IS NOT NULL`
   as the deleted set. Soft-delete/restore semantics arrive with M10.
+- **2026-07-16 (#326):** schema v7 and the protected-domain store add durable
+  prepare/copy/verify/commit/purge migration custody. Ordinary and protected
+  queries hide journal members; ordinary consistency retains source/target
+  ownership without ever scanning protected paths.

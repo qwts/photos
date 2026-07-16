@@ -26,6 +26,13 @@ total-chunk-count marker so truncation is detectable. Integrity: the GCM tag
 per chunk, plus the SHA-256 content hash of the plaintext original stored in
 the database (also the blob-store address, ADR-0005).
 
+ADR-0013 protected domains use the same authenticated streaming envelope but
+replace the ordinary photo context with `protected album id + opaque blob ref +
+derivative kind`. Their address is HMAC-SHA-256 under the album key over the
+plaintext hash, so equality is visible only inside one authorized album. The
+ordinary plaintext hash remains sealed protected metadata and never becomes a
+protected filesystem or provider address.
+
 **Key hierarchy — master key → versioned library keys.**
 
 - A random 256-bit **master key** exists once per library. It never touches

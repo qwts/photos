@@ -214,8 +214,41 @@ The non-secret marker is bound to the current credential anchor. Password change
 
 ## #325 implementation evidence (2026-07-16)
 
-Draft [PR #330](https://github.com/qwts/photos/pull/330) supplies the non-user-visible protected-album custody foundation. Migration v5 adds an independent `protected_album_records` table containing only opaque ids, state, generations, and encrypted credential/metadata records; ordinary album rows and queries remain unchanged. Each album gets a random 32-byte `A`; the exact ADR scrypt profile derives `AP`; distinct library/album/purpose/generation AAD binds the password, recovery, and metadata envelopes. The sealed metadata includes the protected name, ordering, members, and ordinary-membership restoration data.
+[PR #330](https://github.com/qwts/photos/pull/330) supplies the non-user-visible protected-album custody foundation. Migration v6 adds an independent `protected_album_records` table containing only opaque ids, state, generations, and encrypted credential/metadata records; ordinary album rows and queries remain unchanged. Each album gets a random 32-byte `A`; the exact ADR scrypt profile derives `AP`; distinct library/album/purpose/generation AAD binds the password, recovery, and metadata envelopes. The sealed metadata includes the protected name, ordering, members, and ordinary-membership restoration data.
 
 Main-process-only authority owns copies of unlocked album keys and zeroizes them on replacement, relock, app lock, and close. Password rotation preserves `A` and the recovery slot while advancing optimistic generations. Forgotten-password recovery accepts the encrypted ADR-0008 recovery file plus its separate password, not an already-open app session. Staged records are restart-safe, hidden from ordinary albums, and can be discarded only after album-password authentication; active records cannot use that destructive path.
 
 Evidence is in `tests/crypto/protected-album-credentials.test.ts`, `tests/crypto/protected-album-authority.test.ts`, `tests/db/protected-album-repository.test.ts`, and the migration tests. It covers tamper, cross-library/album replay, downgrade, metadata substitution, duplicate restoration entries, password rotation/recovery, optimistic replacement, staged destruction, and relock zeroization. #325 deliberately exposes no renderer or IPC route. Photo/ciphertext migration remains #326, leakage enforcement #327, backup/restore/sync/offload #328, and user workflows #329; therefore this evidence does not yet satisfy `m20-protected-albums` by itself.
+
+## #326 implementation evidence (2026-07-16)
+
+Draft [PR #342](https://github.com/qwts/photos/pull/342) implements protected
+photo custody migration. Schema v7 separates protected photo records from
+ordinary rows and journals every protect, authorized move, and unprotect across
+`prepare → copy → verify → commit → purge`. The ordinary visibility view and
+protected repository both suppress journal members, so neither domain appears
+partially populated. Startup rolls back pre-commit destinations without album
+authority; committed/purging journals retain their source until the relevant
+authority can re-verify the destination and resume.
+
+Protected originals, thumbnails, and mid previews occupy `protected-blobs/`
+under domain-scoped HMAC references. Searchable metadata, plaintext hashes,
+EXIF/location, favorite/deleted state, and ordinary membership restoration are
+AES-GCM sealed under `A` with library/album/photo AAD. Equal plaintext dedupes
+inside one protected domain but produces independent references and randomized
+ciphertext across domains. Unprotect re-encrypts with the active library key
+and atomically restores ordinary metadata and memberships. Source purge always
+follows a fresh destination authentication pass; corrupt source or destination
+never triggers last-copy deletion.
+
+Evidence is in `tests/blobs/protected-blob-store.test.ts`,
+`tests/crypto/protected-photo-metadata.test.ts`,
+`tests/db/protected-photo-migration-repository.test.ts`, and
+`tests/crypto/protected-photo-migration-service.test.ts`. It covers the full
+kill/restart boundary matrix, isolated ordinary consistency scans, one-domain
+conflicts, cross-domain ciphertext independence, byte-identical unprotect,
+membership restoration, move re-encryption, corruption, and custody retention.
+The full `npm run ci` gate passed with 539 tests, one intentional live-provider
+skip, 92.65% line coverage, 84.08% branch coverage, and a production build.
+#327 leakage enforcement, #328 cloud lifecycle, and #329 user workflows remain
+required before `m20-protected-albums` can leave deferred status.
