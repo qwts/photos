@@ -26,6 +26,7 @@ export interface CredentialAnchor {
 }
 
 export interface CredentialAnchorStore {
+  isAvailable(): boolean;
   read(): CredentialAnchor | null;
   write(anchor: CredentialAnchor): void;
   clear(): void;
@@ -34,7 +35,10 @@ export interface CredentialAnchorStore {
 export type AppLockStatus =
   | { readonly state: 'unconfigured' }
   | { readonly state: 'locked'; readonly libraryId: string }
-  | { readonly state: 'recovery-required'; readonly reason: 'anchor-mismatch' | 'anchor-missing' | 'invalid-record' };
+  | {
+      readonly state: 'recovery-required';
+      readonly reason: 'anchor-mismatch' | 'anchor-missing' | 'anchor-unavailable' | 'invalid-record';
+    };
 
 export type UnlockResult =
   { readonly ok: true; readonly masterKey: Buffer } | { readonly ok: false; readonly reason: 'wrong-password' | 'recovery-required' };
@@ -188,6 +192,7 @@ export class AppLockCredentialStore {
     if (!raw.subarray(0, MAGIC.length).equals(MAGIC)) return { state: 'unconfigured' };
     const record = parseRecord(raw);
     if (record === null) return { state: 'recovery-required', reason: 'invalid-record' };
+    if (!this.options.anchorStore.isAvailable()) return { state: 'recovery-required', reason: 'anchor-unavailable' };
     const anchor = this.options.anchorStore.read();
     if (anchor === null) return { state: 'recovery-required', reason: 'anchor-missing' };
     if (anchor.libraryId !== record.libraryId || anchor.generation !== record.generation || anchor.recordHash !== recordHash(raw)) {
@@ -259,12 +264,13 @@ export class AppLockCredentialStore {
   }
 
   private async replaceRecord(input: ConfigureAppLockInput): Promise<void> {
+    if (!this.options.anchorStore.isAvailable()) throw new Error('OS credential store is unavailable');
     const current = parseRecord(existsSync(this.masterPath) ? readFileSync(this.masterPath) : Buffer.alloc(0));
     const generation = Math.max(current?.generation ?? 0, this.options.anchorStore.read()?.generation ?? 0) + 1;
     const record = await createRecord(input, generation);
     const raw = recordBytes(record);
     mkdirSync(this.options.dataDir, { recursive: true });
-    writeFileAtomic(this.masterPath, raw);
     this.options.anchorStore.write({ libraryId: record.libraryId, generation: record.generation, recordHash: recordHash(raw) });
+    writeFileAtomic(this.masterPath, raw);
   }
 }

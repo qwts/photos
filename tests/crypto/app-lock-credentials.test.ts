@@ -22,12 +22,18 @@ function fakeSafeStorage(): SafeStorageLike {
 
 class FakeAnchorStore implements CredentialAnchorStore {
   anchor: CredentialAnchor | null = null;
+  failWrite = false;
+
+  isAvailable(): boolean {
+    return true;
+  }
 
   read(): CredentialAnchor | null {
     return this.anchor;
   }
 
   write(anchor: CredentialAnchor): void {
+    if (this.failWrite) throw new Error('anchor unavailable');
     this.anchor = structuredClone(anchor);
   }
 
@@ -55,6 +61,17 @@ function world(): {
 }
 
 describe('app-lock credential custody (#311, ADR-0013)', () => {
+  test('anchor failure cannot commit a configured record over live legacy custody', async () => {
+    const { dataDir, anchors, store, masterKey } = world();
+    anchors.failWrite = true;
+    await assert.rejects(
+      store.configure({ libraryId: 'library-a', password: 'correct horse battery staple', masterKey }),
+      /anchor unavailable/,
+    );
+    assert.notEqual(readFileSync(join(dataDir, 'master.key')).subarray(0, 4).toString('ascii'), 'OVLK');
+    assert.deepEqual(store.status(), { state: 'unconfigured' });
+  });
+
   test('creation rejects weak credentials in the main process', async () => {
     const { store, masterKey } = world();
     await assert.rejects(store.configure({ libraryId: 'library-a', password: 'password', masterKey }), /too weak/);
