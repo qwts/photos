@@ -1,5 +1,15 @@
 # photos
 
+## 0.23.0
+
+### Minor Changes
+
+- cf96f5c: Add direct photo and selection drag-and-drop organization between albums.
+- db88013: Add durable deterministic Sync journals with replay-safe conflict and reviewed-delete decisions.
+- e3addd2: Enforce protected-album isolation at main-process query, media, and action boundaries.
+- 6582858: Back up, verify, restore, offload, and rehydrate protected-album ciphertext without disclosing protected metadata to cloud providers.
+- 26d9e73: Add provider-neutral encrypted interoperability transport and the fail-closed signed iCloud bridge boundary.
+
 ## 0.22.0
 
 ### Minor Changes
