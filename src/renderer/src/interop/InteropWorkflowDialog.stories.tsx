@@ -5,12 +5,14 @@ import { blockedInteropWorkflow, type InteropVisibleWorkflow } from './visible-w
 
 const onClose = fn();
 const onPause = fn();
+const onResume = fn();
+const onReconnect = fn();
 const onConflict = fn();
 
 const meta: Meta<typeof InteropWorkflowDialog> = {
   title: 'Interop/Transfer and Sync',
   component: InteropWorkflowDialog,
-  args: { state: reviewState(), onClose, onPause, onResume: fn(), onCancel: fn(), onStart: fn(), onReconnect: fn(), onConflict },
+  args: { state: reviewState(), onClose, onPause, onResume, onCancel: fn(), onStart: fn(), onReconnect, onConflict },
 };
 
 export default meta;
@@ -37,7 +39,9 @@ export const Transferring: Story = {
   args: { state: progressState('transferring') },
   play: async ({ args, canvasElement }) => {
     onPause.mockClear();
-    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Pause' }));
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('button', { name: 'Start move' })).toBeDisabled();
+    await userEvent.click(canvas.getByRole('button', { name: 'Pause' }));
     await expect(args.onPause).toHaveBeenCalledTimes(1);
   },
 };
@@ -49,6 +53,29 @@ export const PartialFailure: Story = {
       ...progressState('failed'),
       error: { code: 'partial-failure', message: '7 completed; 1 remains resumable.', retryable: true },
     },
+  },
+  play: async ({ args, canvasElement }) => {
+    onResume.mockClear();
+    onReconnect.mockClear();
+    const canvas = within(canvasElement);
+    await userEvent.click(within(canvas.getByRole('alert')).getByRole('button', { name: 'Resume' }));
+    await expect(args.onResume).toHaveBeenCalledTimes(1);
+    await expect(args.onReconnect).not.toHaveBeenCalled();
+  },
+};
+export const AuthenticationExpired: Story = {
+  args: {
+    state: {
+      ...progressState('failed'),
+      error: { code: 'auth-expired', message: 'Provider authorization expired.', retryable: true },
+    },
+  },
+  play: async ({ args, canvasElement }) => {
+    onResume.mockClear();
+    onReconnect.mockClear();
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Reconnect' }));
+    await expect(args.onReconnect).toHaveBeenCalledTimes(1);
+    await expect(args.onResume).not.toHaveBeenCalled();
   },
 };
 export const Completed: Story = { args: { state: progressState('completed') } };
