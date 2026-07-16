@@ -10,8 +10,13 @@ import type { ThumbService } from './thumb-service.js';
 // exactly one registerSchemesAsPrivileged call).
 
 /** Call once after app ready; the service is created lazily like the library. */
-export function registerThumbProtocol(getService: () => ThumbService): void {
+export function registerThumbProtocol(getService: () => ThumbService, admit: () => void = () => undefined): void {
   protocol.handle(THUMB_SCHEME, async (request) => {
+    try {
+      admit();
+    } catch {
+      return new Response(null, { status: 404 });
+    }
     const parsed = parseThumbUrl(request.url);
     if (parsed === null) {
       return new Response(null, { status: 400 });

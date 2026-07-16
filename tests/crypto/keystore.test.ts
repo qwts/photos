@@ -101,6 +101,22 @@ describe('KeyStore lifecycle', () => {
     });
     assert.equal(store.listKeys()[0]?.createdAt, '2026-07-12T00:00:00.000Z');
   });
+
+  test('authorized master opens configured custody and close revokes every resolver', () => {
+    const dataDir = tempDir();
+    const safeStorage = fakeSafeStorage(0x5a);
+    const legacy = KeyStore.open({ safeStorage, dataDir });
+    const master = legacy.masterKeyBytes();
+    const key = Buffer.from(legacy.currentKey().key);
+    legacy.close();
+
+    const authorized = KeyStore.openWithMaster({ safeStorage, dataDir }, master);
+    assert.deepEqual(authorized.currentKey().key, key);
+    authorized.close();
+    assert.equal(authorized.resolver()(1), undefined);
+    assert.throws(() => authorized.currentKey(), /not unwrapped/);
+    master.fill(0);
+  });
 });
 
 describe('KeyStore failure paths', () => {
