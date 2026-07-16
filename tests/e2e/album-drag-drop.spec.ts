@@ -67,7 +67,9 @@ test('photo drag-and-drop: add, move, duplicate, collapsed, list, and offloaded 
     env: {
       ...process.env,
       OVERLOOK_USER_DATA: userData,
-      OVERLOOK_SEED: '520',
+      // More than the viewport can mount, without competing with the suite's
+      // existing 2K-row stress case for startup resources.
+      OVERLOOK_SEED: '80',
       OVERLOOK_INSECURE_KEYSTORE: '1',
     },
   });
