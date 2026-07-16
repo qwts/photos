@@ -79,6 +79,9 @@ const offloadSkipReasonSchema = z.enum([
   'dirty',
   'shared-original',
   'missing-original',
+  'remote-missing',
+  'remote-mismatch',
+  'remote-unverified',
 ]);
 const offloadPreflightItemSchema = z.object({
   photoId: z.string(),

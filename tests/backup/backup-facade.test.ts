@@ -11,7 +11,10 @@ function runtime(activeId = 'mock'): ProviderRuntime {
 
 function offloadService(activeWork: () => number, reject = false): OffloadService {
   return {
-    preflight: () => Promise.resolve({ eligible: 0, ineligible: 0, estimatedFreedBytes: 0, items: [] }),
+    preflight: () => {
+      assert.equal(activeWork(), 1);
+      return Promise.resolve({ eligible: 0, ineligible: 0, estimatedFreedBytes: 0, items: [] });
+    },
     offload: () => {
       assert.equal(activeWork(), 1);
       return reject
@@ -44,6 +47,8 @@ test('offload and restore work hold the provider-switch lock for their full asyn
     workChanged: (delta) => (activeWork += delta),
   });
 
+  await facade.offloadPreflight(['P1']);
+  assert.equal(activeWork, 0);
   await facade.offload(['P1']);
   assert.equal(activeWork, 0);
   await facade.rehydrate('P1');

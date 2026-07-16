@@ -525,6 +525,7 @@ function getBackupEngine(): BackupEngine {
       blobs: {
         deleteOriginal: async (hash) => parts.blobStore.deleteOriginal(hash),
         hasOriginal: (hash) => parts.blobStore.hasOriginal(hash),
+        encryptedStream: (hash) => parts.blobStore.getEncryptedStream(hash),
         restoreOriginal: async (hash, ciphertext, photoId) =>
           parts.blobStore.restoreOriginal(hash, ciphertext, parts.keyStore.resolver(), photoId),
       },
