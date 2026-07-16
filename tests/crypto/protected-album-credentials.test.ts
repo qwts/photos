@@ -118,7 +118,9 @@ describe('protected album credentials (#325, ADR-0013)', () => {
       masterKey.fill(0);
     }
   });
+});
 
+describe('protected album credential isolation (#325, ADR-0013)', () => {
   test('cross-library, cross-album, downgrade, metadata substitution, and bad recovery fail closed', async () => {
     const masterKey = randomBytes(32);
     const first = await createProtectedAlbumCustody({ ...CONTEXT, password: PASSWORD, masterKey, metadata: metadata('First') });
