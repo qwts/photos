@@ -192,7 +192,9 @@ export class PhotosRepository {
     return this.db.transaction(() => {
       const updated = queryGet<{ favorite: number }>(
         this.db,
-        'UPDATE photos SET favorite = 1 - favorite WHERE id = ? RETURNING favorite',
+        `UPDATE photos SET favorite = 1 - favorite
+          WHERE id = ? AND id IN (SELECT id FROM ordinary_visible_photos)
+          RETURNING favorite`,
         photoId,
       );
       if (updated === undefined) {
@@ -219,7 +221,10 @@ export class PhotosRepository {
       for (const photoId of photoIds) {
         const row = queryGet<{ id: string }>(
           this.db,
-          'UPDATE photos SET deleted_at = @at WHERE id = @photoId AND deleted_at IS NULL RETURNING id',
+          `UPDATE photos SET deleted_at = @at
+            WHERE id = @photoId AND deleted_at IS NULL
+              AND id IN (SELECT id FROM ordinary_visible_photos)
+            RETURNING id`,
           { at, photoId },
         );
         if (row !== undefined) {
@@ -238,7 +243,10 @@ export class PhotosRepository {
       for (const photoId of photoIds) {
         const row = queryGet<{ id: string }>(
           this.db,
-          'UPDATE photos SET deleted_at = NULL WHERE id = @photoId AND deleted_at IS NOT NULL RETURNING id',
+          `UPDATE photos SET deleted_at = NULL
+            WHERE id = @photoId AND deleted_at IS NOT NULL
+              AND id IN (SELECT id FROM ordinary_visible_photos)
+            RETURNING id`,
           { photoId },
         );
         if (row !== undefined) {
@@ -270,7 +278,10 @@ export class PhotosRepository {
    *  Deleted-but-unpurged photos still own their blobs, so no deleted_at
    *  filter — re-importing them is still "not new". */
   hasContentHash(contentHash: string): boolean {
-    return queryGet<{ one: number }>(this.db, 'SELECT 1 AS one FROM photos WHERE content_hash = ? LIMIT 1', contentHash) !== undefined;
+    return (
+      queryGet<{ one: number }>(this.db, 'SELECT 1 AS one FROM ordinary_visible_photos WHERE content_hash = ? LIMIT 1', contentHash) !==
+      undefined
+    );
   }
 
   /** Sidebar albums list (#80): names + live membership counts. */
@@ -353,7 +364,8 @@ export class PhotosRepository {
         const inserted = queryGet<{ photo_id: string }>(
           this.db,
           `INSERT OR IGNORE INTO album_photos (album_id, photo_id, position)
-           VALUES (@albumId, @photoId, (SELECT COALESCE(max(position) + 1, 0) FROM album_photos WHERE album_id = @albumId))
+           SELECT @albumId, @photoId, (SELECT COALESCE(max(position) + 1, 0) FROM album_photos WHERE album_id = @albumId)
+            WHERE EXISTS (SELECT 1 FROM ordinary_visible_photos WHERE id = @photoId)
            RETURNING photo_id`,
           { albumId, photoId },
         );
@@ -373,7 +385,10 @@ export class PhotosRepository {
       for (const photoId of photoIds) {
         const gone = queryGet<{ photo_id: string }>(
           this.db,
-          'DELETE FROM album_photos WHERE album_id = @albumId AND photo_id = @photoId RETURNING photo_id',
+          `DELETE FROM album_photos
+            WHERE album_id = @albumId AND photo_id = @photoId
+              AND photo_id IN (SELECT id FROM ordinary_visible_photos)
+            RETURNING photo_id`,
           { albumId, photoId },
         );
         if (gone !== undefined) {
@@ -436,15 +451,24 @@ export class PhotosRepository {
 
   /** Soft-deleted longer than the retention window (#121's auto-purge). */
   expiredDeleted(cutoffIso: string): string[] {
-    return queryAll<{ id: string }>(this.db, 'SELECT id FROM photos WHERE deleted_at IS NOT NULL AND deleted_at < @cutoff', {
-      cutoff: cutoffIso,
-    }).map((row) => row.id);
+    return queryAll<{ id: string }>(
+      this.db,
+      'SELECT id FROM ordinary_visible_photos WHERE deleted_at IS NOT NULL AND deleted_at < @cutoff',
+      { cutoff: cutoffIso },
+    ).map((row) => row.id);
   }
 
   /** Removes the DB row (ledger + membership CASCADE). Deleted rows only —
    * a live row can never be purged, only soft-deleted first. */
   purgeRow(photoId: string): void {
-    const gone = queryGet<{ id: string }>(this.db, 'DELETE FROM photos WHERE id = ? AND deleted_at IS NOT NULL RETURNING id', photoId);
+    const gone = queryGet<{ id: string }>(
+      this.db,
+      `DELETE FROM photos
+        WHERE id = ? AND deleted_at IS NOT NULL
+          AND id IN (SELECT id FROM ordinary_visible_photos)
+        RETURNING id`,
+      photoId,
+    );
     if (gone === undefined) {
       throw new Error(`photo ${photoId} is not in Recently deleted`);
     }
@@ -458,24 +482,30 @@ export class PhotosRepository {
     );
   }
 
-  /** Consistency-scan rows (#125): EVERY row, deleted included — trash
-   * rows still own their blobs until purge. */
+  /** Ordinary consistency rows only. Hidden migration custody is supplied
+   * separately as ownership-only hashes so it can never enter reports. */
   allRows(): readonly { id: string; contentHash: string; syncState: string }[] {
     return queryAll<{ id: string; content_hash: string; status: string | null }>(
       this.db,
       `SELECT p.id, p.content_hash, l.status
-         FROM photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id
-       UNION ALL
-       SELECT 'migration:' || item.migration_id || ':' || item.photo_id AS id,
-              CASE journal.operation
-                WHEN 'protect' THEN item.source_blob_ref
-                ELSE item.target_blob_ref
-              END AS content_hash,
-              'local' AS status
-         FROM protected_photo_migration_items item
-         JOIN protected_photo_migrations journal ON journal.migration_id = item.migration_id
-        WHERE journal.operation IN ('protect', 'unprotect')`,
+         FROM ordinary_visible_photos p LEFT JOIN sync_ledger l ON l.photo_id = p.id`,
     ).map((row) => ({ id: row.id, contentHash: row.content_hash, syncState: row.status ?? 'local' }));
+  }
+
+  /** Ordinary blob references held by an in-flight protected migration.
+   * Values protect live custody from orphan cleanup but are never surfaced as
+   * rows, diagnostics, events, or audit identifiers. */
+  migrationOwnedContentHashes(): readonly string[] {
+    return queryAll<{ contentHash: string }>(
+      this.db,
+      `SELECT DISTINCT CASE journal.operation
+         WHEN 'protect' THEN item.source_blob_ref
+         ELSE item.target_blob_ref
+       END AS contentHash
+       FROM protected_photo_migration_items item
+       JOIN protected_photo_migrations journal ON journal.migration_id = item.migration_id
+       WHERE journal.operation IN ('protect', 'unprotect')`,
+    ).map((row) => row.contentHash);
   }
 
   /** Shared-hash guard for offload (#107): live photos on this hash. */

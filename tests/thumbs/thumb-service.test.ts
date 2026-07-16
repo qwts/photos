@@ -167,7 +167,7 @@ describe('ThumbService', () => {
     const result = await pending;
     await closing;
 
-    assert.deepEqual(result?.bytes, Buffer.alloc(10), 'the in-flight plaintext was zeroized before teardown completed');
+    assert.equal(result, null, 'the revoked in-flight request cannot settle with plaintext');
     assert.equal(service.stats().cachedBytes, 0);
     assert.equal(await service.getThumb('b', 'thumb'), null);
   });
@@ -262,5 +262,24 @@ describe('ThumbService', () => {
     const second = await service.getThumb('a', 'thumb');
     assert.equal(second?.bytes.length, 10);
     assert.equal(loads, 2);
+  });
+
+  test('admission is rechecked around cache hits and zeroizes both revoked sizes', async () => {
+    let admitted = true;
+    const values = [Buffer.from('thumb'), Buffer.from('middle')];
+    const service = new ThumbService({
+      admit: () => admitted,
+      loadThumb: (_photoId, size) => {
+        const bytes = size === 'thumb' ? values[0]! : values[1]!;
+        return Promise.resolve({ bytes, contentHash: 'hash' });
+      },
+    });
+    await service.getThumb('P0', 'thumb');
+    await service.getThumb('P0', 'mid');
+    admitted = false;
+    assert.equal(await service.getThumb('P0', 'thumb'), null);
+    assert.deepEqual(values[0], Buffer.alloc(values[0]!.length));
+    assert.deepEqual(values[1], Buffer.alloc(values[1]!.length));
+    assert.equal(service.stats().cachedBytes, 0);
   });
 });

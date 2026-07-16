@@ -26,6 +26,8 @@ export interface FullPayload {
 export interface FullServiceOptions {
   /** Resolves and decrypts an original; null = missing/offloaded. */
   readonly loadOriginal: (photoId: string, purpose: 'view' | 'prefetch') => Promise<LoadedOriginal | null>;
+  /** Rechecked before and after cache/decrypt work. False revokes plaintext. */
+  readonly admit?: ((photoId: string) => boolean) | undefined;
   /** LRU cap over decrypted full-res bytes. Default 256 MiB. */
   readonly maxCacheBytes?: number | undefined;
   /** Concurrent decrypts. Default 2 — full-res reads are large. */
@@ -43,10 +45,12 @@ const MIME_BY_KIND: Partial<Record<FileKind, string>> = {
 
 export class FullService {
   private readonly loadOriginal: FullServiceOptions['loadOriginal'];
+  private readonly admit: NonNullable<FullServiceOptions['admit']>;
   private readonly lru: ByteLru<FullPayload>;
 
   constructor(options: FullServiceOptions) {
     this.loadOriginal = options.loadOriginal;
+    this.admit = options.admit ?? (() => true);
     this.lru = new ByteLru({
       maxCacheBytes: options.maxCacheBytes ?? DEFAULT_CACHE_BYTES,
       maxConcurrent: options.maxConcurrent ?? DEFAULT_CONCURRENT,
@@ -60,7 +64,16 @@ export class FullService {
    * frames the user already left).
    */
   async getFull(photoId: string, signal?: AbortSignal): Promise<FullPayload | null> {
-    return this.lru.get(photoId, () => this.resolvePayload(photoId, 'view'), signal);
+    if (!this.admit(photoId)) {
+      this.invalidate(photoId);
+      return null;
+    }
+    const payload = await this.lru.get(photoId, () => this.resolvePayload(photoId, 'view'), signal);
+    if (!this.admit(photoId)) {
+      this.invalidate(photoId);
+      return null;
+    }
+    return payload;
   }
 
   /**
@@ -70,6 +83,10 @@ export class FullService {
    */
   prefetch(photoIds: readonly string[]): void {
     for (const photoId of photoIds) {
+      if (!this.admit(photoId)) {
+        this.invalidate(photoId);
+        continue;
+      }
       if (!this.lru.isWarm(photoId)) {
         void this.lru.get(photoId, () => this.resolvePayload(photoId, 'prefetch')).catch(() => undefined);
       }

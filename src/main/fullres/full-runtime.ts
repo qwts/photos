@@ -17,6 +17,7 @@ export interface FullRuntimeOptions {
 export function createFullRuntime(options: FullRuntimeOptions): FullService {
   const budgetMb = Number(options.cacheMb ?? '');
   return new FullService({
+    admit: (photoId) => options.repo.get(photoId) !== undefined,
     loadOriginal: async (photoId, purpose) => {
       const photo = options.repo.get(photoId);
       if (photo === undefined) return null;
