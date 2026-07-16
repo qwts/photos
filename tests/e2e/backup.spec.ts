@@ -156,10 +156,12 @@ test('edit re-dirties after a backup; offload → temporary lightbox stream roun
     const offloaded = await page.evaluate<{ offloaded: number }>(`window.overlook.backup.offload({ photoIds: ['01J8SEEDPHOTO0000'] })`);
     expect(offloaded.offloaded).toBe(1);
     await expect(page.getByTestId('backup-card')).not.toContainText('· 0 B LOCAL MOCK');
+    const firstTile = page.locator('.ovl-grid__cell').first();
+    await expect(firstTile.getByRole('img', { name: 'Offloaded to cloud' })).toBeVisible();
 
     // Default-on re-offload policy verifies temporary encrypted custody while
     // the durable row remains offloaded.
-    await page.locator('.ovl-grid__cell').first().click();
+    await firstTile.click();
     const lightbox = page.getByTestId('lightbox');
     await expect(lightbox).toBeVisible();
     await expect(lightbox.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible({ timeout: 15_000 });

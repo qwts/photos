@@ -64,7 +64,7 @@ describe('RAF preview extraction', () => {
     assert.equal(embeddedJpegFromRaf(Buffer.from('FUJIFILMCCD-RAW but far too short')), null);
     assert.equal(embeddedJpegFromRaf(jpeg), null, 'a JPEG is not a RAF');
     const lying = rafContaining(jpeg);
-    lying.writeUInt32BE(9999, 88); // length pointing past the file
+    lying.writeUInt32BE(jpeg.length + 1, 88); // length pointing past the file
     assert.equal(embeddedJpegFromRaf(lying), null);
   });
 
