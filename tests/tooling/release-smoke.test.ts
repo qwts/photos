@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
 import { RELEASE_SMOKE_ARGUMENT, RELEASE_SMOKE_READY_MARKER, exitForReleaseSmokeIfRequested } from '../../src/main/release-smoke.js';
@@ -21,5 +23,10 @@ describe('packaged release launch smoke (#357)', () => {
     );
     assert.equal(marker, `${RELEASE_SMOKE_READY_MARKER}\n`);
     assert.deepEqual(exits, [0]);
+  });
+
+  test('the production writer flushes the marker synchronously before exit', () => {
+    const source = readFileSync(join(process.cwd(), 'src/main/release-smoke.ts'), 'utf8');
+    assert.match(source, /writeSync\(process\.stdout\.fd/u);
   });
 });
