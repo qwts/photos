@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { ImportService } from '../../src/main/import/import-service.js';
 import type { ImportEngine, ImportSummary } from '../../src/main/import/import-engine.js';
 import type { PhotosRepository } from '../../src/main/db/photos-repository.js';
+import type { SourceScanSummary } from '../../src/main/import/source-scanner.js';
 
 // The service owns "one journal, one writer" (#87, PR #183 review): batches
 // and resumes never overlap, whatever order callers fire them in.
@@ -22,6 +23,8 @@ const IDLE_EVENTS = {
   thumbProgress: () => undefined,
   imported: () => undefined,
 };
+
+const EMPTY_SCAN: SourceScanSummary = { total: 0, newCount: 0, newBytes: 0, newRaw: 0, newJpg: 0, newOther: 0 };
 
 describe('import service serialization (#87)', () => {
   test('overlapping run()/resume() calls execute strictly in turn', async () => {
@@ -129,6 +132,45 @@ describe('import service serialization (#87)', () => {
     await assert.rejects(queued, /import service is closed/u);
     await service.drain();
     assert.equal(calls, 1);
+  });
+
+  test('close aborts and drains active scans before rejecting later scan admission', async () => {
+    let started: (() => void) | undefined;
+    const scanStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let signal: AbortSignal | undefined;
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, {} as ImportEngine, () => undefined, {
+      source: async (_path, _deps, _progress, activeSignal) => {
+        signal = activeSignal;
+        started?.();
+        await gate;
+        if (activeSignal?.aborted === true) throw new Error('scan cancelled');
+        return { summary: EMPTY_SCAN, files: [] };
+      },
+      files: () => Promise.resolve({ summary: EMPTY_SCAN, files: [] }),
+    });
+    const scan = service.scanSource('/source');
+    await scanStarted;
+
+    service.close();
+    assert.equal(signal?.aborted, true);
+    let drained = false;
+    const drain = service.drain().then(() => {
+      drained = true;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(drained, false);
+
+    release?.();
+    await assert.rejects(scan, /scan cancelled/u);
+    await drain;
+    assert.equal(drained, true);
+    await assert.rejects(service.scanDropped([]), /import service is closed/u);
   });
 });
 
