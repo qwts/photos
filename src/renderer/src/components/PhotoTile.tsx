@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { DragEvent, ReactElement } from 'react';
 
 import './phototile.css';
 import { Icon } from './Icon';
@@ -16,6 +16,8 @@ export interface PhotoTileProps {
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect?: () => void;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
+  readonly onDragStart?: ((event: DragEvent<HTMLDivElement>) => void) | undefined;
+  readonly onDragEnd?: (() => void) | undefined;
 }
 
 // media/PhotoTile.jsx — hover states ride CSS (:hover/:focus-within) instead
@@ -31,6 +33,8 @@ export function PhotoTile({
   onClick,
   onToggleSelect,
   onContextAction,
+  onDragStart,
+  onDragEnd,
 }: PhotoTileProps): ReactElement {
   const classes = ['ovl-tile', selected ? 'ovl-tile--selected' : undefined, status === 'offloaded' ? 'ovl-tile--offloaded' : undefined]
     .filter(Boolean)
@@ -41,6 +45,9 @@ export function PhotoTile({
       tabIndex={0}
       aria-label={alt === '' ? 'Open photo' : `Open ${alt}`}
       className={classes}
+      draggable={onDragStart !== undefined}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       onContextMenu={(event) => {
         event.preventDefault();

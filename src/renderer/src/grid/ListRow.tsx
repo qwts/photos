@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { DragEvent, ReactElement } from 'react';
 
 import './list.css';
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -27,17 +27,31 @@ export interface ListRowProps {
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect: () => void;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
+  readonly onDragStart?: ((event: DragEvent<HTMLDivElement>) => void) | undefined;
+  readonly onDragEnd?: (() => void) | undefined;
 }
 
 // Dense 52px row (#77) — the mock's ListRow: same selection contract as
 // PhotoTile (circle toggles, body opens), hover states ride CSS.
-export function ListRow({ photo, src, selected, onOpen, onToggleSelect, onContextAction }: ListRowProps): ReactElement {
+export function ListRow({
+  photo,
+  src,
+  selected,
+  onOpen,
+  onToggleSelect,
+  onContextAction,
+  onDragStart,
+  onDragEnd,
+}: ListRowProps): ReactElement {
   return (
     <div
       role="button"
       tabIndex={0}
       aria-label={`Open ${photo.fileName}`}
       className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}
+      draggable={onDragStart !== undefined}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onOpen}
       onContextMenu={(event) => {
         event.preventDefault();

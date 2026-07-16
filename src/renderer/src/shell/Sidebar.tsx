@@ -9,6 +9,8 @@ import { Tooltip } from '../components/Tooltip';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { AlbumActionMenu } from './AlbumActionMenu';
 import { DeleteAlbumDialog, RenameAlbumDialog } from './AlbumDialogs';
+import { AlbumDropDialog } from './AlbumDropDialog';
+import { useAlbumPhotoDrop } from './use-album-photo-drop';
 
 // The shell stylesheet carries the sidebar/rail rules; importing it here
 // (not just in Shell) keeps the component styled when mounted alone, e.g.
@@ -43,10 +45,22 @@ interface SideRowProps {
   readonly collapsed?: boolean;
   readonly buttonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onOpenActions?: ((position: { readonly x: number; readonly y: number }, origin: HTMLButtonElement) => void) | undefined;
+  readonly statusLabel?: string | undefined;
 }
 
-function SideRow({ icon, label, count, active = false, onClick, collapsed = false, buttonRef, onOpenActions }: SideRowProps): ReactElement {
-  const hint = count === null ? label : `${label} · ${formatCount(count)}`;
+function SideRow({
+  icon,
+  label,
+  count,
+  active = false,
+  onClick,
+  collapsed = false,
+  buttonRef,
+  onOpenActions,
+  statusLabel,
+}: SideRowProps): ReactElement {
+  const detail = statusLabel ?? (count === null ? null : formatCount(count));
+  const hint = detail === null ? label : `${label} · ${detail}`;
   const row = (
     <button
       ref={buttonRef}
@@ -79,7 +93,9 @@ function SideRow({ icon, label, count, active = false, onClick, collapsed = fals
     >
       <Icon name={icon} size={14} color={active ? 'var(--accent-cyan)' : 'var(--text-faint)'} />
       {collapsed ? null : <span className="ovl-siderow__label">{label}</span>}
-      {collapsed || count === null ? null : <span className="ovl-siderow__count mono-data">{formatCount(count)}</span>}
+      {collapsed || detail === null ? null : (
+        <span className={`ovl-siderow__count mono-data${statusLabel === undefined ? '' : ' ovl-siderow__count--status'}`}>{detail}</span>
+      )}
     </button>
   );
   // The rail keeps every destination reachable: the hidden label (and count)
@@ -106,6 +122,7 @@ export interface SidebarProps {
 export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const albumDrop = useAlbumPhotoDrop(albums);
   // Collapse to the 56px icon rail (#238): labels/counts move to tooltips,
   // headings become dividers, the backup card becomes the shield button.
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -233,13 +250,18 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
         />
       ) : null}
       {albums.map((album) => (
-        <div className="ovl-sidebar__albumrow" key={album.id}>
+        <div
+          className={`ovl-sidebar__albumrow${albumDrop.feedback?.albumId === album.id ? ` ovl-sidebar__albumrow--drop-${albumDrop.feedback.phase}` : ''}`}
+          key={album.id}
+          {...albumDrop.targetProps(album)}
+        >
           <SideRow
             icon="album"
             label={album.name}
             count={album.count}
             active={state.album === album.id}
             collapsed={collapsed}
+            statusLabel={albumDrop.feedback?.albumId === album.id ? albumDrop.feedback.label : undefined}
             onClick={() => {
               dispatch({ type: 'album/set', albumId: album.id });
             }}
@@ -265,6 +287,16 @@ export function Sidebar({ counts, stats, albums }: SidebarProps): ReactElement {
           )}
         </div>
       ))}
+      {albumDrop.choice === null ? null : (
+        <AlbumDropDialog
+          count={albumDrop.choice.payload.photoIds.length}
+          source={albumDrop.choice.source}
+          target={albumDrop.choice.target}
+          onAdd={albumDrop.chooseAdd}
+          onMove={albumDrop.chooseMove}
+          onClose={albumDrop.closeChoice}
+        />
+      )}
       {albumMenu === null ? null : (
         <AlbumActionMenu
           album={albumMenu.album}
