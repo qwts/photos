@@ -276,6 +276,32 @@
       ]
     },
     {
+      "id": "m08-manual-offload-and-verified-restore",
+      "wiki": "User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/offload-ui.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/offload/OffloadDialog.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/SelectionPill.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/offload.test.ts"
+        }
+      ]
+    },
+    {
       "id": "m08-continuous-backup-integrity",
       "wiki": "User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first",
       "coverage": [
