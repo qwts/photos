@@ -283,3 +283,33 @@ authorization, cross-domain and post-relock URLs, cache and in-flight
 revocation, opaque failures, renderer-schema stripping, and relock-safe export.
 #328 cloud lifecycle and #329 user workflows remain required before
 `m20-protected-albums` can leave deferred status.
+
+## #328 implementation evidence (2026-07-16)
+
+[PR #354](https://github.com/qwts/photos/pull/354) adds schema-3 recovery
+manifests and a protected-cloud ledger independent of the ordinary sync
+ledger. Protected provider objects are raw encrypted envelopes addressed by
+opaque album-keyed blob references; provider paths and audit records contain
+no album names, ordinary content hashes, file names, or plaintext membership.
+Sealed credential, album-metadata, and photo-metadata records remain
+authenticated manifest content and preserve the ADR-0008 protected-password
+recovery slot.
+
+Backup verifies provider digest and size before publishing a synced claim.
+Integrity scrub repairs corrupt or missing remote objects from local
+ciphertext and marks remote-only loss unrecoverable. Authorized offload
+re-verifies every referenced object under a live album-authority generation
+before deleting local ciphertext. Rehydrate stages authenticated ciphertext
+and fails closed if that authority is revoked. Fresh-machine restore downloads
+only manifest-verified ciphertext into a staging library, rebuilds sealed
+records, and activates with every protected album closed; schema-2 ordinary
+backups remain restorable.
+
+Evidence is in `tests/backup/protected-backup-service.test.ts`,
+`tests/backup/backup-manifest.test.ts`,
+`tests/backup/restore-engine.test.ts`,
+`tests/blobs/protected-blob-store.test.ts`, and the schema migration tests. It
+covers namespace inspection, upload verification, corruption repair,
+authorized offload and rehydrate, relock rejection, schema compatibility, and
+closed fresh-machine recovery. #329 user workflows remain required before
+`m20-protected-albums` can leave deferred status.
