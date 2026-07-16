@@ -69,3 +69,24 @@ test('Settings and lightbox entries preserve their underlying surfaces', async (
     await app.close();
   }
 });
+
+test('album actions open an album-scoped transfer review and preserve the active source', async () => {
+  const { app, page } = await launchSeeded();
+  try {
+    const albumRow = page.locator('.ovl-sidebar__albumrow', { hasText: 'Travel 2026' });
+    const albumSource = albumRow.locator(':scope > .ovl-siderow');
+    await albumSource.click();
+    await albumRow.hover();
+    await page.getByRole('button', { name: 'Actions for Travel 2026' }).click();
+    await page.getByRole('menuitem', { name: 'Transfer & Sync…' }).click();
+
+    const dialog = page.getByRole('dialog', { name: 'Move to Image Trail' });
+    await expect(dialog).toContainText('ALBUM · QUEUED');
+    await expect(dialog).toContainText('0 / 1 · 0 acknowledged · 0 finalized');
+    await dialog.locator('.ovl-dialog__footer').getByRole('button', { name: 'Close' }).click();
+    await expect(albumSource).toHaveClass(/ovl-siderow--active/u);
+    await expect(page.locator('.ovl-grid__cell')).toHaveCount(1);
+  } finally {
+    await app.close();
+  }
+});
