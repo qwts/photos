@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 import {
@@ -9,7 +10,12 @@ import {
   interopIdentitySchema,
   interopReviewCategorySchema,
 } from '../../src/shared/interop/contract.js';
+import { interopEnvelopeSchema } from '../../src/shared/interop/messages.js';
 import { compareInteropRevisions, incrementInteropRevision, mergeInteropRevisions } from '../../src/shared/interop/revisions.js';
+
+function fixture(name: string): unknown {
+  return JSON.parse(readFileSync(`design/handoff/contracts/v1/fixtures/${name}`, 'utf8')) as unknown;
+}
 
 const header = {
   magic: INTEROP_MAGIC,
@@ -47,6 +53,45 @@ describe('interoperability contract primitives', () => {
   test('publishes the exact shared review and conflict vocabulary', () => {
     assert.deepEqual(interopReviewCategorySchema.options, ['eligible', 'duplicate', 'conflict', 'metadata-only', 'unsupported', 'skipped']);
     assert.deepEqual(interopConflictActionSchema.options, ['keep-image-trail', 'keep-overlook', 'keep-both']);
+  });
+
+  test('parses the canonical record fixture and rejects the future-version fixture', () => {
+    const parsed = interopEnvelopeSchema.parse(fixture('valid-record-message.json'));
+    assert.equal(parsed.payload.kind, 'record');
+    assert.equal(parsed.payload.kind === 'record' && parsed.payload.record.original.state, 'metadata-only');
+    assert.equal(interopEnvelopeSchema.safeParse(fixture('rejected-future-version.json')).success, false);
+  });
+
+  test('rejects a mismatched header/payload kind and unsafe blob transport paths', () => {
+    const valid = fixture('valid-record-message.json');
+    assert.equal(
+      interopEnvelopeSchema.safeParse({
+        ...(valid as object),
+        header: { ...(valid as { header: object }).header, kind: 'manifest' },
+      }).success,
+      false,
+    );
+    const blobMessage = {
+      ...(valid as { header: object; payload: object }),
+      header: { ...(valid as { header: object }).header, kind: 'blob' },
+      payload: {
+        kind: 'blob',
+        schemaVersion: 1,
+        recordInteropId: '4d220c3e-16bd-4833-891c-3ef9b980b3fb',
+        role: 'original',
+        blob: {
+          state: 'available',
+          blobId: 'original-123',
+          mimeType: 'image/jpeg',
+          byteLength: 42,
+          contentHash: 'c'.repeat(64),
+        },
+        encryptedPath: '../backup/original.bin',
+        chunkIndex: 0,
+        chunkCount: 1,
+      },
+    };
+    assert.equal(interopEnvelopeSchema.safeParse(blobMessage).success, false);
   });
 });
 
