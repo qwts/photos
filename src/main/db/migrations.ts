@@ -309,7 +309,62 @@ const SCHEMA_V7: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7];
+const SCHEMA_V8: Migration = {
+  version: 8,
+  name: 'protected-photo-migration-journal',
+  // #326: protected photo custody is separate from ordinary photos and its
+  // crash journal survives every copy/verify/commit/purge boundary. Blob
+  // references in protected_photo_records are opaque, domain-scoped ids;
+  // plaintext content hashes remain only in an in-flight source journal and
+  // disappear when custody transfer finishes.
+  up(db) {
+    db.exec(`
+      CREATE TABLE protected_photo_migrations (
+        migration_id TEXT PRIMARY KEY,
+        operation TEXT NOT NULL CHECK (operation IN ('protect', 'unprotect', 'move')),
+        source_album_id TEXT REFERENCES protected_album_records (album_id),
+        target_album_id TEXT REFERENCES protected_album_records (album_id),
+        phase TEXT NOT NULL CHECK (phase IN ('prepare', 'copy', 'verify', 'commit', 'purge')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (
+          (operation = 'protect' AND source_album_id IS NULL AND target_album_id IS NOT NULL) OR
+          (operation = 'unprotect' AND source_album_id IS NOT NULL AND target_album_id IS NULL) OR
+          (operation = 'move' AND source_album_id IS NOT NULL AND target_album_id IS NOT NULL AND source_album_id <> target_album_id)
+        )
+      ) WITHOUT ROWID;
+
+      CREATE TABLE protected_photo_migration_items (
+        migration_id TEXT NOT NULL REFERENCES protected_photo_migrations (migration_id) ON DELETE CASCADE,
+        photo_id TEXT NOT NULL,
+        source_blob_ref TEXT NOT NULL,
+        target_blob_ref TEXT NOT NULL,
+        sealed_target_metadata BLOB NOT NULL,
+        has_thumb INTEGER NOT NULL CHECK (has_thumb IN (0, 1)),
+        has_mid INTEGER NOT NULL CHECK (has_mid IN (0, 1)),
+        item_phase TEXT NOT NULL CHECK (item_phase IN ('prepare', 'copy', 'verify', 'commit', 'purge')),
+        PRIMARY KEY (migration_id, photo_id),
+        UNIQUE (photo_id)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE protected_photo_records (
+        photo_id TEXT PRIMARY KEY,
+        album_id TEXT NOT NULL REFERENCES protected_album_records (album_id) ON DELETE RESTRICT,
+        record_version INTEGER NOT NULL CHECK (record_version = 1),
+        blob_ref TEXT NOT NULL CHECK (length(blob_ref) = 64 AND blob_ref NOT GLOB '*[^0-9a-f]*'),
+        sealed_metadata BLOB NOT NULL,
+        has_thumb INTEGER NOT NULL CHECK (has_thumb IN (0, 1)),
+        has_mid INTEGER NOT NULL CHECK (has_mid IN (0, 1)),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (album_id, blob_ref)
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_protected_photo_album ON protected_photo_records (album_id);
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7, SCHEMA_V8];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {

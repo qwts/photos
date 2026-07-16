@@ -95,7 +95,30 @@ describe('migrations', () => {
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7],
+      [1, 2, 3, 4, 5, 6, 7, 8],
+    );
+    db.close();
+  });
+
+  test('schema v8 separates protected photo custody behind a durable migration journal', () => {
+    const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
+    const tables = queryAll<{ name: string }>(
+      db,
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name IN (
+         'protected_photo_migrations',
+         'protected_photo_migration_items',
+         'protected_photo_records'
+       ) ORDER BY name`,
+    );
+    assert.deepEqual(
+      tables.map((table) => table.name),
+      ['protected_photo_migration_items', 'protected_photo_migrations', 'protected_photo_records'],
+    );
+    const recordColumns = queryAll<{ name: string }>(db, 'PRAGMA table_info(protected_photo_records)');
+    assert.deepEqual(
+      recordColumns.map((column) => column.name),
+      ['photo_id', 'album_id', 'record_version', 'blob_ref', 'sealed_metadata', 'has_thumb', 'has_mid', 'created_at', 'updated_at'],
     );
     db.close();
   });
@@ -148,18 +171,18 @@ describe('migrations', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 10, name: 'ten', up: () => order.push(10) },
       { version: 9, name: 'nine', up: () => order.push(9) },
-      { version: 8, name: 'eight', up: () => order.push(8) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [8, 9]);
+    assert.deepEqual(order, [9, 10]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 8,
+      version: 9,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -168,7 +191,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 7);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 8);
     db.close();
   });
 });
