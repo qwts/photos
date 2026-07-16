@@ -14,6 +14,7 @@ instructions or entrypoints (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, root
 
 - [Testing Strategy](Testing-Strategy) — test lanes, coverage floors, when each lane must grow
 - [Architecture Decision Records](Architecture-Decision-Records) — ADR index + template
+- [Deterministic Reviewed Sync acceptance](Acceptance-Test-Deterministic-Reviewed-Sync) — replay, conflict, tombstone, and restart evidence
 - [Security Review M11](Security-Review-M11) — crypto/IPC/plaintext audit (#129) + accepted deviations
 - [M20 Privacy Lock, Touch ID & Protected Albums](User-Story-M20-Privacy-lock-protected-albums) — app-lock, biometric, recovery, and protected-domain contract
 - [User Stories](User-Stories) — milestone / user-story planning home
