@@ -50,9 +50,9 @@ test('boots a seeded temp profile deterministically', async () => {
     await expect(page.getByTestId('statusbar-left')).toContainText('12 PHOTOS ·');
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
 
-    // #76: cells are real PhotoTiles whose <img> decodes through the
-    // protocol (the seed thumb is a genuine 1x1 JPEG).
-    await expect(page.locator('.ovl-tile__img').first()).toHaveJSProperty('naturalWidth', 1);
+    // #76/#127: cells are real PhotoTiles whose licensed-photo thumbs decode
+    // through the encrypted protocol.
+    await expect(page.locator('.ovl-tile__img').first()).toHaveJSProperty('naturalWidth', 1280);
 
     // #75: thumbs decrypt over overlook-thumb:// straight into <img>; a
     // missing id errors so the renderer keeps its placeholder. String-form
@@ -63,7 +63,7 @@ test('boots a seeded temp profile deterministically', async () => {
       el.onerror = () => resolve({ ok: false, width: 0 });
       el.src = 'overlook-thumb://library/01J8SEEDPHOTO0000?size=thumb';
     })`);
-    expect(thumb).toEqual({ ok: true, width: 1 });
+    expect(thumb).toEqual({ ok: true, width: 1280 });
     const missing = await page.evaluate<boolean>(`new Promise((resolve) => {
       const el = new Image();
       el.onload = () => resolve(true);

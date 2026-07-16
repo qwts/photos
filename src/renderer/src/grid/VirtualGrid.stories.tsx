@@ -1,6 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 
+import flowerPhoto from '../../../../design/handoff/assets/thumbs/t03.png';
+import landscapePhoto from '../../../../design/handoff/assets/thumbs/t01.png';
+import portraitPhoto from '../../../../design/handoff/assets/thumbs/t02.png';
+import streetPhoto from '../../../../design/handoff/assets/thumbs/t04.png';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { PhotoTile } from '../components/PhotoTile';
 import { VirtualGrid } from './VirtualGrid';
@@ -13,11 +17,7 @@ const meta: Meta<typeof VirtualGrid> = {
 export default meta;
 type Story = StoryObj<typeof VirtualGrid>;
 
-const THUMB =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2c4a5e"/><stop offset="1" stop-color="#0e1c26"/></linearGradient></defs><rect width="200" height="200" fill="url(#g)"/></svg>',
-  );
+const THUMBS = [landscapePhoto, portraitPhoto, flowerPhoto, streetPhoto] as const;
 
 function photo(index: number): PhotoRecord {
   return {
@@ -65,7 +65,7 @@ export const TileClickVsSelectCircle: Story = {
         onNeedMore={fn()}
         renderTile={(record) => (
           <PhotoTile
-            src={THUMB}
+            src={THUMBS[Number(record.id.slice(1)) % THUMBS.length] ?? landscapePhoto}
             alt={record.fileName}
             favorite={record.favorite}
             status={record.syncState}

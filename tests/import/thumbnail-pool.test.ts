@@ -39,8 +39,8 @@ describe('thumbnail pipeline (#86)', () => {
     assert.notEqual(result, null);
     assert.ok(isWebp(result?.thumb), 'thumb is WebP');
     assert.ok(isWebp(result?.mid), 'mid is WebP');
-    assert.equal(result?.width, 1);
-    assert.equal(result?.height, 1);
+    assert.equal(result?.width, 1280);
+    assert.equal(result?.height, 833);
   });
 
   test('EXIT CRITERIA: RAF resolves the embedded preview first', async () => {
