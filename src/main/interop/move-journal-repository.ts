@@ -433,7 +433,18 @@ export class MoveJournalRepository {
           at,
         },
       );
-      this.updateJournal(response.header.transferId, accepted ? 'acknowledged' : 'failed', response.header.sequence, at);
+      const awaitingAcknowledgement = queryGet<{ count: number }>(
+        this.db,
+        `SELECT count(*) AS count FROM interop_move_items
+         WHERE transfer_id = ? AND state = 'queued'`,
+        response.header.transferId,
+      )?.count;
+      this.updateJournal(
+        response.header.transferId,
+        accepted ? (awaitingAcknowledgement === 0 ? 'acknowledged' : 'awaiting-acknowledgement') : 'failed',
+        response.header.sequence,
+        at,
+      );
       this.putAudit({
         eventKey: `${response.header.messageId}:${accepted ? 'acknowledged' : 'rejected'}`,
         transferId: response.header.transferId,
@@ -496,12 +507,21 @@ export class MoveJournalRepository {
          WHERE transfer_id = ? AND state IN ('rejected', 'failed')`,
         transferId,
       )?.count;
-      this.updateJournal(
+      const awaitingAcknowledgement = queryGet<{ count: number }>(
+        this.db,
+        `SELECT count(*) AS count FROM interop_move_items
+         WHERE transfer_id = ? AND state = 'queued'`,
         transferId,
-        failures === 0 && remaining === 0 ? 'completed' : failures === 0 ? 'finalizing' : 'failed',
-        undefined,
-        at,
-      );
+      )?.count;
+      const phase =
+        failures !== 0
+          ? 'failed'
+          : remaining !== 0
+            ? 'finalizing'
+            : awaitingAcknowledgement !== 0
+              ? 'awaiting-acknowledgement'
+              : 'completed';
+      this.updateJournal(transferId, phase, undefined, at);
     })();
   }
 
