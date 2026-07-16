@@ -2,9 +2,9 @@
 
 Start with **`AGENTS.md`**. It is the shared agent-context file and holds the
 communication rules, pre-edit checkpoints, working agreement (draft PR first,
-frequent commits, end-of-turn status footer), GitHub hygiene, and validation
-workflow. This file only adds Claude-specific orientation; do not duplicate
-`AGENTS.md` here.
+frequent commits, status footers only during validation or paired manual
+testing), GitHub hygiene, and validation workflow. This file only adds
+Claude-specific orientation; do not duplicate `AGENTS.md` here.
 
 ## Architecture
 

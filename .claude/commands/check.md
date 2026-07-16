@@ -24,7 +24,8 @@ State, explicitly:
 - ✅/❌ per gate (lint, format:check, test:cov, build, test:e2e), with the
   failing output if any.
 - Coverage totals vs. the `.c8rc.json` floors (`npm run coverage:summary`).
-- The `AGENTS.md` status footer (Working dir / Build / Commit).
+- The `AGENTS.md` status footer (Working dir / Build / Commit), because `/check`
+  is a validation run.
 
 No product-invariant checks exist yet — when `AGENTS.md` → Product Invariants
 gains entries backed by executable tests, call each out here by name.

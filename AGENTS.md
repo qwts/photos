@@ -48,7 +48,9 @@ this file in the same PR as the change — never after the fact.
 - **Commit frequently.** Small, coherent commits at each meaningful slice of
   work; push regularly so CI and the draft PR stay current. No end-of-session
   mega-commits.
-- **End every turn with a status footer** of three lines:
+- **Use the status footer only during an active validation/build run or while
+  pairing with the user on manual testing.** Omit it from routine turns. When it
+  applies, report these three lines:
   - `Working dir:` absolute path of the active worktree/checkout
   - `Build:` result of the relevant gates (e.g. `npm run ci` pass/fail, or
     "not run" with the reason)
