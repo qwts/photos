@@ -62,7 +62,11 @@ export function InteropWorkflowDialog({
           <Button variant="secondary" disabled={state.phase !== 'paused'} onClick={onResume}>
             Resume
           </Button>
-          <Button variant="primary" disabled={state.provider.state !== 'connected' || state.pairing !== 'paired'} onClick={onStart}>
+          <Button
+            variant="primary"
+            disabled={state.provider.state !== 'connected' || state.pairing !== 'paired' || !['queued', 'reviewing'].includes(state.phase)}
+            onClick={onStart}
+          >
             {state.operation === 'move' ? 'Start move' : 'Start sync'}
           </Button>
         </>
@@ -115,7 +119,11 @@ export function InteropWorkflowDialog({
             <div>
               <strong>{state.error.code.replaceAll('-', ' ')}</strong> · {state.error.message}
             </div>
-            <Button variant="secondary" disabled={!state.error.retryable} onClick={onReconnect ?? onResume}>
+            <Button
+              variant="secondary"
+              disabled={!state.error.retryable}
+              onClick={interopRecoveryLabel(state.error.code) === 'Resume' ? onResume : onReconnect}
+            >
               {interopRecoveryLabel(state.error.code)}
             </Button>
           </div>
