@@ -5,6 +5,8 @@ release/
 storybook-static/
 coverage/
 .test-dist/
+native/touch-id/build/
+native/touch-id/prebuilds/
 playwright-report/
 test-results/
 .DS_Store
