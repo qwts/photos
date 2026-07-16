@@ -4,6 +4,11 @@ import { join } from 'node:path';
 import type { SafeStorageLike } from '../crypto/keystore.js';
 import { ulid } from '../import/ulid.js';
 import { createActiveProvider } from './active-provider.js';
+import { GoogleDriveAuthClient } from './google-drive/auth-client.js';
+import { createGoogleDriveConnect } from './google-drive/connect.js';
+import { GoogleDriveProvider } from './google-drive/google-drive-provider.js';
+import { GoogleDrivePathStore } from './google-drive/path-store.js';
+import { GoogleDriveTokenStore } from './google-drive/token-store.js';
 import { FaultInjectingProvider, MockProvider, ProviderRegistry } from './mock-provider.js';
 import { createPCloudConnect, type PCloudConnectResult } from './pcloud/connect.js';
 import { PCloudProvider } from './pcloud/pcloud-provider.js';
@@ -21,6 +26,9 @@ export interface ProviderRuntimeOptions {
   /** Profile-level provider credential custody; unlike library data this
    * directory survives atomic library replacement during restore. */
   readonly credentialDir?: (() => string) | undefined;
+  /** Preferred multi-provider custody root. Existing callers may keep
+   * credentialDir as the pCloud-specific compatibility seam. */
+  readonly providerCredentialDir?: ((providerId: string) => string) | undefined;
   readonly safeStorage: () => SafeStorageLike;
   readonly openExternal: (url: string) => Promise<void>;
   readonly setProviderId: (id: string | null) => void;
@@ -28,12 +36,18 @@ export interface ProviderRuntimeOptions {
   readonly isWorkActive?: (() => boolean) | undefined;
   readonly isPackaged: boolean;
   readonly harnessEnv: (name: string) => string | undefined;
+  readonly googleDriveClientId?: (() => string | null) | undefined;
+  readonly fetchImpl?: typeof fetch | undefined;
 }
 
 export class ProviderRuntime {
   private readonly options: ProviderRuntimeOptions;
   private tokenStoreInstance: PCloudTokenStore | undefined;
   private connectFlow: (() => Promise<PCloudConnectResult>) | undefined;
+  private googleTokenStoreInstance: GoogleDriveTokenStore | undefined;
+  private googlePathStoreInstance: GoogleDrivePathStore | undefined;
+  private googleAuthInstance: GoogleDriveAuthClient | undefined;
+  private googleConnectFlow: (() => Promise<PCloudConnectResult>) | undefined;
   private registryInstance: ProviderRegistry | undefined;
 
   constructor(options: ProviderRuntimeOptions) {
@@ -43,7 +57,7 @@ export class ProviderRuntime {
   tokenStore(): PCloudTokenStore {
     if (this.tokenStoreInstance === undefined) {
       const safeStorage = this.options.safeStorage();
-      const credentialDir = this.options.credentialDir?.() ?? this.options.dataDir();
+      const credentialDir = this.credentialDirectory('pcloud');
       this.tokenStoreInstance = new PCloudTokenStore({ safeStorage, dataDir: credentialDir });
       if (credentialDir !== this.options.dataDir() && this.tokenStoreInstance.load() === null) {
         const legacy = new PCloudTokenStore({ safeStorage, dataDir: this.options.dataDir() });
@@ -57,6 +71,39 @@ export class ProviderRuntime {
     return this.tokenStoreInstance;
   }
 
+  googleTokenStore(): GoogleDriveTokenStore {
+    this.googleTokenStoreInstance ??= new GoogleDriveTokenStore({
+      safeStorage: this.options.safeStorage(),
+      dataDir: this.credentialDirectory('google-drive'),
+    });
+    return this.googleTokenStoreInstance;
+  }
+
+  private googlePathStore(): GoogleDrivePathStore {
+    this.googlePathStoreInstance ??= new GoogleDrivePathStore(this.credentialDirectory('google-drive'));
+    return this.googlePathStoreInstance;
+  }
+
+  private googleAuth(): GoogleDriveAuthClient {
+    this.googleAuthInstance ??= new GoogleDriveAuthClient({
+      clientId: () => this.googleClientId(),
+      tokenStore: this.googleTokenStore(),
+      ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
+    });
+    return this.googleAuthInstance;
+  }
+
+  private credentialDirectory(providerId: string): string {
+    if (this.options.providerCredentialDir !== undefined) return this.options.providerCredentialDir(providerId);
+    if (providerId === 'pcloud' && this.options.credentialDir !== undefined) return this.options.credentialDir();
+    return join(this.options.dataDir(), `${providerId}-auth`);
+  }
+
+  private googleClientId(): string | null {
+    const value = this.options.googleDriveClientId?.()?.trim() ?? '';
+    return value.endsWith('.apps.googleusercontent.com') ? value : null;
+  }
+
   private connectPCloud(): Promise<PCloudConnectResult> {
     this.connectFlow ??= createPCloudConnect({
       tokenStore: this.tokenStore(),
@@ -68,14 +115,29 @@ export class ProviderRuntime {
     return this.connectFlow();
   }
 
+  private connectGoogleDrive(): Promise<PCloudConnectResult> {
+    this.googleConnectFlow ??= createGoogleDriveConnect({
+      clientId: () => this.googleClientId(),
+      tokenStore: this.googleTokenStore(),
+      authClient: this.googleAuth(),
+      openExternal: this.options.openExternal,
+      onConnected: () => this.options.setProviderId('google-drive'),
+      ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
+    });
+    return this.googleConnectFlow();
+  }
+
   descriptors(): readonly ProviderDescriptor[] {
-    return (this.registryInstance?.list() ?? []).map((provider) => ({
-      id: provider.id,
-      label: provider.label,
-      capabilities: provider.capabilities,
-      available: true,
-      unavailableReason: null,
-    }));
+    return (this.registryInstance?.list() ?? []).map((provider) => {
+      const googleUnavailable = provider.id === 'google-drive' && this.googleClientId() === null;
+      return {
+        id: provider.id,
+        label: provider.label,
+        capabilities: provider.capabilities,
+        available: !googleUnavailable,
+        unavailableReason: googleUnavailable ? 'Google Drive OAuth is not configured in this build.' : null,
+      };
+    });
   }
 
   provider(id: string): StorageProvider | undefined {
@@ -84,7 +146,8 @@ export class ProviderRuntime {
 
   async restoreSources(providerId: string): Promise<readonly { libraryId: string; provider: StorageProvider }[]> {
     const provider = this.provider(providerId);
-    if (provider === undefined) throw new Error(`provider is not available: ${providerId}`);
+    const descriptor = this.descriptors().find((candidate) => candidate.id === providerId);
+    if (provider === undefined || descriptor?.available !== true) throw new Error(`provider is not available: ${providerId}`);
     const libraryIds = await provider.listLibraries();
     return libraryIds.map((libraryId) => ({ libraryId, provider: provider.forLibrary(libraryId) }));
   }
@@ -118,11 +181,15 @@ export class ProviderRuntime {
       return { ok: false, reason: 'Wait for the active backup or restore to finish before switching providers.' };
     }
     const provider = this.provider(providerId);
-    if (provider === undefined) {
+    const descriptor = this.descriptors().find((candidate) => candidate.id === providerId);
+    if (provider === undefined || descriptor?.available !== true) {
       return { ok: false, reason: 'This provider is not available on this device.' };
     }
     if (providerId === 'pcloud') {
       return this.connectPCloud();
+    }
+    if (providerId === 'google-drive') {
+      return this.connectGoogleDrive();
     }
     if (provider instanceof FaultInjectingProvider) {
       provider.disarm('auth-expired');
@@ -137,6 +204,9 @@ export class ProviderRuntime {
     }
     if (providerId === 'pcloud') {
       this.tokenStore().clear();
+    }
+    if (providerId === 'google-drive') {
+      this.googleAuth().clear();
     }
     if (this.activeId() === providerId) {
       this.options.setProviderId(null);
@@ -172,7 +242,7 @@ export class ProviderRuntime {
    * harness-gated OVERLOOK_PROVIDER. */
   defaultTarget(): string {
     const override = this.options.harnessEnv('OVERLOOK_PROVIDER');
-    if (override === 'mock' || override === 'pcloud') {
+    if (override === 'mock' || override === 'pcloud' || (override === 'google-drive' && this.googleClientId() !== null)) {
       return override;
     }
     return this.options.isPackaged ? 'pcloud' : 'mock';
@@ -190,6 +260,9 @@ export class ProviderRuntime {
     if (raw === 'mock' && this.options.isPackaged) {
       return null;
     }
+    if (raw === 'google-drive' && this.googleClientId() === null) {
+      return null;
+    }
     if (this.registryInstance !== undefined && this.registryInstance.get(raw) === undefined) {
       return null;
     }
@@ -204,6 +277,14 @@ export class ProviderRuntime {
     const registry = new ProviderRegistry();
     const libraryId = build.libraryId ?? this.libraryId();
     registry.register(new PCloudProvider({ auth: () => this.tokenStore().load(), libraryId }));
+    registry.register(
+      new GoogleDriveProvider({
+        auth: this.googleAuth(),
+        paths: this.googlePathStore(),
+        libraryId,
+        ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
+      }),
+    );
     if (!this.options.isPackaged) {
       const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir, libraryId }));
       const fault = build.fault;

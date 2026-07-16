@@ -136,7 +136,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         </div>
         <Button
           variant={connected ? 'secondary' : 'primary'}
-          disabled={connecting}
+          disabled={connecting || descriptor?.available === false}
           onClick={() => {
             toggleConnection(connected);
           }}
@@ -157,6 +157,13 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
               setConnectError(null);
             }}
           />
+          {providers
+            .filter((provider) => !provider.available && provider.unavailableReason !== null)
+            .map((provider) => (
+              <div key={provider.id} className="ovl-settings__providerMeta">
+                {provider.label}: {provider.unavailableReason}
+              </div>
+            ))}
         </Field>
       ) : null}
 

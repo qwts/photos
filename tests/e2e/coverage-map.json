@@ -670,6 +670,24 @@
       ]
     },
     {
+      "id": "m20-google-drive-provider",
+      "wiki": "User-Story-M08-Backup",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/backup/google-drive-connect.test.ts", "tests/backup/google-drive-provider.test.ts"]
+        }
+      ]
+    },
+    {
       "id": "ux-lightbox-close-and-drag-region",
       "wiki": "User-Story-M06-Viewing",
       "coverage": [

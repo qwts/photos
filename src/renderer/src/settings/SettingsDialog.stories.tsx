@@ -42,6 +42,20 @@ function installStub(): void {
     available: true,
     unavailableReason: null,
   };
+  const googleDriveProvider = {
+    id: 'google-drive',
+    label: 'Google Drive',
+    capabilities: {
+      quota: 'known' as const,
+      verification: 'server-checksum' as const,
+      resumableUpload: true,
+      platforms: ['darwin' as const, 'win32' as const, 'linux' as const],
+      interactiveAuth: true,
+      reconnectRequired: true,
+    },
+    available: true,
+    unavailableReason: null,
+  };
   // connect/disconnect (#254) mutate settings OUTSIDE the set() round-trip,
   // exactly like main does — so the stub must deliver change pushes too.
   const listeners = new Set<(payload: { settings: AppSettings }) => void>();
@@ -92,16 +106,19 @@ function installStub(): void {
           reason: null,
         })),
       }),
-    providers: () => Promise.resolve({ providers: [mockProvider, archiveProvider], defaultProviderId: 'mock' }),
+    providers: () => Promise.resolve({ providers: [mockProvider, googleDriveProvider, archiveProvider], defaultProviderId: 'mock' }),
     // The card's truth follows the stub store's providerId, like main does.
     providerStatus: ({ providerId }) => {
-      const provider = providerId === archiveProvider.id ? archiveProvider : mockProvider;
+      const provider =
+        providerId === archiveProvider.id ? archiveProvider : providerId === googleDriveProvider.id ? googleDriveProvider : mockProvider;
       return Promise.resolve(
         current.providerId !== providerId
           ? { provider, connected: false, account: null, usedBytes: null, totalBytes: null }
           : providerId === archiveProvider.id
             ? { provider, connected: true, account: null, usedBytes: null, totalBytes: null }
-            : { provider, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
+            : providerId === googleDriveProvider.id
+              ? { provider, connected: true, account: null, usedBytes: 42_000_000_000, totalBytes: 100_000_000_000 }
+              : { provider, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
       );
     },
     // Connect/disconnect (#254) mirror main's mock policy: flip providerId.
@@ -260,6 +277,18 @@ export const ProviderSelectionAndUnknownQuota: Story = {
     await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · STORAGE USAGE NOT REPORTED')).toBeVisible());
     await expect(body.getByText(/VERIFY BY DOWNLOAD/u)).toBeVisible();
+  },
+};
+
+export const GoogleDriveSelection: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+    await userEvent.click(body.getByRole('radio', { name: 'Google Drive' }));
+    await userEvent.click(body.getByRole('button', { name: 'Connect Google Drive' }));
+    await waitFor(() => expect(body.getByText('THIS DEVICE · 42 GB / 100 GB USED')).toBeVisible());
+    await expect(body.getByText(/SERVER CHECKSUM · RESUMABLE UPLOADS/u)).toBeVisible();
   },
 };
 

@@ -601,7 +601,7 @@ export class PhotosRepository {
   /** pendingCount source: dirty ledger rows (design §backup dirtiness). */
   pendingCount(): number {
     // Deleted rows leave the pending count (#120): they neither upload
-    // (dirtyPhotos filters them) nor belong in "ENCRYPTING N → PCLOUD".
+    // (dirtyPhotos filters them) nor belong in provider upload progress.
     return (
       queryAll<{ n: number }>(
         this.db,
