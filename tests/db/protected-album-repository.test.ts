@@ -117,7 +117,7 @@ describe('protected album ceremonies and lifecycle (#325)', () => {
     assert.equal(await w.service.changePassword('PROTECTED', 'wrong password', NEXT_PASSWORD), false);
     assert.equal(await w.service.changePassword('PROTECTED', PASSWORD, NEXT_PASSWORD), true);
     assert.equal(w.repository.get('PROTECTED')?.credentialGeneration, 2);
-    w.service.relockAll();
+    assert.throws(() => w.service.metadata('PROTECTED'), ProtectedAlbumAuthorityError);
     assert.equal((await w.service.unlock('PROTECTED', PASSWORD)).ok, false);
     assert.equal((await w.service.unlock('PROTECTED', NEXT_PASSWORD)).ok, true);
 
@@ -141,7 +141,7 @@ describe('protected album ceremonies and lifecycle (#325)', () => {
     assert.equal(recovered.ok, true);
     if (recovered.ok) assert.equal(recovered.metadata.name, 'Private family');
     assert.equal(w.repository.get('PROTECTED')?.credentialGeneration, 3);
-    w.service.relockAll();
+    assert.throws(() => w.service.metadata('PROTECTED'), ProtectedAlbumAuthorityError);
     assert.equal((await w.service.unlock('PROTECTED', NEXT_PASSWORD)).ok, false);
     assert.equal((await w.service.unlock('PROTECTED', 'a third excellent private phrase')).ok, true);
 

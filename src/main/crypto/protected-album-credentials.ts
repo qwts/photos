@@ -214,6 +214,11 @@ function sealMetadata(context: ProtectedAlbumContext, albumKey: Buffer, generati
   const metadata = protectedAlbumMetadataSchema.parse(input);
   const plaintext = Buffer.from(JSON.stringify(metadata), 'utf8');
   try {
+    // AES-GCM preserves plaintext length and appends one authentication tag.
+    // Refuse input that would create a record our decoder cannot accept.
+    if (plaintext.length + TAG_BYTES > MAX_SEALED_METADATA_BYTES) {
+      throw new ProtectedAlbumCredentialError('invalid-record');
+    }
     const slot = seal(albumKey, plaintext, aad(context, 'metadata', generation));
     return encode(METADATA_MAGIC, { version: VERSION, generation, ...slot });
   } finally {
