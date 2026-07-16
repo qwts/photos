@@ -1,5 +1,11 @@
 # photos
 
+## 0.18.0
+
+### Minor Changes
+
+- 8b19085: Add verified temporary viewing and export custody for cloud-only originals, with a default-on re-offload policy and an explicit Keep downloaded action.
+
 ## 0.17.0
 
 ### Minor Changes
