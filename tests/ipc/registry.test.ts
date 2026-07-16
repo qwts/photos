@@ -86,9 +86,11 @@ describe('channel registry', () => {
       ],
       nextCursor: null,
     });
-    assert.equal('contentHash' in parsed.photos[0]!, false);
-    assert.equal('keyId' in parsed.photos[0]!, false);
-    assert.equal('syncState' in parsed.photos[0]!, false);
+    const [photo] = parsed.photos;
+    assert.ok(photo);
+    assert.equal('contentHash' in photo, false);
+    assert.equal('keyId' in photo, false);
+    assert.equal('syncState' in photo, false);
     assert.throws(() =>
       channels.protectedAlbumExportRun.request.parse({
         albumId: '',

@@ -51,9 +51,9 @@ export function createProtectedExportRuntime(options: ProtectedExportRuntimeOpti
             },
           },
           resolveKey: () => undefined,
-          openOriginal: async (photo) => {
+          openOriginal: (photo) => {
             const opened = options.library.openOriginal(albumId, photo.id);
-            return { stream: opened.stream, release: opened.release };
+            return Promise.resolve({ stream: opened.stream, release: opened.release });
           },
           writeFile: writeFileCleanly,
           exists: async (filePath) =>

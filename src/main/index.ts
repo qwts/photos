@@ -1,5 +1,4 @@
 import { readFile, unlink } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
@@ -8,22 +7,15 @@ import { app, BrowserWindow, dialog, session, shell } from 'electron';
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
-import { ProtectedBlobStore } from './blobs/protected-blob-store.js';
 import { createWindow, reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
 import { drainWithCancellationFence } from './crypto/library-shutdown.js';
 import { TestFileCredentialAnchorStore } from './crypto/test-credential-anchor.js';
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
-import { ProtectedAlbumAuthorityRegistry } from './crypto/protected-album-authority.js';
-import { ProtectedAlbumService } from './crypto/protected-album-service.js';
-import { ProtectedPhotoMigrationService } from './crypto/protected-photo-migration-service.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
-import { ProtectedAlbumRepository } from './db/protected-album-repository.js';
-import { ProtectedPhotoMigrationRepository } from './db/protected-photo-migration-repository.js';
 import { run } from './db/sql.js';
-import { registerFullProtocol } from './fullres/full-protocol.js';
 import type { FullService } from './fullres/full-service.js';
 import { createFullRuntime } from './fullres/full-runtime.js';
 import { extractMetadata } from './import/exif.js';
@@ -36,7 +28,6 @@ import { ulid } from './import/ulid.js';
 import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
 import { createBackupAuditLogger } from './backup/backup-audit.js';
-import { createBackupFacade } from './backup/backup-facade.js';
 import { createBackupIntegrityRuntime } from './backup/integrity-runtime.js';
 import { sealManifestJson } from './backup/manifest-sealer.js';
 import { createRecoveryHealthCheck } from './backup/recovery-health.js';
@@ -46,7 +37,6 @@ import { createOriginalCustodyRuntime } from './backup/original-custody-runtime.
 import { ProviderRuntime } from './backup/provider-runtime.js';
 import { RestoreRuntime } from './backup/restore-runtime.js';
 import { activationOperationsForHarness } from './backup/restore-fault.js';
-import { createRestoreFacade } from './backup/restore-facade.js';
 import { recoverInterruptedActivation, restorePaths } from './backup/restore-staging.js';
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
@@ -54,31 +44,16 @@ import { PurgeService } from './library/purge-service.js';
 import { createPurgeRuntime, type DrainablePurgeFacade } from './library/purge-runtime.js';
 import { StartupMaintenance } from './library/startup-maintenance.js';
 import { SyncLedger } from './backup/sync-ledger.js';
-import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
-import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import { createExportRuntime, type DrainableExportFacade } from './export/export-runtime.js';
-import { createProtectedExportRuntime, type DrainableProtectedExportFacade } from './export/protected-export-runtime.js';
-import {
-  registerAlbumHandlers,
-  registerBackupHandlers,
-  registerExportHandlers,
-  registerImportHandlers,
-  registerIpcHandlers,
-  registerKeysHandlers,
-  registerLibraryHandlers,
-  registerPurgeHandlers,
-  registerProtectedAlbumHandlers,
-  registerRestoreHandlers,
-  registerSettingsHandlers,
-} from './ipc.js';
+import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
+import { registerIpcHandlers } from './ipc.js';
 import { getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
-import { ProtectedLibraryService } from './library/protected-library-service.js';
-import { ProtectedMediaService } from './library/protected-media-service.js';
+import { ProtectedRuntime } from './library/protected-runtime.js';
+import { registerAppServices } from './register-app-services.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
 import { registerSchemePrivileges } from './protocol-privileges.js';
-import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 
 // Test/dev harness hooks (#72): OVERLOOK_USER_DATA isolates profiles (E2E
@@ -116,15 +91,23 @@ function broadcast(send: (win: BrowserWindow) => void): void {
   }
 }
 
+const emitExportProgress = createEmitter(events.exportProgress, (name, payload) => {
+  broadcast((win) => win.webContents.send(name, payload));
+});
+
+async function pickExportDestination(): Promise<string | null> {
+  const fixture = harnessEnv('OVERLOOK_EXPORT_DESTINATION');
+  if (fixture !== undefined && fixture !== '') return fixture;
+  const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
+  return result.canceled ? null : (result.filePaths[0] ?? null);
+}
+
 interface LibraryParts {
   readonly db: ReturnType<typeof openLibraryDatabase>;
   readonly blobStore: BlobStore;
   readonly blobStoreReady: Promise<void>;
   readonly keyStore: KeyStore;
-  readonly protectedAuthorities: ProtectedAlbumAuthorityRegistry;
-  readonly protectedAlbums: ProtectedAlbumService;
-  readonly protectedLibrary: ProtectedLibraryService;
-  readonly protectedMigrations: ProtectedPhotoMigrationService;
+  readonly protected: ProtectedRuntime;
 }
 
 let libraryParts: LibraryParts | undefined;
@@ -146,11 +129,9 @@ function getLibraryService(): LibraryService {
     }
     const db = openLibraryDatabase({ path: path.join(dataDir, 'library.db'), dbKey });
     const store = new BlobStore({ dataDir });
-    const protectedStore = new ProtectedBlobStore(dataDir);
     // Reads fail clean before init, but WRITES race the directory creation
     // on a fresh profile — importers await this promise (PR #183 review).
     const blobStoreReady = store.init();
-    const protectedStoreReady = protectedStore.init();
     // photos.key_id references keys(id): the current key's row must exist
     // before the FIRST real import on a fresh profile (#90 caught this —
     // previously only the dev seed wrote it). The wrapped key itself lives
@@ -162,27 +143,11 @@ function getLibraryService(): LibraryService {
       new Date().toISOString(),
     );
     const libraryId = getProviderRuntime().libraryId();
-    const authorities = new ProtectedAlbumAuthorityRegistry();
-    const protectedAlbums = new ProtectedAlbumService({
-      libraryId,
-      repository: new ProtectedAlbumRepository(db, libraryId),
-      authorities,
-    });
-    const protectedPhotoRepository = new ProtectedPhotoMigrationRepository(db);
-    const protectedLibrary = new ProtectedLibraryService({
-      libraryId,
-      albums: new ProtectedAlbumRepository(db, libraryId),
-      photos: protectedPhotoRepository,
-      blobs: protectedStore,
-      blobsReady: protectedStoreReady,
-      authorities,
-    });
-    const protectedMigrations = new ProtectedPhotoMigrationService({
+    const protectedRuntime = new ProtectedRuntime({
+      dataDir,
+      db,
       libraryId,
       ordinaryBlobs: store,
-      protectedBlobs: protectedStore,
-      photos: new PhotosRepository(db),
-      migrations: protectedPhotoRepository,
       oweManifest: () => {
         getBackupEngine();
         manifestSyncTrigger?.();
@@ -193,20 +158,18 @@ function getLibraryService(): LibraryService {
           fullService?.invalidate(photoId);
         }
       },
+      progress: (done, total) => emitExportProgress({ done, total }),
+      pickDestination: pickExportDestination,
+      failure: () => console.error('[overlook] protected export failed'),
+      repairFailure: () => console.error('[overlook] protected migration repair failed'),
     });
     libraryParts = {
       db,
       blobStore: store,
       blobStoreReady,
       keyStore,
-      protectedAuthorities: authorities,
-      protectedAlbums,
-      protectedLibrary,
-      protectedMigrations,
+      protected: protectedRuntime,
     };
-    void protectedMigrations.repairStartup().catch(() => {
-      console.error('[overlook] protected migration repair failed');
-    });
     startupMaintenance.schedule();
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
@@ -370,7 +333,6 @@ function getThumbService(): ThumbService {
 }
 
 let fullService: FullService | undefined;
-let protectedMediaService: ProtectedMediaService | undefined;
 
 function getFullService(): FullService {
   if (fullService === undefined) {
@@ -391,29 +353,10 @@ function getFullService(): FullService {
   return fullService;
 }
 
-function getProtectedAlbumService(): ProtectedAlbumService {
+function getProtectedRuntime(): ProtectedRuntime {
   getLibraryService();
-  if (libraryParts === undefined) throw new Error('library bootstrap failed; protected albums unavailable');
-  return libraryParts.protectedAlbums;
-}
-
-function getProtectedLibraryService(): ProtectedLibraryService {
-  getLibraryService();
-  if (libraryParts === undefined) throw new Error('library bootstrap failed; protected library unavailable');
-  return libraryParts.protectedLibrary;
-}
-
-function getProtectedMediaService(): ProtectedMediaService {
-  if (protectedMediaService === undefined) {
-    const library = getProtectedLibraryService();
-    const parts = libraryParts;
-    if (parts === undefined) throw new Error('library bootstrap failed; protected media unavailable');
-    protectedMediaService = new ProtectedMediaService({
-      library,
-      authorities: parts.protectedAuthorities,
-    });
-  }
-  return protectedMediaService;
+  if (libraryParts === undefined) throw new Error('library bootstrap failed; protected runtime unavailable');
+  return libraryParts.protected;
 }
 
 let backupEngine: BackupEngine | undefined;
@@ -736,7 +679,6 @@ function getBackupEngine(): BackupEngine {
 }
 
 let exportFacade: DrainableExportFacade | undefined;
-let protectedExportFacade: DrainableProtectedExportFacade | undefined;
 
 function getExportFacade(): DrainableExportFacade {
   if (exportFacade === undefined) {
@@ -746,9 +688,6 @@ function getExportFacade(): DrainableExportFacade {
       throw new Error('library bootstrap failed; export unavailable');
     }
     const repo = new PhotosRepository(parts.db);
-    const emitProgress = createEmitter(events.exportProgress, (name, payload) => {
-      broadcast((win) => win.webContents.send(name, payload));
-    });
     exportFacade = createExportRuntime({
       repo: { get: (id) => repo.get(id) },
       blobs: parts.blobStore,
@@ -758,40 +697,11 @@ function getExportFacade(): DrainableExportFacade {
         const opened = await service.open(photo.id, 'export');
         return { stream: opened.stream, release: opened.custody === 'ephemeral' ? () => service.release(photo.id, 'export') : undefined };
       },
-      pickDestination: async () => {
-        // Harness hook (#101, OVERLOOK_* family): the mock-file-dialog seam
-        // the export E2E drives — a fixed destination instead of the picker.
-        const fixture = harnessEnv('OVERLOOK_EXPORT_DESTINATION');
-        if (fixture !== undefined && fixture !== '') {
-          return fixture;
-        }
-        const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
-        return result.canceled ? null : (result.filePaths[0] ?? null);
-      },
-      progress: (done, total) => emitProgress({ done, total }),
+      pickDestination: pickExportDestination,
+      progress: (done, total) => emitExportProgress({ done, total }),
     });
   }
   return exportFacade;
-}
-
-function getProtectedExportFacade(): DrainableProtectedExportFacade {
-  if (protectedExportFacade === undefined) {
-    const emitProgress = createEmitter(events.exportProgress, (name, payload) => {
-      broadcast((win) => win.webContents.send(name, payload));
-    });
-    protectedExportFacade = createProtectedExportRuntime({
-      library: getProtectedLibraryService(),
-      pickDestination: async () => {
-        const fixture = harnessEnv('OVERLOOK_EXPORT_DESTINATION');
-        if (fixture !== undefined && fixture !== '') return fixture;
-        const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
-        return result.canceled ? null : (result.filePaths[0] ?? null);
-      },
-      progress: (done, total) => emitProgress({ done, total }),
-      failure: () => console.error('[overlook] protected export failed'),
-    });
-  }
-  return protectedExportFacade;
 }
 
 async function closeLibrary(drainRestore: boolean): Promise<void> {
@@ -799,28 +709,23 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   manifestSyncTrigger = undefined;
   importService?.close();
   exportFacade?.close();
-  protectedExportFacade?.close();
+  libraryParts?.protected.cancel();
   purgeRuntime?.close();
-  libraryParts?.protectedAlbums.relockAll();
   for (const controller of activeBackupControllers) controller.abort();
   await drainWithCancellationFence(cancelScheduledLibraryWork, [
     importService?.drain() ?? Promise.resolve(),
     exportFacade?.drain() ?? Promise.resolve(),
-    protectedExportFacade?.drain() ?? Promise.resolve(),
+    libraryParts?.protected.drain() ?? Promise.resolve(),
     purgeRuntime?.drain() ?? Promise.resolve(),
     startupMaintenance.drain(),
     Promise.allSettled([...activeBackupRuns]),
     drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
     drainRestore ? providerIdle() : Promise.resolve(),
-    Promise.all([
-      thumbService?.close() ?? Promise.resolve(),
-      fullService?.close() ?? Promise.resolve(),
-      protectedMediaService?.close() ?? Promise.resolve(),
-    ]),
+    Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),
     thumbnailPool?.close() ?? Promise.resolve(),
     ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
   ]);
-  libraryParts?.protectedAlbums.close();
+  libraryParts?.protected.close();
   libraryParts?.db.close();
   libraryParts?.keyStore.close();
   libraryService = undefined;
@@ -829,14 +734,12 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   thumbnailPool = undefined;
   thumbService = undefined;
   fullService = undefined;
-  protectedMediaService = undefined;
   backupEngine = undefined;
   offloadService = undefined;
   ephemeralOriginalService = undefined;
   [purgeService, purgeRuntime] = [undefined, undefined];
   consistencyChecker = undefined;
   exportFacade = undefined;
-  protectedExportFacade = undefined;
   if (drainRestore) restoreRuntime = undefined;
 }
 
@@ -921,84 +824,43 @@ void app.whenReady().then(async () => {
     send: (name, payload) => broadcast((win) => win.webContents.send(name, payload)),
     settings: () => getSettingsStore().get(),
   });
-  registerLibraryHandlers(getLibraryService, () => {
-    // Soft delete of a synced row leaves pendingCount at 0 with a STALE
-    // remote manifest — a restore-from-backup would resurrect the photo
-    // (PR #218 review). Owe the generation and push it quietly now; if
-    // disconnected/offline the debt persists into the next run.
-    getBackupEngine();
-    manifestSyncTrigger?.();
-  });
-  registerAlbumHandlers(getLibraryService, ulid);
-  registerProtectedAlbumHandlers(getProtectedAlbumService, getProtectedLibraryService, getProtectedExportFacade);
-  registerThumbProtocol(getThumbService, () => lock.requireContentAccess(), getProtectedMediaService);
-  registerFullProtocol(getFullService, () => lock.requireContentAccess(), getProtectedMediaService);
-  registerImportHandlers(
-    getImportService,
-    async () => {
-      // Harness hook (#237, OVERLOOK_* family): the mock-file-dialog seam
-      // the folder-import E2E drives — a fixed folder instead of the picker.
-      const fixture = harnessEnv('OVERLOOK_IMPORT_FOLDER');
-      if (fixture !== undefined && fixture !== '') {
-        return fixture;
-      }
-      const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
-      return result.canceled ? null : (result.filePaths[0] ?? null);
+  registerAppServices({
+    dataDir: path.join(app.getPath('userData'), 'library'),
+    harnessEnv,
+    requireContentAccess: () => lock.requireContentAccess(),
+    allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
+    getLibrary: getLibraryService,
+    getProtected: getProtectedRuntime,
+    getThumbs: getThumbService,
+    getFull: getFullService,
+    getImport: getImportService,
+    getExport: getExportFacade,
+    getKeyStore: () => {
+      getLibraryService();
+      if (libraryParts === undefined) throw new Error('library bootstrap failed; no key available');
+      return libraryParts.keyStore;
     },
-    () => {
+    getRestore: getRestoreRuntime,
+    getPurge: getPurgeRuntime,
+    safeStorage: pickSafeStorage,
+    providerBusy: () => providerWorkCount > 0,
+    onDeleted: () => {
+      getBackupEngine();
+      manifestSyncTrigger?.();
+    },
+    onImported: () => {
       getBackupEngine();
       autoBackupTrigger?.();
     },
-  );
-  registerExportHandlers(getExportFacade);
-  registerKeysHandlers(() =>
-    createRecoveryKeyFacade({
-      keyStore: () => {
-        getLibraryService();
-        if (libraryParts === undefined) throw new Error('library bootstrap failed; no key available');
-        return libraryParts.keyStore;
-      },
-      safeStorage: pickSafeStorage,
-      dataDir: () => path.join(app.getPath('userData'), 'library'),
-      allowImport: () => lock.snapshot().state === 'unconfigured-unlocked',
-      pickExportDestination: async () => {
-        const fixture = harnessEnv('OVERLOOK_KEY_EXPORT_DESTINATION');
-        if (fixture !== undefined && fixture !== '') return fixture;
-        const result = await dialog.showSaveDialog({ defaultPath: 'overlook-recovery.key' });
-        return result.canceled ? null : (result.filePath ?? null);
-      },
-      pickImportSource: () => pickRecoveryKeyPath(harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
-    }),
-  );
-  registerRestoreHandlers(() =>
-    createRestoreFacade({
-      coordinator: () => getRestoreRuntime().coordinator,
-      fresh: () => !existsSync(path.join(app.getPath('userData'), 'library', 'library.db')),
-      pickKey: () => pickRecoveryKeyPath(harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
-      busy: () => providerWorkCount > 0,
-    }),
-  );
-  registerPurgeHandlers(() => ({
-    purge: (photoIds) => getPurgeRuntime().purge(photoIds),
-  }));
-  registerSettingsHandlers(() => getSettingsStore());
-  // Change pushes (#111): the store notifies, every window re-renders from
-  // the same snapshot.
-  const emitSettingsChanged = createEmitter(events.settingsChanged, (name, payload) => {
-    broadcast((win) => win.webContents.send(name, payload));
-  });
-  getSettingsStore().subscribe((settings) => {
-    emitSettingsChanged({ settings });
-  });
-  registerBackupHandlers(() =>
-    createBackupFacade({
+    broadcast: (name, payload) => broadcast((win) => win.webContents.send(name, payload)),
+    backup: {
       runtime: ensureRestoreProviderRegistry,
       run: () => getBackupEngine().run(),
       offloadService: getOffloadService,
       ephemeralOriginalService: getEphemeralOriginalService,
       workChanged: changeProviderWork,
-    }),
-  );
+    },
+  });
   const contentAvailable = lock.snapshot().state === 'unconfigured-unlocked' || lock.snapshot().state === 'unlocked';
   const seedCount = Number(harnessEnv('OVERLOOK_SEED') ?? '0');
   if (contentAvailable && Number.isInteger(seedCount) && seedCount > 0) {
