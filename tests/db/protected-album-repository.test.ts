@@ -76,7 +76,9 @@ describe('protected album persistence and service (#325)', () => {
     w.service.close();
     w.db.close();
   });
+});
 
+describe('protected album ceremonies and lifecycle (#325)', () => {
   test('session unlock, password change, recovery, and relock preserve sealed metadata', async () => {
     const w = world();
     const masterKey = randomBytes(32);
