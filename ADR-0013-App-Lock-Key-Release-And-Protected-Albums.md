@@ -222,7 +222,7 @@ Evidence is in `tests/crypto/protected-album-credentials.test.ts`, `tests/crypto
 
 ## #326 implementation evidence (2026-07-16)
 
-Draft [PR #342](https://github.com/qwts/photos/pull/342) implements protected
+[PR #342](https://github.com/qwts/photos/pull/342) implements protected
 photo custody migration. Schema v7 separates protected photo records from
 ordinary rows and journals every protect, authorized move, and unprotect across
 `prepare → copy → verify → commit → purge`. The ordinary visibility view and
@@ -252,3 +252,34 @@ The full `npm run ci` gate passed with 539 tests, one intentional live-provider
 skip, 92.65% line coverage, 84.08% branch coverage, and a production build.
 #327 leakage enforcement, #328 cloud lifecycle, and #329 user workflows remain
 required before `m20-protected-albums` can leave deferred status.
+
+## #327 implementation evidence (2026-07-16)
+
+[PR #353](https://github.com/qwts/photos/pull/353) enforces the protected-domain
+boundary below the renderer. Every ordinary page, source, search, album,
+count, storage/status summary, backup manifest, dedupe probe, mutation,
+offload/rehydrate lookup, purge lookup, consistency report, and media admission
+path reads through `ordinary_visible_photos`. Migration-owned ordinary hashes
+remain available only to orphan prevention and never become diagnostic rows.
+
+An authority-bound protected library service exposes opaque locked summaries
+and album-scoped page, metadata, mutation, media, and export operations. Its
+renderer records omit content hashes, library key ids, and sync state. Missing,
+locked, corrupt, migrating, and cross-domain targets share one unavailable
+failure. Thumbnail and full-resolution URLs include both the protected domain
+and photo id; live authority generations gate protocol reads, cached plaintext,
+prefetch, in-flight decrypts, and exports. Relock zeroizes domain caches,
+rejects in-flight results, destroys export streams, and removes partial
+plaintext output. App lock and library shutdown relock all domains before key
+custody closes.
+
+Evidence is in `tests/db/protected-photo-migration-repository.test.ts`,
+`tests/crypto/protected-album-authority.test.ts`,
+`tests/library/protected-library-service.test.ts`,
+`tests/thumbs/thumb-service.test.ts`, `tests/fullres/full-service.test.ts`, and
+`tests/ipc/registry.test.ts`. It covers ordinary sources, counts, status,
+albums, search, dedupe, forged actions, diagnostics, manifests, one-domain
+authorization, cross-domain and post-relock URLs, cache and in-flight
+revocation, opaque failures, renderer-schema stripping, and relock-safe export.
+#328 cloud lifecycle and #329 user workflows remain required before
+`m20-protected-albums` can leave deferred status.
