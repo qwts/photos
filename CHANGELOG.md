@@ -1,5 +1,12 @@
 # photos
 
+## 0.20.0
+
+### Minor Changes
+
+- 74eb06f: Translate and persist Image Trail bookmarks and albums without fabricating native photo metadata.
+- 57b8336: Publish the canonical Overlook and Image Trail interoperability contract.
+
 ## 0.19.0
 
 ### Minor Changes
