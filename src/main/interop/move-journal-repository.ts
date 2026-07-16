@@ -279,6 +279,14 @@ export class MoveJournalRepository {
     const accepted = acknowledgementResponse.payload.status === 'accepted';
     this.db.transaction(() => {
       this.ensureJournal(recordRequest, accepted ? 'acknowledged' : 'failed', at);
+      const existingItem = this.getItem(recordRequest.header.transferId, recordRequest.payload.record.identity.interopId);
+      if (
+        existingItem !== undefined &&
+        (existingItem.sourceMessageId !== recordRequest.header.messageId ||
+          JSON.stringify(existingItem.record) !== JSON.stringify(recordRequest.payload.record))
+      ) {
+        throw new MoveJournalError('Move item identity was replayed with different content.');
+      }
       runNamed(
         this.db,
         `INSERT INTO interop_move_items (
@@ -573,15 +581,16 @@ export class MoveJournalRepository {
     );
   }
 
-  hasReceipt(pairingId: string, messageId: string): boolean {
-    return (
-      queryGet<{ one: number }>(
-        this.db,
-        'SELECT 1 AS one FROM interop_move_receipts WHERE pairing_id = ? AND message_id = ?',
-        pairingId,
-        messageId,
-      ) !== undefined
+  hasReceipt(pairingId: string, messageId: string, transferId: string): boolean {
+    const receipt = queryGet<{ transfer_id: string }>(
+      this.db,
+      'SELECT transfer_id FROM interop_move_receipts WHERE pairing_id = ? AND message_id = ?',
+      pairingId,
+      messageId,
     );
+    if (receipt === undefined) return false;
+    if (receipt.transfer_id !== transferId) throw new MoveJournalError('Move replay identity was reused across transfers.');
+    return true;
   }
 
   pendingOutbox(transferId: string): readonly InteropEnvelope[] {
