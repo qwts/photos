@@ -17,6 +17,7 @@ import { TestFileCredentialAnchorStore } from './crypto/test-credential-anchor.j
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
 import { ProtectedAlbumAuthorityRegistry } from './crypto/protected-album-authority.js';
 import { ProtectedAlbumService } from './crypto/protected-album-service.js';
+import { ProtectedPhotoMigrationService } from './crypto/protected-photo-migration-service.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository } from './db/photos-repository.js';
 import { ProtectedAlbumRepository } from './db/protected-album-repository.js';
@@ -123,6 +124,7 @@ interface LibraryParts {
   readonly protectedAuthorities: ProtectedAlbumAuthorityRegistry;
   readonly protectedAlbums: ProtectedAlbumService;
   readonly protectedLibrary: ProtectedLibraryService;
+  readonly protectedMigrations: ProtectedPhotoMigrationService;
 }
 
 let libraryParts: LibraryParts | undefined;
@@ -166,13 +168,31 @@ function getLibraryService(): LibraryService {
       repository: new ProtectedAlbumRepository(db, libraryId),
       authorities,
     });
+    const protectedPhotoRepository = new ProtectedPhotoMigrationRepository(db);
     const protectedLibrary = new ProtectedLibraryService({
       libraryId,
       albums: new ProtectedAlbumRepository(db, libraryId),
-      photos: new ProtectedPhotoMigrationRepository(db),
+      photos: protectedPhotoRepository,
       blobs: protectedStore,
       blobsReady: protectedStoreReady,
       authorities,
+    });
+    const protectedMigrations = new ProtectedPhotoMigrationService({
+      libraryId,
+      ordinaryBlobs: store,
+      protectedBlobs: protectedStore,
+      photos: new PhotosRepository(db),
+      migrations: protectedPhotoRepository,
+      oweManifest: () => {
+        getBackupEngine();
+        manifestSyncTrigger?.();
+      },
+      revokeOrdinary: (photoIds) => {
+        for (const photoId of photoIds) {
+          thumbService?.invalidate(photoId);
+          fullService?.invalidate(photoId);
+        }
+      },
     });
     libraryParts = {
       db,
@@ -182,7 +202,11 @@ function getLibraryService(): LibraryService {
       protectedAuthorities: authorities,
       protectedAlbums,
       protectedLibrary,
+      protectedMigrations,
     };
+    void protectedMigrations.repairStartup().catch(() => {
+      console.error('[overlook] protected migration repair failed');
+    });
     startupMaintenance.schedule();
     const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
