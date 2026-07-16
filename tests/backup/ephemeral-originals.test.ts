@@ -158,11 +158,23 @@ describe('ephemeral originals (#306)', () => {
     assert.equal(w.ephemeral.has(HASH_A), false);
   });
 
-  test('policy off uses permanent restore; prefetch stays temporary and LRU-bounded', async () => {
+  test('policy off permanently restores only real views; prefetch and export stay temporary', async () => {
     const w = await world({ maxCacheBytes: 20 });
     w.setPolicy(false);
+
+    assert.equal((await w.service.open('P2', 'prefetch')).custody, 'ephemeral');
+    assert.equal((await w.service.open('P3', 'export')).custody, 'ephemeral');
+    assert.equal(w.permanentRestores(), 0, 'background and export reads preserve the offloaded storage choice');
+    assert.equal(w.statuses.get('P2'), 'offloaded');
+    assert.equal(w.statuses.get('P3'), 'offloaded');
+    await w.service.release('P3', 'export');
+
     assert.equal((await w.service.open('P0', 'view')).custody, 'durable');
     assert.equal(w.permanentRestores(), 1);
+  });
+
+  test('temporary prefetch remains LRU-bounded', async () => {
+    const w = await world({ maxCacheBytes: 20 });
     w.setPolicy(true);
     await w.service.open('P2', 'prefetch');
     await w.service.open('P3', 'prefetch');
