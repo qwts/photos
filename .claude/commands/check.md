@@ -5,7 +5,9 @@ argument-hint: '[none]'
 
 Run all of photos' validation gates and report every result. When a gate fails,
 surface the failure verbatim, fix it when in scope, rerun it, and continue
-through the remaining gates.
+through the remaining gates. If a fix edits any tracked file, discard every
+earlier gate result and restart the sequence at `npm run lint`; report success
+only after one complete, edit-free pass through all five gates.
 
 ## 1. Run the gates (in order)
 
