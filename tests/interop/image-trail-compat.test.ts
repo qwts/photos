@@ -46,7 +46,10 @@ function plainExport(entries: readonly unknown[] = [BOOKMARK]): string {
   });
 }
 
-async function encryptedExport(password: string): Promise<string> {
+async function encryptedExport(
+  password: string,
+  options: { readonly payload?: unknown; readonly payloadType?: 'bookmarks' | 'mixed'; readonly recordCount?: number } = {},
+): Promise<string> {
   const salt = new Uint8Array(16).fill(7);
   const iv = new Uint8Array(12).fill(9);
   const passwordBytes = new TextEncoder().encode(password);
@@ -59,14 +62,14 @@ async function encryptedExport(password: string): Promise<string> {
     false,
     ['encrypt'],
   );
-  const plaintext = new TextEncoder().encode(JSON.stringify([BOOKMARK]));
+  const plaintext = new TextEncoder().encode(JSON.stringify(options.payload ?? [BOOKMARK]));
   const ciphertext = new Uint8Array(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext));
   plaintext.fill(0);
   return JSON.stringify({
     header: {
       magic: 'IMAGE-TRAIL-EXPORT',
       formatVersion: 1,
-      payloadType: 'bookmarks',
+      payloadType: options.payloadType ?? 'bookmarks',
       algorithm: 'AES-GCM',
       wrappingMode: 'password',
       keyKind: 'export',
@@ -75,7 +78,7 @@ async function encryptedExport(password: string): Promise<string> {
       iv: Buffer.from(iv).toString('base64'),
       iterations: 600_000,
       createdAt: CREATED_AT,
-      recordCount: 1,
+      recordCount: options.recordCount ?? 1,
     },
     payload: Buffer.from(ciphertext).toString('base64'),
   });
@@ -96,6 +99,31 @@ describe('Image Trail compatibility import', () => {
     const result = await importImageTrailCompatibilityFile(await encryptedExport('correct horse'), 'correct horse');
     assert.equal(result.plaintext, false);
     assert.deepEqual(result.entries, [BOOKMARK]);
+  });
+
+  test('reads full-backup albums while leaving encrypted original custody to blob transport', async () => {
+    const album = {
+      id: 'album-legacy-1',
+      name: 'Reference',
+      createdAt: '2026-07-16T12:00:00.000Z',
+      updatedAt: '2026-07-16T13:00:00.000Z',
+      recordIds: [BOOKMARK.uuid],
+    };
+    const payload = {
+      schemaVersion: 2,
+      bookmarks: [BOOKMARK],
+      originalBlobs: [{ ciphertext: 'not-retained-by-translation' }],
+      blobKeyBackups: [],
+      missingOriginalBlobIds: [],
+      albums: [album],
+    };
+    const result = await importImageTrailCompatibilityFile(
+      await encryptedExport('correct horse', { payload, payloadType: 'mixed' }),
+      'correct horse',
+    );
+
+    assert.deepEqual(result.entries, [BOOKMARK]);
+    assert.deepEqual(result.albums, [album]);
   });
 
   test('uses one generic failure for a wrong password, corrupt ciphertext, or malformed header', async () => {
