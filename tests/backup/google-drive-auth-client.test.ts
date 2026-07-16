@@ -1,0 +1,77 @@
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { GoogleDriveAuthClient } from '../../src/main/backup/google-drive/auth-client.js';
+import { GoogleDriveTokenStore } from '../../src/main/backup/google-drive/token-store.js';
+import { ProviderError } from '../../src/main/backup/provider.js';
+import type { SafeStorageLike } from '../../src/main/crypto/keystore.js';
+
+const CLIENT_ID = 'desktop.apps.googleusercontent.com';
+const safeStorage: SafeStorageLike = {
+  isEncryptionAvailable: () => true,
+  encryptString: (value) => Buffer.from(value),
+  decryptString: (value) => value.toString(),
+};
+
+function world(fetchImpl: typeof fetch, clientId: string | null = CLIENT_ID) {
+  const store = new GoogleDriveTokenStore({ safeStorage, dataDir: mkdtempSync(join(tmpdir(), 'overlook-google-client-')) });
+  let now = 1_000_000;
+  const auth = new GoogleDriveAuthClient({ clientId: () => clientId, tokenStore: store, fetchImpl, now: () => now });
+  return { auth, store, advance: (ms: number) => (now += ms) };
+}
+
+describe('Google Drive access-token client (#277)', () => {
+  test('missing or client-mismatched custody is disconnected and fails with auth', async () => {
+    const { auth, store } = world(async () => new Response('{}'));
+    assert.equal(auth.authState(), 'not-connected');
+    await assert.rejects(auth.accessToken(), (error: unknown) => error instanceof ProviderError && error.kind === 'auth');
+    store.save({ clientId: 'other.apps.googleusercontent.com', refreshToken: 'r', connectedAt: 'now' });
+    assert.equal(auth.authState(), 'not-connected');
+    await assert.rejects(auth.accessToken(), (error: unknown) => error instanceof ProviderError && error.kind === 'auth');
+  });
+
+  test('refresh is shared, cached, expires early, invalidates, and clears', async () => {
+    let calls = 0;
+    const { auth, store, advance } = world(async (_input, init) => {
+      calls += 1;
+      const params = new URLSearchParams(String(init?.body));
+      assert.equal(params.get('refresh_token'), 'refresh-1');
+      return new Response(JSON.stringify({ access_token: `access-${String(calls)}`, expires_in: 120 }), { status: 200 });
+    });
+    store.save({ clientId: CLIENT_ID, refreshToken: 'refresh-1', connectedAt: 'now' });
+    assert.equal(auth.authState(), 'connected');
+    assert.deepEqual(await Promise.all([auth.accessToken(), auth.accessToken()]), ['access-1', 'access-1']);
+    assert.equal(calls, 1);
+    assert.equal(await auth.accessToken(), 'access-1');
+    advance(61_000);
+    assert.equal(await auth.accessToken(), 'access-2');
+    auth.invalidate();
+    assert.equal(await auth.accessToken(), 'access-3');
+    auth.seed('seeded', 3600);
+    assert.equal(await auth.accessToken(), 'seeded');
+    auth.clear();
+    assert.equal(store.load(), null);
+    assert.equal(auth.authState(), 'not-connected');
+  });
+
+  test('refresh maps transport, auth, service, and malformed responses', async () => {
+    const check = async (fetchImpl: typeof fetch, kind: ProviderError['kind']) => {
+      const { auth, store } = world(fetchImpl);
+      store.save({ clientId: CLIENT_ID, refreshToken: 'refresh_token=SECRET', connectedAt: 'now' });
+      await assert.rejects(
+        auth.accessToken(),
+        (error: unknown) => error instanceof ProviderError && error.kind === kind && !error.message.includes('SECRET'),
+      );
+    };
+    await check(async () => {
+      throw new Error('refresh_token=SECRET');
+    }, 'transient');
+    await check(async () => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }), 'auth');
+    await check(async () => new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 }), 'transient');
+    await check(async () => new Response('{}', { status: 200 }), 'transient');
+  });
+});

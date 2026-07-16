@@ -56,7 +56,7 @@ test('LIVE pCloud provider and fresh-profile disaster-recovery contracts (#291)'
     assert.equal(verified.bytes, PAYLOAD.length);
 
     const quota = await provider.quota();
-    assert.ok(quota.totalBytes > 0, 'quota reports the real plan size');
+    assert.ok(quota.totalBytes !== null && quota.totalBytes > 0, 'quota reports the real plan size');
     assert.ok(quota.usedBytes >= 0 && quota.usedBytes <= quota.totalBytes);
   } finally {
     await provider.delete(blobPath);

@@ -1,0 +1,110 @@
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  GOOGLE_DRIVE_SCOPE,
+  GoogleDriveOAuthError,
+  buildGoogleDriveAuthorizeUrl,
+  createPkce,
+  exchangeGoogleDriveCode,
+  redactGoogleCredentials,
+} from '../../src/main/backup/google-drive/oauth.js';
+
+const CLIENT_ID = 'desktop.apps.googleusercontent.com';
+
+describe('Google Drive OAuth helpers (#277)', () => {
+  test('PKCE and authorization URL use the desktop loopback drive.file contract', () => {
+    const pkce = createPkce();
+    assert.match(pkce.verifier, /^[A-Za-z0-9_-]{43,128}$/u);
+    assert.match(pkce.challenge, /^[A-Za-z0-9_-]{43}$/u);
+    const url = new URL(
+      buildGoogleDriveAuthorizeUrl({
+        clientId: CLIENT_ID,
+        redirectUri: 'http://127.0.0.1:43210/callback',
+        state: 'nonce',
+        challenge: pkce.challenge,
+      }),
+    );
+    assert.equal(url.origin, 'https://accounts.google.com');
+    assert.equal(url.searchParams.get('client_id'), CLIENT_ID);
+    assert.equal(url.searchParams.get('redirect_uri'), 'http://127.0.0.1:43210/callback');
+    assert.equal(url.searchParams.get('response_type'), 'code');
+    assert.equal(url.searchParams.get('scope'), GOOGLE_DRIVE_SCOPE);
+    assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
+    assert.equal(url.searchParams.get('access_type'), 'offline');
+    assert.equal(url.searchParams.get('prompt'), 'consent');
+  });
+
+  test('authorization code exchange sends no client secret and accepts the required scope', async () => {
+    let body = '';
+    const fetchImpl: typeof fetch = async (_input, init) => {
+      body = String(init?.body);
+      return new Response(
+        JSON.stringify({
+          access_token: 'access-1',
+          refresh_token: 'refresh-1',
+          expires_in: 1800,
+          scope: GOOGLE_DRIVE_SCOPE,
+        }),
+        { status: 200 },
+      );
+    };
+    const result = await exchangeGoogleDriveCode({
+      clientId: CLIENT_ID,
+      code: 'code-1',
+      verifier: 'verifier-1',
+      redirectUri: 'http://127.0.0.1:1/callback',
+      fetchImpl,
+    });
+    assert.deepEqual(result, { accessToken: 'access-1', refreshToken: 'refresh-1', expiresIn: 1800 });
+    const params = new URLSearchParams(body);
+    assert.equal(params.get('client_id'), CLIENT_ID);
+    assert.equal(params.get('code'), 'code-1');
+    assert.equal(params.get('code_verifier'), 'verifier-1');
+    assert.equal(params.get('client_secret'), null);
+  });
+
+  test('token response validation rejects missing grants and credentials', async () => {
+    const exchange = (payload: object) =>
+      exchangeGoogleDriveCode({
+        clientId: CLIENT_ID,
+        code: 'code',
+        verifier: 'verifier',
+        redirectUri: 'http://127.0.0.1:1/callback',
+        fetchImpl: async () => new Response(JSON.stringify(payload), { status: 200 }),
+      });
+    await assert.rejects(exchange({ access_token: 'a', refresh_token: 'r', scope: 'other' }), /drive\.file scope/u);
+    await assert.rejects(exchange({ access_token: 'a', scope: GOOGLE_DRIVE_SCOPE }), /refresh token/u);
+    await assert.rejects(exchange({ refresh_token: 'r', scope: GOOGLE_DRIVE_SCOPE }), /access token/u);
+    assert.equal((await exchange({ access_token: 'a', refresh_token: 'r' })).expiresIn, 3600);
+  });
+
+  test('HTTP and network failures are redacted', async () => {
+    await assert.rejects(
+      exchangeGoogleDriveCode({
+        clientId: CLIENT_ID,
+        code: 'secret',
+        verifier: 'verifier',
+        redirectUri: 'http://127.0.0.1:1/callback',
+        fetchImpl: async () => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }),
+      }),
+      (error: unknown) => error instanceof GoogleDriveOAuthError && /invalid_grant/u.test(error.message),
+    );
+    await assert.rejects(
+      exchangeGoogleDriveCode({
+        clientId: CLIENT_ID,
+        code: 'secret',
+        verifier: 'verifier',
+        redirectUri: 'http://127.0.0.1:1/callback',
+        fetchImpl: async () => {
+          throw new Error('access_token=SECRET');
+        },
+      }),
+      (error: unknown) => error instanceof GoogleDriveOAuthError && !error.message.includes('SECRET'),
+    );
+    assert.equal(
+      redactGoogleCredentials('access_token=A refresh_token=R code=C code_verifier=V Bearer TOKEN'),
+      'access_token=redacted refresh_token=redacted code=redacted code_verifier=redacted Bearer redacted',
+    );
+  });
+});
