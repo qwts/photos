@@ -203,3 +203,9 @@ The adversarial pass corrected three issues: a rollback anchor cannot be a `safe
 - Touch ID requires a native signed-build adapter and cannot be honestly completed only in CI.
 - Protected albums require schema, query, blob-layout, backup, and migration changes; existing ordinary album membership alone cannot provide their guarantee.
 - The strict one-protected-domain-per-photo rule avoids key sharing and ambiguous leakage at the cost of an explicit move ceremony.
+
+## #310 implementation evidence (2026-07-16)
+
+[PR #324](https://github.com/qwts/photos/pull/324) implements the Touch ID release slot without changing this ADR's hierarchy. A signed Node-API bridge stores only `U` in the macOS Data Protection Keychain under `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`, `kSecAccessControlBiometryCurrentSet`, and non-synchronizable custody. The main executable must have a valid non-ad-hoc signature, the expected bundle id, a Team ID, and the matching team-scoped application-identifier entitlement before the adapter reports availability. Renderer/helper inherited entitlements omit that Keychain identity.
+
+The non-secret marker is bound to the current credential anchor. Password change/removal/recovery, enrollment invalidation, missing native custody, invalid `U`, secure-storage failure, and explicit opt-out revoke it fail-closed. Typed IPC exposes only availability/result states; `U`, `M`, native errors, and prompt details remain in the main/native boundary. Unit tests cover custody, rotation, races, zeroization, signature/module gating, and IPC stripping; Storybook covers cancellation with password fallback; Electron E2E covers password-authenticated opt-in, biometric unlock via a packaged-build-gated memory adapter, password fallback, and rotation revocation. The signed/notarized hardware checklist in the M20 story remains required before #310 and PR #324 can close.

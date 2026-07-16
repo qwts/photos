@@ -17,7 +17,8 @@ M20 adds a cryptographic whole-app lock, opt-in native Touch ID release on suppo
 
 - #308 contract: complete; ADR-0013 accepted.
 - #311 app-lock lifecycle: implemented by [PR #323](https://github.com/qwts/photos/pull/323). Configured launch withholds the master key until password release; main-process IPC/protocol admission, crash-resumable OVLK/anchor transitions, persistent throttling, recovery-file re-establishment, lifecycle locking, work drain, cache zeroization, Privacy controls, and the dedicated lock surface are covered.
-- #310 Touch ID and #309 protected albums remain separate deferred deliveries. The disabled Touch ID control is intentional until the native signed-build adapter exists.
+- #310 Touch ID is implemented by [PR #324](https://github.com/qwts/photos/pull/324), pending the owner-run signed/notarized hardware checklist below. It uses a signed Node-API bridge, the macOS Data Protection Keychain, current-enrollment Touch ID access control, Settings opt-in/out, and an always-visible password fallback.
+- #309 protected albums remain a separate deferred delivery.
 
 ## Product and privacy rules
 
@@ -42,10 +43,10 @@ The app password releases a random unlock key that wraps the existing master. Th
 The complete testable matrix is in ADR-0013. The repo ledger tracks:
 
 - `m20-app-lock-lifecycle` → `tests/e2e/app-lock.spec.ts`, lock-screen Storybook interactions, custody/state-machine tests, and packaged manual evidence
-- `m20-touch-id-unlock` → #310
+- `m20-touch-id-unlock` → native adapter/custody tests, `tests/e2e/app-lock.spec.ts`, lock-screen Storybook interactions, and the signed checklist below
 - `m20-protected-albums` → #309
 
-Each remaining child replaces its deferred entry with unit, Storybook, Electron E2E, security-review, and required signed-build/manual evidence. The epic closes only after the bypass, crash/restart, accessibility, recovery, and leakage matrices all pass.
+Each child must supply unit, Storybook, Electron E2E, security-review, and required signed-build/manual evidence. The epic closes only after the bypass, crash/restart, accessibility, recovery, and leakage matrices all pass.
 
 ### #311 packaged acceptance checklist
 
@@ -54,3 +55,25 @@ Each remaining child replaces its deferred entry with unit, Storybook, Electron 
 3. Confirm password-manager behavior, keyboard-only focus order, screen-reader announcements, reduced motion, and minimum-window layout.
 4. Run backup/import/export before locking and confirm lock cancels or drains it without corrupting the library; a hung operation must relaunch locked.
 5. Change and remove the password with correct and incorrect current credentials; recover with the matching exported key and reject another library's key.
+
+### #310 Touch ID custody and packaging
+
+Touch ID releases `U`; it never stores or releases `M` directly. Explicit opt-in re-authenticates the current app password, copies `U` into a generic-password item with service `com.qwts.overlook.touch-id-unlock`, then zeroizes the temporary copy. The item uses the Data Protection Keychain with `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`, `kSecAccessControlBiometryCurrentSet`, and synchronization disabled. The repo stores only a non-secret marker bound to the current library id, credential generation, and record hash.
+
+The native bridge loads only in packaged macOS processes and verifies the running main executable on every operation: bundle id `com.qwts.overlook`, strict non-ad-hoc signature, Team ID, and a matching team-scoped `com.apple.application-identifier`. The owner release Team ID is pinned in `build/entitlements.mac.plist`; that application identifier supplies the app's private Data Protection Keychain group. No Keychain sharing group is requested. `build/entitlements.mac.inherit.plist` deliberately omits Keychain identity from renderer/helper executables. The `.node` bridge is unpacked from ASAR and signed as nested code.
+
+Password change, removal, and recovery rotate or remove `U`, clear the native item, remove the marker, and require explicit opt-in again. `biometryCurrentSet` invalidates the item when enrolled fingers change. Native cancellation and failed scans do not read or mutate the password-throttle record. Unsupported platforms, unpackaged processes, malformed/missing native modules, unsigned/ad-hoc builds, mismatched entitlements, missing enrollment, lockout, and secure-storage failures remain locked and return only stable reason codes.
+
+### #310 signed/notarized owner checklist
+
+Use a notarized release candidate on a Touch ID Mac. CI's memory-only adapter is packaged-build-gated and is not evidence for these steps.
+
+1. Verify `codesign --verify --deep --strict --verbose=2 /Applications/Overlook.app` succeeds and `spctl --assess --type execute --verbose=2 /Applications/Overlook.app` accepts the app.
+2. Run `codesign -d --entitlements :- /Applications/Overlook.app` and confirm the main executable contains `com.apple.application-identifier = Z5DM34QS5U.com.qwts.overlook` and `com.apple.developer.team-identifier = Z5DM34QS5U`. Inspect a Renderer helper the same way and confirm those two keys are absent.
+3. Set an app password, enable Touch ID in Privacy with the correct current password, quit, relaunch, and unlock with an enrolled finger. Confirm the gallery appears only after the native prompt succeeds.
+4. Lock again. Cancel the native prompt, then present an unrecognized finger. Confirm the app stays locked, distinct cancellation/failure copy appears, and the password field remains usable. Unlock with the app password.
+5. Trigger macOS biometric lockout and confirm Touch ID is disabled for that attempt while password unlock still works. Do not claim this step from an ordinary failed-scan result.
+6. Add or remove an enrolled finger, relaunch, and confirm the old item is rejected, the Touch ID action disappears after reconciliation, and password unlock plus a fresh opt-in restores it.
+7. Change the app password, remove/reconfigure app lock, and recover with the exported key in separate passes. After each credential transition, confirm the previous Touch ID item cannot unlock and Privacy reports Touch ID off.
+8. Opt out in Privacy, restart, and confirm no Touch ID action appears. Re-enable, then disable the Mac login password/passcode only if this can be done safely on the test machine; confirm the item is deleted/unavailable and password fallback remains.
+9. Search application logs, crash reports, renderer storage, diagnostics, and provider objects for the test password and known `U`/`M` sentinel values. None may appear; only opaque Touch ID reason codes are permitted.
