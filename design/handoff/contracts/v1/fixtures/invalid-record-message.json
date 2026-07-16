@@ -1,0 +1,22 @@
+{
+  "header": {
+    "magic": "OVERLOOK-IMAGE-TRAIL-INTEROP",
+    "contractVersion": 1,
+    "messageId": "8959e5cc-391f-4330-9563-60f70bd0119d",
+    "transferId": "8c42634d-d602-46ee-ac5b-20186fbd51e0",
+    "pairingId": "a3267e90-2bd1-432c-bc8b-78e4704f843f",
+    "sourceProduct": "image-trail",
+    "targetProduct": "overlook",
+    "operation": "move",
+    "kind": "record",
+    "createdAt": "2026-07-16T10:00:00.000Z",
+    "sequence": 1
+  },
+  "payload": {
+    "kind": "record",
+    "schemaVersion": 1,
+    "record": { "fileName": "filename-is-not-an-identity.jpg" },
+    "albums": [],
+    "reviewCategory": "eligible"
+  }
+}

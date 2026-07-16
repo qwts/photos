@@ -1,0 +1,18 @@
+{
+  "magic": "OVERLOOK-IMAGE-TRAIL-PAIRING",
+  "formatVersion": 1,
+  "pairingId": "a3267e90-2bd1-432c-bc8b-78e4704f843f",
+  "keyId": "interop:0de6557b-a17d-4e36-99f0-c20e64f021de",
+  "createdAt": "2026-07-16T10:00:00.000Z",
+  "kdf": {
+    "name": "PBKDF2",
+    "hash": "SHA-256",
+    "iterations": 600000,
+    "salt": "AAECAwQFBgcICQoLDA0ODw=="
+  },
+  "cipher": {
+    "name": "AES-256-GCM",
+    "iv": "EBESExQVFhcYGRob",
+    "ciphertext": "37JdOHiA+DqQTigJFAh4oX+sftsmfqAUfgQ4NYbyy9ewjTtqysSDJWGpR+h9JCW7NaMg1L9d7EcXRDAYAERXNkJt/RqGIlrdMF5pqpA/NC8vcdReBZVapf1M3v+Yzi8fqOArZDFXcGgIdYZ4ZfVdBroj41YoSRm/Lfvio0MADgBWlbkJZU9uCYtxymQSds9eL+yrKpn4PaoCr3hAMftKd3ASTeXIWsv/1Sd8ArzztiF/binSin37qwLxJpwUD4RBrBsYd2QdeZF7RZzQpiGlNsij5teRROG3pFhnLAQg0yvr1mXlmyRghDqHHzNu9f2H0KZgAaBDirhqKgWmO1Qs7+0FW+QGGv8XLq5F0H6tBcrkbDKTd+c="
+  }
+}

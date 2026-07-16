@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash, pbkdf2Sync } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import path from 'node:path';
 
 import {
   INTEROP_CONTRACT_VERSION,
@@ -11,11 +13,15 @@ import {
   interopReviewCategorySchema,
 } from '../../src/shared/interop/contract.js';
 import { interopEnvelopeSchema } from '../../src/shared/interop/messages.js';
+import { createInteropJsonSchemas } from '../../src/shared/interop/json-schema.js';
+import { InteropReplayError, InteropReplayGuard, interopReplayIdentity } from '../../src/shared/interop/replay.js';
 import { compareInteropRevisions, incrementInteropRevision, mergeInteropRevisions } from '../../src/shared/interop/revisions.js';
 
 function fixture(name: string): unknown {
   return JSON.parse(readFileSync(`design/handoff/contracts/v1/fixtures/${name}`, 'utf8')) as unknown;
 }
+
+const contractDirectory = 'design/handoff/contracts/v1';
 
 const header = {
   magic: INTEROP_MAGIC,
@@ -92,6 +98,80 @@ describe('interoperability contract primitives', () => {
       },
     };
     assert.equal(interopEnvelopeSchema.safeParse(blobMessage).success, false);
+  });
+
+  test('rejects the golden invalid fixture and preserves round-trip metadata exactly', () => {
+    assert.equal(interopEnvelopeSchema.safeParse(fixture('invalid-record-message.json')).success, false);
+    const roundTripFixture = fixture('round-trip-record-message.json');
+    const parsed = interopEnvelopeSchema.parse(roundTripFixture);
+    assert.deepEqual(JSON.parse(JSON.stringify(parsed)), roundTripFixture);
+    assert.equal(parsed.payload.kind === 'record' && parsed.payload.record.roundTripMetadata.overlook['rating'], 4);
+  });
+});
+
+describe('interoperability replay identity', () => {
+  test('rejects a duplicated message identity within one pairing', () => {
+    const replay = fixture('replay-message.json') as { first: typeof header; replay: typeof header };
+    assert.equal(interopReplayIdentity(replay.first), interopReplayIdentity(replay.replay));
+    const guard = new InteropReplayGuard();
+    guard.observe(replay.first);
+    assert.throws(() => guard.observe(replay.replay), InteropReplayError);
+  });
+
+  test('does not collide when the same message ID belongs to a different pairing', () => {
+    const guard = new InteropReplayGuard();
+    guard.observe(header);
+    guard.observe({ ...header, pairingId: 'fe6ef9a7-57af-460e-8525-fad45cc79afd' });
+  });
+});
+
+describe('published interoperability artifacts', () => {
+  test('matches the generated Draft 2020-12 schemas byte-for-byte', () => {
+    for (const [fileName, schema] of Object.entries(createInteropJsonSchemas())) {
+      assert.equal(readFileSync(path.join(contractDirectory, fileName), 'utf8'), `${JSON.stringify(schema, null, 2)}\n`);
+    }
+  });
+
+  test('checksums every published schema and golden fixture', () => {
+    const lines = readFileSync(path.join(contractDirectory, 'SHA256SUMS'), 'utf8').trim().split('\n');
+    const coveredPaths = new Set<string>();
+    for (const line of lines) {
+      const match = /^(?<hash>[a-f0-9]{64}) {2}(?<relativePath>.+)$/u.exec(line);
+      assert.ok(match?.groups);
+      const relativePath = match.groups['relativePath'] ?? '';
+      const contents = readFileSync(path.join(contractDirectory, relativePath));
+      assert.equal(createHash('sha256').update(contents).digest('hex'), match.groups['hash']);
+      coveredPaths.add(relativePath);
+    }
+    for (const schemaFile of Object.keys(createInteropJsonSchemas())) assert.ok(coveredPaths.has(schemaFile));
+    for (const fixtureName of [
+      'corrupt-pairing-bundle.json',
+      'invalid-record-message.json',
+      'rejected-future-version.json',
+      'replay-message.json',
+      'round-trip-record-message.json',
+      'valid-pairing-bundle.json',
+      'valid-record-message.json',
+    ]) {
+      assert.ok(coveredPaths.has(path.join('fixtures', fixtureName)));
+    }
+  });
+
+  test('uses a password-derived wrapping key distinct from the random interoperability key', () => {
+    const bundle = fixture('valid-pairing-bundle.json') as {
+      kdf: { salt: string; iterations: number };
+      cipher: { ciphertext: string };
+    };
+    const wrappingKey = pbkdf2Sync('fixture-password', Buffer.from(bundle.kdf.salt, 'base64'), bundle.kdf.iterations, 32, 'sha256');
+    const interopKey = Buffer.from([...Array.from({ length: 32 }, (_value, index) => index + 32)]);
+    try {
+      assert.notDeepEqual(wrappingKey, interopKey);
+      assert.equal(bundle.cipher.ciphertext.includes(interopKey.toString('base64')), false);
+      assert.equal(JSON.stringify(bundle).includes('interopKey'), false);
+    } finally {
+      wrappingKey.fill(0);
+      interopKey.fill(0);
+    }
   });
 });
 
