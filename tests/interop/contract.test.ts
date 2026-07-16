@@ -11,9 +11,24 @@ import {
   interopHeaderSchema,
   interopIdentitySchema,
   interopReviewCategorySchema,
+  type InteropConflictAction,
+  type InteropErrorCode,
+  type InteropFieldRevisions,
+  type InteropIdentity,
+  type InteropOperation,
+  type InteropReviewCategory,
+  type InteropTransferPhase,
 } from '../../src/shared/interop/contract.js';
-import { interopEnvelopeSchema } from '../../src/shared/interop/messages.js';
+import {
+  interopEnvelopeSchema,
+  type InteropCounts,
+  type InteropEnvelope,
+  type InteropError,
+  type InteropPayload,
+} from '../../src/shared/interop/messages.js';
 import { createInteropJsonSchemas } from '../../src/shared/interop/json-schema.js';
+import { interopPairingPayloadSchema, type InteropPairingPayload } from '../../src/shared/interop/pairing-contract.js';
+import { type InteropAlbum, type InteropBlobReference, type InteropRecord } from '../../src/shared/interop/records.js';
 import { InteropReplayError, InteropReplayGuard, interopReplayIdentity } from '../../src/shared/interop/replay.js';
 import { compareInteropRevisions, incrementInteropRevision, mergeInteropRevisions } from '../../src/shared/interop/revisions.js';
 
@@ -106,6 +121,82 @@ describe('interoperability contract primitives', () => {
     const parsed = interopEnvelopeSchema.parse(roundTripFixture);
     assert.deepEqual(JSON.parse(JSON.stringify(parsed)), roundTripFixture);
     assert.equal(parsed.payload.kind === 'record' && parsed.payload.record.roundTripMetadata.overlook['rating'], 4);
+  });
+
+  test('publishes the canonical TypeScript contract surface', () => {
+    const envelope: InteropEnvelope = interopEnvelopeSchema.parse(fixture('valid-record-message.json'));
+    assert.equal(envelope.payload.kind, 'record');
+    if (envelope.payload.kind !== 'record') return;
+    const payload: InteropPayload = envelope.payload;
+    const record: InteropRecord = envelope.payload.record;
+    const album: InteropAlbum = envelope.payload.albums[0] as InteropAlbum;
+    const blob: InteropBlobReference = record.original;
+    const identity: InteropIdentity = record.identity;
+    const fieldRevisions: InteropFieldRevisions = record.fieldRevisions;
+    const operation: InteropOperation = envelope.header.operation;
+    const reviewCategory: InteropReviewCategory = envelope.payload.reviewCategory;
+    const conflictAction: InteropConflictAction = 'keep-both';
+    const phase: InteropTransferPhase = 'reviewing';
+    const errorCode: InteropErrorCode = 'replay';
+    const counts: InteropCounts = {
+      total: 1,
+      eligible: 1,
+      duplicate: 0,
+      conflict: 0,
+      metadataOnly: 0,
+      unsupported: 0,
+      skipped: 0,
+      failed: 0,
+      acknowledged: 0,
+      finalized: 0,
+    };
+    const error: InteropError = {
+      code: errorCode,
+      message: 'Duplicate message',
+      retryable: false,
+      recordInteropId: identity.interopId,
+    };
+    const pairingPayload: InteropPairingPayload = interopPairingPayloadSchema.parse({
+      schemaVersion: 1,
+      pairingId: envelope.header.pairingId,
+      keyId: 'interop:0de6557b-a17d-4e36-99f0-c20e64f021de',
+      interopKey: Buffer.alloc(32, 7).toString('base64'),
+      products: ['image-trail', 'overlook'],
+      createdAt: envelope.header.createdAt,
+    });
+
+    assert.deepEqual(
+      {
+        payloadKind: payload.kind,
+        recordId: record.identity.interopId,
+        albumId: album.interopId,
+        blobState: blob.state,
+        identity,
+        fieldRevisions,
+        operation,
+        reviewCategory,
+        conflictAction,
+        phase,
+        counts,
+        error,
+        pairingId: pairingPayload.pairingId,
+      },
+      {
+        payloadKind: 'record',
+        recordId: identity.interopId,
+        albumId: '50ca91c1-a9c7-4c98-9ab4-b075cb600424',
+        blobState: 'metadata-only',
+        identity,
+        fieldRevisions,
+        operation: 'move',
+        reviewCategory: 'metadata-only',
+        conflictAction: 'keep-both',
+        phase: 'reviewing',
+        counts,
+        error,
+        pairingId: envelope.header.pairingId,
+      },
+    );
   });
 });
 
