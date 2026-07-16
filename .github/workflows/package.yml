@@ -53,6 +53,7 @@ jobs:
           OVERLOOK_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          MAC_PROVISIONING_PROFILE_B64: ${{ secrets.MAC_PROVISIONING_PROFILE }}
           APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
@@ -67,7 +68,15 @@ jobs:
               export APPLE_API_KEY="$RUNNER_TEMP/asc-api-key.p8"
               printf '%s' "$APPLE_API_KEY_B64" | base64 -d > "$APPLE_API_KEY"
             fi
-            npm run package:signed
+            if [ -n "$MAC_PROVISIONING_PROFILE_B64" ]; then
+              export OVERLOOK_MAC_PROVISIONING_PROFILE="$RUNNER_TEMP/overlook.provisionprofile"
+              printf '%s' "$MAC_PROVISIONING_PROFILE_B64" | base64 -d > "$OVERLOOK_MAC_PROVISIONING_PROFILE"
+              npm run package:signed:provisioned
+            else
+              # A profile-free release remains launchable and signed, but its
+              # Touch ID adapter fails closed to password/recovery fallback.
+              npm run package:signed
+            fi
             # electron-builder only *warns* when it can't find an identity, so
             # a broken cert would silently ship unsigned. Fail loudly instead:
             # a valid signature and a Gatekeeper pass (notarization is checked
@@ -75,6 +84,8 @@ jobs:
             app=$(find release -maxdepth 2 -name '*.app' | head -1)
             codesign --verify --deep --strict --verbose=2 "$app"
             spctl --assess --type execute --verbose=2 "$app"
+            archive=$(find release -maxdepth 1 -name '*-mac.zip' | head -1)
+            node scripts/verify-macos-app-launch.mjs "$archive"
           else
             # The mac cert must not leak into the unsigned path: with these
             # set, electron-builder would try to use CSC_LINK for Windows

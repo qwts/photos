@@ -55,7 +55,7 @@ function nativeBinding() {
 describe('native Touch ID adapter gating (#310)', () => {
   test('native signature gate pins the owner Team ID and application identifier', () => {
     const nativeSource = readFileSync(join(process.cwd(), 'native/touch-id/touch_id.mm'), 'utf8');
-    const entitlements = readFileSync(join(process.cwd(), 'build/entitlements.mac.plist'), 'utf8');
+    const entitlements = readFileSync(join(process.cwd(), 'build/entitlements.mac.provisioned.plist'), 'utf8');
     for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.qwts.overlook']) {
       assert.match(nativeSource, new RegExp(identity, 'u'));
       assert.match(entitlements, new RegExp(identity, 'u'));
