@@ -111,6 +111,53 @@ describe('app-lock authority state machine (#311)', () => {
     assert.equal(controller.snapshot().state, 'locked');
   });
 
+  test('throwing state listeners cannot interrupt custody transitions or other listeners', async () => {
+    const credentials = new FakeCredentials();
+    const observed: string[] = [];
+    let closes = 0;
+    const controller = new AppLockController({
+      credentials,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => {
+        closes += 1;
+      },
+    });
+    controller.subscribe(() => {
+      throw new Error('observer failed');
+    });
+    controller.subscribe(({ state }) => observed.push(state));
+
+    assert.deepEqual(await controller.unlock('password'), { ok: true });
+    await controller.lock();
+
+    assert.equal(closes, 1);
+    assert.deepEqual(observed, ['unlocking', 'unlocked', 'locking', 'locked']);
+    assert.equal(controller.snapshot().state, 'locked');
+  });
+
+  test('throttle reset failure cannot leave an opened library reported as locked', async () => {
+    const credentials = new FakeCredentials();
+    let opened = false;
+    const controller = new AppLockController({
+      credentials,
+      openAuthorized: () => {
+        opened = true;
+      },
+      closeAuthorized: () => undefined,
+      throttle: {
+        remainingMs: () => 0,
+        recordFailure: () => 0,
+        reset: () => {
+          throw new Error('persistence unavailable');
+        },
+      },
+    });
+
+    assert.deepEqual(await controller.unlock('password'), { ok: false, reason: 'recovery-required' });
+    assert.equal(opened, false);
+    assert.equal(controller.snapshot().state, 'locked');
+  });
+
   test('legacy startup opens once and configuration closes into locked state', async () => {
     const credentials = new FakeCredentials();
     credentials.credentialStatus = { state: 'unconfigured' };
