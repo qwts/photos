@@ -180,6 +180,11 @@ export function registerAlbumHandlers(getService: () => LibraryService, newId: (
   ipcMain.handle(channels.albumRemovePhotos.name, (_event, request: unknown) =>
     wrapHandler(channels.albumRemovePhotos, ({ albumId, photoIds }) => getService().removeFromAlbum(albumId, photoIds))(request),
   );
+  ipcMain.handle(channels.albumMovePhotos.name, (_event, request: unknown) =>
+    wrapHandler(channels.albumMovePhotos, ({ sourceAlbumId, targetAlbumId, photoIds }) =>
+      getService().moveBetweenAlbums(sourceAlbumId, targetAlbumId, photoIds),
+    )(request),
+  );
 }
 
 export interface PurgeFacade {

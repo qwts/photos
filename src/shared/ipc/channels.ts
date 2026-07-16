@@ -288,6 +288,11 @@ export const channels = {
     z.object({ albumId: z.string(), photoIds: z.array(z.string()).min(1) }),
     z.object({ removed: z.number().int().nonnegative() }),
   ),
+  albumMovePhotos: defineChannel(
+    'album:move-photos',
+    z.object({ sourceAlbumId: z.string(), targetAlbumId: z.string(), photoIds: z.array(z.string()).min(1) }),
+    z.object({ moved: z.number().int().nonnegative(), alreadyInTarget: z.number().int().nonnegative() }),
+  ),
   // Import sources (#84): discovery + the source-card scan. Copying is #87.
   importListSources: defineChannel('import:list-sources', z.object({}), z.object({ sources: z.array(importSourceSchema).readonly() })),
   importScanSource: defineChannel('import:scan-source', z.object({ path: z.string() }), scanSummarySchema),

@@ -385,6 +385,49 @@ export class PhotosRepository {
     })();
   }
 
+  /** Moves memberships atomically: the target row is present before the
+   * source row is removed, and each moved photo is dirtied exactly once. */
+  moveBetweenAlbums(
+    sourceAlbumId: string,
+    targetAlbumId: string,
+    photoIds: readonly string[],
+  ): { moved: string[]; alreadyInTarget: number } {
+    return this.db.transaction(() => {
+      if (sourceAlbumId === targetAlbumId) {
+        throw new Error('source and target albums must differ');
+      }
+      for (const albumId of [sourceAlbumId, targetAlbumId]) {
+        if (queryGet<{ one: number }>(this.db, 'SELECT 1 AS one FROM albums WHERE id = ?', albumId) === undefined) {
+          throw new Error(`album ${albumId} does not exist`);
+        }
+      }
+      const moved: string[] = [];
+      let alreadyInTarget = 0;
+      for (const photoId of photoIds) {
+        const sourceMember = queryGet<{ one: number }>(
+          this.db,
+          `SELECT 1 AS one FROM album_photos ap
+             JOIN ordinary_visible_photos p ON p.id = ap.photo_id
+            WHERE ap.album_id = @sourceAlbumId AND ap.photo_id = @photoId`,
+          { sourceAlbumId, photoId },
+        );
+        if (sourceMember === undefined) continue;
+        const inserted = queryGet<{ photo_id: string }>(
+          this.db,
+          `INSERT OR IGNORE INTO album_photos (album_id, photo_id, position)
+           VALUES (@targetAlbumId, @photoId, (SELECT COALESCE(max(position) + 1, 0) FROM album_photos WHERE album_id = @targetAlbumId))
+           RETURNING photo_id`,
+          { targetAlbumId, photoId },
+        );
+        if (inserted === undefined) alreadyInTarget += 1;
+        runNamed(this.db, 'DELETE FROM album_photos WHERE album_id = @sourceAlbumId AND photo_id = @photoId', { sourceAlbumId, photoId });
+        markDirty(this.db, photoId);
+        moved.push(photoId);
+      }
+      return { moved, alreadyInTarget };
+    })();
+  }
+
   /** Purge candidates only (#121): the row, iff it is soft-deleted. */
   getDeleted(photoId: string): PhotoRecord | undefined {
     const row = this.get(photoId);
