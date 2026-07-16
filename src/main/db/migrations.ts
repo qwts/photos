@@ -222,7 +222,94 @@ const SCHEMA_V6: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6];
+const SCHEMA_V7: Migration = {
+  version: 7,
+  name: 'interop-move-journals',
+  // #333: Move is a two-party protocol, not a delete operation. Requests,
+  // target receipts, acknowledgements, source finalization, and audit events
+  // are durable independently so every crash boundary can be resumed.
+  up(db) {
+    db.exec(`
+      CREATE TABLE interop_move_journals (
+        transfer_id TEXT PRIMARY KEY,
+        pairing_id TEXT NOT NULL,
+        source_product TEXT NOT NULL CHECK (source_product IN ('image-trail', 'overlook')),
+        target_product TEXT NOT NULL CHECK (target_product IN ('image-trail', 'overlook')),
+        phase TEXT NOT NULL CHECK (phase IN (
+          'queued', 'reviewing', 'transferring', 'paused', 'awaiting-acknowledgement',
+          'acknowledged', 'finalizing', 'completed', 'cancelled', 'failed'
+        )),
+        last_sequence INTEGER NOT NULL CHECK (last_sequence >= 0),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        CHECK (source_product <> target_product)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE interop_move_items (
+        transfer_id TEXT NOT NULL REFERENCES interop_move_journals (transfer_id) ON DELETE CASCADE,
+        interop_id TEXT NOT NULL,
+        source_message_id TEXT NOT NULL,
+        source_local_id TEXT NOT NULL,
+        review_category TEXT NOT NULL CHECK (
+          review_category IN ('eligible', 'duplicate', 'conflict', 'metadata-only', 'unsupported', 'skipped')
+        ),
+        record_json TEXT NOT NULL CHECK (json_valid(record_json)),
+        state TEXT NOT NULL CHECK (state IN (
+          'queued', 'received', 'acknowledged', 'finalizing', 'finalized', 'rejected', 'failed'
+        )),
+        target_local_id TEXT,
+        metadata_persisted INTEGER NOT NULL DEFAULT 0 CHECK (metadata_persisted IN (0, 1)),
+        original_verification TEXT NOT NULL DEFAULT 'pending' CHECK (
+          original_verification IN ('pending', 'verified', 'metadata-only', 'unavailable')
+        ),
+        acknowledgement_message_id TEXT,
+        acknowledged_message_ids_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(acknowledged_message_ids_json)),
+        error_json TEXT CHECK (error_json IS NULL OR json_valid(error_json)),
+        received_at TEXT,
+        acknowledged_at TEXT,
+        finalized_at TEXT,
+        PRIMARY KEY (transfer_id, interop_id),
+        UNIQUE (transfer_id, source_message_id)
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_interop_move_items_state ON interop_move_items (transfer_id, state);
+
+      CREATE TABLE interop_move_outbox (
+        message_id TEXT PRIMARY KEY,
+        transfer_id TEXT NOT NULL REFERENCES interop_move_journals (transfer_id) ON DELETE CASCADE,
+        sequence INTEGER NOT NULL CHECK (sequence >= 0),
+        kind TEXT NOT NULL CHECK (kind IN ('record', 'acknowledgement', 'journal', 'error')),
+        envelope_json TEXT NOT NULL CHECK (json_valid(envelope_json)),
+        created_at TEXT NOT NULL,
+        delivered_at TEXT
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_interop_move_outbox_pending ON interop_move_outbox (transfer_id, sequence)
+        WHERE delivered_at IS NULL;
+
+      CREATE TABLE interop_move_receipts (
+        pairing_id TEXT NOT NULL,
+        message_id TEXT NOT NULL,
+        transfer_id TEXT NOT NULL REFERENCES interop_move_journals (transfer_id) ON DELETE CASCADE,
+        response_message_id TEXT,
+        received_at TEXT NOT NULL,
+        PRIMARY KEY (pairing_id, message_id)
+      ) WITHOUT ROWID;
+
+      CREATE TABLE interop_move_audit (
+        event_key TEXT PRIMARY KEY,
+        transfer_id TEXT NOT NULL REFERENCES interop_move_journals (transfer_id) ON DELETE CASCADE,
+        interop_id TEXT,
+        event TEXT NOT NULL CHECK (event IN (
+          'queued', 'received', 'acknowledged', 'rejected', 'finalizing', 'finalized', 'failed'
+        )),
+        details_json TEXT NOT NULL CHECK (json_valid(details_json)),
+        created_at TEXT NOT NULL
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_interop_move_audit_transfer ON interop_move_audit (transfer_id, created_at, event_key);
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6, SCHEMA_V7];
 
 /** Applies pending migrations in order; each in its own transaction. */
 export function migrate(db: BetterSqlite3.Database, migrations: readonly Migration[] = MIGRATIONS): number {

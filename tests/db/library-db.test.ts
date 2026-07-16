@@ -95,7 +95,7 @@ describe('migrations', () => {
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6],
+      [1, 2, 3, 4, 5, 6, 7],
     );
     db.close();
   });
@@ -129,22 +129,37 @@ describe('migrations', () => {
     db.close();
   });
 
+  test('schema v7 keeps every Move durability boundary in SQLCipher custody', () => {
+    const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
+    const tables = queryAll<{ name: string }>(
+      db,
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name LIKE 'interop_move_%'
+       ORDER BY name`,
+    );
+    assert.deepEqual(
+      tables.map((table) => table.name),
+      ['interop_move_audit', 'interop_move_items', 'interop_move_journals', 'interop_move_outbox', 'interop_move_receipts'],
+    );
+    db.close();
+  });
+
   test('migrations apply in version order and are transactional', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 9, name: 'nine', up: () => order.push(9) },
       { version: 8, name: 'eight', up: () => order.push(8) },
-      { version: 7, name: 'seven', up: () => order.push(7) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [7, 8]);
+    assert.deepEqual(order, [8, 9]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 7,
+      version: 8,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -153,7 +168,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 6);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 7);
     db.close();
   });
 });
