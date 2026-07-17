@@ -86,3 +86,46 @@ describe('OS credential anchor platform contract (#311)', () => {
     assert.deepEqual(services, ['com.zts1.overlook.app-lock-anchor']);
   });
 });
+
+describe('Windows credential anchor identity migration (#374)', () => {
+  test('missing canonical service falls through to and copies legacy custody', () => {
+    const anchor = { libraryId: 'library-a', generation: 4, recordHash: 'c'.repeat(64) };
+    const operations: { operation: string | undefined; target: string | undefined; value: string | undefined }[] = [];
+    const spawn = ((_command: string, _args: readonly string[], options?: { readonly env?: NodeJS.ProcessEnv }) => {
+      const operation = options?.env?.['OVERLOOK_ANCHOR_OPERATION'];
+      const target = options?.env?.['OVERLOOK_ANCHOR_TARGET'];
+      const value = options?.env?.['OVERLOOK_ANCHOR_VALUE'];
+      operations.push({ operation, target, value });
+      const stdout =
+        operation === 'read'
+          ? target?.startsWith('com.zts1.overlook.app-lock-anchor:') === true
+            ? '__OVERLOOK_CREDENTIAL_NOT_FOUND__'
+            : JSON.stringify(anchor)
+          : '';
+      return { pid: 1, output: [null, stdout, ''], stdout, stderr: '', status: 0, signal: null };
+    }) as unknown as typeof spawnSync;
+    const store = new OsCredentialAnchorStore({ dataDir: 'C:\\profile\\library', platform: 'win32', spawn });
+
+    assert.deepEqual(store.read(), anchor);
+    assert.deepEqual(
+      operations.map(({ operation }) => operation),
+      ['read', 'read', 'write'],
+    );
+    assert.match(operations[0]?.target ?? '', /^com\.zts1\.overlook\.app-lock-anchor:/u);
+    assert.match(operations[1]?.target ?? '', /^com\.qwts\.overlook\.app-lock-anchor:/u);
+    assert.equal(operations[2]?.value, JSON.stringify(anchor));
+  });
+
+  test('corrupt canonical service fails closed without probing legacy custody', () => {
+    const operations: string[] = [];
+    const spawn = ((_command: string, _args: readonly string[], options?: { readonly env?: NodeJS.ProcessEnv }) => {
+      operations.push(options?.env?.['OVERLOOK_ANCHOR_TARGET'] ?? '');
+      return { pid: 1, output: [null, '', ''], stdout: '', stderr: '', status: 0, signal: null };
+    }) as unknown as typeof spawnSync;
+    const store = new OsCredentialAnchorStore({ dataDir: 'C:\\profile\\library', platform: 'win32', spawn });
+
+    assert.equal(store.read(), null);
+    assert.equal(operations.length, 1);
+    assert.match(operations[0] ?? '', /^com\.zts1\.overlook\.app-lock-anchor:/u);
+  });
+});
