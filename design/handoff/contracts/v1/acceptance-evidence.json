@@ -290,7 +290,7 @@
         {
           "repository": "qwts/image-trail",
           "path": "tests/invariants.test.ts",
-          "contains": "interop"
+          "contains": "invariant: interoperability custody never reaches host-page, provider, log, or extension storage APIs"
         },
         {
           "repository": "qwts/photos",
