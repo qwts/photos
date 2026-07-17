@@ -15,3 +15,7 @@ design/handoff/
 # licenses:notices freshness check compares raw generator output byte-for-byte,
 # so prettier must not reformat it (#461).
 THIRD-PARTY-NOTICES.md
+# Generated verbatim by scripts/i18n-catalog.mjs; the i18n:check gate compares
+# raw compiler output, so prettier must not reformat it (#403). Its JSON.stringify
+# output uses double quotes, which prettier would rewrite to single.
+src/renderer/src/i18n/generated/
