@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,12 +10,23 @@ import { test, expect, _electron as electron } from '@playwright/test';
 
 const FIXTURES = join(import.meta.dirname, '../fixtures/exif');
 const CARD_FILES = ['exif-full.jpg', 'sample.raf', 'exif-stripped.jpg'];
+const RAW_EXTENSIONS = ['raf', 'cr2', 'cr3', 'nef', 'arw', 'dng', 'orf', 'rw2'] as const;
 
 function makeCard(): string {
   const card = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-card-')), 'SDCARD');
   mkdirSync(card);
   for (const name of CARD_FILES) {
     copyFileSync(join(FIXTURES, name), join(card, name));
+  }
+  return card;
+}
+
+function makeRawMatrixCard(): string {
+  const card = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-raw-card-')), 'RAW-CARD');
+  mkdirSync(card);
+  const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+  for (const extension of RAW_EXTENSIONS) {
+    writeFileSync(join(card, `sample.${extension}`), Buffer.concat([Buffer.from(`OVERLOOK-${extension}-`), jpeg]));
   }
   return card;
 }
@@ -130,6 +141,40 @@ test('Move import: warning shown, sources emptied only after verified import', a
     for (const name of CARD_FILES) {
       expect(existsSync(join(card, name))).toBe(false);
     }
+  } finally {
+    await app.close();
+  }
+});
+
+test('RAW matrix: every accepted extension imports with a visible tile and lightbox preview (#368)', async () => {
+  const { app } = await launch(makeRawMatrixCard());
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(page.getByText('8 NEW ·')).toBeVisible();
+    await page.getByRole('button', { name: 'Import 8 photos' }).click();
+    await expect(page.getByText('All 8 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Show in library' }).click();
+
+    const images = page.getByTestId('virtual-grid').locator('.ovl-tile__img');
+    await expect(images).toHaveCount(8);
+    await expect
+      .poll(async () =>
+        images.evaluateAll((nodes) => nodes.every((node) => (node as unknown as { readonly naturalWidth: number }).naturalWidth > 0)),
+      )
+      .toBe(true);
+    const rows = await page.evaluate<{ fileKind: string; width: number; height: number }[]>(
+      `window.overlook.library.page({ source: 'all', limit: 20 }).then((r) => r.photos.map((p) => ({ fileKind: p.fileKind, width: p.width, height: p.height })))`,
+    );
+    expect(rows).toHaveLength(8);
+    expect(rows.every((row) => row.fileKind === 'raw' && row.width > 0 && row.height > 0)).toBe(true);
+
+    await page
+      .getByRole('button', { name: /Open sample\./u })
+      .first()
+      .click();
+    await expect(page.getByText('PREVIEW', { exact: true })).toBeVisible();
+    await expect(page.getByText('PREVIEW UNAVAILABLE')).toHaveCount(0);
   } finally {
     await app.close();
   }

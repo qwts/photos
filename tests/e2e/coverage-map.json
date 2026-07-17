@@ -240,6 +240,28 @@
       ]
     },
     {
+      "id": "m05-raw-preview-repair",
+      "wiki": "User-Story-M05-Import-pipeline",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/import-flow.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/components/PhotoTile.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/import/raw-preview.test.ts", "tests/import/raw-repair-service.test.ts", "tests/fullres/full-service.test.ts"]
+        },
+        {
+          "type": "manual",
+          "reason": "Run the signed macOS package against owner-supplied NEF, ARW, DNG, CR2, CR3, ORF, RW2, and RAF originals to validate Core Image camera support and confirm previews, repaired metadata, byte-faithful Original export, and zero persistent plaintext."
+        }
+      ]
+    },
+    {
       "id": "m06-full-res-delivery",
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [
