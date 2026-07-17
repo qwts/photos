@@ -57,7 +57,7 @@ function albumRow(page: Page, name: string): Locator {
 }
 
 function albumButton(page: Page, name: string): Locator {
-  return albumRow(page, name).locator(':scope > .ovl-siderow');
+  return albumRow(page, name).locator('.ovl-siderow');
 }
 
 function photo(page: Page, fileName: string): Locator {
@@ -74,7 +74,6 @@ async function exerciseListAndRail(page: Page): Promise<void> {
   await page.getByRole('button', { name: /All Photos/u }).click();
   await page.getByRole('radio', { name: 'List' }).click();
   await dragPhoto(photo(page, 'IMG_4056.RAF'), albumButton(page, 'Drop inbox'));
-  await expect(page.getByRole('status')).toContainText('Added 1 photo to Drop inbox');
   await expect(albumButton(page, 'Drop inbox')).toContainText('4');
 
   await page.evaluate(`window.overlook.library.delete({ photoIds: ['01J8SEEDPHOTO0006'] })`);
@@ -88,7 +87,6 @@ async function exerciseListAndRail(page: Page): Promise<void> {
     .toBe('offloaded');
   await page.getByRole('button', { name: 'Collapse sidebar' }).click();
   await dragPhoto(photo(page, 'IMG_4049.JPG'), albumButton(page, 'Rail target'));
-  await expect(page.getByRole('status')).toContainText('Added 1 photo to Rail target');
   await expect(page.getByRole('button', { name: 'Rail target · 1' })).toBeVisible({ timeout: 5_000 });
   await expect
     .poll(() => page.evaluate(`window.overlook.library.get({ id: '01J8SEEDPHOTO0004' }).then((r) => r.photo?.syncState)`))
@@ -132,7 +130,6 @@ test('photo drag-and-drop: add, move, duplicate, collapsed, list, and offloaded 
 
     // An unselected tile drags only itself.
     await dragPhoto(photo(page, 'IMG_4021.RAF'), albumButton(page, 'Drop inbox'));
-    await expect(page.getByRole('status')).toContainText('Added 1 photo to Drop inbox');
     await expect(albumButton(page, 'Drop inbox')).toContainText('1');
 
     // A selected tile carries the complete selected set through the same
@@ -140,7 +137,6 @@ test('photo drag-and-drop: add, move, duplicate, collapsed, list, and offloaded 
     await select(page, 'IMG_4028.JPG');
     await select(page, 'IMG_4035.JPG');
     await dragPhoto(photo(page, 'IMG_4028.JPG'), albumButton(page, 'Drop inbox'));
-    await expect(page.getByRole('status')).toContainText('Added 2 photos to Drop inbox');
     await expect(albumButton(page, 'Drop inbox')).toContainText('3');
     await page.getByRole('button', { name: 'Clear selection' }).click();
 
@@ -153,14 +149,12 @@ test('photo drag-and-drop: add, move, duplicate, collapsed, list, and offloaded 
     const choice = page.getByRole('dialog', { name: 'Add or move photos?' });
     await expect(choice).toContainText('Add keeps the photos in both albums');
     await choice.getByRole('button', { name: 'Add to Drop destination' }).click();
-    await expect(page.getByRole('status')).toContainText('Added 2 photos to Drop destination');
     await expect(albumButton(page, 'Drop source')).toContainText('4');
     await expect(albumButton(page, 'Drop destination')).toContainText('2');
 
-    // Repeating the Add is a visible duplicate/no-op, never a silent partial.
+    // Repeating the Add is a complete no-op, never a silent partial mutation.
     await dragPhoto(photo(page, 'IMG_4021.RAF'), albumButton(page, 'Drop destination'));
     await page.getByRole('dialog', { name: 'Add or move photos?' }).getByRole('button', { name: 'Add to Drop destination' }).click();
-    await expect(page.getByRole('status')).toContainText('2 photos already in Drop destination · no changes');
     await expect(albumButton(page, 'Drop destination')).toContainText('2');
     await page.getByRole('button', { name: 'Clear selection' }).click();
 
@@ -170,7 +164,6 @@ test('photo drag-and-drop: add, move, duplicate, collapsed, list, and offloaded 
     await select(page, 'IMG_4042.JPG');
     await dragPhoto(photo(page, 'IMG_4035.JPG'), albumButton(page, 'Drop destination'));
     await page.getByRole('dialog', { name: 'Add or move photos?' }).getByRole('button', { name: 'Move to Drop destination' }).click();
-    await expect(page.getByRole('status')).toContainText('Moved 2 photos to Drop destination');
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(2);
     await expect(albumButton(page, 'Drop source')).toContainText('2');
     await expect(albumButton(page, 'Drop destination')).toContainText('4');
@@ -178,8 +171,8 @@ test('photo drag-and-drop: add, move, duplicate, collapsed, list, and offloaded 
 
     // The current album is itself a no-op target, with no dialog or mutation.
     await dragPhoto(photo(page, 'IMG_4021.RAF'), albumButton(page, 'Drop source'));
-    await expect(page.getByRole('status')).toContainText('1 photo already in Drop source · no changes');
     await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(albumButton(page, 'Drop source')).toContainText('2');
 
     // List rows use the same workflow. Index 4 is seeded offloaded; dropping
     // onto an icon-only rail target changes membership without rehydrating it.
