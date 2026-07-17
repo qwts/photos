@@ -72,13 +72,25 @@ export default tseslint.config(
     // eslint-plugin-react) covers JSX/runtime pitfalls type-aware.
     files: ['src/renderer/**/*.tsx', 'src/renderer/**/*.ts'],
     extends: [reactHooks.configs.flat.recommended, eslintReact.configs['recommended-type-checked'], jsxA11y.flatConfigs.strict],
+    // `PasswordField` renders a native `<input>`, so a `<label>` wrapping it IS
+    // associated with a control (implicit nesting). jsx-a11y can't see inside a custom
+    // component, so without this it false-positives `label-has-associated-control` on
+    // every PasswordField wrapper — and inconsistently, depending on incidental sibling
+    // structure (PR #451 review). Mapping it to `input` makes the rule model reality.
+    // NOTE: this does NOT make those labels fully correct — audit finding 17 (#400) is a
+    // SEPARATE criterion (2.5.3): PasswordField's `label` prop emits an `aria-label` that
+    // overrides the visible text. No lint rule catches that; it is tracked by #400 and the
+    // audit, not here. Do not read a green `label-has-associated-control` as "#400 fixed".
+    settings: { 'jsx-a11y': { components: { PasswordField: 'input' } } },
     rules: {
       // The static half of the a11y gate (#398 follow-up). axe (story + E2E lanes) can
       // only judge what renders; these rules judge the SOURCE, so a regression is caught
       // at authoring time instead of after it reaches a story. `strict` over
-      // `recommended`: the extra rules are what flag pointer-only handlers, which is
-      // where this codebase's real 2.1.1 debt lives (audit findings 2 and 19, and the
-      // lightbox's wheel-only pan).
+      // `recommended`: the extra rules are what flag pointer-only handlers, where this
+      // codebase's real 2.1.1 debt lives (audit findings 2 and 19). Note the limit —
+      // these rules only see handlers in their fixed handler sets (onClick, onMouse*,
+      // onKey*), so `onWheel`-only interactions like the lightbox's zoomed-pan (#449) are
+      // invisible to them and stay owned by the audit and E2E lanes, not this gate.
       //
       // Every remaining site is annotated inline with either "verified correct" or the
       // issue that owns the debt — no blanket suppressions. `no-autofocus` is the one

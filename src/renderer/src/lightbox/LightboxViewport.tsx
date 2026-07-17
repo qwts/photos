@@ -241,10 +241,13 @@ export function LightboxViewport({
       data-orientation-flipped={orientation.flipped ? 'true' : 'false'}
       data-unavailable={decodeFailed ? 'true' : 'false'}
     >
-      {/* REAL DEBT, not an exception: `onWheel` is the only way to PAN a zoomed photo.
-          Zoom has keys (+ - 0) but pan has none, so a keyboard-only user can zoom in and
-          then never reach the rest of the image — SC 2.1.1 (Level A). Found by this rule
-          and by the #398 re-audit; owned by #449. Remove this disable with the fix. */}
+      {/* The rule fires on this <img> because of `onDoubleClick` (and the onLoad/onError
+          lifecycle handlers), NOT `onWheel` — wheel is in no jsx-a11y handler set, so this
+          disable does NOT and cannot guard the wheel-only-pan debt. That debt (a keyboard
+          user can zoom but not pan a zoomed photo — SC 2.1.1) is real and owned by #449,
+          but it is tracked by the issue and the audit, not by this line; the E2E/manual
+          lanes are what would catch its regression. This disable is only acknowledging
+          that the image legitimately carries pointer + lifecycle handlers. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <img
         key={`${photo.id}-${suppressRehydrate ? 'synced' : photo.syncState}`}

@@ -19,12 +19,13 @@ import type { RuleCounts, ViolationBudget } from '../a11y/budget.js';
 // share tests/a11y/budget.ts so "over budget" means the same thing in each.
 const budget = JSON.parse(readFileSync(join(process.cwd(), 'tests/a11y/violation-budget.json'), 'utf8')) as ViolationBudget;
 
-// The SC 2.4.11 probe below runs inside the renderer, where the DOM exists — but this
-// project's tsconfig is deliberately Node-only (`lib: ["ES2022"]`) until the DOM test
-// lane lands (#135). Rather than widen `lib` for every Node-side test (which would let
-// them reach DOM globals that do not exist at runtime), the probe is typed against the
-// minimal surface it actually touches. Structural, so it stays compatible with lib.dom
-// when #135 makes the real types available and this block can be deleted.
+// The SC 2.4.11 probe below runs inside the renderer via page.evaluate, where the DOM
+// exists — but the test FILE is Node code, typed by the root tsconfig at `lib: ["ES2022"]`
+// with no DOM globals. The DOM test lane (#135) does not help here: it is scoped to
+// `tests/dom/**` with its own happy-dom tsconfig and does not extend to `tests/e2e/**`,
+// which stays Node-typed because Playwright drives a real out-of-process browser. Widening
+// `lib` for every e2e test would let them reach DOM globals that don't exist in their own
+// runtime, so the probe is instead typed against the minimal DOM surface it touches.
 interface ProbeRect {
   readonly left: number;
   readonly top: number;

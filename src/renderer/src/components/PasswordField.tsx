@@ -36,6 +36,11 @@ export function PasswordField({
         className={`ovl-password__input${reveal ? ' ovl-password__input--reveal' : ''}`}
         type={reveal ? 'text' : 'password'}
         value={value}
+        // #400 debt (audit finding 17, SC 2.5.3): every caller wraps this in a `<label>`
+        // whose visible text differs from `label`, and this `aria-label` OVERRIDES that
+        // visible text — so the announced name and the on-screen name disagree. The fix
+        // lives here (drop the aria-label and rely on the wrapping label, or align the
+        // two), not at the call sites. No static rule catches this; owned by #400.
         aria-label={label}
         placeholder={placeholder}
         name={name}
