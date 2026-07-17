@@ -161,6 +161,24 @@ describe('dropped-file scan (#237)', () => {
     assert.equal(summary.newJpg, 1);
     assert.deepEqual(files.map((file) => file.fileName).sort(), ['a.jpg', 'b.raf']);
   });
+
+  test('P0 #406: dropped folders recurse and mixed entries deduplicate paths', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-drop-folder-'));
+    const nested = join(root, 'nested');
+    mkdirSync(nested);
+    const direct = join(root, 'direct.jpg');
+    const child = join(nested, 'child.nef');
+    writeFileSync(direct, randomBytes(64));
+    writeFileSync(child, randomBytes(64));
+
+    const { summary, files } = await scanFiles([root, direct, root], { hasContentHash: () => false });
+    assert.equal(summary.newCount, 2);
+    assert.deepEqual(
+      files.map(({ path }) => path).sort(),
+      [direct, child].sort(),
+      'folder expansion and explicit duplicates produce one candidate per path',
+    );
+  });
 });
 
 describe('volume enumeration (#84)', () => {
