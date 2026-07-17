@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash, pbkdf2Sync } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
@@ -217,6 +218,11 @@ describe('interoperability replay identity', () => {
 });
 
 describe('published interoperability artifacts', () => {
+  test('maps every companion epic scenario to current cross-repository evidence', () => {
+    const output = execFileSync(process.execPath, ['scripts/check-interop-acceptance.mjs'], { encoding: 'utf8' });
+    assert.equal(output, 'Verified 10 interop scenarios with 40 automated evidence references; manual 0/4.\n');
+  });
+
   test('matches the generated Draft 2020-12 schemas byte-for-byte', () => {
     for (const [fileName, schema] of Object.entries(createInteropJsonSchemas())) {
       assert.equal(readFileSync(path.join(contractDirectory, fileName), 'utf8'), `${JSON.stringify(schema, null, 2)}\n`);
@@ -235,6 +241,7 @@ describe('published interoperability artifacts', () => {
       coveredPaths.add(relativePath);
     }
     for (const schemaFile of Object.keys(createInteropJsonSchemas())) assert.ok(coveredPaths.has(schemaFile));
+    assert.ok(coveredPaths.has('acceptance-evidence.json'));
     for (const fixtureName of [
       'corrupt-pairing-bundle.json',
       'invalid-record-message.json',
