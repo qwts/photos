@@ -52,13 +52,11 @@ import { LibraryRegistryRuntime } from './library/library-registry-runtime.js';
 import { ProtectedRuntime } from './library/protected-runtime.js';
 import { registerAppServices } from './register-app-services.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
-import { registerSchemePrivileges } from './protocol-privileges.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
+import { registerEarlyRuntime } from './early-runtime.js';
 
-// Test/dev steering hooks (#72/#129) are unpackaged-only. Read every fixture,
-// fault, seed, and profile override through this gate; runtime tuning is not a
-// harness hook and stays outside it.
+// Test/dev steering hooks (#72/#129) are unpackaged-only; runtime tuning stays outside this gate.
 function harnessEnv(name: string): string | undefined {
   return app.isPackaged ? undefined : process.env[name];
 }
@@ -68,13 +66,11 @@ if (userDataOverride !== undefined && userDataOverride !== '') app.setPath('user
 
 const externalOpen = createExternalOpenRuntime({ isolatedHarnessProfile: userDataOverride !== undefined && userDataOverride !== '' });
 
-registerSchemePrivileges();
+registerEarlyRuntime();
 
-// Lazy library bootstrap: nothing touches the keychain or the database until
-// the renderer's first library.* call (the E2E smoke never does).
+// Lazy bootstrap: no keychain or database access before the renderer's first library call.
 let libraryService: LibraryService | undefined;
 
-// Active-library resolution (ADR-0017, #384): see library-registry-runtime.
 const registryRuntime = new LibraryRegistryRuntime({ userDataDir: () => app.getPath('userData') });
 const libraryDataDir = (): string => registryRuntime.dataDir();
 

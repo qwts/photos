@@ -11,8 +11,8 @@ import type { DiagnosticOccurrence } from '../../src/main/diagnostics/diagnostic
 describe('diagnostics capture adapter (#286)', () => {
   test('forwards only the closed process-health vocabulary and detaches every listener', () => {
     let main: (() => void) | undefined;
-    let rendererGone: ((details: { reason: string; exitCode: number }) => void) | undefined;
-    let childGone: ((details: { reason: string; exitCode: number }) => void) | undefined;
+    let rendererGone: ((details: { reason: 'crashed'; exitCode: number }) => void) | undefined;
+    let childGone: ((details: { reason: 'oom'; exitCode: number }) => void) | undefined;
     let unresponsive: (() => void) | undefined;
     let detached = 0;
     const detach = (): void => {
