@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { expect, test, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import type { OverlookApi } from '../../src/shared/ipc/api.js';
 
 const ALBUM_PASSWORD = 'Private Album Password 42!';
 const CHANGED_PASSWORD = 'Changed Private Password 73!';
@@ -181,6 +182,50 @@ async function prepareProtectedProfile(userData: string, keyFile: string): Promi
     await app.close();
   }
 }
+
+async function switchLibrary(page: Page, id: string): Promise<void> {
+  await page
+    .evaluate(async (target) => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      await overlook.libraries.open({ id: target });
+    }, id)
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/context|destroyed|navigation|Target/iu.test(message)) throw error;
+    });
+}
+
+test('protected album authorization is revoked across A → B → A library switches (#387)', async () => {
+  test.setTimeout(120_000);
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-protected-switch-'));
+  const keyFile = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-protected-switch-key-')), 'overlook-recovery.key');
+  const protectedNames = await prepareProtectedProfile(userData, keyFile);
+
+  const app = await launch(userData, keyFile);
+  try {
+    let page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await unlockProtected(page, ALBUM_PASSWORD);
+    const firstId = await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      return (await overlook.libraries.current()).library.id;
+    });
+    const secondId = await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      return (await overlook.libraries.create({ name: 'Second', path: null })).library.id;
+    });
+
+    await switchLibrary(page, secondId);
+    page = await app.firstWindow();
+    await page.getByTestId('empty-state').waitFor();
+    await switchLibrary(page, firstId);
+    page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await assertLockedWithoutLeak(page, protectedNames);
+  } finally {
+    await app.close();
+  }
+});
 
 test('protected albums: no-leak restart, session relock, credential recovery, lifecycle revocation, and removal', async () => {
   test.setTimeout(180_000);

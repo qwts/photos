@@ -61,6 +61,14 @@ test('ACCEPTANCE: switch shows no stale content, and the selection survives a re
     await page.getByTestId('virtual-grid').waitFor();
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
 
+    const first = await currentLibrary(page);
+    const firstThumb = await page.locator('.ovl-tile__img').first().getAttribute('src');
+    expect(firstThumb).not.toBeNull();
+    await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      await overlook.settings.set({ patch: { providerId: 'mock', sortOrder: 'name' } });
+    });
+
     const secondId = await createSecondLibrary(page);
     await switchTo(page, secondId);
 
@@ -71,6 +79,53 @@ test('ACCEPTANCE: switch shows no stale content, and the selection survives a re
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(0);
     const after = await currentLibrary(page);
     expect(after).toMatchObject({ id: secondId, open: true, photos: 0 });
+
+    const staleThumb = await page.evaluate(
+      async (url) =>
+        fetch(url)
+          .then((response) => ({ loaded: response.ok, status: response.status }))
+          .catch(() => ({ loaded: false, status: 0 })),
+      firstThumb as string,
+    );
+    expect(staleThumb.loaded).toBe(false);
+
+    // Provider selection and every backup/offload policy are library-local.
+    // Make B explicitly disconnected, then prove A remains connected after
+    // both provider-instance and renderer teardown/rebuild.
+    const disconnected = await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      await overlook.settings.set({ patch: { providerId: null, sortOrder: 'size' } });
+      const run = await overlook.backup.run({});
+      return { settings: (await overlook.settings.get()).settings, skipped: run.skipped };
+    });
+    expect(disconnected).toMatchObject({ settings: { providerId: null, sortOrder: 'size' }, skipped: 'disconnected' });
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByTestId('provider-card')).toContainText('Not connected');
+    await page.keyboard.press('Escape');
+
+    await switchTo(page, first.id);
+    page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    const reactivated = await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      return {
+        settings: (await overlook.settings.get()).settings,
+        status: await overlook.backup.providerStatus({ providerId: 'mock' }),
+      };
+    });
+    expect(reactivated).toMatchObject({ settings: { providerId: 'mock', sortOrder: 'name' }, status: { connected: true } });
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.getByTestId('provider-card')).toContainText('Connected');
+    await page.keyboard.press('Escape');
+
+    await switchTo(page, secondId);
+    page = await app.firstWindow();
+    await page.getByTestId('empty-state').waitFor();
+    const secondSettings = await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      return (await overlook.settings.get()).settings;
+    });
+    expect(secondSettings).toMatchObject({ providerId: null, sortOrder: 'size' });
 
     await app.close();
 
