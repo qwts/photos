@@ -1,74 +1,54 @@
 #!/usr/bin/env node
 
-// Resolve the set of third-party packages actually shipped in a packaged
-// Overlook build, for licensing compliance (#461) and the license-policy gate
-// (#462). Both the notices generator and the checker import from here so they
-// audit exactly the same closure.
+// Resolve the set of third-party packages shipped in packaged Overlook builds,
+// for licensing compliance (#461) and the license-policy gate (#462). Both the
+// notices generator and the checker import from here so they audit exactly the
+// same closure.
 //
-// "Shipped" is NOT `devDependencies`: electron-vite inlines JS dependencies
-// into the bundles and electron-builder copies native modules, so the shipped
-// set is the production closure of `dependencies` + `optionalDependencies`,
-// resolved through each package's own production dependencies. `electron` is a
-// devDependency by electron-builder convention but its runtime IS shipped, so
-// it is added explicitly as a bundled runtime root.
+// The closure is resolved from package-lock.json, NOT from installed
+// node_modules, so it is identical on every OS. That matters because sharp
+// pulls in per-platform prebuilt binaries (`@img/sharp-*`, `@img/sharp-libvips-*`)
+// as optional dependencies: a macOS checkout installs only the darwin ones, a
+// Linux CI runner only the linux ones. Walking node_modules would make the gate
+// and the committed notices depend on where they ran. The lockfile lists every
+// platform variant, so the union — which is what actually gets distributed
+// across the mac and Windows build targets — is covered deterministically.
+//
+// "Shipped" = every lockfile entry that is not dev-only (`dev !== true`), i.e.
+// the production closure of `dependencies`/`optionalDependencies` including all
+// their transitive prod deps and platform variants. electron is a devDependency
+// by electron-builder convention but its runtime IS shipped, so it is added
+// explicitly as a leaf (its own npm dependencies are install-time tooling that
+// never ships, and are dev-only in the lockfile anyway).
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const LOCK_PATH = path.join(ROOT, 'package-lock.json');
 
 // devDependencies whose runtime nonetheless ships inside the packaged app.
 export const BUNDLED_RUNTIME_ROOTS = ['electron'];
 
 const LICENSE_FILE_PATTERN = /^(?:licen[cs]e|copying|notice|unlicense)(?:[.-].*)?$/iu;
 
-function readManifest(dir) {
-  try {
-    return JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
-  } catch {
-    return null;
+// Normalize the `license` field recorded in a lockfile entry (a string, or
+// absent) into a single SPDX-ish token. `UNKNOWN` when nothing is declared.
+export function normalizeLicense(entry) {
+  if (typeof entry.license === 'string' && entry.license.trim() !== '') {
+    return entry.license.trim();
   }
-}
-
-// Walk up the node_modules chain from `fromDir` (npm hoists most packages to
-// the root, but nested installs and multiple versions still happen).
-function resolvePackageDir(name, fromDir) {
-  const segments = name.split('/');
-  let dir = fromDir;
-  for (;;) {
-    const candidate = path.join(dir, 'node_modules', ...segments);
-    if (existsSync(path.join(candidate, 'package.json'))) {
-      return candidate;
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir || !dir.startsWith(ROOT)) {
-      break;
-    }
-    dir = parent;
-  }
-  return null;
-}
-
-// Normalize the many shapes of the `license`/`licenses` manifest fields into a
-// single SPDX-ish string. `UNKNOWN` when a package declares nothing.
-export function normalizeLicense(manifest) {
-  if (typeof manifest.license === 'string' && manifest.license.trim() !== '') {
-    return manifest.license.trim();
-  }
-  if (manifest.license && typeof manifest.license === 'object' && typeof manifest.license.type === 'string') {
-    return manifest.license.type;
-  }
-  if (Array.isArray(manifest.licenses)) {
-    const types = manifest.licenses.map((entry) => (typeof entry === 'string' ? entry : entry?.type)).filter(Boolean);
-    if (types.length > 0) {
-      return types.length === 1 ? types[0] : `(${types.join(' OR ')})`;
-    }
+  if (Array.isArray(entry.license) && entry.license.length > 0) {
+    return entry.license.length === 1 ? String(entry.license[0]) : `(${entry.license.join(' OR ')})`;
   }
   return 'UNKNOWN';
 }
 
 function readLicenseText(dir) {
+  if (!existsSync(dir)) {
+    return null;
+  }
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
@@ -86,64 +66,62 @@ function readLicenseText(dir) {
   }
 }
 
-function productionDeps(manifest) {
-  return { ...(manifest.dependencies ?? {}), ...(manifest.optionalDependencies ?? {}) };
+function packageNameFromLockKey(key) {
+  const marker = 'node_modules/';
+  const index = key.lastIndexOf(marker);
+  return index === -1 ? key : key.slice(index + marker.length);
+}
+
+function recordFor(key, entry) {
+  // Platform-gated binaries (an `os`/`cpu` constraint) are only installed on
+  // the matching platform, so their license text can't be read deterministically
+  // — carry the SPDX id from the lockfile and skip the text. Everything else is
+  // installed on every platform, so its text is embedded identically.
+  const platformSpecific = Array.isArray(entry.os) || Array.isArray(entry.cpu);
+  const dir = path.join(ROOT, key);
+  return {
+    name: packageNameFromLockKey(key),
+    version: entry.version ?? '0.0.0',
+    license: normalizeLicense(entry),
+    platformSpecific,
+    licenseText: platformSpecific ? null : readLicenseText(dir),
+    path: key,
+  };
 }
 
 /**
  * Resolve the shipped third-party closure as a sorted array of records:
- * `{ name, version, license, licenseText, path }` (repo-relative `path`).
- * The root package (`private: true`) is excluded — it is first-party.
+ * `{ name, version, license, platformSpecific, licenseText, path }`.
+ * The root package (`private: true`) is first-party and excluded.
  */
 export function resolveShippedClosure() {
-  const rootManifest = readManifest(ROOT);
-  if (!rootManifest) {
-    throw new Error('Cannot read root package.json');
+  const lock = JSON.parse(readFileSync(LOCK_PATH, 'utf8'));
+  const packages = lock.packages ?? {};
+  const byKey = new Map();
+
+  for (const [key, entry] of Object.entries(packages)) {
+    if (!key.startsWith('node_modules/') || entry.link === true) {
+      continue;
+    }
+    if (entry.dev === true) {
+      continue;
+    }
+    byKey.set(key, recordFor(key, entry));
   }
 
-  const rootDeps = productionDeps(rootManifest);
-  const seen = new Map();
-  const queue = [];
-
-  for (const name of [...Object.keys(rootDeps), ...BUNDLED_RUNTIME_ROOTS]) {
-    queue.push({ name, fromDir: ROOT });
-  }
-
-  while (queue.length > 0) {
-    const { name, fromDir } = queue.shift();
-    const dir = resolvePackageDir(name, fromDir);
-    if (!dir) {
-      // A pruned optional dependency (e.g. platform-specific) that isn't
-      // installed here cannot ship from this build; skip rather than fail.
-      continue;
-    }
-    const manifest = readManifest(dir);
-    if (!manifest || manifest.name === rootManifest.name) {
-      continue;
-    }
-    const key = `${manifest.name}@${manifest.version}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.set(key, {
-      name: manifest.name,
-      version: manifest.version ?? '0.0.0',
-      license: normalizeLicense(manifest),
-      licenseText: readLicenseText(dir),
-      path: path.relative(ROOT, dir),
-    });
-    // Bundled-runtime roots (electron) are leaves: the shipped artifact is the
-    // downloaded runtime binary, whose embedded third-party licenses live in
-    // its own LICENSES.chromium.html (referenced from the notices header). The
-    // npm package's own dependencies are install-time tooling that never ships,
-    // so recursing into them would attribute software that isn't distributed.
-    if (BUNDLED_RUNTIME_ROOTS.includes(manifest.name)) {
-      continue;
-    }
-    for (const dep of Object.keys(productionDeps(manifest))) {
-      queue.push({ name: dep, fromDir: dir });
+  // Add the bundled runtime roots as leaves, regardless of their dev flag.
+  for (const name of BUNDLED_RUNTIME_ROOTS) {
+    const key = `node_modules/${name}`;
+    const entry = packages[key];
+    if (entry) {
+      byKey.set(key, recordFor(key, entry));
     }
   }
 
-  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+  const deduped = new Map();
+  for (const record of byKey.values()) {
+    deduped.set(`${record.name}@${record.version}`, record);
+  }
+
+  return [...deduped.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
 }
