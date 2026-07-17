@@ -1,5 +1,11 @@
 # photos
 
+## 0.25.2
+
+### Patch Changes
+
+- 512c6f4: Keep large Finder photo batches in one Overlook window and import dropped folders recursively.
+
 ## 0.25.1
 
 ### Patch Changes
