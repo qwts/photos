@@ -36,7 +36,14 @@ The real-photo fixture row remains owner-blocked on licensed assets. The release
 - The default signed path uses only Electron hardened-runtime entitlements that do not require a provisioning profile.
 - `MAC_PROVISIONING_PROFILE` optionally enables the restricted application/team identifiers required by the native Touch ID Data Protection Keychain path. The package script rejects a mismatched Team ID, application identifier, malformed profile, or expired profile before `electron-builder` runs.
 - Without a valid provisioning profile, Touch ID key custody fails closed and password/recovery-key access remains available; the release must still launch.
-- The macOS job verifies the signature and Gatekeeper assessment, extracts the exact generated `*-mac.zip`, and launches that packaged app with an isolated user-data directory. A release cannot upload if the packaged process does not reach its smoke-test readiness boundary.
+- The macOS job verifies the final app's embedded profile, active application/team entitlements, biometric usage description, and helper isolation before checking the signature and Gatekeeper assessment. It then extracts the exact generated `*-mac.zip` and launches that packaged app with an isolated user-data directory. A release cannot upload if either identity verification or the packaged-process readiness boundary fails.
+
+### Provisioning-profile ownership and rotation
+
+- The repository owner for Apple Developer Team `Z5DM34QS5U` owns `MAC_PROVISIONING_PROFILE`. The current profile authorizes `Z5DM34QS5U.com.zts1.overlook` and expires **2044-07-12 01:24:19 UTC**. Renewal tracking starts no later than **2044-01-12**; never wait for the expiry gate to fail.
+- Generate the replacement as a Developer ID provisioning profile for bundle ID `com.zts1.overlook` under the same Team. Keep the downloaded profile outside the repository and review its application identifier, Team ID, and expiry locally with `OVERLOOK_MAC_PROVISIONING_PROFILE=/path/to/profile node scripts/package-signed-provisioned.mjs --validate-only`.
+- Base64-encode the replacement without line wrapping, replace the repository Actions secret `MAC_PROVISIONING_PROFILE`, and dispatch the Package workflow on a release-candidate ref. Both OS legs must pass; the macOS log must show the provisioned signing path, successful notarization, the final-app identity verifier, Gatekeeper acceptance, and exact-ZIP launch.
+- Complete the Touch ID hardware checklist below on that artifact before considering rotation complete. If validation or hardware acceptance fails, restore a known-valid unexpired profile secret; do not fall back by adding restricted entitlements to the profile-free build.
 
 ## Definition of done
 
