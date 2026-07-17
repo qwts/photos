@@ -90,8 +90,10 @@ export async function seedLibrary(db: BetterSqlite3.Database, blobStore: BlobSto
     const meta = seedPhoto(index);
     const bytes = sampleJpeg(index);
     const ref = await blobStore.putOriginal(Readable.from([bytes]), key, meta.id);
-    // Real encrypted photo thumbs so the grid exercises the #75 protocol.
+    // Real encrypted derivatives so the grid and protected-album migration
+    // exercise the same local-custody contract as production imports.
     await blobStore.putThumb(Readable.from([bytes]), key, meta.id, ref.contentHash, 'thumb');
+    await blobStore.putThumb(Readable.from([bytes]), key, meta.id, ref.contentHash, 'mid');
     repo.insert({ ...meta, contentHash: ref.contentHash, bytes: ref.bytes, keyId: key.id });
     const status = STATUSES[index % 8] ?? 'local';
     if (status !== 'local') {

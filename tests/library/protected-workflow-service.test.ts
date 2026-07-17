@@ -76,6 +76,7 @@ async function world() {
   });
   const progress: ProtectedWorkflowProgress[] = [];
   let changes = 0;
+  const ordinaryChanges: string[][] = [];
   let cancelOn: string | null = null;
   const workflow = new ProtectedWorkflowService({
     albums,
@@ -92,6 +93,9 @@ async function world() {
     },
     changed: () => {
       changes += 1;
+    },
+    ordinaryChanged: (photoIds) => {
+      ordinaryChanges.push([...photoIds]);
     },
     createId: () => 'protected-private',
   });
@@ -111,6 +115,7 @@ async function world() {
     libraryKey,
     masterKey,
     changes: () => changes,
+    ordinaryChanges,
     cancelOn: (stage: string | null) => {
       cancelOn = stage;
     },
@@ -140,7 +145,8 @@ describe('ProtectedWorkflowService (#329)', () => {
       await value.ordinary.verifyOriginal(value.contentHash, (keyId) => (keyId === 1 ? value.libraryKey : undefined), PHOTO_ID),
       true,
     );
-    assert.equal(value.changes(), 2);
+    assert.equal(value.changes(), 3);
+    assert.deepEqual(value.ordinaryChanges, [[PHOTO_ID], [PHOTO_ID]]);
     value.db.close();
   });
 
