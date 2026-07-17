@@ -7,7 +7,7 @@ const SUCCESS_PAGE = `<!doctype html>
 <title>Overlook — Google Drive connected</title>
 <body style="font-family: system-ui; display: grid; place-items: center; min-height: 80vh">
 <p>Connected — you can close this tab and return to Overlook.</p>
-<script>history.replaceState(null, '', '/callback')</script>
+<script>history.replaceState(null, '', '/')</script>
 </body>`;
 
 export interface GoogleDriveLoopbackCapture {
@@ -51,7 +51,7 @@ export function startGoogleDriveLoopbackCapture(options: {
     const address = server.address();
     const port = typeof address === 'object' && address !== null ? address.port : requestedPort;
     const url = new URL(request.url ?? '/', `http://127.0.0.1:${String(port)}`);
-    if (url.pathname !== '/callback') {
+    if (url.pathname !== '/') {
       response.writeHead(404).end();
       return;
     }
@@ -88,7 +88,7 @@ export function startGoogleDriveLoopbackCapture(options: {
     server.listen(requestedPort, '127.0.0.1', () => {
       const address = server.address();
       const port = typeof address === 'object' && address !== null ? address.port : requestedPort;
-      resolve({ port, redirectUri: `http://127.0.0.1:${String(port)}/callback` });
+      resolve({ port, redirectUri: `http://127.0.0.1:${String(port)}` });
     });
   });
   listening.catch(() => undefined);

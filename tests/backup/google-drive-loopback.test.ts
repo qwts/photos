@@ -14,8 +14,8 @@ async function capture(overrides: { state?: string; timeoutMs?: number } = {}) {
 describe('Google Drive OAuth loopback (#277)', () => {
   test('a matching callback resolves the code and scrubs it from browser history', async () => {
     const { handle, base, redirectUri } = await capture();
-    assert.equal(redirectUri, `${base}/callback`);
-    const response = await fetch(`${base}/callback?code=code-1&state=nonce`);
+    assert.equal(redirectUri, base);
+    const response = await fetch(`${base}?code=code-1&state=nonce`);
     assert.equal(response.status, 200);
     assert.match(await response.text(), /history\.replaceState/u);
     assert.equal(await handle.result, 'code-1');
@@ -24,21 +24,21 @@ describe('Google Drive OAuth loopback (#277)', () => {
   test('wrong-state and unknown-path noise cannot settle the flow', async () => {
     const { handle, base } = await capture({ state: 'expected' });
     assert.equal((await fetch(`${base}/favicon.ico`)).status, 404);
-    assert.equal((await fetch(`${base}/callback?code=forged&state=wrong`)).status, 400);
-    assert.equal((await fetch(`${base}/callback?code=real&state=expected`)).status, 200);
+    assert.equal((await fetch(`${base}?code=forged&state=wrong`)).status, 400);
+    assert.equal((await fetch(`${base}?code=real&state=expected`)).status, 200);
     assert.equal(await handle.result, 'real');
   });
 
   test('provider error and missing code reject with no credential detail', async () => {
     const denied = await capture();
-    assert.equal((await fetch(`${denied.base}/callback?error=access_denied&state=nonce`)).status, 400);
+    assert.equal((await fetch(`${denied.base}?error=access_denied&state=nonce`)).status, 400);
     await assert.rejects(
       denied.handle.result,
       (error: unknown) => error instanceof GoogleDriveOAuthError && error.message.includes('access_denied'),
     );
 
     const missing = await capture();
-    assert.equal((await fetch(`${missing.base}/callback?state=nonce`)).status, 400);
+    assert.equal((await fetch(`${missing.base}?state=nonce`)).status, 400);
     await assert.rejects(missing.handle.result, /did not return a code/u);
   });
 

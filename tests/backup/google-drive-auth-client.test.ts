@@ -74,7 +74,15 @@ describe('Google Drive access-token client (#277)', () => {
       );
     };
     await check(() => Promise.reject(new Error('refresh_token=SECRET')), 'transient');
-    await check(() => Promise.resolve(new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 })), 'auth');
+    await check(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ error: 'invalid_grant', error_description: 'refresh_token=SECRET was rejected' }), {
+            status: 400,
+          }),
+        ),
+      'auth',
+    );
     await check(() => Promise.resolve(new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 })), 'transient');
     await check(() => Promise.resolve(new Response('{}', { status: 200 })), 'transient');
   });
