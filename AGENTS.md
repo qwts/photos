@@ -136,6 +136,16 @@ possible, enforced as executable checks._
   directive stops matching and the build fails until it is deleted — that is the
   ratchet, applied to exemptions. A blanket `rules: {'jsx-a11y/x': 'off'}` in a
   PR needs the same justification as lowering a coverage floor.
+- **License-policy gate** (`lint:licenses`, part of the `lint` chain in
+  `npm run ci`): `scripts/check-licenses.mjs` audits the _shipped_ dependency
+  closure (production deps of `dependencies`/`optionalDependencies` plus the
+  bundled `electron` runtime — see `scripts/dependency-closure.mjs`, not
+  `devDependencies`) against the SPDX allowlist in `.license-policy.json`, and
+  the same step verifies `THIRD-PARTY-NOTICES.md` is not stale. A new/upgraded
+  dependency with a non-allowlisted or undeclared license fails CI until it is
+  allowlisted or given a reviewed `exceptions` entry with a reason; then run
+  `npm run licenses:notices` to refresh attributions. A CycloneDX SBOM
+  (`npm run licenses:sbom`) is emitted into `release/` by the `package*` scripts.
 - Dependencies use **exact pins**; Dependabot is the only actor that bumps
   versions. A set of **toolchain caps** holds back majors that would break the
   build: TypeScript stays **below 6.1.0** (typescript-eslint's peer cap),

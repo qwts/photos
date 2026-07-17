@@ -11,6 +11,12 @@ appId: com.zts1.overlook
 productName: Overlook
 directories:
   output: release
+# Ship the project license and the generated third-party attributions inside
+# the packaged app (#461). They land in Contents/Resources so every
+# distributed build carries the notices the bundled dependencies require.
+extraResources:
+  - LICENSE
+  - THIRD-PARTY-NOTICES.md
 files:
   - out/**
   # The workspace is linked during packaging, so electron-builder otherwise
