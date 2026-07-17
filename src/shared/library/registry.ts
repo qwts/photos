@@ -47,6 +47,10 @@ export const libraryDescriptorSchema = libraryEntrySchema
     missing: z.boolean(),
     /** This entry is the currently open library. */
     open: z.boolean(),
+    /** Hostname holding this library's live advisory lock when it is open in
+     * ANOTHER Overlook instance (ADR-0017 §5) — null when free, missing, or
+     * open here. Probed at read time, never persisted. */
+    lockedBy: z.string().nullable(),
   })
   .strict();
 

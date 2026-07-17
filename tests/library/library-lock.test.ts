@@ -5,7 +5,13 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { acquireLibraryLock, LibraryLockError, lockPath, type LibraryLockRecord } from '../../src/main/library/library-lock.js';
+import {
+  acquireLibraryLock,
+  LibraryLockError,
+  lockPath,
+  readLockHolder,
+  type LibraryLockRecord,
+} from '../../src/main/library/library-lock.js';
 
 // ADR-0017 §5 / #385: advisory per-library single-instance lock — O_EXCL
 // acquire, same-host dead-pid reclaim, cross-host refusal, idempotent release.
@@ -129,6 +135,26 @@ describe('library lock (#385)', () => {
     const release = acquireLibraryLock(dir, 'instance-b', { host: 'mac-a', pid: 300, isPidAlive: () => false, now: () => future });
     assert.ok(!existsSync(`${lockPath(dir)}.reclaim`), 'guard cleaned up');
     release();
+  });
+
+  test('readLockHolder (#386): names a live foreign holder, stays quiet for free/own/stale locks', () => {
+    const dir = tempDir();
+    assert.equal(readLockHolder(dir, 'me', { host: 'mac-a' }), null, 'no lock file — free');
+
+    acquireLibraryLock(dir, 'me', { host: 'mac-a', pid: 100, isPidAlive: () => true });
+    assert.equal(readLockHolder(dir, 'me', { host: 'mac-a' }), null, 'our own lock is not "elsewhere"');
+
+    assert.equal(readLockHolder(dir, 'other', { host: 'mac-a', isPidAlive: () => true }), 'mac-a', 'live same-host holder is named');
+    assert.equal(
+      readLockHolder(dir, 'other', { host: 'mac-a', isPidAlive: () => false }),
+      null,
+      'dead same-host holder is stale, not locked',
+    );
+    assert.equal(
+      readLockHolder(dir, 'other', { host: 'mac-b', isPidAlive: () => false }),
+      'mac-a',
+      'cross-host counts as live — liveness is unverifiable',
+    );
   });
 
   test('the default pid-liveness probe: our own pid is alive, an absurd pid is not', () => {

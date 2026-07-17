@@ -147,6 +147,8 @@ export interface OverlookApi {
     readonly open: (request: Req<typeof channels.libraryRegistryOpen>) => Promise<Res<typeof channels.libraryRegistryOpen>>;
     readonly remove: (request: Req<typeof channels.libraryRegistryRemove>) => Promise<Res<typeof channels.libraryRegistryRemove>>;
     readonly current: () => Promise<Res<typeof channels.libraryRegistryCurrent>>;
+    readonly add: (request: Req<typeof channels.libraryRegistryAdd>) => Promise<Res<typeof channels.libraryRegistryAdd>>;
+    readonly pickLocation: () => Promise<Res<typeof channels.libraryRegistryPickLocation>>;
   };
   readonly import: {
     readonly listSources: () => Promise<Res<typeof channels.importListSources>>;

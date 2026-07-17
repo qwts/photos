@@ -17,6 +17,7 @@ import { Lightbox } from '../lightbox/Lightbox';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
+import { LibrarySwitcher } from './LibrarySwitcher';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { ToastAction } from './ToastAction';
@@ -59,6 +60,15 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   }, [dispatch]);
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
+  // Current library name for the titlebar trigger (#386). Registry reads
+  // never require content access, so this works while locked too.
+  const [libraryName, setLibraryName] = useState<string | null>(null);
+  useEffect(() => {
+    void window.overlook.libraries
+      .current()
+      .then(({ library }) => setLibraryName(library.name))
+      .catch(() => setLibraryName(null));
+  }, []);
   const [interopEntry, setInteropEntry] = useState<{ readonly context: InteropEntryContext; readonly total: number } | null>(null);
   const openInterop = (context: InteropEntryContext, records: readonly string[] | number): void => {
     setInteropEntry({ context, total: typeof records === 'number' ? records : records.length });
@@ -306,6 +316,21 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
       ) : null}
       <TitleBar
         platform={platform}
+        center={
+          <button
+            type="button"
+            className="ovl-library-trigger"
+            data-testid="library-trigger"
+            aria-label={`Switch library — ${libraryName ?? 'Overlook'}`}
+            onClick={() => {
+              dispatch({ type: 'dialog/set', dialog: 'libraries', open: true });
+            }}
+          >
+            <Icon name="images" size={13} />
+            <span>{libraryName ?? 'Overlook'}</span>
+            <Icon name="chevrons-up-down" size={12} color="var(--text-faint)" />
+          </button>
+        }
         onMinimize={() => {
           void window.overlook.minimizeWindow();
         }}
@@ -359,6 +384,13 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         />
       ) : null}
       {offload.dialog}
+      {state.librariesOpen ? (
+        <LibrarySwitcher
+          onClose={() => {
+            dispatch({ type: 'dialog/set', dialog: 'libraries', open: false });
+          }}
+        />
+      ) : null}
       {state.settingsOpen ? (
         <SettingsDialog
           open

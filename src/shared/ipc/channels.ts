@@ -662,13 +662,37 @@ export const channels = {
     z.object({ name: z.string().min(1).max(120), path: z.string().min(1).nullable() }),
     z.object({ library: libraryDescriptorSchema }),
   ),
+  // open = the live switch (#385/#386). Designed refusals (locked, backup
+  // running, target locked elsewhere/missing) are RESPONSE outcomes, not
+  // thrown errors — IPC failures cross the bridge as detail-free codes, and
+  // the switcher needs the reason (and host) to render a recoverable state.
   libraryRegistryOpen: defineChannel(
     'library-registry:open',
     z.object({ id: libraryIdSchema }),
-    z.object({ library: libraryDescriptorSchema, requiresRestart: z.boolean() }),
+    z.discriminatedUnion('ok', [
+      z.object({ ok: z.literal(true), library: libraryDescriptorSchema, requiresRestart: z.boolean() }),
+      z.object({
+        ok: z.literal(false),
+        reason: z.enum(['switch-in-progress', 'locked', 'provider-busy', 'locked-elsewhere', 'missing']),
+        /** Hostname holding the target's lock — 'locked-elsewhere' only. */
+        host: z.string().nullable(),
+      }),
+    ]),
   ),
   libraryRegistryRemove: defineChannel('library-registry:remove', z.object({ id: libraryIdSchema }), z.object({ removed: z.boolean() })),
   libraryRegistryCurrent: defineChannel('library-registry:current', z.object({}), z.object({ library: libraryDescriptorSchema })),
+  // Register an EXISTING library directory (#386). path null = main opens the
+  // native directory picker; cancellation is an outcome, not an error.
+  libraryRegistryAdd: defineChannel(
+    'library-registry:add',
+    z.object({ path: z.string().min(1).nullable() }),
+    z.discriminatedUnion('ok', [
+      z.object({ ok: z.literal(true), library: libraryDescriptorSchema }),
+      z.object({ ok: z.literal(false), reason: z.enum(['cancelled', 'not-a-library', 'already-registered']) }),
+    ]),
+  ),
+  /** Native directory picker for the create flow's location (#386). */
+  libraryRegistryPickLocation: defineChannel('library-registry:pick-location', z.object({}), z.object({ path: z.string().nullable() })),
 } as const;
 
 export const events = {

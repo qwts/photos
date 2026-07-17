@@ -7,11 +7,15 @@ import type { LibraryDescriptor } from '../../shared/library/registry.js';
 // mid-switch leaves the registry pointing at the target, so the relaunch
 // opens it and the interrupted library recovers via WAL + journals on its
 // next open (acceptance 3).
+//
+// Designed refusals are RETURNED, not thrown (#386): the switcher renders
+// them as recoverable banners, and IPC strips thrown errors to bare codes.
 
-export interface SwitchLibraryResult {
-  readonly library: LibraryDescriptor;
-  readonly requiresRestart: boolean;
-}
+export type SwitchRefusalReason = 'switch-in-progress' | 'locked' | 'provider-busy' | 'locked-elsewhere' | 'missing';
+
+export type SwitchOutcome =
+  | { readonly ok: true; readonly library: LibraryDescriptor; readonly requiresRestart: boolean }
+  | { readonly ok: false; readonly reason: SwitchRefusalReason; readonly host: string | null };
 
 export interface SwitchLibraryDeps {
   readonly registry: Pick<LibraryRegistryRuntime, 'select'>;
@@ -23,6 +27,9 @@ export interface SwitchLibraryDeps {
   readonly lockState: () => string | undefined;
   /** True while backup/restore provider work is in flight (ADR-0011 parity). */
   readonly providerBusy: () => boolean;
+  /** Pre-flight target check (#386): missing directory or a live lock held by
+   * another instance refuses BEFORE teardown — null clears the target. */
+  readonly probeTarget: (id: string) => { reason: 'missing' | 'locked-elsewhere'; host: string | null } | null;
   /** Switch-mode teardown: everything closeLibraryForLock does except the
    * window reload, which happens after the app-lock swap below. */
   readonly closeLibrary: () => Promise<void>;
@@ -35,18 +42,22 @@ export interface SwitchLibraryDeps {
   readonly exit: (code: number) => void;
 }
 
-export function createSwitchLibrary(deps: SwitchLibraryDeps): (id: string) => Promise<SwitchLibraryResult> {
+export function createSwitchLibrary(deps: SwitchLibraryDeps): (id: string) => Promise<SwitchOutcome> {
   let switching = false;
   return async (id) => {
     if (switching) {
-      throw new Error('a library switch is already in progress');
+      return { ok: false, reason: 'switch-in-progress', host: null };
     }
     const lockState = deps.lockState();
     if (lockState !== undefined && lockState !== 'unconfigured-unlocked' && lockState !== 'unlocked') {
-      throw new Error('cannot switch libraries while the library is locked');
+      return { ok: false, reason: 'locked', host: null };
     }
     if (deps.providerBusy()) {
-      throw new Error('cannot switch libraries while backup or restore work is active');
+      return { ok: false, reason: 'provider-busy', host: null };
+    }
+    const refused = deps.probeTarget(id);
+    if (refused !== null) {
+      return { ok: false, reason: refused.reason, host: refused.host };
     }
     // Validates the target (registered, directory present) and stamps
     // lastOpenedAt — the crash-safety anchor described above.
@@ -61,7 +72,7 @@ export function createSwitchLibrary(deps: SwitchLibraryDeps): (id: string) => Pr
         await deps.swapAppLock();
         await deps.reloadWindows();
       }
-      return { library: selected.library, requiresRestart: false };
+      return { ok: true, library: selected.library, requiresRestart: false };
     }
     switching = true;
     try {
@@ -71,7 +82,7 @@ export function createSwitchLibrary(deps: SwitchLibraryDeps): (id: string) => Pr
       const repointed = deps.registry.select(id, null);
       await deps.swapAppLock();
       await deps.reloadWindows();
-      return { library: repointed.library, requiresRestart: false };
+      return { ok: true, library: repointed.library, requiresRestart: false };
     } finally {
       switching = false;
     }

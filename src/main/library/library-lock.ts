@@ -94,6 +94,17 @@ function readRecord(path: string): LibraryLockRecord | null {
   return null;
 }
 
+/** Read-only probe (#386): the hostname holding a LIVE lock on this library
+ * from another instance, or null when the lock is free, ours, or stale. A
+ * cross-host record counts as live — liveness cannot be verified across
+ * machines, so the switcher must present it as locked-elsewhere. */
+export function readLockHolder(dataDir: string, instanceId: string, options: LibraryLockOptions = {}): string | null {
+  const record = readRecord(lockPath(dataDir));
+  if (record === null || record.instanceId === instanceId) return null;
+  if (record.hostname !== (options.host ?? hostname())) return record.hostname;
+  return (options.isPidAlive ?? defaultIsPidAlive)(record.pid) ? record.hostname : null;
+}
+
 /** Acquires <dataDir>/library.lock for this instance or throws
  * LibraryLockError. Returns a release function (idempotent; releases only if
  * the file still names this instance). */

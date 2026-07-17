@@ -1,0 +1,297 @@
+/* Library Switcher (#386) — design/handoff HANDOFF_library_switcher.md.
+   Modal list of registered libraries with switch/create/add/remove flows.
+   Tokens only; machine data (paths, hosts, timestamps) renders mono-data. */
+
+.ovl-libswitch__count {
+  color: var(--text-faint);
+  margin-bottom: var(--space-3);
+}
+
+.ovl-libswitch__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.ovl-libswitch__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  background: var(--surface-card);
+  padding-right: var(--space-3);
+}
+
+.ovl-libswitch__row--open {
+  border-color: var(--accent-iris);
+  background: var(--accent-iris-dim);
+}
+
+.ovl-libswitch__row--blocked .ovl-libswitch__rowbtn {
+  cursor: default;
+}
+
+.ovl-libswitch__row--blocked .ovl-libswitch__name,
+.ovl-libswitch__row--blocked .ovl-libswitch__path {
+  color: var(--text-faint);
+}
+
+.ovl-libswitch__rowbtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: var(--space-4);
+  cursor: pointer;
+  border-radius: var(--radius-2);
+  color: var(--text-body);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-libswitch__rowbtn:hover {
+  background: var(--surface-raised);
+}
+
+.ovl-libswitch__rowbtn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.ovl-libswitch__rowmain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ovl-libswitch__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--type-label);
+  color: var(--text-body);
+}
+
+.ovl-libswitch__path {
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.ovl-libswitch__hint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.ovl-libswitch__when {
+  flex: none;
+  color: var(--text-faint);
+}
+
+.ovl-libswitch__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.ovl-libswitch__keys {
+  margin-left: auto;
+  color: var(--text-faint);
+}
+
+/* Refusal banner (amber, inline — never a toast). */
+.ovl-libswitch__banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border: 1px solid var(--accent-amber);
+  border-radius: var(--radius-2);
+  background: var(--accent-amber-dim);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.ovl-libswitch__banner-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ovl-libswitch__banner-title {
+  font: var(--type-label);
+  color: var(--text-body);
+}
+
+.ovl-libswitch__banner-detail {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.ovl-libswitch__banner-host {
+  color: var(--accent-amber);
+}
+
+/* Switching progress. */
+.ovl-libswitch__progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-6) 0;
+}
+
+.ovl-libswitch__progress-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ovl-libswitch__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-md);
+  color: var(--text-muted);
+}
+
+.ovl-libswitch__step--active {
+  color: var(--text-body);
+}
+
+.ovl-libswitch__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-2);
+  border-top-color: var(--accent-iris);
+  animation: ovl-libswitch-spin 0.8s linear infinite;
+}
+
+@keyframes ovl-libswitch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ovl-libswitch__progress-note {
+  color: var(--text-faint);
+}
+
+/* Remove confirm — reassurance-forward, deliberately NOT destructive red. */
+.ovl-libswitch__remove-copy {
+  margin: 0 0 var(--space-4);
+  color: var(--text-muted);
+}
+
+.ovl-libswitch__reassure {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid var(--accent-green);
+  border-radius: var(--radius-2);
+  background: var(--accent-green-dim);
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-body);
+  font-size: var(--text-md);
+}
+
+.ovl-libswitch__remove-path {
+  margin-top: var(--space-3);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Create form. */
+.ovl-libswitch__label {
+  display: block;
+  font: var(--type-label);
+  color: var(--text-muted);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.ovl-libswitch__input {
+  width: 100%;
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-1);
+  background: var(--surface-window);
+  color: var(--text-body);
+  font-size: var(--text-md);
+}
+
+.ovl-libswitch__input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.ovl-libswitch__location {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.ovl-libswitch__location-path {
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-libswitch__error {
+  margin-top: var(--space-3);
+  color: var(--accent-red);
+  font-size: var(--text-sm);
+}
+
+/* Titlebar trigger (#386): the current library name, centered, no-drag. */
+.ovl-titlebar__center {
+  -webkit-app-region: no-drag;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.ovl-library-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 22px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.ovl-library-trigger:hover {
+  background: var(--gray-3);
+  color: var(--text-body);
+}
+
+.ovl-library-trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+}
