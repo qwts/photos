@@ -3,7 +3,7 @@
   "entries": [
     {
       "id": "m20-protected-album-workflows",
-      "wiki": "User-Story-M20-Protected-Albums",
+      "wiki": "Acceptance-Test-Protected-Albums",
       "coverage": [
         {
           "type": "playwright-e2e",
