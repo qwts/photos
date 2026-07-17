@@ -164,14 +164,14 @@ budget.
 
 | Metric | Budget | Baseline (2026-07-17, Apple Silicon dev machine, 200K) |
 | --- | --- | --- |
-| Cold start → existing-library grid interactive | < 5,000 ms | 3,363 ms |
-| `library:page` (500) median over IPC | < 250 ms | 5.6 ms |
-| `library:counts` median over IPC | < 500 ms | 481.1 ms (#124: one FILTER-clause pass) |
-| Search page median over IPC (place substring) | < 600 ms | 28.6 ms |
-| Scroll dropped-frame share (zooms 96/160/320) | < 0.30 each | 0.2941 / 0.0104 / 0.0000 median |
-| Scroll worst frame delta | < 500 ms | 92.7 ms maximum |
-| Import throughput (100 files, full pipeline) | > 3 photos/s | 5.63 photos/s |
-| Main-process RSS after the workout | < 1,500 MB | 333 MB |
+| Cold start → existing-library grid interactive | < 5,000 ms | 3,267 ms |
+| `library:page` (500) median over IPC | < 250 ms | 5.4 ms |
+| `library:counts` median over IPC | < 500 ms | 469.1 ms (#124: one FILTER-clause pass) |
+| Search page median over IPC (place substring) | < 600 ms | 28.5 ms |
+| Scroll dropped-frame share (zooms 96/160/320) | < 0.30 each | 0.2581 / 0.0050 / 0.0000 median |
+| Scroll worst frame delta | < 500 ms | 100.9 ms maximum |
+| Import throughput (100 files, full pipeline) | > 3 photos/s | 4.20 photos/s |
+| Main-process RSS after the workout | < 1,500 MB | 524 MB |
 | Renderer JS heap after the workout | < 512 MB | 20.7 MB |
 
 #124 outcomes: `counts()` rewritten as ONE FILTER-clause pass over the
@@ -182,10 +182,11 @@ grounds (decrypted bytes never hit disk, ADR-0004), so further tightening
 waits for an in-memory decode pool (recorded).
 
 #432 removed a React rerender from every unavailable-thumbnail load failure.
-That path dominates the metadata-only 200K profile at 96px: two consecutive
-post-fix native runs passed with medians 0.2963 and 0.2941 while preserving the
-visible `PREVIEW UNAVAILABLE` fallback. The three-trial measurement contract
-above records the remaining variance instead of lowering the 0.30 ratchet.
+That path dominates the metadata-only 200K profile at 96px: the final corrected
+implementation passed at 0.2581 median while preserving the visible and
+screen-reader `PREVIEW UNAVAILABLE` fallback, and successful previews retain no
+stale fallback text. The three-trial measurement contract above records the
+remaining variance instead of lowering the 0.30 ratchet.
 
 ### Coverage-map distribution (#126 sweep, 2026-07-13)
 
