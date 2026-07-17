@@ -23,10 +23,16 @@ function bodyText(body: RequestInit['body']): string {
   throw new Error('expected a string or URLSearchParams body');
 }
 
-function world(fetchImpl: typeof fetch, clientId: string | null = CLIENT_ID) {
+function world(fetchImpl: typeof fetch, clientId: string | null = CLIENT_ID, clientSecret: string | null = null) {
   const store = new GoogleDriveTokenStore({ safeStorage, dataDir: mkdtempSync(join(tmpdir(), 'overlook-google-client-')) });
   let now = 1_000_000;
-  const auth = new GoogleDriveAuthClient({ clientId: () => clientId, tokenStore: store, fetchImpl, now: () => now });
+  const auth = new GoogleDriveAuthClient({
+    clientId: () => clientId,
+    clientSecret: () => clientSecret,
+    tokenStore: store,
+    fetchImpl,
+    now: () => now,
+  });
   return { auth, store, advance: (ms: number) => (now += ms) };
 }
 
@@ -62,6 +68,22 @@ describe('Google Drive access-token client (#277)', () => {
     auth.clear();
     assert.equal(store.load(), null);
     assert.equal(auth.authState(), 'not-connected');
+  });
+
+  test('refresh includes the issued Desktop client credential only when configured', async () => {
+    const requests: URLSearchParams[] = [];
+    const fetchImpl: typeof fetch = (_input, init) => {
+      requests.push(new URLSearchParams(bodyText(init?.body)));
+      return Promise.resolve(new Response(JSON.stringify({ access_token: 'access', expires_in: 120 }), { status: 200 }));
+    };
+    const configured = world(fetchImpl, CLIENT_ID, 'desktop-secret');
+    configured.store.save({ clientId: CLIENT_ID, refreshToken: 'refresh-1', connectedAt: 'now' });
+    await configured.auth.accessToken();
+    const unconfigured = world(fetchImpl);
+    unconfigured.store.save({ clientId: CLIENT_ID, refreshToken: 'refresh-2', connectedAt: 'now' });
+    await unconfigured.auth.accessToken();
+    assert.equal(requests[0]?.get('client_secret'), 'desktop-secret');
+    assert.equal(requests[1]?.get('client_secret'), null);
   });
 
   test('refresh maps transport, auth, service, and malformed responses', async () => {

@@ -41,7 +41,7 @@ describe('Google Drive OAuth helpers (#277)', () => {
     assert.equal(url.searchParams.get('prompt'), 'consent');
   });
 
-  test('authorization code exchange sends no client secret and accepts the required scope', async () => {
+  test('authorization code exchange omits an unconfigured client secret and accepts the required scope', async () => {
     let body = '';
     const fetchImpl: typeof fetch = (_input, init) => {
       body = bodyText(init?.body);
@@ -70,6 +70,26 @@ describe('Google Drive OAuth helpers (#277)', () => {
     assert.equal(params.get('code'), 'code-1');
     assert.equal(params.get('code_verifier'), 'verifier-1');
     assert.equal(params.get('client_secret'), null);
+  });
+
+  test('authorization code exchange includes the issued Desktop client credential when configured', async () => {
+    let body = '';
+    await exchangeGoogleDriveCode({
+      clientId: CLIENT_ID,
+      clientSecret: 'desktop-secret',
+      code: 'code-1',
+      verifier: 'verifier-1',
+      redirectUri: 'http://127.0.0.1:1',
+      fetchImpl: (_input, init) => {
+        body = bodyText(init?.body);
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'access-1', refresh_token: 'refresh-1', scope: GOOGLE_DRIVE_SCOPE }), {
+            status: 200,
+          }),
+        );
+      },
+    });
+    assert.equal(new URLSearchParams(body).get('client_secret'), 'desktop-secret');
   });
 
   test('token response validation rejects missing grants and credentials', async () => {
@@ -112,8 +132,8 @@ describe('Google Drive OAuth helpers (#277)', () => {
       (error: unknown) => error instanceof GoogleDriveOAuthError && !error.message.includes('SECRET'),
     );
     assert.equal(
-      redactGoogleCredentials('access_token=A refresh_token=R code=C code_verifier=V Bearer TOKEN'),
-      'access_token=redacted refresh_token=redacted code=redacted code_verifier=redacted Bearer redacted',
+      redactGoogleCredentials('access_token=A refresh_token=R client_secret=S code=C code_verifier=V Bearer TOKEN'),
+      'access_token=redacted refresh_token=redacted client_secret=redacted code=redacted code_verifier=redacted Bearer redacted',
     );
   });
 
