@@ -1,5 +1,5 @@
 import { hostname } from 'node:os';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Per-library single-instance lock (ADR-0017 §5, #385). Advisory: it orders
@@ -49,6 +49,37 @@ export function lockPath(dataDir: string): string {
   return join(dataDir, 'library.lock');
 }
 
+/** A reclaim guard abandoned by a crashed reclaimer is itself stale after
+ * this long — reclaiming is a few filesystem calls, not seconds. */
+const RECLAIM_GUARD_STALE_MS = 10_000;
+
+function reclaimStaleLock(path: string, judgedStale: LibraryLockRecord | null, now: () => Date): void {
+  const guard = `${path}.reclaim`;
+  try {
+    if (now().getTime() - statSync(guard).mtimeMs > RECLAIM_GUARD_STALE_MS) rmSync(guard, { force: true });
+  } catch {
+    // No guard present — the common case.
+  }
+  try {
+    writeFileSync(guard, '', { flag: 'wx' });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new LibraryLockError('library is being opened by another Overlook instance', 'held-by-instance');
+    }
+    throw error;
+  }
+  try {
+    // Delete only if the lock is still byte-for-byte the record we judged
+    // stale; anything newer is a live holder and stays.
+    const current = existsSync(path) ? readRecord(path) : null;
+    if (JSON.stringify(current) === JSON.stringify(judgedStale)) {
+      rmSync(path, { force: true });
+    }
+  } finally {
+    rmSync(guard, { force: true });
+  }
+}
+
 function readRecord(path: string): LibraryLockRecord | null {
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8')) as Partial<LibraryLockRecord>;
@@ -88,8 +119,13 @@ export function acquireLibraryLock(dataDir: string, instanceId: string, options:
         );
       }
     }
-    // Stale (dead pid, garbage, or our own previous run): reclaim.
-    rmSync(path, { force: true });
+    // Stale (dead pid, garbage, or our own previous run): reclaim under a
+    // guard. Two post-crash racers must not both delete-then-write — the
+    // loser would remove the winner's FRESH lock (PR #425 review). The guard
+    // serializes reclaimers, the content re-check ensures only the exact
+    // record judged stale is deleted, and the 'wx' write below remains the
+    // final arbiter for anyone who slips between.
+    reclaimStaleLock(path, existing, options.now ?? (() => new Date()));
   }
 
   const record: LibraryLockRecord = {

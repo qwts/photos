@@ -15,6 +15,9 @@ export interface SwitchLibraryResult {
 
 export interface SwitchLibraryDeps {
   readonly registry: Pick<LibraryRegistryRuntime, 'select'>;
+  /** The currently ACTIVE (selected) library id — may differ from what is
+   * open when nothing has opened yet. */
+  readonly activeId: () => string;
   readonly openLibraryId: () => string | null;
   /** App-lock state, undefined before the controller exists. */
   readonly lockState: () => string | undefined;
@@ -47,9 +50,17 @@ export function createSwitchLibrary(deps: SwitchLibraryDeps): (id: string) => Pr
     }
     // Validates the target (registered, directory present) and stamps
     // lastOpenedAt — the crash-safety anchor described above.
+    const previousActiveId = deps.activeId();
     const selected = deps.registry.select(id, deps.openLibraryId());
     if (!selected.requiresRestart) {
-      // Same library, or nothing open yet — selection alone completes it.
+      // Same library, or nothing open yet — no teardown. But a repoint
+      // before first open still moves the app-lock boundary: the host was
+      // initialized against the previous directory, and a lock-configured
+      // target must land on ITS lock screen (PR #425 review).
+      if (selected.library.id !== previousActiveId) {
+        await deps.swapAppLock();
+        await deps.reloadWindows();
+      }
       return { library: selected.library, requiresRestart: false };
     }
     switching = true;

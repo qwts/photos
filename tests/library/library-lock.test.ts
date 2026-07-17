@@ -91,6 +91,46 @@ describe('library lock (#385)', () => {
     release();
   });
 
+  test('REGRESSION (PR #425): a racer with a stale view cannot delete a fresh lock written after reclaim', () => {
+    const dir = tempDir();
+    // Both A and B judged the crashed lock stale; A reclaimed and wrote its
+    // fresh lock. B's reclaim must leave A's lock alone, and B's own write
+    // must then fail against it.
+    acquireLibraryLock(dir, 'crashed', { host: 'mac-a', pid: 100, isPidAlive: () => true });
+    const releaseA = acquireLibraryLock(dir, 'instance-a', { host: 'mac-a', pid: 200, isPidAlive: (pid) => pid !== 100 });
+
+    assert.throws(
+      // B arrives now: the on-disk lock is A's FRESH record with a live pid —
+      // refused at the liveness check, and even a hypothetical stale-view
+      // deletion is guarded by the content re-check inside reclaim.
+      () => acquireLibraryLock(dir, 'instance-b', { host: 'mac-a', pid: 300, isPidAlive: (pid) => pid !== 100 }),
+      (error: unknown) => error instanceof LibraryLockError && error.reason === 'held-by-instance',
+    );
+    assert.equal(
+      (JSON.parse(readFileSync(lockPath(dir), 'utf8')) as LibraryLockRecord).instanceId,
+      'instance-a',
+      "A's fresh lock survived B",
+    );
+    releaseA();
+  });
+
+  test('REGRESSION (PR #425): a live reclaim guard refuses concurrent reclaimers; an abandoned one is swept', () => {
+    const dir = tempDir();
+    // A crashed holder plus a guard someone is actively holding: refuse.
+    writeFileSync(lockPath(dir), JSON.stringify({ instanceId: 'crashed', pid: 100, hostname: 'mac-a', acquiredAt: 'x' }), 'utf8');
+    writeFileSync(`${lockPath(dir)}.reclaim`, '', 'utf8');
+    assert.throws(
+      () => acquireLibraryLock(dir, 'instance-b', { host: 'mac-a', pid: 300, isPidAlive: () => false }),
+      (error: unknown) => error instanceof LibraryLockError && /being opened/.test(error.message),
+    );
+
+    // The same guard abandoned by a crash (old mtime): swept, reclaim wins.
+    const future = new Date(Date.now() + 60_000);
+    const release = acquireLibraryLock(dir, 'instance-b', { host: 'mac-a', pid: 300, isPidAlive: () => false, now: () => future });
+    assert.ok(!existsSync(`${lockPath(dir)}.reclaim`), 'guard cleaned up');
+    release();
+  });
+
   test('the default pid-liveness probe: our own pid is alive, an absurd pid is not', () => {
     const dir = tempDir();
     // Held by THIS process on the real host: refused via the real probe.
