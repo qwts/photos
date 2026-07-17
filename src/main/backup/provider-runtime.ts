@@ -156,6 +156,14 @@ export class ProviderRuntime {
     return libraryIds.map((libraryId) => ({ libraryId, provider: provider.forLibrary(libraryId) }));
   }
 
+  /** Provider instances are remote-home scoped. Credentials intentionally
+   * survive a switch, but the registry must be rebuilt for the new library
+   * before status or data operations can observe it (#387). */
+  resetLibraryBinding(): void {
+    this.registryInstance = undefined;
+    this.googleProviderInstance = undefined;
+  }
+
   async status(providerId: string): Promise<{
     provider: ProviderDescriptor;
     connected: boolean;

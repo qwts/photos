@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -11,6 +11,7 @@ function harness() {
   const root = mkdtempSync(join(tmpdir(), 'overlook-scoped-settings-'));
   const profileFilePath = join(root, 'settings.json');
   let library = join(root, 'library-a');
+  mkdirSync(library);
   const store = new ScopedSettingsStore({ profileFilePath, libraryFilePath: () => join(library, 'settings.json') });
   return {
     root,
@@ -18,6 +19,7 @@ function harness() {
     store,
     switchTo(name: string) {
       library = join(root, name);
+      mkdirSync(library, { recursive: true });
       store.activateLibrary();
     },
     librarySettings(name: string): unknown {
@@ -77,6 +79,7 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
       'utf8',
     );
     let library = join(root, 'legacy-library');
+    mkdirSync(library);
     const store = new ScopedSettingsStore({ profileFilePath, libraryFilePath: () => join(library, 'settings.json') });
 
     assert.equal(store.get().appearance, 'light');
@@ -92,5 +95,56 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
     store.activateLibrary();
     assert.equal(store.get().sortOrder, defaultSettings.sortOrder, 'legacy library preferences migrate only once');
     assert.equal(store.get().providerId, defaultSettings.providerId);
+  });
+
+  test('legacy migration does not materialize a fresh virtual restore target', () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-scoped-settings-virtual-'));
+    const profileFilePath = join(root, 'settings.json');
+    const virtualLibrary = join(root, 'library');
+    writeFileSync(profileFilePath, JSON.stringify({ ...defaultSettings, sortOrder: 'name' }), 'utf8');
+
+    const store = new ScopedSettingsStore({
+      profileFilePath,
+      libraryFilePath: () => join(virtualLibrary, 'settings.json'),
+    });
+    assert.equal(store.get().sortOrder, 'name', 'legacy value remains available in memory');
+    assert.equal(existsSync(virtualLibrary), false, 'cloud restore still sees an absent/empty target');
+
+    mkdirSync(virtualLibrary);
+    store.activateLibrary();
+    assert.equal(existsSync(join(virtualLibrary, 'settings.json')), true, 'the move commits after registry materialization');
+  });
+
+  test('an existing library settings file wins over a leftover legacy profile seed', () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-scoped-settings-existing-'));
+    const profileFilePath = join(root, 'settings.json');
+    const existingLibrary = join(root, 'existing-library');
+    mkdirSync(existingLibrary);
+    writeFileSync(profileFilePath, JSON.stringify({ ...defaultSettings, sortOrder: 'name', providerId: 'pcloud' }), 'utf8');
+    writeFileSync(
+      join(existingLibrary, 'settings.json'),
+      JSON.stringify({
+        sortOrder: 'size',
+        thumbnailsOnImport: true,
+        autoBackupOnImport: true,
+        reOffloadAfterViewing: true,
+        importMode: 'copy',
+        wifiOnly: true,
+        bandwidthLimit: 100,
+        appLockIdle: '5',
+        lockWhenHidden: false,
+        providerId: null,
+      }),
+      'utf8',
+    );
+    let library = existingLibrary;
+    const store = new ScopedSettingsStore({ profileFilePath, libraryFilePath: () => join(library, 'settings.json') });
+    assert.equal(store.get().sortOrder, 'size');
+    assert.equal(store.get().providerId, null);
+
+    library = join(root, 'new-library');
+    mkdirSync(library);
+    store.activateLibrary();
+    assert.equal(store.get().sortOrder, defaultSettings.sortOrder, 'the stale legacy seed cannot leak into another library');
   });
 });

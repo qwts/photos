@@ -174,6 +174,26 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(cleared.overlookFolderId(), null);
     assert.equal(cleared.folderId('LIB_1', ''), null);
   });
+
+  test('library activation drops provider instances bound to the previous remote home', () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-library-rebind-'));
+    let dataDir = join(root, 'library-a');
+    const { runtime: r } = runtime({ dataDir: () => dataDir, providerCredentialDir: (id) => join(root, 'provider-auth', id) });
+    r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
+    const previousMock = r.provider('mock');
+    const previousPCloudTokenStore = r.tokenStore();
+    const firstLibraryId = r.libraryId();
+
+    dataDir = join(root, 'library-b');
+    r.resetLibraryBinding();
+    assert.equal(r.provider('mock'), undefined, 'status/data IPC cannot reuse a provider scoped to library A');
+    assert.deepEqual(r.descriptors(), []);
+
+    r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
+    assert.notEqual(r.provider('mock'), previousMock);
+    assert.notEqual(r.libraryId(), firstLibraryId, 'the rebuilt registry targets library B remote paths');
+    assert.equal(r.tokenStore(), previousPCloudTokenStore, 'profile credential custody intentionally survives the switch');
+  });
 });
 
 /** Options for a second instance against the same dataDir (restart shape). */

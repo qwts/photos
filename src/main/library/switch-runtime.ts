@@ -33,6 +33,9 @@ export interface SwitchLibraryDeps {
   /** Switch-mode teardown: everything closeLibraryForLock does except the
    * window reload, which happens after the app-lock swap below. */
   readonly closeLibrary: () => Promise<void>;
+  /** Rebind settings/provider state after the registry points at the target
+   * and before any target-bound controller or renderer can observe it. */
+  readonly activateLibrary: () => void;
   /** Rebuilds the dataDir-bound app-lock controller for the new library. */
   readonly swapAppLock: () => Promise<void>;
   readonly reloadWindows: () => Promise<void>;
@@ -69,6 +72,7 @@ export function createSwitchLibrary(deps: SwitchLibraryDeps): (id: string) => Pr
       // initialized against the previous directory, and a lock-configured
       // target must land on ITS lock screen (PR #425 review).
       if (selected.library.id !== previousActiveId) {
+        deps.activateLibrary();
         await deps.swapAppLock();
         await deps.reloadWindows();
       }
@@ -80,6 +84,7 @@ export function createSwitchLibrary(deps: SwitchLibraryDeps): (id: string) => Pr
       if (deps.fault() === 'after-close') deps.exit(1);
       // Nothing is open now: re-select repoints the runtime's active entry.
       const repointed = deps.registry.select(id, null);
+      deps.activateLibrary();
       await deps.swapAppLock();
       await deps.reloadWindows();
       return { ok: true, library: repointed.library, requiresRestart: false };
