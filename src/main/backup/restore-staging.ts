@@ -97,7 +97,11 @@ export async function activateStagedLibrary(paths: RestorePaths, operations: Act
       // library-id) after the previous library has moved aside. It is still
       // failed-activation debris: remove it before restoring known-good
       // custody, even when the failed rename partially created the target.
-      await operations.rm(paths.targetDir, { recursive: true, force: true });
+      // Linux can report ENOTEMPTY when that recreation lands during the
+      // recursive removal itself. fs.rm's bounded retry closes that race;
+      // after it succeeds the rename immediately replaces the target with
+      // the saved directory.
+      await operations.rm(paths.targetDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
       await operations.rename(paths.previousDir, paths.targetDir);
     }
     throw error;

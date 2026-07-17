@@ -60,10 +60,14 @@ test('activation rollback removes a target recreated after the previous library 
   writeFileSync(join(paths.targetDir, 'old'), 'old library');
   writeFileSync(join(paths.stagingDir, 'new'), 'new library');
   let renames = 0;
+  let rollbackRemovalHasRetries = false;
 
   await assert.rejects(
     activateStagedLibrary(paths, {
-      rm,
+      rm: async (target, options) => {
+        if (target === paths.targetDir) rollbackRemovalHasRetries = (options?.maxRetries ?? 0) > 0;
+        await rm(target, options);
+      },
       rename: async (from, to) => {
         renames += 1;
         if (renames === 2) {
@@ -78,6 +82,7 @@ test('activation rollback removes a target recreated after the previous library 
   );
 
   assert.equal(await readFile(join(paths.targetDir, 'old'), 'utf8'), 'old library');
+  assert.equal(rollbackRemovalHasRetries, true);
   assert.equal(existsSync(join(paths.targetDir, 'library-id')), false);
   assert.equal(existsSync(paths.previousDir), false);
   assert.equal(await readFile(join(paths.stagingDir, 'new'), 'utf8'), 'new library');
