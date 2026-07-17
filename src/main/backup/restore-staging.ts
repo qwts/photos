@@ -91,7 +91,13 @@ export async function activateStagedLibrary(paths: RestorePaths, operations: Act
   try {
     await operations.rename(paths.stagingDir, paths.targetDir);
   } catch (error) {
-    if (hadTarget && !existsSync(paths.targetDir) && existsSync(paths.previousDir)) {
+    if (hadTarget && existsSync(paths.previousDir)) {
+      // Closing the active library does not stop every renderer query. One
+      // can recreate the target directory (for example by minting a
+      // library-id) after the previous library has moved aside. It is still
+      // failed-activation debris: remove it before restoring known-good
+      // custody, even when the failed rename partially created the target.
+      await operations.rm(paths.targetDir, { recursive: true, force: true });
       await operations.rename(paths.previousDir, paths.targetDir);
     }
     throw error;
