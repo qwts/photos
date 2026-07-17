@@ -338,6 +338,24 @@ export const NavSwitchesPanes: Story = {
   },
 };
 
+export const TransferAndSyncAction: Story = {
+  args: { onTransfer: fn() },
+  play: async ({ canvasElement, args }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole('button', { name: 'Transfer & Sync' }));
+    const action = await waitFor(() => body.getByRole('button', { name: 'Open Transfer & Sync' }));
+
+    await expect(action).toHaveClass('ovl-button', 'ovl-button--primary', 'ovl-settings__transferAction');
+    action.focus();
+    await expect(action).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onTransfer).toHaveBeenCalledOnce();
+
+    const pane = body.getByTestId('settings-pane');
+    await expect(action.getBoundingClientRect().right).toBeLessThanOrEqual(pane.getBoundingClientRect().right + 1);
+  },
+};
+
 export const PrivacySection: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
