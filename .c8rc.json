@@ -6,6 +6,11 @@
     "**/*.test.ts",
     "src/main/index.ts",
     "src/main/ipc.ts",
+    "src/main/app-bootstrap.ts",
+    "src/main/backup/provider-runtime-factory.ts",
+    "src/main/backup/restore-runtime-factory.ts",
+    "src/main/export/export-facade-factory.ts",
+    "src/main/export/export-destination.ts",
     "src/preload/**",
     "src/renderer/**",
     "src/shared/**/types.ts"

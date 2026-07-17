@@ -35,7 +35,7 @@ describe('multi-library keying (#384)', () => {
     assert.equal(readFileSync(join(entry.path, 'library-id'), 'utf8'), entry.id, 'directory identity pinned to the registry id');
     assert.ok(existsSync(join(entry.path, 'master.key')), 'master key provisioned');
     assert.ok(existsSync(join(entry.path, 'keys.json')), 'KEY #1 provisioned');
-    assert.ok(!existsSync(join(entry.path, 'library.db')), 'create provisions, open builds the database');
+    assert.ok(existsSync(join(entry.path, 'library.db')), 'create provisions the empty database too (#385: restore gate keys off it)');
   });
 
   test('ACCEPTANCE: two libraries open with distinct keys; the wrong key fails closed', () => {
