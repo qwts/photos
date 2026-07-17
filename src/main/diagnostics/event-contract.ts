@@ -11,7 +11,9 @@ export const diagnosticEventSchema = z
     platform: z.enum(['darwin', 'win32', 'linux']),
     arch: z.enum(['arm64', 'x64']),
     kind: z.enum(['main-process-runtime-error', 'renderer-process-gone', 'child-process-gone', 'renderer-unresponsive']),
-    reason: z.enum(['clean-exit', 'abnormal-exit', 'killed', 'crashed', 'oom', 'launch-failed', 'integrity-failure']).optional(),
+    reason: z
+      .enum(['clean-exit', 'abnormal-exit', 'killed', 'crashed', 'oom', 'launch-failed', 'integrity-failure', 'memory-eviction'])
+      .optional(),
     exitCode: z.number().int().optional(),
   })
   .strict();
