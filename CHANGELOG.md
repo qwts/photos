@@ -1,5 +1,11 @@
 # photos
 
+## 0.32.2
+
+### Patch Changes
+
+- 93dfa9b: Hide offloaded-original restore controls until the backup provider connection check resolves.
+
 ## 0.32.1
 
 ### Patch Changes
