@@ -116,9 +116,6 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
           </div>
         </div>
         {mode === 'change' || mode === 'remove' || mode === 'touch-id' ? (
-          // REAL DEBT: visible label vs PasswordField's aria-label — SC 2.5.3, audit
-          // finding 17. Owned by #400.
-          // eslint-disable-next-line jsx-a11y/label-has-associated-control
           <label>
             <div className="ovl-key__label mono-data">Current password</div>
             <PasswordField
@@ -133,7 +130,6 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
         ) : null}
         {mode === 'remove' || mode === 'touch-id' ? null : (
           <>
-            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control -- same as above: SC 2.5.3, audit finding 17, owned by #400 */}
             <label>
               <div className="ovl-key__label mono-data">New password</div>
               <PasswordField
