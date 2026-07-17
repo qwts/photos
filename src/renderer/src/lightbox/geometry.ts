@@ -12,6 +12,8 @@ export interface LightboxTransform extends LightboxPoint {
   readonly zoom: number;
 }
 
+export type LightboxZoomMode = 'fit' | 'fill' | 'custom';
+
 export interface LightboxOrientation {
   readonly quarterTurns: 0 | 1 | 2 | 3;
   readonly flipped: boolean;
@@ -49,11 +51,19 @@ export function fitSize(image: LightboxSize, viewport: LightboxSize): LightboxSi
 
 export function fillZoom(image: LightboxSize, viewport: LightboxSize): number {
   const fitted = fitSize(image, viewport);
-  const landscape = image.width >= image.height;
-  const fittedAxis = landscape ? fitted.height : fitted.width;
-  const viewportAxis = landscape ? viewport.height : viewport.width;
-  if (fittedAxis <= 0) return 1;
-  return clamp(viewportAxis / fittedAxis, ZOOM_MIN, ZOOM_MAX);
+  if (fitted.width <= 0 || fitted.height <= 0) return 1;
+  return clamp(Math.max(viewport.width / fitted.width, viewport.height / fitted.height), ZOOM_MIN, ZOOM_MAX);
+}
+
+export function resizeTransform(
+  transform: LightboxTransform,
+  mode: LightboxZoomMode,
+  image: LightboxSize,
+  viewport: LightboxSize,
+): LightboxTransform {
+  const fitted = fitSize(image, viewport);
+  const zoom = mode === 'fill' ? fillZoom(image, viewport) : transform.zoom;
+  return clampTransform({ ...transform, zoom }, fitted, viewport);
 }
 
 export function clampTransform(transform: LightboxTransform, fitted: LightboxSize, viewport: LightboxSize): LightboxTransform {

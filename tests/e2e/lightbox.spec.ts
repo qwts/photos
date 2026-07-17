@@ -120,6 +120,34 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
 
     await image.dblclick();
     await expect(viewport).toHaveAttribute('data-mode', 'fill');
+    const fillViewportBounds = await viewport.boundingBox();
+    const fillImageBounds = await image.boundingBox();
+    expect(fillViewportBounds).not.toBeNull();
+    expect(fillImageBounds).not.toBeNull();
+    expect(fillImageBounds?.width ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.width ?? 0) - 1);
+    expect(fillImageBounds?.height ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.height ?? 0) - 1);
+
+    const verticalOverflow = ((fillImageBounds?.height ?? 0) - (fillViewportBounds?.height ?? 0)) / 2;
+    await page.mouse.wheel(0, 5000);
+    await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(-verticalOverflow, 0);
+    await page.mouse.wheel(0, -10000);
+    await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(verticalOverflow, 0);
+
+    await page.keyboard.press('i');
+    await expect(viewport).toHaveAttribute('data-mode', 'fill');
+    await expect
+      .poll(async () => {
+        const viewportBounds = await viewport.boundingBox();
+        const imageBounds = await image.boundingBox();
+        return Math.min(
+          (imageBounds?.width ?? 0) - (viewportBounds?.width ?? 0),
+          (imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0),
+        );
+      })
+      .toBeGreaterThanOrEqual(-1);
+    await page.keyboard.press('i');
+    await expect(viewport).toHaveAttribute('data-mode', 'fill');
+
     await image.dblclick();
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
 
@@ -134,12 +162,6 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
     await page.mouse.wheel(900, 700);
     await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-x')))).toBeGreaterThan(0);
     await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-y')))).toBeGreaterThan(0);
-
-    await page.keyboard.press('i');
-    await expect(viewport).toHaveAttribute('data-mode', 'fit');
-    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
-    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
-    await page.keyboard.press('i');
 
     await page.keyboard.press('+');
     await expect(viewport).toHaveAttribute('data-zoom', '1.250');

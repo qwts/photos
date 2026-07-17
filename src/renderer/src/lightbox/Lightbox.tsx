@@ -162,7 +162,7 @@ export function Lightbox({
       onMouseMove={wake}
     >
       <LightboxViewport
-        key={`${photo.id}-${inspectorOpen ? 'docked' : 'wide'}`}
+        key={photo.id}
         photo={photo}
         suppressRehydrate={suppressRehydrate}
         imageSrc={imageSrc}
