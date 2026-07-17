@@ -730,8 +730,12 @@
           "path": "tests/crypto/app-lock-controller.test.ts"
         },
         {
+          "type": "unit-dom",
+          "path": "tests/crypto/hidden-window-lock.test.ts"
+        },
+        {
           "type": "manual",
-          "reason": "Verify native screen-lock, suspend/resume, user-switch, idle, minimize/hide, password-manager behavior, VoiceOver, reduced motion, and minimum-window layout in packaged macOS and Windows builds; CI injects the lifecycle events but cannot reproduce the physical OS surfaces."
+          "reason": "Verify native screen-lock, suspend/resume, user-switch, idle, minimize/hide, macOS native full-screen transitions, password-manager behavior, VoiceOver, reduced motion, and minimum-window layout in packaged macOS and Windows builds; CI injects the lifecycle events but cannot reproduce the physical OS surfaces or native full-screen animation ordering."
         }
       ]
     },

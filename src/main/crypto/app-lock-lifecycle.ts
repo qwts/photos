@@ -2,7 +2,7 @@ import { app, BrowserWindow, powerMonitor } from 'electron';
 
 import type { AppSettings } from '../../shared/settings/settings.js';
 import type { AppLockController } from './app-lock-controller.js';
-import { registerHiddenWindowLock } from './hidden-window-lock.js';
+import { registerHiddenWindowLock, type HiddenWindowLockSource } from './hidden-window-lock.js';
 import { idleLimitSeconds } from './app-lock-policy.js';
 import { registerLastWindowLock } from './last-window-lock.js';
 
@@ -11,6 +11,45 @@ const POLL_MS = 15_000;
 export interface AppLockLifecycleOptions {
   readonly controller: AppLockController;
   readonly settings: () => Pick<AppSettings, 'appLockIdle' | 'lockWhenHidden'>;
+}
+
+function hiddenWindowSource(win: BrowserWindow): HiddenWindowLockSource {
+  return {
+    subscribe: (event, listener) => {
+      switch (event) {
+        case 'enter-full-screen':
+          win.on('enter-full-screen', listener);
+          break;
+        case 'leave-full-screen':
+          win.on('leave-full-screen', listener);
+          break;
+        case 'hide':
+          win.on('hide', listener);
+          break;
+        case 'minimize':
+          win.on('minimize', listener);
+          break;
+      }
+    },
+    unsubscribe: (event, listener) => {
+      switch (event) {
+        case 'enter-full-screen':
+          win.off('enter-full-screen', listener);
+          break;
+        case 'leave-full-screen':
+          win.off('leave-full-screen', listener);
+          break;
+        case 'hide':
+          win.off('hide', listener);
+          break;
+        case 'minimize':
+          win.off('minimize', listener);
+          break;
+      }
+    },
+    isVisible: () => win.isVisible(),
+    isMinimized: () => win.isMinimized(),
+  };
 }
 
 export function registerAppLockLifecycle(options: AppLockLifecycleOptions): () => void {
@@ -26,42 +65,7 @@ export function registerAppLockLifecycle(options: AppLockLifecycleOptions): () =
   const watchWindow = (win: BrowserWindow): void => {
     if (windowCleanups.has(win)) return;
     const stopHiddenLock = registerHiddenWindowLock({
-      source: {
-        subscribe: (event, listener) => {
-          switch (event) {
-            case 'enter-full-screen':
-              win.on('enter-full-screen', listener);
-              break;
-            case 'leave-full-screen':
-              win.on('leave-full-screen', listener);
-              break;
-            case 'hide':
-              win.on('hide', listener);
-              break;
-            case 'minimize':
-              win.on('minimize', listener);
-              break;
-          }
-        },
-        unsubscribe: (event, listener) => {
-          switch (event) {
-            case 'enter-full-screen':
-              win.off('enter-full-screen', listener);
-              break;
-            case 'leave-full-screen':
-              win.off('leave-full-screen', listener);
-              break;
-            case 'hide':
-              win.off('hide', listener);
-              break;
-            case 'minimize':
-              win.off('minimize', listener);
-              break;
-          }
-        },
-        isVisible: () => win.isVisible(),
-        isMinimized: () => win.isMinimized(),
-      },
+      source: hiddenWindowSource(win),
       platform: process.platform,
       enabled: () => options.settings().lockWhenHidden,
       lock,
