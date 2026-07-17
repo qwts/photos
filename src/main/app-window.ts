@@ -5,6 +5,7 @@ import { app, BrowserWindow } from 'electron';
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/renderer-lock-reload.js';
+import { shouldShowInitialWindow } from './e2e-window-visibility.js';
 
 export function createWindow(): BrowserWindow {
   const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
@@ -16,6 +17,11 @@ export function createWindow(): BrowserWindow {
     minWidth: 960,
     minHeight: 600,
     backgroundColor: '#050708',
+    show: shouldShowInitialWindow({
+      packaged: app.isPackaged,
+      harness: process.env['OVERLOOK_E2E'],
+      mode: process.env['OVERLOOK_E2E_WINDOW'],
+    }),
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : { frame: false }),
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
