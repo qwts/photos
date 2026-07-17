@@ -12,11 +12,12 @@ for (const [fileName, schema] of Object.entries(createInteropJsonSchemas())) {
 }
 
 const schemaFiles = Object.keys(createInteropJsonSchemas()).sort();
+const evidenceFiles = ['acceptance-evidence.json'];
 const fixtureFiles = (await readdir(fixtureDirectory))
   .filter((fileName) => fileName.endsWith('.json'))
   .sort()
   .map((fileName) => path.join('fixtures', fileName));
-const contractFiles = [...schemaFiles, ...fixtureFiles].sort();
+const contractFiles = [...schemaFiles, ...evidenceFiles, ...fixtureFiles].sort();
 const checksumLines = [];
 
 for (const relativePath of contractFiles) {
