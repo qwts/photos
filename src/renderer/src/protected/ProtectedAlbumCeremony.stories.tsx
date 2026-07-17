@@ -5,7 +5,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
 import { ProtectedAlbumCeremony } from './ProtectedAlbumCeremony';
 
-type Behavior = 'success' | 'conflict' | 'failure' | 'progress';
+type Behavior = 'success' | 'conflict' | 'failure' | 'progress' | 'resume-protect';
 
 function installStub(behavior: Behavior): void {
   const result =
@@ -21,7 +21,12 @@ function installStub(behavior: Behavior): void {
       progressListener?.({ operation: 'protect', stage: 'copying', done: 2, total: 8 });
       return new Promise<never>(() => undefined);
     },
-    unlock: () => Promise.resolve({ ok: false, outcome: null }),
+    unlock: () =>
+      Promise.resolve(
+        behavior === 'resume-protect'
+          ? { ok: true as const, outcome: 'protection-completed' as const }
+          : { ok: false as const, outcome: null },
+      ),
     changePassword: () => Promise.resolve({ changed: false }),
     unprotect: () => Promise.resolve({ ok: false, albumId: null, reason: 'failed' }),
     pickRecovery: () => Promise.resolve({ path: '/Users/ansel/Desktop/overlook-recovery.key' }),
@@ -37,9 +42,15 @@ function installStub(behavior: Behavior): void {
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { protectedAlbums };
 }
 
-function CompletionStory(): ReactElement {
+function CompletionStory({
+  behavior = 'success',
+  mode = 'protect',
+}: {
+  readonly behavior?: Behavior;
+  readonly mode?: 'protect' | 'unlock';
+}): ReactElement {
   const [message, setMessage] = useState<string | null>(null);
-  installStub('success');
+  installStub(behavior);
   if (message !== null) {
     return (
       <div className="ovl-keynote ovl-keynote--green" role="status">
@@ -47,7 +58,7 @@ function CompletionStory(): ReactElement {
       </div>
     );
   }
-  return <ProtectedAlbumCeremony mode="protect" albumId="family" albumName="Family" onClose={fn()} onComplete={setMessage} />;
+  return <ProtectedAlbumCeremony mode={mode} albumId="family" albumName="Family" onClose={fn()} onComplete={setMessage} />;
 }
 
 const meta: Meta<typeof ProtectedAlbumCeremony> = {
@@ -113,6 +124,19 @@ export const ConflictIsHonest: Story = {
   },
 };
 
+export const MigrationFailureKeepsVerifiedSource: Story = {
+  render: (args) => {
+    installStub('failure');
+    return <ProtectedAlbumCeremony {...args} />;
+  },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await enterStrongPassword(body);
+    await userEvent.click(body.getByRole('button', { name: 'Protect album' }));
+    await waitFor(() => expect(body.getByText('The operation could not complete safely. The last verified copy was kept.')).toBeVisible());
+  },
+};
+
 export const CompletionState: Story = {
   render: () => <CompletionStory />,
   play: async ({ canvasElement }) => {
@@ -135,5 +159,31 @@ export const RecoveryFileAndNewCredential: Story = {
     await waitFor(() => expect(body.getByText('overlook-recovery.key')).toBeVisible());
     await expect(body.getByLabelText('Recovery file password')).toHaveAttribute('autocomplete', 'current-password');
     await expect(body.getByLabelText('New protected album password')).toHaveAttribute('autocomplete', 'new-password');
+  },
+};
+
+export const RecoveryMismatchFailsClosed: Story = {
+  args: { mode: 'recover', albumId: 'opaque-protected-id', albumName: undefined },
+  render: (args) => {
+    installStub('success');
+    return <ProtectedAlbumCeremony {...args} />;
+  },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole('button', { name: 'Choose…' }));
+    await userEvent.type(body.getByLabelText('Recovery file password'), 'Wrong recovery password');
+    await enterStrongPassword(body);
+    await userEvent.click(body.getByRole('button', { name: 'Recover' }));
+    await waitFor(() => expect(body.getByText('That recovery file or its password does not match this protected album.')).toBeVisible());
+  },
+};
+
+export const InterruptedProtectionResumesSafely: Story = {
+  render: () => <CompletionStory behavior="resume-protect" mode="unlock" />,
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.type(body.getByLabelText('Current protected album password'), 'Private Album Password 42!');
+    await userEvent.click(body.getByRole('button', { name: 'Unlock' }));
+    await waitFor(() => expect(body.getByRole('status')).toHaveTextContent('Interrupted protection completed safely'));
   },
 };

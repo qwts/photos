@@ -85,8 +85,10 @@ export const SessionUnlockedWithRealPhotos: Story = {
     await userEvent.click(tile);
     const lightbox = canvas.getByRole('dialog', { name: 'Viewing flower-landscape.jpg' });
     await expect(within(lightbox).getByRole('img')).toHaveAttribute('src', flower);
+    await expect(lightbox).toHaveFocus();
     await userEvent.keyboard('{Escape}');
     await expect(canvas.queryByRole('dialog', { name: 'Viewing flower-landscape.jpg' })).not.toBeInTheDocument();
+    await expect(tile).toHaveFocus();
   },
 };
 

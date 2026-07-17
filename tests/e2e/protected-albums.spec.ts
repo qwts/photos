@@ -200,6 +200,16 @@ test('protected albums: no-leak restart, session relock, credential recovery, li
     await expect(lightbox).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.locator('.ovl-protected-route .ovl-grid__cell').first().getByRole('button')).toBeFocused();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 600, height: 500 });
+    await expect(page.getByRole('heading', { name: 'Private originals' })).toBeVisible();
+    expect(await page.evaluate<boolean>("matchMedia('(prefers-reduced-motion: reduce)').matches")).toBe(true);
+    const horizontalOverflows = await page.evaluate<readonly string[]>(`[...document.querySelectorAll('*')]
+      .filter((element) => element.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+      .slice(0, 12)
+      .map((element) => element.className || element.tagName)`);
+    expect(horizontalOverflows).toEqual([]);
+    await page.setViewportSize({ width: 1100, height: 720 });
 
     await page.getByRole('button', { name: /All Photos/u }).click();
     await assertLockedWithoutLeak(page, protectedNames);
