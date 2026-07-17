@@ -7,8 +7,8 @@ import {
   type TouchIdSecureAdapter,
   type TouchIdUnavailableReason,
 } from './touch-id.js';
+import { OVERLOOK_MAC_BUNDLE_ID } from '../../shared/app-identity.js';
 
-const EXPECTED_BUNDLE_ID = 'com.qwts.overlook';
 const ACCOUNT_PATTERN = /^v1:[a-f0-9]{64}$/u;
 const nativeRequire = createRequire(import.meta.url);
 
@@ -108,7 +108,7 @@ export function createNativeTouchIdAdapter(options: NativeTouchIdAdapterOptions)
   return {
     availability: () => {
       try {
-        return normalizeAvailability(binding.availability(EXPECTED_BUNDLE_ID));
+        return normalizeAvailability(binding.availability(OVERLOOK_MAC_BUNDLE_ID));
       } catch {
         return { available: false, reason: 'native-unavailable' };
       }
@@ -117,7 +117,7 @@ export function createNativeTouchIdAdapter(options: NativeTouchIdAdapterOptions)
       validAccount(account);
       if (secret.length !== 32) throw new TouchIdAdapterError('storage-failure');
       try {
-        await binding.store(EXPECTED_BUNDLE_ID, account, secret);
+        await binding.store(OVERLOOK_MAC_BUNDLE_ID, account, secret);
       } catch (error) {
         throw mappedError(error);
       }
@@ -126,7 +126,7 @@ export function createNativeTouchIdAdapter(options: NativeTouchIdAdapterOptions)
       validAccount(account);
       if (reason.length === 0) throw new TouchIdAdapterError('storage-failure');
       try {
-        const secret = await binding.read(EXPECTED_BUNDLE_ID, account, reason);
+        const secret = await binding.read(OVERLOOK_MAC_BUNDLE_ID, account, reason);
         if (!Buffer.isBuffer(secret) || secret.length !== 32) {
           if (Buffer.isBuffer(secret)) secret.fill(0);
           throw new TouchIdAdapterError('storage-failure');
@@ -139,7 +139,7 @@ export function createNativeTouchIdAdapter(options: NativeTouchIdAdapterOptions)
     clear: async (account) => {
       validAccount(account);
       try {
-        await binding.clear(EXPECTED_BUNDLE_ID, account);
+        await binding.clear(OVERLOOK_MAC_BUNDLE_ID, account);
       } catch (error) {
         throw mappedError(error);
       }

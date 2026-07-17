@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
+import { OVERLOOK_ICLOUD_NATIVE_HOST } from '../../shared/app-identity.js';
 import { InteropTransportError, assertBoundedControlFrame, assertSafeInteropPath } from './transport.js';
 
-export const OVERLOOK_ICLOUD_NATIVE_HOST = 'com.qwts.overlook.interop';
+export { OVERLOOK_ICLOUD_NATIVE_HOST } from '../../shared/app-identity.js';
 
 const fileReferenceSchema = z
   .string()

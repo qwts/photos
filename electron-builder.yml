@@ -7,7 +7,7 @@
 # `npm run package:signed:provisioned` validates and embeds a Developer ID
 # profile before enabling the restricted Touch ID identity entitlements.
 # Windows signing stays out until a cert exists (#128).
-appId: com.qwts.overlook
+appId: com.zts1.overlook
 productName: Overlook
 directories:
   output: release

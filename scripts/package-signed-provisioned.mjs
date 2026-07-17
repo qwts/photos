@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const TEAM_ID = 'Z5DM34QS5U';
-const APPLICATION_ID = `${TEAM_ID}.com.qwts.overlook`;
+const APPLICATION_ID = `${TEAM_ID}.com.zts1.overlook`;
 const profile = process.env['OVERLOOK_MAC_PROVISIONING_PROFILE'];
 
 function fail(message) {

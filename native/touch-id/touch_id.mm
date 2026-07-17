@@ -12,9 +12,9 @@
 
 namespace {
 
-constexpr const char* kService = "com.qwts.overlook.touch-id-unlock";
+constexpr const char* kService = "com.zts1.overlook.touch-id-unlock";
 constexpr const char* kExpectedTeamIdentifier = "Z5DM34QS5U";
-constexpr const char* kExpectedApplicationIdentifier = "Z5DM34QS5U.com.qwts.overlook";
+constexpr const char* kExpectedApplicationIdentifier = "Z5DM34QS5U.com.zts1.overlook";
 
 void SecureClear(std::vector<std::uint8_t>& bytes) {
   volatile std::uint8_t* cursor = bytes.data();

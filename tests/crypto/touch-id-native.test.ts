@@ -56,7 +56,7 @@ describe('native Touch ID adapter gating (#310)', () => {
   test('native signature gate pins the owner Team ID and application identifier', () => {
     const nativeSource = readFileSync(join(process.cwd(), 'native/touch-id/touch_id.mm'), 'utf8');
     const entitlements = readFileSync(join(process.cwd(), 'build/entitlements.mac.provisioned.plist'), 'utf8');
-    for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.qwts.overlook']) {
+    for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.zts1.overlook']) {
       assert.match(nativeSource, new RegExp(identity, 'u'));
       assert.match(entitlements, new RegExp(identity, 'u'));
     }
@@ -102,11 +102,11 @@ describe('native Touch ID adapter contract (#310)', () => {
     assert.deepEqual(await adapter.read(ACCOUNT, 'Unlock Overlook'), U);
     await adapter.clear(ACCOUNT);
     assert.deepEqual(native.calls, [
-      ['availability', 'com.qwts.overlook'],
-      ['availability', 'com.qwts.overlook'],
-      ['store', 'com.qwts.overlook', ACCOUNT, U],
-      ['read', 'com.qwts.overlook', ACCOUNT, 'Unlock Overlook'],
-      ['clear', 'com.qwts.overlook', ACCOUNT],
+      ['availability', 'com.zts1.overlook'],
+      ['availability', 'com.zts1.overlook'],
+      ['store', 'com.zts1.overlook', ACCOUNT, U],
+      ['read', 'com.zts1.overlook', ACCOUNT, 'Unlock Overlook'],
+      ['clear', 'com.zts1.overlook', ACCOUNT],
     ]);
   });
 
