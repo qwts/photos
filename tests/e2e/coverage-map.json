@@ -764,8 +764,12 @@
           "path": "tests/crypto/app-lock-controller.test.ts"
         },
         {
+          "type": "unit-dom",
+          "path": "tests/crypto/app-identity-upgrade.test.ts"
+        },
+        {
           "type": "manual",
-          "reason": "On a notarized Developer ID build on a Touch ID Mac: enable after password confirmation, restart, unlock biometrically, then verify cancel, failed scan, lockout, enrollment change, password fallback, password-change revocation, opt-out, and Keychain item accessibility/synchronization attributes. CI cannot provide signed hardware or mutate the enrolled biometric set."
+          "reason": "On a notarized Developer ID build on a Touch ID Mac: upgrade a working com.qwts.overlook profile to com.zts1.overlook and prove existing Electron safeStorage custody still opens the library and provider tokens; verify the explicit password-confirmed Touch ID re-enrollment path, restart/unlock, cancel, failed scan, lockout, enrollment change, password fallback, password-change revocation, opt-out, and Keychain item accessibility/synchronization attributes. CI cannot provide both signed identities, physical biometric hardware, or mutate the enrolled biometric set."
         }
       ]
     },
