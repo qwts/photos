@@ -999,6 +999,24 @@
           "reason": "create/switch/relaunch E2E lands with the lifecycle slice (#385) and switcher UI (#386) per epic #378 exit criteria; #384 has no renderer surface yet"
         }
       ]
+    },
+    {
+      "id": "local-diagnostics-review-controls",
+      "wiki": "Security-Review-M11-Telemetry-And-Crash-Reporting",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/diagnostics/diagnostics-export.test.ts", "tests/diagnostics/diagnostics-service.test.ts"]
+        }
+      ]
     }
   ]
 }

@@ -140,6 +140,12 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect
       .poll(async () => page.evaluate<boolean>(`window.overlook.settings.get().then((r) => r.settings.shareDiagnostics)`))
       .toBe(true);
+    await expect(pane.getByText('0 pending local reports')).toBeVisible();
+    await pane.getByRole('button', { name: 'Review reports…' }).click();
+    const diagnosticsDialog = page.getByRole('dialog', { name: 'Review diagnostics' });
+    await expect(diagnosticsDialog).toContainText('No reports are waiting locally.');
+    await expect(diagnosticsDialog).toContainText('Nothing is sent.');
+    await diagnosticsDialog.getByRole('button', { name: 'Done' }).click();
   } finally {
     await app.close();
   }

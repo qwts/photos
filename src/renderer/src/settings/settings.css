@@ -349,3 +349,57 @@
   display: flex;
   gap: var(--space-2);
 }
+
+.ovl-settings__diagnosticsControl,
+.ovl-settings__diagnostics {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+.ovl-diagnostics__status,
+.ovl-diagnostics__notice {
+  color: var(--text-faint);
+  font: var(--type-meta);
+}
+
+.ovl-diagnostics__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.ovl-diagnostics__report {
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  background: var(--gray-2);
+  padding: var(--space-3);
+}
+
+.ovl-diagnostics__report header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ovl-diagnostics__report header div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ovl-diagnostics__report header span {
+  color: var(--text-faint);
+  font: var(--type-meta);
+}
+
+.ovl-diagnostics__report pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font: var(--type-mono);
+}
