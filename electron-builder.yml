@@ -15,7 +15,7 @@ files:
   - out/**
   # The workspace is linked during packaging, so electron-builder otherwise
   # copies native build inputs and a duplicate node-gyp output. Runtime needs
-  # only index.cjs, package metadata, and the N-API prebuild.
+  # only the runtime loaders, package metadata, and the N-API prebuilds.
   - '!node_modules/@overlook/touch-id/build/**'
   - '!node_modules/@overlook/touch-id/install.cjs'
   - '!node_modules/@overlook/touch-id/prepare-prebuild.cjs'

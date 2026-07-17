@@ -5,9 +5,9 @@ import type { FileKind } from '../../shared/library/types.js';
 // Full-resolution decrypt-to-view delivery (#91): originals decrypt into a
 // byte-capped in-memory LRU and are served over overlook-full:// — plaintext
 // never touches disk (ADR-0004). RAW records resolve to a *viewable* payload
-// per ADR-0006 v1: the RAF embedded preview (or the bytes themselves when
-// they are already a JPEG), flagged `preview` so the UI can badge it. A RAW
-// with no viewable payload is a placeholder (null), never a failure.
+// per ADR-0006: a validated embedded preview or a bounded native decode,
+// flagged `preview` so the UI can badge it. A RAW with no viewable payload
+// is a placeholder (null), never a failure.
 
 export interface LoadedOriginal {
   readonly bytes: Buffer;
@@ -112,9 +112,8 @@ export class FullService {
       return null;
     }
     if (original.fileKind === 'raw') {
-      // Viewable-by-magic, not by extension: a RAF yields its documented
-      // embedded JPEG; bytes that are already a JPEG serve as-is (dev seeds
-      // and pre-converted files). Anything else has no v1 render — null.
+      // Viewable-by-magic, not by extension: validated embedded JPEGs win;
+      // preview-less supported containers use the bounded native decoder.
       try {
         const viewable = await resolveRawPreview(original.bytes);
         if (viewable === null) {

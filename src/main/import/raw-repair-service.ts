@@ -38,6 +38,7 @@ export class RawRepairService {
     let repaired = 0;
     let failed = 0;
     let skipped = 0;
+    const changed: string[] = [];
     for (const photo of this.options.candidates()) {
       if (this.controller.signal.aborted) break;
       scanned += 1;
@@ -54,10 +55,12 @@ export class RawRepairService {
           continue;
         }
         const metadata = await this.options.extractMetadata(bytes);
+        if (this.controller.signal.aborted) break;
         let outcome: ThumbnailOutcome | null = null;
-        if (!thumbsReady && !this.controller.signal.aborted) {
+        if (!thumbsReady) {
           outcome = await this.options.regenerate(photo, bytes, this.controller.signal);
         }
+        if (this.controller.signal.aborted) break;
         const repairedMetadata = this.options.repairMetadata(photo.id, {
           ...metadata,
           width: metadata.width ?? outcome?.width ?? null,
@@ -66,7 +69,7 @@ export class RawRepairService {
         const repairedThumbs = !thumbsReady && outcome?.generated === true;
         if (repairedMetadata || repairedThumbs) {
           repaired += 1;
-          this.options.changed([photo.id]);
+          changed.push(photo.id);
         }
         if (!thumbsReady && outcome?.generated !== true) failed += 1;
       } catch (error) {
@@ -77,6 +80,7 @@ export class RawRepairService {
       }
       await (this.options.yieldTurn ?? yieldTurn)();
     }
+    if (changed.length > 0) this.options.changed(changed);
     return { scanned, repaired, failed, skipped };
   }
 }

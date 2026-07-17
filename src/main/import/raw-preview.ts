@@ -63,18 +63,27 @@ function embeddedCandidates(bytes: Buffer): Buffer[] {
   return candidates;
 }
 
-async function bestEmbedded(bytes: Buffer): Promise<RawPreview | null> {
+async function bestEmbedded(bytes: Buffer, signal: AbortSignal | undefined): Promise<RawPreview | null> {
   let best: RawPreview | null = null;
   const seen = new Set<string>();
   for (const candidate of embeddedCandidates(bytes)) {
+    if (isAborted(signal)) {
+      best?.bytes.fill(0);
+      return null;
+    }
     const identity = `${String(candidate.byteOffset)}:${String(candidate.byteLength)}`;
     if (seen.has(identity)) continue;
     seen.add(identity);
     const dimensions = await inspect(candidate);
+    if (isAborted(signal)) {
+      best?.bytes.fill(0);
+      return null;
+    }
     if (dimensions === null) continue;
     const area = dimensions.width * dimensions.height;
     const bestArea = best === null ? -1 : best.width * best.height;
     if (area > bestArea || (area === bestArea && candidate.length > (best?.bytes.length ?? 0))) {
+      best?.bytes.fill(0);
       best = { bytes: Buffer.from(candidate), ...dimensions, source: 'embedded' };
     }
   }
@@ -89,7 +98,7 @@ async function bestEmbedded(bytes: Buffer): Promise<RawPreview | null> {
  */
 export async function resolveRawPreview(bytes: Buffer, options: RawPreviewOptions = {}): Promise<RawPreview | null> {
   if (isAborted(options.signal)) return null;
-  const embedded = await bestEmbedded(bytes);
+  const embedded = await bestEmbedded(bytes, options.signal);
   if (isAborted(options.signal)) {
     embedded?.bytes.fill(0);
     return null;
