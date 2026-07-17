@@ -1,5 +1,11 @@
 # photos
 
+## 0.28.0
+
+### Minor Changes
+
+- 20f4537: Migrate signed macOS builds to `com.zts1.overlook` while preserving the existing Overlook profile, app-lock anchor, library, provider custody, and recovery data. Existing Touch ID enrollments from the former app identity now require an explicit password-confirmed re-enrollment.
+
 ## 0.27.1
 
 ### Patch Changes
