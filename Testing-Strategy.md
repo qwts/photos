@@ -144,28 +144,35 @@ the 200K run is manual because seeding takes ~17 s.
 
 ### Perf budgets (#123 — RATCHETS: tighten, never loosen)
 
-The harness: `npm run test:perf` (own Playwright config, ~40 s once seeded;
+The harness: `npm run test:perf` (own Playwright config, ~90 s;
 never a per-PR gate) or the manual CI lane (`perf.yml`, `workflow_dispatch`).
 It runs the 200K synthetic profile as a SETTLED library (synced ledger rows —
 born-dirty scale rows poisoned pending counts and doomed backups; recorded),
 measures the table below, writes `test-results/perf-report.json`, and asserts
 the budgets in `tests/perf/budgets.ts` (the enforced copy of this table).
 Cold start is measured on a RELAUNCH of the already-seeded profile — the
-product case, not the one-time synthetic insert. Budgets carry ~2× headroom
-over the recorded baseline so machine variance never flakes the lane; CI
-numbers are indicative, the recorded baselines are the dev machine's.
+product case, not the one-time synthetic insert. Budgets are ratchets and are
+never loosened to absorb variance; CI numbers are indicative, while the
+recorded baselines are the dev machine's.
 
-| Metric | Budget | Baseline (2026-07-13, Apple Silicon dev machine, 200K) |
+Scroll measurements run three visible native-BrowserWindow trials at every
+zoom. The report retains each trial's frames, drops, drop rate, and worst frame;
+the drop-rate budget gates the median trial and the worst-frame budget gates the
+maximum across trials. An incomplete trial set fails closed. This reduces
+single-run scheduler noise without hiding a repeated regression or relaxing a
+budget.
+
+| Metric | Budget | Baseline (2026-07-17, Apple Silicon dev machine, 200K) |
 | --- | --- | --- |
-| Cold start → existing-library grid interactive | < 5,000 ms | 1,643 ms |
-| `library:page` (500) median over IPC | < 250 ms | 4 ms |
-| `library:counts` median over IPC | < 500 ms | 378 ms (#124: one FILTER-clause pass, was 689 ms) |
-| Search page median over IPC (place substring) | < 600 ms | 5 ms |
-| Scroll dropped-frame share (zooms 96/160/320) | < 0.30 each | 0.20 / 0.00 / 0.00 |
-| Scroll worst frame delta | < 500 ms | 68 ms |
-| Import throughput (100 files, full pipeline) | > 3 photos/s | 34 photos/s |
-| Main-process RSS after the workout | < 1,500 MB | ~280 MB |
-| Renderer JS heap after the workout | < 512 MB | ~17 MB |
+| Cold start → existing-library grid interactive | < 5,000 ms | 3,363 ms |
+| `library:page` (500) median over IPC | < 250 ms | 5.6 ms |
+| `library:counts` median over IPC | < 500 ms | 481.1 ms (#124: one FILTER-clause pass) |
+| Search page median over IPC (place substring) | < 600 ms | 28.6 ms |
+| Scroll dropped-frame share (zooms 96/160/320) | < 0.30 each | 0.2941 / 0.0104 / 0.0000 median |
+| Scroll worst frame delta | < 500 ms | 92.7 ms maximum |
+| Import throughput (100 files, full pipeline) | > 3 photos/s | 5.63 photos/s |
+| Main-process RSS after the workout | < 1,500 MB | 333 MB |
+| Renderer JS heap after the workout | < 512 MB | 20.7 MB |
 
 #124 outcomes: `counts()` rewritten as ONE FILTER-clause pass over the
 ledger join (689 → 378 ms; ratchet tightened to 500 ms). Zoom-96 scroll
@@ -173,6 +180,12 @@ drops (~0.20, worst frame 68 ms) stay within the 0.30 budget; the obvious
 lever — letting Chromium disk-cache decoded thumbs — is REJECTED on privacy
 grounds (decrypted bytes never hit disk, ADR-0004), so further tightening
 waits for an in-memory decode pool (recorded).
+
+#432 removed a React rerender from every unavailable-thumbnail load failure.
+That path dominates the metadata-only 200K profile at 96px: two consecutive
+post-fix native runs passed with medians 0.2963 and 0.2941 while preserving the
+visible `PREVIEW UNAVAILABLE` fallback. The three-trial measurement contract
+above records the remaining variance instead of lowering the 0.30 ratchet.
 
 ### Coverage-map distribution (#126 sweep, 2026-07-13)
 
