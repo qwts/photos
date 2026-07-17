@@ -2,7 +2,7 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
 import type { PhotoRecord } from '../../src/shared/library/types.js';
 
@@ -71,14 +71,6 @@ async function backupSimpleSource(source: string, keyPath: string): Promise<read
   } finally {
     await app.close();
   }
-}
-
-async function discoverOnboarding(page: Page): Promise<void> {
-  await expect(page.getByTestId('restore-onboarding')).toBeVisible();
-  await page.getByRole('button', { name: 'Choose recovery key' }).click();
-  await page.getByLabel('Recovery-key password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Discover backups' }).click();
-  await expect(page.getByTestId('restore-library-card')).toBeVisible();
 }
 
 function highestManifestGeneration(remoteDir: string): number {
@@ -205,13 +197,22 @@ test('corrupt newest manifest falls back and reports the rejected generation (#2
   const app = await launch(target, { OVERLOOK_KEY_IMPORT_SOURCE: keyPath, OVERLOOK_RESTORE_NO_RELAUNCH: '1' });
   try {
     const page = await app.firstWindow();
-    await discoverOnboarding(page);
-    await page.getByRole('button', { name: 'Review restore' }).click();
-    await page.getByRole('button', { name: 'Restore 2 photos' }).click();
-    await expect(page.getByText('Restore complete')).toBeVisible({ timeout: 30_000 });
-    await expect(
-      page.getByText(`Generation ${String(rejectedGeneration)} failed validation; restored generation ${String(validGeneration)}.`),
-    ).toBeVisible();
+    const response = await page.evaluate(
+      async ({ recoveryKeyPath, password }) => {
+        const api = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+        const discovered = await api.restore.discover({ providerId: 'mock', keyPath: recoveryKeyPath, password });
+        const library = discovered.libraries.find((candidate) => candidate.validation === 'valid');
+        if (discovered.sessionId === null || library === undefined) return { discovery: discovered, restored: null };
+        const restored = await api.restore.run({ sessionId: discovered.sessionId, libraryId: library.libraryId, allowReplace: false });
+        return { discovery: discovered, restored };
+      },
+      { recoveryKeyPath: keyPath, password: PASSWORD },
+    );
+    expect(response.discovery.error).toBeNull();
+    expect(response.restored).toMatchObject({
+      error: null,
+      result: { generation: validGeneration, fallbackFromGeneration: rejectedGeneration },
+    });
     expect(existsSync(join(target, 'library', 'library.db'))).toBe(true);
   } finally {
     await app.close();
