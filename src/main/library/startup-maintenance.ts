@@ -7,6 +7,10 @@ export interface StartupRepairSummary {
   readonly lyingRows: readonly unknown[];
 }
 
+export interface SearchIndexVerification {
+  readonly rebuilt: boolean;
+}
+
 export interface StartupMaintenanceOptions {
   readonly purge: () => Promise<unknown>;
   readonly repair: () => Promise<StartupRepairSummary> | undefined;
@@ -14,6 +18,9 @@ export interface StartupMaintenanceOptions {
     | (() =>
         Promise<{ readonly scanned: number; readonly repaired: number; readonly failed: number; readonly skipped: number }> | undefined)
     | undefined;
+  /** FTS5 integrity-check → rebuild-on-failure (#390). Optional — undefined
+   * skips it, same convention as `repair` before the library is open. */
+  readonly verifySearchIndex?: () => Promise<SearchIndexVerification> | undefined;
 }
 
 export class StartupMaintenance {
@@ -61,14 +68,27 @@ export class StartupMaintenance {
     }
 
     const rawRepair = this.options.rawRepair?.();
-    if (rawRepair === undefined) return;
+    if (rawRepair !== undefined) {
+      void this.work.track(
+        rawRepair
+          .then((summary) => {
+            if (summary.repaired > 0 || summary.failed > 0) console.info('[overlook] RAW preview repair:', JSON.stringify(summary));
+          })
+          .catch((error: unknown) => {
+            console.error('[overlook] RAW preview maintenance failed', error);
+          }),
+      );
+    }
+
+    const verifySearchIndex = this.options.verifySearchIndex?.();
+    if (verifySearchIndex === undefined) return;
     void this.work.track(
-      rawRepair
-        .then((summary) => {
-          if (summary.repaired > 0 || summary.failed > 0) console.info('[overlook] RAW preview repair:', JSON.stringify(summary));
+      verifySearchIndex
+        .then((result) => {
+          if (result.rebuilt) console.warn('[overlook] search index rebuilt after failed integrity check');
         })
         .catch((error: unknown) => {
-          console.error('[overlook] RAW preview maintenance failed', error);
+          console.error('[overlook] search index verification failed', error);
         }),
     );
   }

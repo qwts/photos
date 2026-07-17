@@ -399,6 +399,8 @@ const startupMaintenance = new StartupMaintenance({
   purge: () => getPurgeService().purgeExpired(),
   repair: () => consistencyChecker?.repair(),
   rawRepair: () => getRawRepairService().repair(),
+  verifySearchIndex: () =>
+    libraryParts === undefined ? undefined : Promise.resolve(new PhotosRepository(libraryParts.db).verifySearchIndex()),
 });
 
 function cancelScheduledLibraryWork(): void {

@@ -85,6 +85,11 @@ const ORDERINGS = {
   size: { expr: 'p.bytes', dir: 'DESC', cmp: '<' },
 } as const;
 
+// Search ranking (#390): bm25 is most-negative for the best match, so it
+// sorts ASC same as `name` — reuses the same keyset-cursor mechanism as
+// ORDERINGS, just with the rank as the sort expression instead of a column.
+const RANK_ORDERING = { expr: 'bm25(photos_fts)', dir: 'ASC', cmp: '>' } as const;
+
 function select(order: keyof typeof ORDERINGS): string {
   return `
   SELECT p.*, l.status AS sync_state, ${ORDERINGS[order].expr} AS sort_key
@@ -93,7 +98,33 @@ function select(order: keyof typeof ORDERINGS): string {
 `;
 }
 
+function selectRanked(): string {
+  // ordinary_visible_photos doesn't expose the underlying rowid (it selects
+  // p.* by name), so photos_fts (content_rowid='rowid') joins through the
+  // base photos table by id — the view's own PK — to reach it.
+  return `
+  SELECT p.*, l.status AS sync_state, bm25(photos_fts) AS sort_key
+  FROM ordinary_visible_photos p
+  JOIN photos ph ON ph.id = p.id
+  JOIN photos_fts ON photos_fts.rowid = ph.rowid
+  LEFT JOIN sync_ledger l ON l.photo_id = p.id
+`;
+}
+
 const SELECT = select('date');
+
+/** Tokenizes `raw` into a safe FTS5 MATCH expression: each token becomes a
+ * quoted phrase-prefix match (`"foo"*`), joined with AND. Quoting sidesteps
+ * FTS5's query-syntax operators entirely (a raw `AND`/`NOT`/`"` from the user
+ * can never be parsed as one) — so unlike the substring path this can't
+ * throw on user input. Returns null when the query tokenizes to nothing
+ * (pure punctuation/whitespace), signaling the caller to fall back to the
+ * substring path instead of matching on nothing. */
+function toFtsMatchQuery(raw: string): string | null {
+  const tokens = raw.match(/[\p{L}\p{N}_]+/gu);
+  if (tokens === null || tokens.length === 0) return null;
+  return tokens.map((token) => `"${token.replace(/"/g, '""')}"*`).join(' AND ');
+}
 
 function sourceWhere(source: PageRequest['source']): string {
   switch (source) {
@@ -136,9 +167,11 @@ export class PhotosRepository {
     })();
   }
 
-  /** Keyset-paged query per ADR-0005 — never OFFSET. Chips AND-combine; q is
-   * a case-insensitive substring over name/place/camera (mock semantics —
-   * recorded on #71; the FTS table waits for token search). */
+  /** Keyset-paged query per ADR-0005 — never OFFSET. Chips AND-combine; `query`
+   * runs against the trigger-synced FTS5 index (name/place/camera, prefix
+   * tokenized) and ranks by bm25, overriding `order` while searching (#390).
+   * A query that tokenizes to nothing (pure punctuation/whitespace) falls
+   * back to the legacy case-insensitive substring match. */
   page(request: PageRequest): PageResult {
     if (request.source === 'recent' && request.recentSince === undefined) {
       throw new Error(`the 'recent' source requires recentSince`);
@@ -159,17 +192,21 @@ export class PhotosRepository {
     if (request.albumId !== undefined) {
       filters.push('p.id IN (SELECT photo_id FROM album_photos WHERE album_id = @albumId)');
     }
-    if (request.query !== undefined && request.query !== '') {
+    const ftsQuery = request.query !== undefined && request.query !== '' ? toFtsMatchQuery(request.query) : null;
+    if (request.query !== undefined && request.query !== '' && ftsQuery === null) {
       filters.push(
         `(instr(lower(p.file_name), @query) > 0 OR instr(lower(COALESCE(p.place, '')), @query) > 0 OR instr(lower(COALESCE(p.camera, '')), @query) > 0)`,
       );
     }
+    if (ftsQuery !== null) {
+      filters.push('photos_fts MATCH @ftsQuery');
+    }
     const chipClause = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
-    const ordering = ORDERINGS[request.order ?? 'date'];
+    const ordering = ftsQuery !== null ? RANK_ORDERING : ORDERINGS[request.order ?? 'date'];
     const cursorClause = request.cursor === undefined ? '' : `AND (${ordering.expr}, p.id) ${ordering.cmp} (@cursorKey, @cursorId)`;
     const rows = queryAll<PhotoRow>(
       this.db,
-      `${select(request.order ?? 'date')}
+      `${ftsQuery !== null ? selectRanked() : select(request.order ?? 'date')}
        WHERE ${sourceWhere(request.source)} ${chipClause} ${cursorClause}
        ORDER BY sort_key ${ordering.dir}, p.id ${ordering.dir}
        LIMIT @limit`,
@@ -179,6 +216,7 @@ export class PhotosRepository {
         cursorKey: request.cursor?.sortKey ?? null,
         cursorId: request.cursor?.id ?? null,
         query: request.query?.toLowerCase() ?? null,
+        ftsQuery: ftsQuery ?? null,
         albumId: request.albumId ?? null,
       },
     );
@@ -210,6 +248,23 @@ export class PhotosRepository {
     const rows = queryAll<PhotoRow>(this.db, `${SELECT} WHERE p.id = @id LIMIT 1`, { id: photoId });
     const row = rows[0];
     return row === undefined ? undefined : toRecord(row);
+  }
+
+  /** Startup maintenance (#390): FTS5's 'integrity-check' command, with the
+   * `rank = 1` content-check flag, verifies photos_fts against the photos
+   * content table itself rather than just the index's internal structure —
+   * the plain form doesn't catch a drifted index. Drift should never happen
+   * (the table is trigger-synced) but corruption or a skipped migration step
+   * would otherwise silently degrade search rather than error. A failed
+   * check triggers 'rebuild', FTS5's full re-index command. */
+  verifySearchIndex(): { rebuilt: boolean } {
+    try {
+      this.db.exec(`INSERT INTO photos_fts(photos_fts, rank) VALUES ('integrity-check', 1)`);
+      return { rebuilt: false };
+    } catch {
+      this.db.exec(`INSERT INTO photos_fts(photos_fts) VALUES ('rebuild')`);
+      return { rebuilt: true };
+    }
   }
 
   /** Repairs legacy unknown dimensions without overwriting trusted metadata. */

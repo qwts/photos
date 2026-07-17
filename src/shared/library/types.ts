@@ -66,7 +66,9 @@ export interface PageRequest {
   readonly cursor?: PageCursor | undefined;
   /** 'recent' cutoff (ISO); callers own the "recent" window policy. */
   readonly recentSince?: string | undefined;
-  /** Case-insensitive substring over name/place/camera (mock semantics). */
+  /** FTS5-ranked search over name/place/camera, prefix-matched per token
+   * (#390). Falls back to a case-insensitive substring match if the query
+   * has no tokenizable content. */
   readonly query?: string | undefined;
   readonly chips?: ChipFilters | undefined;
   /** Defaults to 'date' (newest first). */

@@ -55,3 +55,36 @@ test('startup maintenance is cancellable before launch and drainable after launc
   await draining;
   assert.equal(drained, true);
 });
+
+test('drain waits on search index verification too, and it is optional (#390)', async () => {
+  let releaseVerify: ((rebuilt: boolean) => void) | undefined;
+  const verify = new Promise<{ rebuilt: boolean }>((resolve) => {
+    releaseVerify = (rebuilt) => resolve({ rebuilt });
+  });
+  const maintenance = new StartupMaintenance({
+    purge: () => Promise.resolve(),
+    repair: () => Promise.resolve(emptySummary),
+    verifySearchIndex: () => verify,
+  });
+
+  maintenance.schedule();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  let drained = false;
+  const draining = maintenance.drain().then(() => {
+    drained = true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(drained, false);
+  releaseVerify?.(true);
+  await draining;
+  assert.equal(drained, true);
+
+  // Undefined (no library open yet) is a no-op, same convention as `repair`.
+  const skipped = new StartupMaintenance({
+    purge: () => Promise.resolve(),
+    repair: () => Promise.resolve(emptySummary),
+    verifySearchIndex: () => undefined,
+  });
+  skipped.schedule();
+  await skipped.drain();
+});
