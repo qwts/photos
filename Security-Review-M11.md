@@ -85,11 +85,13 @@ Files: `src/main/ipc.ts`, `src/shared/ipc/registry.ts`, `src/shared/ipc/channels
   `createInvoker`/`createSubscriber` closures; `ipcRenderer` is captured privately
   and never exposed. `nodeIntegration: false`, `contextIsolation: true`,
   `sandbox: true`.
-- **Error leakage — protocol sound; IPC follow-up
-  ([#230](https://github.com/qwts/photos/issues/230)).** Protocol responses are
-  status-only (no error bodies). IPC has no central error scrubber — today's thrown
-  messages are benign, but a future handler could leak a path/secret via
-  `error.message`. Tracked, non-blocking.
+- **Error leakage — sound.** Protocol responses are status-only (no error bodies).
+  IPC request validation, handler failures, and response validation resolve to a
+  transport-only envelope containing one opaque stage code. The preload converts
+  that envelope to an `IpcRemoteError` with no original message or cause. Full
+  detail is reported only in main; even a failing reporter cannot replace the
+  opaque response. Seeded secret/path tests cover the boundary
+  ([#230](https://github.com/qwts/photos/issues/230), PR #433).
 - **Follow-up ([#231](https://github.com/qwts/photos/issues/231)) — least-privilege
   polish.** Drop unused `supportFetchAPI` from the thumb scheme; optionally gate the
   thumb loader on `deletedAt`/`syncState` for parity with full-res. Neither is a
@@ -130,8 +132,6 @@ Full sweep of main + shared for any durable/observable plaintext sink.
 
 - [#229](https://github.com/qwts/photos/issues/229) — enforce a per-key blob budget
   or widen the nonce fixed field before large libraries.
-- [#230](https://github.com/qwts/photos/issues/230) — central IPC error scrubber
-  (opaque codes to the renderer).
 - [#231](https://github.com/qwts/photos/issues/231) — protocol least-privilege polish.
 
 ## Method
