@@ -205,12 +205,21 @@ export class PhotosRepository {
     // The ranked branch's ORDER BY must stay the literal `rank` token (see
     // selectRanked) — it can't reuse ORDERINGS' generic `sort_key`/tuple-
     // cursor shape without losing the index-order optimization, so the tie
-    // break for its cursor lives in an OR'd WHERE predicate instead.
+    // break for its cursor lives in an OR'd WHERE predicate instead. The tie
+    // break itself must be `ph.rowid`, not `p.id`: FTS5 only guarantees rank
+    // order, and among tied ranks it emits rows in its own internal (rowid)
+    // order — breaking ties by `p.id` instead produced measured duplicates
+    // once a tied group spanned a page boundary. `p.id` is TEXT (a ulid), so
+    // the cursor still carries it for API consistency; the tiebreak resolves
+    // it back to a rowid via an indexed point lookup.
     let fromClause: string, orderByClause: string, cursorClause: string;
     if (ftsQuery !== null) {
       fromClause = selectRanked();
       orderByClause = 'ORDER BY rank';
-      cursorClause = request.cursor === undefined ? '' : 'AND (rank > @cursorKey OR (rank = @cursorKey AND p.id > @cursorId))';
+      cursorClause =
+        request.cursor === undefined
+          ? ''
+          : 'AND (rank > @cursorKey OR (rank = @cursorKey AND ph.rowid > (SELECT rowid FROM photos WHERE id = @cursorId)))';
     } else {
       const ordering = ORDERINGS[request.order ?? 'date'];
       fromClause = select(request.order ?? 'date');
@@ -873,4 +882,12 @@ export class PhotosRepository {
       deleted: row?.deleted ?? 0,
     };
   }
+}
+
+/** Defers verifySearchIndex() to a microtask so a synchronous throw (e.g.
+ * the rebuild command itself failing) becomes a rejection instead of
+ * escaping the caller uncaught — StartupMaintenance only catches promise
+ * rejections, not synchronous throws from the option callback (#390). */
+export function verifySearchIndexAsync(db: BetterSqlite3.Database): Promise<{ rebuilt: boolean }> {
+  return Promise.resolve().then(() => new PhotosRepository(db).verifySearchIndex());
 }
