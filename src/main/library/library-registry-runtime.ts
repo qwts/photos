@@ -1,8 +1,11 @@
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 import { LibraryRegistry, LibraryRegistryError, ensureDefaultEntry } from './library-registry.js';
-import { readOrMintLibraryId } from './library-id.js';
-import type { LibraryEntry } from '../../shared/library/registry.js';
+import { readOrMintLibraryId, writeLibraryId } from './library-id.js';
+import { KeyStore, type SafeStorageLike } from '../crypto/keystore.js';
+import { ulid } from '../import/ulid.js';
+import type { LibraryDescriptor, LibraryEntry } from '../../shared/library/registry.js';
 
 // Active-library resolution (ADR-0017 §1/§7, #384), extracted from the
 // composition root: the registry replaces the hardcoded userData/library.
@@ -83,5 +86,104 @@ export class LibraryRegistryRuntime {
   markOpened(): LibraryEntry {
     this.active = this.getRegistry().touchOpened(this.resolveActive().id);
     return this.active;
+  }
+
+  /** IPC-facing view: registry fields + derived status, computed at read
+   * time and never persisted (§1). openId is the id of the library the
+   * process currently has open, or null before first bootstrap. */
+  describe(entry: LibraryEntry, openId: string | null): LibraryDescriptor {
+    return { ...entry, missing: !existsSync(entry.path), open: entry.id === openId };
+  }
+
+  list(openId: string | null): LibraryDescriptor[] {
+    return this.getRegistry()
+      .list()
+      .map((entry) => this.describe(entry, openId));
+  }
+
+  current(openId: string | null): LibraryDescriptor {
+    return this.describe(this.resolveActive(), openId);
+  }
+
+  /** Create = provision, not open (§3): pin the identity, let KeyStore mint
+   * the master key + KEY #1, close it (keys stay cold until open), register.
+   * A create that fails midway deletes a directory it created — before the
+   * first successful open the directory is disposable. */
+  create(options: { name: string; path: string | null; safeStorage: SafeStorageLike }): LibraryEntry {
+    const id = ulid();
+    const dir = options.path === null ? path.join(this.options.userDataDir(), 'libraries', id) : options.path;
+    if (existsSync(dir) && readdirSync(dir).length > 0) {
+      throw new LibraryRegistryError(`target directory is not empty: ${dir}`);
+    }
+    const createdDir = !existsSync(dir);
+    mkdirSync(dir, { recursive: true });
+    try {
+      writeLibraryId(dir, id);
+      KeyStore.open({ safeStorage: options.safeStorage, dataDir: dir }).close();
+      return this.getRegistry().register({
+        id,
+        name: options.name,
+        path: dir,
+        createdAt: new Date().toISOString(),
+        lastOpenedAt: null,
+      });
+    } catch (error) {
+      if (createdDir) rmSync(dir, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
+  /** Select which library the NEXT bootstrap opens. The live in-process
+   * switch is #385's contract (ADR-0017 §4); until it lands, selecting while
+   * a different library is open reports requiresRestart. */
+  select(id: string, openId: string | null): { library: LibraryDescriptor; requiresRestart: boolean } {
+    const entry = this.getRegistry().get(id);
+    if (entry === undefined) throw new LibraryRegistryError(`library ${id} is not registered`);
+    const current = this.resolveActive();
+    if (entry.id === current.id) {
+      return { library: this.describe(current, openId), requiresRestart: false };
+    }
+    if (!existsSync(entry.path)) {
+      throw new LibraryRegistryError(`library directory is missing: ${entry.path}`);
+    }
+    // lastOpenedAt doubles as the selection record — it is what startup
+    // resolution orders by (§1); the real open re-stamps it.
+    const selected = this.getRegistry().touchOpened(id);
+    if (openId !== null) {
+      return { library: this.describe(selected, openId), requiresRestart: true };
+    }
+    this.active = selected;
+    return { library: this.describe(selected, openId), requiresRestart: false };
+  }
+
+  /** The IPC facade (structurally matches ipc.ts LibraryRegistryFacade).
+   * openLibraryId reports what the process has open — null before bootstrap. */
+  facade(deps: { openLibraryId: () => string | null; safeStorage: () => SafeStorageLike }): {
+    list: () => LibraryDescriptor[];
+    create: (name: string, dir: string | null) => LibraryDescriptor;
+    open: (id: string) => { library: LibraryDescriptor; requiresRestart: boolean };
+    remove: (id: string) => boolean;
+    current: () => LibraryDescriptor;
+  } {
+    return {
+      list: () => this.list(deps.openLibraryId()),
+      create: (name, dir) => this.describe(this.create({ name, path: dir, safeStorage: deps.safeStorage() }), deps.openLibraryId()),
+      open: (id) => this.select(id, deps.openLibraryId()),
+      remove: (id) => this.removeEntry(id, deps.openLibraryId()),
+      current: () => this.current(deps.openLibraryId()),
+    };
+  }
+
+  /** Registry-entry removal only — the directory, keys, and DB stay intact
+   * (§1; destructive deletion is a separate, explicit action). */
+  removeEntry(id: string, openId: string | null): boolean {
+    if (id === openId) {
+      throw new LibraryRegistryError('cannot remove the library that is currently open');
+    }
+    const removed = this.getRegistry().remove(id);
+    if (removed && this.active?.id === id) {
+      this.active = undefined;
+    }
+    return removed;
   }
 }

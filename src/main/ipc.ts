@@ -4,6 +4,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { channels } from '../shared/ipc/channels.js';
 import { wrapHandler as validateHandler } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
+import type { LibraryDescriptor } from '../shared/library/registry.js';
 import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js';
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
@@ -287,6 +288,35 @@ export function registerPurgeHandlers(getFacade: () => PurgeFacade): void {
 export interface SettingsFacade {
   get(): AppSettings;
   set(patch: SettingsPatch): AppSettings;
+}
+
+export interface LibraryRegistryFacade {
+  list(): LibraryDescriptor[];
+  create(name: string, path: string | null): LibraryDescriptor;
+  open(id: string): { library: LibraryDescriptor; requiresRestart: boolean };
+  remove(id: string): boolean;
+  current(): LibraryDescriptor;
+}
+
+// Multi-library registry (#384): registry mutations never require content
+// access — the picker must work while the active library is app-locked, and
+// none of these expose library content. Uses validateHandler directly.
+export function registerLibraryRegistryHandlers(getFacade: () => LibraryRegistryFacade): void {
+  ipcMain.handle(channels.libraryRegistryList.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRegistryList, () => ({ libraries: getFacade().list() }))(request),
+  );
+  ipcMain.handle(channels.libraryRegistryCreate.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRegistryCreate, ({ name, path }) => ({ library: getFacade().create(name, path) }))(request),
+  );
+  ipcMain.handle(channels.libraryRegistryOpen.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRegistryOpen, ({ id }) => getFacade().open(id))(request),
+  );
+  ipcMain.handle(channels.libraryRegistryRemove.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRegistryRemove, ({ id }) => ({ removed: getFacade().remove(id) }))(request),
+  );
+  ipcMain.handle(channels.libraryRegistryCurrent.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRegistryCurrent, () => ({ library: getFacade().current() }))(request),
+  );
 }
 
 export function registerSettingsHandlers(getFacade: () => SettingsFacade): void {

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { settingsPatchSchema, settingsSchema } from '../settings/settings.js';
+import { libraryDescriptorSchema, libraryIdSchema } from '../library/registry.js';
 import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
 
@@ -630,6 +631,22 @@ export const channels = {
       offloadedBytes: z.number().nonnegative(),
     }),
   ),
+  // Multi-library registry (#384, ADR-0017 §1/§2): list/create/select/remove
+  // registry entries and read the active library. open selects what the next
+  // bootstrap opens — the live in-process switch is #385.
+  libraryRegistryList: defineChannel('library-registry:list', z.object({}), z.object({ libraries: z.array(libraryDescriptorSchema) })),
+  libraryRegistryCreate: defineChannel(
+    'library-registry:create',
+    z.object({ name: z.string().min(1).max(120), path: z.string().min(1).nullable() }),
+    z.object({ library: libraryDescriptorSchema }),
+  ),
+  libraryRegistryOpen: defineChannel(
+    'library-registry:open',
+    z.object({ id: libraryIdSchema }),
+    z.object({ library: libraryDescriptorSchema, requiresRestart: z.boolean() }),
+  ),
+  libraryRegistryRemove: defineChannel('library-registry:remove', z.object({ id: libraryIdSchema }), z.object({ removed: z.boolean() })),
+  libraryRegistryCurrent: defineChannel('library-registry:current', z.object({}), z.object({ library: libraryDescriptorSchema })),
 } as const;
 
 export const events = {

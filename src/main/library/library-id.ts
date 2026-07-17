@@ -9,6 +9,15 @@ import { ulid } from '../import/ulid.js';
 // Minted eagerly at registration/creation since #384 (previously lazily by
 // the provider runtime on first backup need).
 
+/** Pins a known id into a freshly created library directory (#384 create
+ * flow) — same atomic write as the mint path. */
+export function writeLibraryId(dataDir: string, id: string): void {
+  const idPath = join(dataDir, 'library-id');
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(`${idPath}.tmp`, id);
+  renameSync(`${idPath}.tmp`, idPath);
+}
+
 export function readOrMintLibraryId(dataDir: string): string {
   const idPath = join(dataDir, 'library-id');
   if (existsSync(idPath)) {

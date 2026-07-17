@@ -74,13 +74,9 @@ registerSchemePrivileges();
 // the renderer's first library.* call (the E2E smoke never does).
 let libraryService: LibraryService | undefined;
 
-// Active-library resolution (ADR-0017 §1/§7, #384): the registry replaces the
-// hardcoded userData/library; see library/library-registry-runtime.ts.
+// Active-library resolution (ADR-0017, #384): see library-registry-runtime.
 const registryRuntime = new LibraryRegistryRuntime({ userDataDir: () => app.getPath('userData') });
-
-function libraryDataDir(): string {
-  return registryRuntime.dataDir();
-}
+const libraryDataDir = (): string => registryRuntime.dataDir();
 
 function broadcast(send: (win: BrowserWindow) => void): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -824,6 +820,10 @@ void externalOpen.whenReady().then(async () => {
     requireContentAccess: () => lock.requireContentAccess(),
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
     getLibrary: getLibraryService,
+    libraries: registryRuntime.facade({
+      openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
+      safeStorage: pickSafeStorage,
+    }),
     getProtected: getProtectedRuntime,
     getThumbs: getThumbService,
     getFull: getFullService,

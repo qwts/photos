@@ -22,6 +22,8 @@ import {
   registerImportHandlers,
   registerKeysHandlers,
   registerLibraryHandlers,
+  registerLibraryRegistryHandlers,
+  type LibraryRegistryFacade,
   registerProtectedAlbumHandlers,
   registerPurgeHandlers,
   registerRestoreHandlers,
@@ -42,6 +44,7 @@ export interface AppServicesOptions {
   readonly requireContentAccess: () => void;
   readonly allowKeyImport: () => boolean;
   readonly getLibrary: () => LibraryService;
+  readonly libraries: LibraryRegistryFacade;
   readonly getProtected: () => ProtectedRuntime;
   readonly getThumbs: () => ThumbService;
   readonly getFull: () => FullService;
@@ -106,6 +109,7 @@ export function registerAppServices(options: AppServicesOptions): void {
     }),
   );
   registerPurgeHandlers(() => ({ purge: (photoIds) => options.getPurge().purge(photoIds) }));
+  registerLibraryRegistryHandlers(() => options.libraries);
   registerSettingsHandlers(() => getSettingsStore());
   const emitSettingsChanged = createEmitter(events.settingsChanged, options.broadcast);
   getSettingsStore().subscribe((settings) => emitSettingsChanged({ settings }));
