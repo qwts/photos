@@ -1,0 +1,28 @@
+{
+  "$schema-note": "Policy for scripts/check-licenses.mjs (#462). `allowed` lists SPDX identifiers permitted anywhere in the shipped closure; a package passes if its license expression is satisfiable using only allowed ids (OR = any branch, AND = every operand). `exceptions` are individually reviewed packages whose license is otherwise disallowed or undeclared — each needs a reason. Keep both lists tight; they only ever shrink or gain justified entries.",
+  "allowed": [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BlueOak-1.0.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "Python-2.0",
+    "Unlicense",
+    "WTFPL",
+    "Zlib"
+  ],
+  "exceptions": {
+    "@overlook/touch-id": {
+      "license": "UNKNOWN",
+      "reason": "First-party native Touch ID bridge (@overlook scope, published without an SPDX field). Covered by this project's MIT LICENSE; not third-party."
+    },
+    "@img/sharp-libvips-darwin-arm64": {
+      "license": "LGPL-3.0-or-later",
+      "reason": "libvips prebuilt shared library, loaded dynamically by sharp as a separate .node/.dylib. LGPL permits distribution inside an MIT app provided its license text ships (THIRD-PARTY-NOTICES.md) and the library can be relinked — satisfied because it ships as a replaceable standalone binary, not statically linked."
+    }
+  }
+}

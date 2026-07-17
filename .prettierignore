@@ -11,3 +11,7 @@ playwright-report/
 test-results/
 package-lock.json
 design/handoff/
+# Generated verbatim by scripts/generate-third-party-notices.mjs; the
+# licenses:notices freshness check compares raw generator output byte-for-byte,
+# so prettier must not reformat it (#461).
+THIRD-PARTY-NOTICES.md
