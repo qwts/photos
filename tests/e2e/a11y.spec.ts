@@ -19,6 +19,33 @@ import type { RuleCounts, ViolationBudget } from '../a11y/budget.js';
 // share tests/a11y/budget.ts so "over budget" means the same thing in each.
 const budget = JSON.parse(readFileSync(join(process.cwd(), 'tests/a11y/violation-budget.json'), 'utf8')) as ViolationBudget;
 
+// The SC 2.4.11 probe below runs inside the renderer, where the DOM exists — but this
+// project's tsconfig is deliberately Node-only (`lib: ["ES2022"]`) until the DOM test
+// lane lands (#135). Rather than widen `lib` for every Node-side test (which would let
+// them reach DOM globals that do not exist at runtime), the probe is typed against the
+// minimal surface it actually touches. Structural, so it stays compatible with lib.dom
+// when #135 makes the real types available and this block can be deleted.
+interface ProbeRect {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+interface ProbeElement {
+  readonly tagName: string;
+  readonly className: unknown;
+  readonly offsetParent: unknown;
+  focus(): void;
+  contains(other: ProbeElement | null): boolean;
+  getBoundingClientRect(): ProbeRect;
+}
+declare const document: {
+  querySelectorAll(selectors: string): Iterable<ProbeElement>;
+  elementFromPoint(x: number, y: number): ProbeElement | null;
+  readonly activeElement: ProbeElement | null;
+};
+declare function getComputedStyle(element: ProbeElement): { readonly position: string };
+
 // Flows this run actually audited. playwright.config.ts sets fullyParallel: false, so the
 // tests in this file run serially in one worker — the closure test at the bottom therefore
 // sees every id the ones above recorded.
@@ -112,6 +139,66 @@ test('a11y: a selection active in the grid', async () => {
     await page.locator('.ovl-tile__select').first().click();
     await expect(page.getByTestId('selection-pill')).toBeVisible();
     await assertWithinBudget(page, 'shell-selection');
+  } finally {
+    await app.close();
+  }
+});
+
+// SC 2.4.11 Focus Not Obscured (Minimum) — new at AA in WCAG 2.2, and axe has NO rule
+// for it, so without this the app's "WCAG 2.2 AA" claim rests on nothing for this
+// criterion. It is a composed-surface question by nature: it needs a floating overlay and
+// a focusable target underneath, which no isolated story has.
+//
+// The criterion is "entirely hidden WHEN the component receives keyboard focus" — both
+// halves matter. Measuring the resting state instead reports every reveal-on-hover
+// control as a failure (.ovl-sidebar__album-actions is opacity:0 until :focus-within),
+// which is exactly backwards. So: focus each element, then measure that state.
+test('a11y: no focused control is entirely hidden behind the app chrome (SC 2.4.11)', async () => {
+  const { app, page } = await launchSeeded('obscured', '96');
+  try {
+    // Selection active, so the floating pill is up: the realistic worst case is a
+    // floating bar over the grid it floats above.
+    await page.locator('.ovl-tile__select').first().click();
+    await expect(page.getByTestId('selection-pill')).toBeVisible();
+
+    const obscured = await page.evaluate((): string[] => {
+      const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+      const firstClass = (el: ProbeElement): string =>
+        typeof el.className === 'string' && el.className !== '' ? (el.className.split(' ')[0] ?? '') : el.tagName;
+      const hits: string[] = [];
+      for (const node of document.querySelectorAll(FOCUSABLE)) {
+        if (node.offsetParent === null && getComputedStyle(node).position !== 'fixed') continue;
+        node.focus();
+        if (document.activeElement !== node) continue; // not really focusable; not this SC's problem
+        const rect = node.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        // Sample a 3x3 grid inset from the edges. "Entirely hidden" is the bar the SC
+        // sets, so ANY sample landing on the element itself (or its own subtree) clears
+        // it — a partially covered control is not a 2.4.11 failure.
+        let visibleSomewhere = false;
+        const blockers = new Set<string>();
+        for (const fx of [0.15, 0.5, 0.85]) {
+          for (const fy of [0.15, 0.5, 0.85]) {
+            const top = document.elementFromPoint(rect.left + rect.width * fx, rect.top + rect.height * fy);
+            // Off-viewport is a scrolling question, not this criterion.
+            if (top === null || top === node || node.contains(top) || top.contains(node)) {
+              visibleSomewhere = true;
+              break;
+            }
+            blockers.add(firstClass(top));
+          }
+          if (visibleSomewhere) break;
+        }
+        if (!visibleSomewhere) {
+          hits.push(
+            `${node.tagName.toLowerCase()}.${firstClass(node)} (${Math.round(rect.width)}x${Math.round(rect.height)}) behind: ${[...blockers].join(', ')}`,
+          );
+        }
+      }
+      return hits;
+    });
+
+    expect(obscured, `Focused controls entirely hidden behind other content (SC 2.4.11):\n${obscured.join('\n')}`).toEqual([]);
   } finally {
     await app.close();
   }

@@ -1,5 +1,6 @@
 import eslintReact from '@eslint-react/eslint-plugin';
 import js from '@eslint/js';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
@@ -28,6 +29,14 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
+  {
+    // Escalated from the default 'warn'. Every a11y suppression in src/renderer carries
+    // either "verified correct" or the issue that owns the debt; this is what stops one
+    // outliving its fix. When #399 adds the lightbox's keyboard wake path, the disable
+    // above it stops matching anything and the build FAILS until it is deleted — the
+    // same ratchet idea as the violation budget, applied to exemptions (ADR-0001).
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+  },
   {
     languageOptions: {
       parserOptions: {
@@ -62,7 +71,23 @@ export default tseslint.config(
     // non-negotiable; @eslint-react (the eslint-10-compatible successor to
     // eslint-plugin-react) covers JSX/runtime pitfalls type-aware.
     files: ['src/renderer/**/*.tsx', 'src/renderer/**/*.ts'],
-    extends: [reactHooks.configs.flat.recommended, eslintReact.configs['recommended-type-checked']],
+    extends: [reactHooks.configs.flat.recommended, eslintReact.configs['recommended-type-checked'], jsxA11y.flatConfigs.strict],
+    rules: {
+      // The static half of the a11y gate (#398 follow-up). axe (story + E2E lanes) can
+      // only judge what renders; these rules judge the SOURCE, so a regression is caught
+      // at authoring time instead of after it reaches a story. `strict` over
+      // `recommended`: the extra rules are what flag pointer-only handlers, which is
+      // where this codebase's real 2.1.1 debt lives (audit findings 2 and 19, and the
+      // lightbox's wheel-only pan).
+      //
+      // Every remaining site is annotated inline with either "verified correct" or the
+      // issue that owns the debt — no blanket suppressions. `no-autofocus` is the one
+      // rule off wholesale, because it is wrong for this app:
+      // its 10 hits are all a modal taking initial focus, which is what the APG requires
+      // and what the audit files as an S1 BUG where it is missing (finding 1, Lightbox).
+      // Leaving it on would gate against the fix.
+      'jsx-a11y/no-autofocus': 'off',
+    },
   },
   // Process-boundary layering (#49), the full matrix from CLAUDE.md
   // §Architecture: every process dir may import src/shared; shared is

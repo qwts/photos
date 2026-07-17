@@ -100,7 +100,14 @@ export function Dialog({ open, title, icon, width = 420, onClose, footer, childr
     return null;
   }
   return (
+    // Click-to-dismiss on the scrim, and the panel's stopPropagation that shields it.
+    // jsx-a11y cannot see that both already have a keyboard equivalent: the Escape
+    // listener installed above closes the topmost dialog, which is the same `onClose`.
+    // Verified, not assumed — the audit re-confirmed it (#398). A keydown handler here
+    // would be dead code on an element that never takes focus.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className="ovl-dialog-scrim" onClick={onClose}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={panelRef}
         role="dialog"

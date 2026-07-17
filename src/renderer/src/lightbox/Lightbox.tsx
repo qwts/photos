@@ -155,6 +155,11 @@ export function Lightbox({
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
 
   return (
+    // REAL DEBT, not an exception: `onMouseMove` is the ONLY thing that wakes the chrome
+    // after it auto-hides, so a keyboard-only user's controls vanish and never come back
+    // (audit finding 2 — SC 2.2.1, and 2.4.7 if focus lands on a faded control).
+    // Owned by #399, which adds the keyboard wake path. Remove this disable with the fix.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className={`ovl-lightbox${inspectorOpen ? ' ovl-lightbox--docked' : ''}`}
       data-testid="lightbox"

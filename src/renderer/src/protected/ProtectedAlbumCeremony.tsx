@@ -236,6 +236,11 @@ export function ProtectedAlbumCeremony({ mode, albumId, albumName, onClose, onCo
         ) : null}
         {needsNext ? (
           <>
+            {/* REAL DEBT: this wrapping <label> has no htmlFor, and PasswordField's own
+                `label` prop lands as an aria-label that OVERRIDES the visible text — so
+                the control is announced "New protected album password" while the screen
+                reads "New album password" (SC 2.5.3). Audit finding 17; owned by #400. */}
+            {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
             <label>
               <div className="ovl-key__label mono-data">New album password</div>
               <PasswordField
