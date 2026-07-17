@@ -30,9 +30,6 @@ describe('performance scroll aggregation (#432)', () => {
   });
 
   test('rejects incomplete evidence instead of silently reducing sample count', () => {
-    assert.throws(
-      () => summarizeScrollTrials([{ frames: 150, dropped: 30, worstMs: 70, dropRate: 0.2 }]),
-      /expected 3 scroll trials/u,
-    );
+    assert.throws(() => summarizeScrollTrials([{ frames: 150, dropped: 30, worstMs: 70, dropRate: 0.2 }]), /expected 3 scroll trials/u);
   });
 });
