@@ -1,11 +1,11 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SettingsStore } from '../../src/main/settings/settings-store.js';
+import { ScopedSettingsStore } from '../../src/main/settings/scoped-settings-store.js';
 import { channels } from '../../src/shared/ipc/channels.js';
 import { wrapHandler } from '../../src/shared/ipc/registry.js';
 import { defaultSettings, throttlePercentOf } from '../../src/shared/settings/settings.js';
@@ -15,8 +15,17 @@ import { defaultSettings, throttlePercentOf } from '../../src/shared/settings/se
 // (settings:set) is exercised through the real channel schema, so the
 // locked key and range rules are proven where they actually enforce.
 
-function storeIn(dir: string): SettingsStore {
-  return new SettingsStore({ filePath: join(dir, 'settings.json') });
+function profilePath(dir: string): string {
+  return join(dir, 'settings.json');
+}
+
+function libraryPath(dir: string): string {
+  return join(dir, 'library', 'settings.json');
+}
+
+function storeIn(dir: string): ScopedSettingsStore {
+  mkdirSync(join(dir, 'library'), { recursive: true });
+  return new ScopedSettingsStore({ profileFilePath: profilePath(dir), libraryFilePath: () => libraryPath(dir) });
 }
 
 describe('settings store (#111)', () => {
@@ -51,7 +60,8 @@ describe('settings store (#111)', () => {
 
   test('EXIT CRITERIA: an unparseable file recovers to defaults, then heals on the next write', () => {
     const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
-    writeFileSync(join(dir, 'settings.json'), '{ not json', 'utf8');
+    mkdirSync(join(dir, 'library'), { recursive: true });
+    writeFileSync(libraryPath(dir), '{ not json', 'utf8');
 
     const store = storeIn(dir);
     assert.deepEqual(store.get(), defaultSettings);
@@ -62,7 +72,7 @@ describe('settings store (#111)', () => {
   test('one bad key falls back alone — the rest of the file survives', () => {
     const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
     writeFileSync(
-      join(dir, 'settings.json'),
+      profilePath(dir),
       JSON.stringify({
         sortOrder: 'name',
         bandwidthLimit: 'fast',
@@ -84,10 +94,15 @@ describe('settings store (#111)', () => {
   test('writes are atomic: live file always parses, no staging file left behind', () => {
     const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
     const store = storeIn(dir);
-    store.set({ appearance: 'dark' });
-    const onDisk: unknown = JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8'));
-    assert.deepEqual(onDisk, store.get());
-    assert.equal(existsSync(join(dir, 'settings.json.tmp')), false);
+    store.set({ appearance: 'light', sortOrder: 'name' });
+    assert.deepEqual(JSON.parse(readFileSync(profilePath(dir), 'utf8')), {
+      appearance: 'light',
+      shareDiagnostics: false,
+      diagnosticsConsentVersion: 0,
+    });
+    assert.equal((JSON.parse(readFileSync(libraryPath(dir), 'utf8')) as { sortOrder: string }).sortOrder, 'name');
+    assert.equal(existsSync(`${profilePath(dir)}.tmp`), false);
+    assert.equal(existsSync(`${libraryPath(dir)}.tmp`), false);
   });
 
   test('change events push the full snapshot; unsubscribe stops them', () => {
@@ -122,7 +137,7 @@ describe('settings store (#111)', () => {
 
   test('legacy local-only preference never upgrades silently into current diagnostics consent', () => {
     const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
-    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ ...defaultSettings, shareDiagnostics: true }), 'utf8');
+    writeFileSync(profilePath(dir), JSON.stringify({ ...defaultSettings, shareDiagnostics: true }), 'utf8');
 
     const store = storeIn(dir);
     assert.equal(store.get().shareDiagnostics, false);

@@ -16,7 +16,8 @@ import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { queryAll } from '../../src/main/db/sql.js';
 import { seedLibrary } from '../../src/main/library/seed.js';
-import { SettingsStore } from '../../src/main/settings/settings-store.js';
+import { ScopedSettingsStore } from '../../src/main/settings/scoped-settings-store.js';
+import { defaultSettings } from '../../src/shared/settings/settings.js';
 
 const LIBRARY_ID = '01JZZZZZZZZZZZZZZZZZZZZZZZ';
 const APP_PASSWORD = 'identity upgrade password';
@@ -70,8 +71,8 @@ describe('macOS app-identity upgrade custody (#374)', () => {
     await seedLibrary(db, blobs, keys.currentKey(), 8);
 
     const settingsPath = join(userData, 'settings.json');
-    const settings = new SettingsStore({ filePath: settingsPath });
-    const expectedSettings = settings.set({ providerId: 'pcloud', sortOrder: 'name', lockWhenHidden: true });
+    const expectedSettings = { ...defaultSettings, providerId: 'pcloud', sortOrder: 'name', lockWhenHidden: true } as const;
+    writeFileSync(settingsPath, JSON.stringify(expectedSettings), 'utf8');
     writeFileSync(join(dataDir, 'library-id'), LIBRARY_ID);
 
     const pcloud: PCloudAuthRecord = {
@@ -123,7 +124,10 @@ describe('macOS app-identity upgrade custody (#374)', () => {
     const upgradedRepo = new PhotosRepository(upgradedDb);
     assert.equal(upgradedRepo.stats().photos, 8);
     assert.equal(queryAll<{ count: number }>(upgradedDb, 'SELECT count(*) AS count FROM albums')[0]?.count, 4);
-    assert.deepEqual(new SettingsStore({ filePath: settingsPath }).get(), expectedSettings);
+    assert.deepEqual(
+      new ScopedSettingsStore({ profileFilePath: settingsPath, libraryFilePath: () => join(dataDir, 'settings.json') }).get(),
+      expectedSettings,
+    );
     assert.equal(readFileSync(join(dataDir, 'library-id'), 'utf8'), LIBRARY_ID);
     assert.deepEqual(new PCloudTokenStore({ safeStorage: storage, dataDir: pcloudDir }).load(), pcloud);
     assert.deepEqual(new GoogleDriveTokenStore({ safeStorage: storage, dataDir: googleDir }).load(), google);
