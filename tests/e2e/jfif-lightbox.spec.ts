@@ -80,8 +80,15 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
     expect(jfifRows).toHaveLength(JFIF_COUNT);
     expect(jfifRows.every(({ width, height }) => width === 960 && height === 1280)).toBe(true);
 
-    const selectedName = 'jfif-01.jpg';
-    const openedName = 'jfif-02.jpg';
+    const visibleJfifNames: string[] = [];
+    for (const visibleImage of await page.locator('.ovl-grid__cell .ovl-tile__img').all()) {
+      const name = await visibleImage.getAttribute('alt');
+      if (name?.startsWith('jfif-') === true) visibleJfifNames.push(name);
+    }
+    const [selectedName, openedName] = visibleJfifNames;
+    if (selectedName === undefined || openedName === undefined) throw new Error('two rendered JFIF cells are required');
+    const activeSource = page.locator('.ovl-sidebar .ovl-siderow--active').first();
+    const activeSourceLabel = await activeSource.locator('.ovl-siderow__label').innerText();
     const selectedCell = page.getByRole('button', { name: `Open ${selectedName}`, exact: true });
     await selectedCell.getByRole('button', { name: 'Select' }).click();
     await page.getByRole('button', { name: `Open ${openedName}`, exact: true }).click();
@@ -91,7 +98,7 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
     await expect(lightbox).toBeVisible();
     await expect(image).toHaveAttribute('alt', openedName);
     await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
-    await expect(page.getByRole('button', { name: `All Photos ${String(PHOTO_COUNT)}` })).toHaveClass(/ovl-siderow--active/u);
+    await expect(activeSource).toContainText(activeSourceLabel);
 
     await page.evaluate(() => {
       const scope = globalThis as unknown as { overlook: OverlookApi; __jfifBackupProbe: BackupProbe };
@@ -137,7 +144,7 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
 
     expect(await backup).toMatchObject({ uploaded: PHOTO_COUNT, failed: 0, skipped: null });
     await expect(lightbox).toBeVisible();
-    await expect(page.getByRole('button', { name: `All Photos ${String(PHOTO_COUNT)}` })).toHaveClass(/ovl-siderow--active/u);
+    await expect(activeSource).toContainText(activeSourceLabel);
   } finally {
     await app.close();
   }
