@@ -72,7 +72,7 @@ describe('macOS release signing safety (#357)', () => {
     assert.match(builder, /Unlock Overlook with Touch ID/u);
   });
 
-  test('the package workflow validates provisioned identity and packaged launch', () => {
+  test('the package workflow validates that the packaged app can start with provisioned identity', () => {
     const workflow = source('.github/workflows/package.yml');
     const knip = source('knip.json');
     const provisionedVerifier = source('scripts/verify-macos-provisioned-app.mjs');
