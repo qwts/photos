@@ -91,4 +91,15 @@ describe('diagnostics consent and capture service (#286)', () => {
     assert.deepEqual(failures, ['invalid-event']);
     assert.deepEqual(service.list(), []);
   });
+
+  test('review controls report exact deletion outcomes and purge counts', () => {
+    const consent = { value: true };
+    const { service } = world(consent);
+    service.record({ kind: 'main-process-runtime-error' });
+    assert.equal(service.remove('242b0f8a-c985-4a2e-951b-8d49ae3c2b17'), false);
+    assert.equal(service.remove(EVENT_ID), true);
+    service.record({ kind: 'main-process-runtime-error' });
+    assert.equal(service.purge(), 1);
+    assert.deepEqual(service.list(), []);
+  });
 });

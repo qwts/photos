@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import type { DiagnosticsQueue } from './diagnostics-queue.js';
 import { type QueuedDiagnostic } from './diagnostics-queue.js';
 import type { DiagnosticEvent } from './event-contract.js';
+import { writeDiagnosticsExport } from './diagnostics-export.js';
 
 export type DiagnosticOccurrence = Pick<DiagnosticEvent, 'kind'> & Partial<Pick<DiagnosticEvent, 'reason' | 'exitCode'>>;
 
@@ -69,11 +70,21 @@ export class DiagnosticsService {
     }
   }
 
-  remove(eventId: string): void {
+  remove(eventId: string): boolean {
+    const exists = this.list().some((entry) => entry.event.eventId === eventId);
     this.options.queue.remove(eventId);
+    return exists;
   }
 
-  purge(): void {
+  purge(): number {
+    const count = this.list().length;
     this.options.queue.purge();
+    return count;
+  }
+
+  export(destination: string): number {
+    const reports = this.list();
+    writeDiagnosticsExport(destination, reports);
+    return reports.length;
   }
 }

@@ -10,6 +10,8 @@ import { DiagnosticsQueue } from './diagnostics-queue.js';
 import { DiagnosticsService } from './diagnostics-service.js';
 import { electronDiagnosticsCaptureSource } from './electron-capture-source.js';
 
+let diagnosticsService: DiagnosticsService | undefined;
+
 function createDiagnosticsRuntime(): { readonly service: DiagnosticsService; readonly close: () => void } {
   const settings = getSettingsStore();
   const service = new DiagnosticsService({
@@ -41,6 +43,12 @@ function createDiagnosticsRuntime(): { readonly service: DiagnosticsService; rea
 export function registerDiagnosticsLifecycle(): void {
   void app.whenReady().then(() => {
     const runtime = createDiagnosticsRuntime();
+    diagnosticsService = runtime.service;
     app.once('will-quit', runtime.close);
   });
+}
+
+export function getDiagnosticsService(): DiagnosticsService {
+  if (diagnosticsService === undefined) throw new Error('diagnostics runtime is not ready');
+  return diagnosticsService;
 }

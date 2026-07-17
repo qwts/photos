@@ -63,6 +63,15 @@ const touchIdStatusSchema = z.object({
   enabled: z.boolean(),
 });
 
+const diagnosticKindSchema = z.enum(['main-process-runtime-error', 'renderer-process-gone', 'child-process-gone', 'renderer-unresponsive']);
+const queuedDiagnosticSchema = z.object({
+  eventId: z.string().uuid(),
+  capturedAt: z.string().datetime({ offset: true }),
+  kind: diagnosticKindSchema,
+  payload: z.string().max(4096),
+  encryptedBytes: z.number().int().nonnegative(),
+});
+
 const importSourceSchema = z.object({
   path: z.string(),
   label: z.string(),
@@ -620,6 +629,14 @@ export const channels = {
   // at this boundary.
   settingsGet: defineChannel('settings:get', z.object({}), z.object({ settings: settingsSchema })),
   settingsSet: defineChannel('settings:set', z.object({ patch: settingsPatchSchema }), z.object({ settings: settingsSchema })),
+  diagnosticsList: defineChannel('diagnostics:list', z.object({}), z.object({ reports: z.array(queuedDiagnosticSchema) })),
+  diagnosticsDelete: defineChannel('diagnostics:delete', z.object({ eventId: z.string().uuid() }), z.object({ deleted: z.boolean() })),
+  diagnosticsPurge: defineChannel('diagnostics:purge', z.object({}), z.object({ deleted: z.number().int().nonnegative() })),
+  diagnosticsExport: defineChannel(
+    'diagnostics:export',
+    z.object({}),
+    z.object({ exported: z.boolean(), count: z.number().int().nonnegative() }),
+  ),
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),

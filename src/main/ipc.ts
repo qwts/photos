@@ -16,6 +16,7 @@ import type { ProtectedWorkflowService } from './library/protected-workflow-serv
 import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from './backup/offload.js';
 import type { AppLockState, AppTouchIdUnlockResult, AppUnlockResult, LockStateSnapshot } from './crypto/app-lock-controller.js';
 import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
+import type { DiagnosticEvent } from './diagnostics/event-contract.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -298,6 +299,17 @@ export interface SettingsFacade {
   set(patch: SettingsPatch): AppSettings;
 }
 
+export interface DiagnosticsFacade {
+  list(): readonly {
+    readonly event: Pick<DiagnosticEvent, 'eventId' | 'capturedAt' | 'kind'>;
+    readonly payload: string;
+    readonly encryptedBytes: number;
+  }[];
+  remove(eventId: string): boolean;
+  purge(): number;
+  export(destination: string): number;
+}
+
 export interface LibraryRegistryFacade {
   list(): LibraryDescriptor[];
   create(name: string, path: string | null): LibraryDescriptor;
@@ -333,6 +345,35 @@ export function registerSettingsHandlers(getFacade: () => SettingsFacade): void 
   );
   ipcMain.handle(channels.settingsSet.name, (_event, request: unknown) =>
     wrapHandler(channels.settingsSet, ({ patch }) => ({ settings: getFacade().set(patch) }))(request),
+  );
+}
+
+export function registerDiagnosticsHandlers(getFacade: () => DiagnosticsFacade, pickExportDestination: () => Promise<string | null>): void {
+  ipcMain.handle(channels.diagnosticsList.name, (_event, request: unknown) =>
+    validateHandler(channels.diagnosticsList, () => ({
+      reports: getFacade()
+        .list()
+        .map(({ event, payload, encryptedBytes }) => ({
+          eventId: event.eventId,
+          capturedAt: event.capturedAt,
+          kind: event.kind,
+          payload,
+          encryptedBytes,
+        })),
+    }))(request),
+  );
+  ipcMain.handle(channels.diagnosticsDelete.name, (_event, request: unknown) =>
+    validateHandler(channels.diagnosticsDelete, ({ eventId }) => ({ deleted: getFacade().remove(eventId) }))(request),
+  );
+  ipcMain.handle(channels.diagnosticsPurge.name, (_event, request: unknown) =>
+    validateHandler(channels.diagnosticsPurge, () => ({ deleted: getFacade().purge() }))(request),
+  );
+  ipcMain.handle(channels.diagnosticsExport.name, (_event, request: unknown) =>
+    validateHandler(channels.diagnosticsExport, async () => {
+      const destination = await pickExportDestination();
+      if (destination === null) return { exported: false, count: 0 };
+      return { exported: true, count: getFacade().export(destination) };
+    })(request),
   );
 }
 
