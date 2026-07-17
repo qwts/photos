@@ -1,5 +1,11 @@
 # photos
 
+## 0.25.3
+
+### Patch Changes
+
+- 5d9cfdf: Render and repair encrypted previews for every accepted RAW photo format.
+
 ## 0.25.2
 
 ### Patch Changes
