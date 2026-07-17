@@ -2,6 +2,7 @@ import { app, BrowserWindow, powerMonitor } from 'electron';
 
 import type { AppSettings } from '../../shared/settings/settings.js';
 import type { AppLockController } from './app-lock-controller.js';
+import { registerHiddenWindowLock } from './hidden-window-lock.js';
 import { idleLimitSeconds } from './app-lock-policy.js';
 import { registerLastWindowLock } from './last-window-lock.js';
 
@@ -21,12 +22,59 @@ export function registerAppLockLifecycle(options: AppLockLifecycleOptions): () =
   powerMonitor.on('suspend', onSessionLock);
   powerMonitor.on('user-did-resign-active', onSessionLock);
 
-  const onHidden = (): void => {
-    if (options.settings().lockWhenHidden) lock();
-  };
+  const windowCleanups = new Map<BrowserWindow, () => void>();
   const watchWindow = (win: BrowserWindow): void => {
-    win.on('hide', onHidden);
-    win.on('minimize', onHidden);
+    if (windowCleanups.has(win)) return;
+    const stopHiddenLock = registerHiddenWindowLock({
+      source: {
+        subscribe: (event, listener) => {
+          switch (event) {
+            case 'enter-full-screen':
+              win.on('enter-full-screen', listener);
+              break;
+            case 'leave-full-screen':
+              win.on('leave-full-screen', listener);
+              break;
+            case 'hide':
+              win.on('hide', listener);
+              break;
+            case 'minimize':
+              win.on('minimize', listener);
+              break;
+          }
+        },
+        unsubscribe: (event, listener) => {
+          switch (event) {
+            case 'enter-full-screen':
+              win.off('enter-full-screen', listener);
+              break;
+            case 'leave-full-screen':
+              win.off('leave-full-screen', listener);
+              break;
+            case 'hide':
+              win.off('hide', listener);
+              break;
+            case 'minimize':
+              win.off('minimize', listener);
+              break;
+          }
+        },
+        isVisible: () => win.isVisible(),
+        isMinimized: () => win.isMinimized(),
+      },
+      platform: process.platform,
+      enabled: () => options.settings().lockWhenHidden,
+      lock,
+    });
+    const onClosed = (): void => {
+      stopHiddenLock();
+      windowCleanups.delete(win);
+    };
+    win.once('closed', onClosed);
+    windowCleanups.set(win, () => {
+      win.off('closed', onClosed);
+      stopHiddenLock();
+    });
   };
   for (const win of BrowserWindow.getAllWindows()) watchWindow(win);
   const onWindow = (_event: Electron.Event, win: BrowserWindow): void => watchWindow(win);
@@ -57,9 +105,7 @@ export function registerAppLockLifecycle(options: AppLockLifecycleOptions): () =
     app.off('browser-window-created', onWindow);
     app.off('before-quit', beforeQuit);
     offLastWindowLock();
-    for (const win of BrowserWindow.getAllWindows()) {
-      win.off('hide', onHidden);
-      win.off('minimize', onHidden);
-    }
+    for (const cleanup of windowCleanups.values()) cleanup();
+    windowCleanups.clear();
   };
 }
