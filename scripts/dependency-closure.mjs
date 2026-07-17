@@ -55,12 +55,25 @@ function readLicenseText(dir) {
   } catch {
     return null;
   }
-  const file = entries.find((entry) => entry.isFile() && LICENSE_FILE_PATTERN.test(entry.name));
-  if (!file) {
+  // readdirSync returns entries in filesystem order, which differs across OSes.
+  // A package can ship several matching files (LICENSE + LICENSE-MIT, COPYING),
+  // so pick deterministically by sorting rather than taking whatever comes
+  // first — otherwise the generated notices differ between macOS and Linux CI.
+  // Codepoint sort on the lowercased name — NOT localeCompare, whose ordering
+  // depends on the runner's locale and would reintroduce cross-platform drift.
+  const match = entries
+    .filter((entry) => entry.isFile() && LICENSE_FILE_PATTERN.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((a, b) => {
+      const [la, lb] = [a.toLowerCase(), b.toLowerCase()];
+      return la < lb ? -1 : la > lb ? 1 : 0;
+    })[0];
+  if (!match) {
     return null;
   }
   try {
-    return readFileSync(path.join(dir, file.name), 'utf8').trim();
+    // Normalize line endings so a CRLF-shipped file hashes identically everywhere.
+    return readFileSync(path.join(dir, match), 'utf8').replaceAll('\r\n', '\n').trim();
   } catch {
     return null;
   }
@@ -123,5 +136,8 @@ export function resolveShippedClosure() {
     deduped.set(`${record.name}@${record.version}`, record);
   }
 
-  return [...deduped.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+  // Codepoint sort (NOT localeCompare) so the package order in the generated
+  // notices is identical on every runner regardless of its locale.
+  const byCodepoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...deduped.values()].sort((a, b) => byCodepoint(a.name, b.name) || byCodepoint(a.version, b.version));
 }
