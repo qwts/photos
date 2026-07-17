@@ -258,6 +258,16 @@
       ]
     },
     {
+      "id": "m06-jfif-lightbox-traversal",
+      "wiki": "User-Story-M06-Lightbox-Inspector",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/jfif-lightbox.spec.ts"
+        }
+      ]
+    },
+    {
       "id": "m05-raw-preview-repair",
       "wiki": "User-Story-M05-Import-pipeline",
       "coverage": [
