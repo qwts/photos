@@ -6,11 +6,11 @@ import { Button } from '../components/Button';
 import { Field } from './Field';
 
 export interface OffloadedStorageProps {
-  readonly connected: boolean;
+  readonly connection: 'loading' | 'connected' | 'disconnected' | 'error';
   readonly selectedPhotoIds: readonly string[];
 }
 
-export function OffloadedStorage({ connected, selectedPhotoIds }: OffloadedStorageProps): ReactElement {
+export function OffloadedStorage({ connection, selectedPhotoIds }: OffloadedStorageProps): ReactElement {
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [restoring, setRestoring] = useState<'selected' | 'all' | null>(null);
   const [result, setResult] = useState<{ readonly message: string; readonly failed: boolean } | null>(null);
@@ -44,6 +44,7 @@ export function OffloadedStorage({ connected, selectedPhotoIds }: OffloadedStora
 
   const offloadedBytes = stats?.offloadedBytes ?? 0;
   const busy = restoring !== null;
+  const connected = connection === 'connected';
   return (
     <Field
       label="Offloaded originals"
@@ -58,7 +59,11 @@ export function OffloadedStorage({ connected, selectedPhotoIds }: OffloadedStora
             {restoring === 'all' ? 'Restoring…' : 'Restore all'}
           </Button>
         </div>
-        {!connected && offloadedBytes > 0 ? (
+        {offloadedBytes > 0 && connection === 'loading' ? (
+          <div className="ovl-settings__restoreState">Checking backup provider before restoring…</div>
+        ) : offloadedBytes > 0 && connection === 'error' ? (
+          <div className="ovl-settings__restoreState">Provider status is unavailable. Try again above.</div>
+        ) : offloadedBytes > 0 && connection === 'disconnected' ? (
           <div className="ovl-settings__restoreState">Connect the backup provider to restore.</div>
         ) : null}
         {result === null ? null : (

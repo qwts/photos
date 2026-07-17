@@ -291,6 +291,10 @@ export const StorageOpensByDefault: Story = {
     await expect(body.getByRole('button', { name: 'Checking…' })).toBeDisabled();
     await expect(body.queryByText('Not connected')).not.toBeInTheDocument();
     await expect(body.queryByText('Link a provider to store encrypted originals off-device.')).not.toBeInTheDocument();
+    await waitFor(() => expect(body.getByText('Checking backup provider before restoring…')).toBeVisible());
+    await expect(body.queryByText('Connect the backup provider to restore.')).not.toBeInTheDocument();
+    await expect(body.getByRole('button', { name: 'Restore selected (2)' })).toBeDisabled();
+    await expect(body.getByRole('button', { name: 'Restore all' })).toBeDisabled();
     const storyWindow = canvasElement.ownerDocument.defaultView as StoryWindow | null;
     if (storyWindow?.releaseInitialProviderStatus === undefined) throw new Error('expected deferred provider status');
     storyWindow.releaseInitialProviderStatus();
@@ -299,6 +303,9 @@ export const StorageOpensByDefault: Story = {
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
     await expect(body.getByText('Back up new imports automatically')).toBeVisible();
     await expect(body.getByText('12.6 GB stored only in your verified cloud backup. Thumbnails remain on this Mac.')).toBeVisible();
+    await expect(body.queryByText('Checking backup provider before restoring…')).not.toBeInTheDocument();
+    await expect(body.getByRole('button', { name: 'Restore selected (2)' })).toBeEnabled();
+    await expect(body.getByRole('button', { name: 'Restore all' })).toBeEnabled();
     await userEvent.click(body.getByRole('button', { name: 'Restore selected (2)' }));
     await waitFor(() => expect(body.getByText('2 restored')).toBeVisible());
   },
