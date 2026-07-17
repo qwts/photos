@@ -221,7 +221,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         </Button>
       </Field>
 
-      <OffloadedStorage connected={connected} selectedPhotoIds={selectedPhotoIds} />
+      <OffloadedStorage connection={connection} selectedPhotoIds={selectedPhotoIds} />
 
       <Field label="Re-offload after viewing" hint="Keep cloud-only originals temporary unless you choose Keep downloaded.">
         <Switch
