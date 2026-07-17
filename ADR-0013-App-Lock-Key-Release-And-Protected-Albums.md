@@ -179,7 +179,7 @@ The design does not protect against a compromised OS/kernel, keylogger, debugger
 | Password, key, biometric, metadata, and route-state log/telemetry sweep                     | #311, #310, #327 | Security review with explicit sink inventory                            |
 | Keyboard, focus, screen reader, reduced motion, minimum window, honest error copy           | Each child       | Storybook interaction states, Electron E2E, manual acceptance           |
 
-The repo acceptance ledger tracks `m20-app-lock-lifecycle`, `m20-touch-id-unlock`, and `m20-protected-albums`. #311 has replaced its deferred entry with real evidence; #310 still requires signed owner evidence. The protected-album ledger remains deferred until the complete #325–#329 chain is integrated, although #325 now supplies foundation evidence below.
+The repo acceptance ledger tracks `m20-app-lock-lifecycle`, `m20-touch-id-unlock`, and `m20-protected-albums`. #311 has replaced its deferred entry with real evidence; #310 still requires signed owner evidence. PR #356 replaces the protected-album deferred entry with the complete #325–#329 unit, Storybook, and Electron evidence catalogued in [Protected Albums acceptance](Acceptance-Test-Protected-Albums).
 
 ### #311 implementation evidence
 
@@ -311,5 +311,39 @@ Evidence is in `tests/backup/protected-backup-service.test.ts`,
 `tests/blobs/protected-blob-store.test.ts`, and the schema migration tests. It
 covers namespace inspection, upload verification, corruption repair,
 authorized offload and rehydrate, relock rejection, schema compatibility, and
-closed fresh-machine recovery. #329 user workflows remain required before
-`m20-protected-albums` can leave deferred status.
+closed fresh-machine recovery. PR #356 supplies #329's final workflow and
+acceptance layer below.
+
+## #329 implementation evidence (2026-07-16)
+
+[PR #356](https://github.com/qwts/photos/pull/356) completes the user-facing
+protected-domain workflow. Settings → Privacy exposes protect, password
+change, verified removal, exported-key recovery, relock, progress, safe
+cancellation, conflict, interruption, failure, and completion states. Locked
+sidebar rows expose only the generic label and no name, member count, dates,
+sizes, or status. Successful unlock creates one session-only protected route;
+ordinary photo, selection, inspector, lightbox, and query state are cleared
+before entry.
+
+Protected photo records omit ordinary content hashes, key ids, and sync state.
+The route uses only album-scoped protocol URLs. Manual relock, ordinary-route
+navigation, password change, app lock, lock-screen, suspend, user resignation,
+shutdown, and restart revoke authority, invalidate pending page requests, clear
+rendered photos, and reject stale media URLs. Protection and removal commits
+also emit an ordinary-library invalidation so pre-migration renderer records
+cannot remain visible after custody changes.
+
+`tests/e2e/protected-albums.spec.ts` runs the complete real Electron journey:
+export recovery key, protect two real encrypted seed photos, verify exact
+ordinary count and album removal, restart into an opaque row, keyboard unlock,
+focus-trapped protected lightbox, navigation/manual relock, stale URL
+rejection, password rotation, recovery-file reset, app lifecycle revocation,
+and exact verified restoration. It also asserts reduced-motion media state and
+a 600px layout without horizontal overflow. Protected ceremony/view Storybook
+interactions cover real photo fixtures, strength/confirmation, progress,
+cancellation boundary, conflict, migration failure, recovery mismatch,
+interrupted completion, manual relock, and focus restoration. The workflow,
+library, authority, migration, protocol, backup, restore, and blob suites retain
+the corruption, crash-boundary, last-copy, and provider isolation matrix.
+
+The executable evidence map is [Protected Albums acceptance](Acceptance-Test-Protected-Albums).

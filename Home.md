@@ -17,6 +17,7 @@ instructions or entrypoints (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, root
 - [Deterministic Reviewed Sync acceptance](Acceptance-Test-Deterministic-Reviewed-Sync) — replay, conflict, tombstone, and restart evidence
 - [Security Review M11](Security-Review-M11) — crypto/IPC/plaintext audit (#129) + accepted deviations
 - [M20 Privacy Lock, Touch ID & Protected Albums](User-Story-M20-Privacy-lock-protected-albums) — app-lock, biometric, recovery, and protected-domain contract
+- [Protected Albums acceptance](Acceptance-Test-Protected-Albums) — #325–#329 custody, migration, leakage, lifecycle, and UI evidence
 - [User Stories](User-Stories) — milestone / user-story planning home
 - [Cloud Provider Contract Matrix](Provider-Contract-Matrix) — adapter backup/restore readiness and live evidence
 - [Manual Test — M18 Cloud Disaster Recovery](Manual-Test-M18-Cloud-Disaster-Recovery) — isolated owner-run pCloud procedure
