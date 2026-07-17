@@ -31,13 +31,21 @@ describe('settings store (#111)', () => {
 
   test('EXIT CRITERIA: settings persist across a restart (new store, same file)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
-    storeIn(dir).set({ sortOrder: 'name', bandwidthLimit: 40, providerId: null, reOffloadAfterViewing: false });
+    storeIn(dir).set({
+      sortOrder: 'name',
+      bandwidthLimit: 40,
+      providerId: null,
+      reOffloadAfterViewing: false,
+      shareDiagnostics: true,
+    });
 
     const reborn = storeIn(dir);
     assert.equal(reborn.get().sortOrder, 'name');
     assert.equal(reborn.get().bandwidthLimit, 40);
     assert.equal(reborn.get().providerId, null, 'disconnected survives — null is a value, not "unset"');
     assert.equal(reborn.get().reOffloadAfterViewing, false);
+    assert.equal(reborn.get().shareDiagnostics, true);
+    assert.equal(reborn.get().diagnosticsConsentVersion, 1);
     assert.equal(reborn.get().wifiOnly, true, 'untouched keys keep their defaults');
   });
 
@@ -103,12 +111,27 @@ describe('settings store (#111)', () => {
     assert.deepEqual(await handler({ patch: { bandwidthLimit: 101 } }), invalid, 'above unlimited');
     assert.deepEqual(await handler({ patch: { sortOrder: 'random' } }), invalid, 'unknown enum value');
     assert.deepEqual(await handler({ patch: { providerId: '../cloud' } }), invalid, 'unsafe provider registry key');
+    assert.deepEqual(await handler({ patch: { diagnosticsConsentVersion: 1 } }), invalid, 'renderer cannot forge consent policy');
 
     const ok = await handler({ patch: { bandwidthLimit: 10, wifiOnly: false, providerId: 'future-cloud' } });
     assert.ok('settings' in ok);
     assert.equal(ok.settings.bandwidthLimit, 10);
     assert.equal(store.get().wifiOnly, false);
     assert.equal(store.get().providerId, 'future-cloud', 'new adapters need no settings enum edit');
+  });
+
+  test('legacy local-only preference never upgrades silently into current diagnostics consent', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'overlook-settings-'));
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ ...defaultSettings, shareDiagnostics: true }), 'utf8');
+
+    const store = storeIn(dir);
+    assert.equal(store.get().shareDiagnostics, false);
+    assert.equal(store.get().diagnosticsConsentVersion, 0);
+    store.set({ shareDiagnostics: true });
+    assert.equal(store.get().shareDiagnostics, true);
+    assert.equal(store.get().diagnosticsConsentVersion, 1);
+    store.set({ shareDiagnostics: false });
+    assert.equal(store.get().diagnosticsConsentVersion, 0);
   });
 
   test('throttle mapping: 100 = unlimited (null), anything lower passes through', () => {
