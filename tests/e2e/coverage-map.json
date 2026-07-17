@@ -998,6 +998,14 @@
           "path": "tests/e2e/library-switch.spec.ts"
         },
         {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/library-switcher-ui.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/LibrarySwitcher.stories.tsx"
+        },
+        {
           "type": "unit-dom",
           "paths": [
             "tests/settings/library-registry.test.ts",
@@ -1008,8 +1016,8 @@
         },
         {
           "type": "deferred",
-          "issue": 386,
-          "reason": "switcher UI flows (picker, create dialog, moved-vs-copy) land with #386; the lifecycle itself is covered by the switch E2E above"
+          "issue": 387,
+          "reason": "per-library scoping of settings/caches (#387); the registry, lifecycle, and switcher UI are covered by the lanes above"
         }
       ]
     },
