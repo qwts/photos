@@ -48,6 +48,7 @@ import { registerIpcHandlers } from './ipc.js';
 import { getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
+import { LibraryRegistryRuntime } from './library/library-registry-runtime.js';
 import { ProtectedRuntime } from './library/protected-runtime.js';
 import { registerAppServices } from './register-app-services.js';
 import { seedLibrary, seedSynthetic } from './library/seed.js';
@@ -72,6 +73,14 @@ registerSchemePrivileges();
 // Lazy library bootstrap: nothing touches the keychain or the database until
 // the renderer's first library.* call (the E2E smoke never does).
 let libraryService: LibraryService | undefined;
+
+// Active-library resolution (ADR-0017 §1/§7, #384): the registry replaces the
+// hardcoded userData/library; see library/library-registry-runtime.ts.
+const registryRuntime = new LibraryRegistryRuntime({ userDataDir: () => app.getPath('userData') });
+
+function libraryDataDir(): string {
+  return registryRuntime.dataDir();
+}
 
 function broadcast(send: (win: BrowserWindow) => void): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -105,7 +114,7 @@ let libraryParts: LibraryParts | undefined, releasedMaster: Buffer | undefined;
 
 function getLibraryService(): LibraryService {
   if (libraryService === undefined) {
-    const dataDir = path.join(app.getPath('userData'), 'library');
+    const dataDir = registryRuntime.healActiveId().path;
     const keyStore =
       releasedMaster === undefined
         ? KeyStore.open({ safeStorage: pickSafeStorage(), dataDir })
@@ -118,6 +127,7 @@ function getLibraryService(): LibraryService {
       throw new Error('library key #1 is missing; cannot key the database');
     }
     const db = openLibraryDatabase({ path: path.join(dataDir, 'library.db'), dbKey });
+    registryRuntime.markOpened();
     const store = new BlobStore({ dataDir });
     const blobStoreReady = store.init();
     // photos.key_id references keys(id): the current key's row must exist
@@ -212,7 +222,7 @@ function getImportService(): ImportService {
       broadcast((win) => win.webContents.send(name, payload));
     });
     importRuntime = createImportRuntime({
-      dataDir: path.join(app.getPath('userData'), 'library'),
+      dataDir: libraryDataDir(),
       workerUrl: new URL('./thumbnail-worker.js', import.meta.url),
       repo,
       blobs: parts.blobStore,
@@ -355,7 +365,7 @@ function providerIdle(): Promise<void> {
 
 function getProviderRuntime(): ProviderRuntime {
   providerRuntime ??= new ProviderRuntime({
-    dataDir: () => path.join(app.getPath('userData'), 'library'),
+    dataDir: () => libraryDataDir(),
     providerCredentialDir: (providerId) => path.join(app.getPath('userData'), 'provider-auth', providerId),
     safeStorage: pickSafeStorage,
     openExternal: async (url) => shell.openExternal(url),
@@ -447,7 +457,7 @@ function getBackupEngine(): BackupEngine {
     const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    const auditPath = path.join(app.getPath('userData'), 'library', 'backup-audit.log');
+    const auditPath = path.join(libraryDataDir(), 'backup-audit.log');
     const audit = createBackupAuditLogger(auditPath);
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
@@ -726,7 +736,7 @@ let appLockController: ReturnType<typeof createAppLockRuntime> | undefined;
 
 function getAppLockController(): ReturnType<typeof createAppLockRuntime> {
   if (appLockController === undefined) {
-    const dataDir = path.join(app.getPath('userData'), 'library');
+    const dataDir = libraryDataDir();
     appLockController = createAppLockRuntime({
       dataDir,
       safeStorage: pickSafeStorage(),
@@ -759,7 +769,7 @@ function getRestoreRuntime(): RestoreRuntime {
       broadcast((win) => win.webContents.send(name, payload));
     });
     restoreRuntime = new RestoreRuntime({
-      targetDir: path.join(app.getPath('userData'), 'library'),
+      targetDir: libraryDataDir(),
       workerUrl: new URL('./thumbnail-worker.js', import.meta.url),
       safeStorage: pickSafeStorage,
       sources: (providerId) => ensureRestoreProviderRegistry().restoreSources(providerId),
@@ -783,8 +793,14 @@ function getRestoreRuntime(): RestoreRuntime {
 
 void externalOpen.whenReady().then(async () => {
   if (exitForReleaseSmokeIfRequested(app)) return;
+  const registryFailure = registryRuntime.resolveFailure();
+  if (registryFailure !== null) {
+    dialog.showErrorBox('Library registry is damaged', registryFailure);
+    app.exit(1);
+    return;
+  }
   // Recover the activation rename crash window before IPC can classify/open the library.
-  await recoverInterruptedActivation(restorePaths(path.join(app.getPath('userData'), 'library')));
+  await recoverInterruptedActivation(restorePaths(libraryDataDir()));
   const lock = getAppLockController();
   await lock.initialize();
   externalOpen.followAuthorization(lock);
@@ -797,13 +813,13 @@ void externalOpen.whenReady().then(async () => {
       return libraryParts.keyStore.masterKeyBytes();
     },
     libraryId: () => getProviderRuntime().libraryId(),
-    dataDir: path.join(app.getPath('userData'), 'library'),
+    dataDir: libraryDataDir(),
     pickRecovery: () => pickRecoveryKeyPath(harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
     send: (name, payload) => broadcast((win) => win.webContents.send(name, payload)),
     settings: () => getSettingsStore().get(),
   });
   registerAppServices({
-    dataDir: path.join(app.getPath('userData'), 'library'),
+    dataDir: libraryDataDir(),
     harnessEnv,
     requireContentAccess: () => lock.requireContentAccess(),
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',

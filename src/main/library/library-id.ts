@@ -1,0 +1,30 @@
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { ulid } from '../import/ulid.js';
+
+// The library's stable identity (ADR-0007 remote home, ADR-0017 §2 local
+// identity): a ULID persisted as <dataDir>/library-id. The file is
+// authoritative — it travels with the directory; the registry only caches it.
+// Minted eagerly at registration/creation since #384 (previously lazily by
+// the provider runtime on first backup need).
+
+export function readOrMintLibraryId(dataDir: string): string {
+  const idPath = join(dataDir, 'library-id');
+  if (existsSync(idPath)) {
+    const stored = readFileSync(idPath, 'utf8').trim();
+    // Only a well-formed ULID names an identity (PR #260 review): a
+    // truncated/corrupted record would poison every future remote path
+    // (even ''), so it is replaced — it never named a valid home.
+    if (/^[0-9A-HJKMNP-TV-Z]{26}$/u.test(stored)) {
+      return stored;
+    }
+  }
+  const id = ulid();
+  mkdirSync(dataDir, { recursive: true });
+  // Atomic like every other library record — a crash mid-write must not
+  // leave a half-written id behind.
+  writeFileSync(`${idPath}.tmp`, id);
+  renameSync(`${idPath}.tmp`, idPath);
+  return id;
+}

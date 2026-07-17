@@ -69,6 +69,22 @@ export class LibraryRegistry {
     return true;
   }
 
+  /** ADR-0017 §2: the directory's library-id file is authoritative — when a
+   * registered directory turns out to carry a different id, the registry's
+   * cached id heals to match. */
+  updateId(id: string, newId: string): LibraryEntry {
+    const entry = this.get(id);
+    if (entry === undefined) throw new LibraryRegistryError(`library ${id} is not registered`);
+    if (newId === id) return entry;
+    if (this.get(newId) !== undefined) {
+      throw new LibraryRegistryError(`library ${newId} is already registered`);
+    }
+    const updated = { ...entry, id: newId };
+    this.file = { ...this.file, entries: this.file.entries.map((e) => (e.id === id ? updated : e)) };
+    this.persist();
+    return updated;
+  }
+
   rename(id: string, name: string): LibraryEntry {
     const entry = this.get(id);
     if (entry === undefined) throw new LibraryRegistryError(`library ${id} is not registered`);
