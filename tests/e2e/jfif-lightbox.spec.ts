@@ -80,10 +80,12 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
     expect(jfifRows).toHaveLength(JFIF_COUNT);
     expect(jfifRows.every(({ width, height }) => width === 960 && height === 1280)).toBe(true);
 
+    const renderedJfifImages = page.locator('.ovl-grid__cell .ovl-tile__img[alt^="jfif-"]');
+    await expect.poll(() => renderedJfifImages.count()).toBeGreaterThanOrEqual(2);
     const visibleJfifNames: string[] = [];
-    for (const visibleImage of await page.locator('.ovl-grid__cell .ovl-tile__img').all()) {
+    for (const visibleImage of await renderedJfifImages.all()) {
       const name = await visibleImage.getAttribute('alt');
-      if (name?.startsWith('jfif-') === true) visibleJfifNames.push(name);
+      if (name !== null) visibleJfifNames.push(name);
     }
     const [selectedName, openedName] = visibleJfifNames;
     if (selectedName === undefined || openedName === undefined) throw new Error('two rendered JFIF cells are required');
