@@ -17,6 +17,7 @@ function launch(userData: string, keyFile: string, seed = false): Promise<Electr
       ...process.env,
       OVERLOOK_USER_DATA: userData,
       OVERLOOK_INSECURE_KEYSTORE: '1',
+      OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
       OVERLOOK_KEY_EXPORT_DESTINATION: keyFile,
       OVERLOOK_KEY_IMPORT_SOURCE: keyFile,
       ...(seed ? { OVERLOOK_SEED: '4' } : {}),
