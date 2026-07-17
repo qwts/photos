@@ -158,21 +158,27 @@ describe('wrapHandler', () => {
     assert.deepEqual(await handler({ message: 'hi' }), { echoed: 'hi' });
   });
 
-  test('rejects a malformed request without running the handler', async () => {
+  test('returns an opaque code for a malformed request without running the handler', async () => {
     let handlerRan = false;
     const handler = wrapHandler(channels.ping, ({ message }) => {
       handlerRan = true;
       return { echoed: message };
     });
 
-    await assert.rejects(handler({ nope: true }));
+    assert.deepEqual(await handler({ nope: true }), {
+      __overlookIpcFailure: true,
+      error: { code: 'IPC_INVALID_REQUEST' },
+    });
     assert.equal(handlerRan, false);
   });
 
-  test('rejects a handler response that violates the schema', async () => {
+  test('returns an opaque code for a handler response that violates the schema', async () => {
     // type-coverage:ignore-next-line
     const handler = wrapHandler(channels.ping, () => ({ echoed: 7 }) as unknown as { echoed: string });
-    await assert.rejects(handler({ message: 'hi' }));
+    assert.deepEqual(await handler({ message: 'hi' }), {
+      __overlookIpcFailure: true,
+      error: { code: 'IPC_INVALID_RESPONSE' },
+    });
   });
 
   test('reports handler detail main-side but returns only an opaque failure code', async () => {
@@ -192,6 +198,25 @@ describe('wrapHandler', () => {
     assert.deepEqual(response, { __overlookIpcFailure: true, error: { code: 'IPC_HANDLER_FAILED' } });
     assert.deepEqual(reports, [{ channelName: 'demo:ping', code: 'IPC_HANDLER_FAILED', error: thrown }]);
     assert.doesNotMatch(JSON.stringify(response), /SECRET|private-library/u);
+  });
+
+  test('a broken main-side reporter cannot replace the opaque failure', async () => {
+    const handler = wrapHandler(
+      channels.ping,
+      () => {
+        throw new Error('SECRET handler failure');
+      },
+      {
+        reportError: () => {
+          throw new Error('SECRET logger failure');
+        },
+      },
+    );
+
+    assert.deepEqual(await handler({ message: 'hi' }), {
+      __overlookIpcFailure: true,
+      error: { code: 'IPC_HANDLER_FAILED' },
+    });
   });
 });
 

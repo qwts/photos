@@ -97,13 +97,15 @@ describe('settings store (#111)', () => {
     const store = storeIn(mkdtempSync(join(tmpdir(), 'overlook-settings-')));
     const handler = wrapHandler(channels.settingsSet, ({ patch }) => ({ settings: store.set(patch) }));
 
-    await assert.rejects(handler({ patch: { thumbnailsOnImport: false } }), 'locked true by design');
-    await assert.rejects(handler({ patch: { bandwidthLimit: 5 } }), 'below the slider floor');
-    await assert.rejects(handler({ patch: { bandwidthLimit: 101 } }), 'above unlimited');
-    await assert.rejects(handler({ patch: { sortOrder: 'random' } }), 'unknown enum value');
-    await assert.rejects(handler({ patch: { providerId: '../cloud' } }), 'unsafe provider registry key');
+    const invalid = { __overlookIpcFailure: true, error: { code: 'IPC_INVALID_REQUEST' } } as const;
+    assert.deepEqual(await handler({ patch: { thumbnailsOnImport: false } }), invalid, 'locked true by design');
+    assert.deepEqual(await handler({ patch: { bandwidthLimit: 5 } }), invalid, 'below the slider floor');
+    assert.deepEqual(await handler({ patch: { bandwidthLimit: 101 } }), invalid, 'above unlimited');
+    assert.deepEqual(await handler({ patch: { sortOrder: 'random' } }), invalid, 'unknown enum value');
+    assert.deepEqual(await handler({ patch: { providerId: '../cloud' } }), invalid, 'unsafe provider registry key');
 
     const ok = await handler({ patch: { bandwidthLimit: 10, wifiOnly: false, providerId: 'future-cloud' } });
+    assert.ok('settings' in ok);
     assert.equal(ok.settings.bandwidthLimit, 10);
     assert.equal(store.get().wifiOnly, false);
     assert.equal(store.get().providerId, 'future-cloud', 'new adapters need no settings enum edit');
