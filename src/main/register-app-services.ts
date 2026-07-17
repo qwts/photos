@@ -18,6 +18,7 @@ import type { DrainableExportFacade } from './export/export-runtime.js';
 import {
   registerAlbumHandlers,
   registerBackupHandlers,
+  registerDiagnosticsHandlers,
   registerExportHandlers,
   registerImportHandlers,
   registerKeysHandlers,
@@ -37,6 +38,7 @@ import type { RestoreRuntime } from './backup/restore-runtime.js';
 import { getSettingsStore } from './settings/settings-runtime.js';
 import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
 import type { ThumbService } from './thumbs/thumb-service.js';
+import { getDiagnosticsService } from './diagnostics/diagnostics-runtime.js';
 
 export interface AppServicesOptions {
   readonly dataDir: string;
@@ -76,6 +78,13 @@ async function pickKeyExport(options: AppServicesOptions): Promise<string | null
   return result.canceled ? null : (result.filePath ?? null);
 }
 
+async function pickDiagnosticsExport(options: AppServicesOptions): Promise<string | null> {
+  const fixture = options.harnessEnv('OVERLOOK_DIAGNOSTICS_EXPORT_DESTINATION');
+  if (fixture !== undefined && fixture !== '') return fixture;
+  const result = await dialog.showSaveDialog({ defaultPath: 'overlook-diagnostics.jsonl' });
+  return result.canceled ? null : (result.filePath ?? null);
+}
+
 export function registerAppServices(options: AppServicesOptions): void {
   registerLibraryHandlers(options.getLibrary, options.onDeleted);
   registerAlbumHandlers(options.getLibrary, ulid);
@@ -111,6 +120,7 @@ export function registerAppServices(options: AppServicesOptions): void {
   registerPurgeHandlers(() => ({ purge: (photoIds) => options.getPurge().purge(photoIds) }));
   registerLibraryRegistryHandlers(() => options.libraries);
   registerSettingsHandlers(() => getSettingsStore());
+  registerDiagnosticsHandlers(getDiagnosticsService, () => pickDiagnosticsExport(options));
   const emitSettingsChanged = createEmitter(events.settingsChanged, options.broadcast);
   getSettingsStore().subscribe((settings) => emitSettingsChanged({ settings }));
   registerBackupHandlers(() => createBackupFacade(options.backup));

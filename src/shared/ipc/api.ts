@@ -135,6 +135,12 @@ export interface OverlookApi {
     readonly set: (request: Req<typeof channels.settingsSet>) => Promise<Res<typeof channels.settingsSet>>;
     readonly onChanged: (listener: (payload: z.output<typeof events.settingsChanged.payload>) => void) => () => void;
   };
+  readonly diagnostics: {
+    readonly list: () => Promise<Res<typeof channels.diagnosticsList>>;
+    readonly delete: (request: Req<typeof channels.diagnosticsDelete>) => Promise<Res<typeof channels.diagnosticsDelete>>;
+    readonly purge: () => Promise<Res<typeof channels.diagnosticsPurge>>;
+    readonly export: () => Promise<Res<typeof channels.diagnosticsExport>>;
+  };
   readonly libraries: {
     readonly list: () => Promise<Res<typeof channels.libraryRegistryList>>;
     readonly create: (request: Req<typeof channels.libraryRegistryCreate>) => Promise<Res<typeof channels.libraryRegistryCreate>>;
