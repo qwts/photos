@@ -19,7 +19,7 @@ export interface ThumbnailOutcome {
 
 export interface ThumbnailRequest {
   readonly photoId: string;
-  /** Original file bytes (the pool resolves RAF embedded previews itself). */
+  /** Original file bytes (the pool resolves RAW previews itself). */
   readonly bytes: Buffer;
   /** Content hash of the ORIGINAL — derivatives are addressed under it. */
   readonly contentHash: string;
@@ -55,8 +55,13 @@ export class ThumbnailService {
     if (derivatives === null) {
       return { generated: false, width: null, height: null };
     }
-    await this.store(request, derivatives, replace);
-    return { generated: true, width: derivatives.width, height: derivatives.height };
+    try {
+      await this.store(request, derivatives, replace);
+      return { generated: true, width: derivatives.width, height: derivatives.height };
+    } finally {
+      derivatives.thumb.fill(0);
+      derivatives.mid.fill(0);
+    }
   }
 
   private async store(request: ThumbnailRequest, derivatives: ThumbnailDerivatives, replace: boolean): Promise<void> {

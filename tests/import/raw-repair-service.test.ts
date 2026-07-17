@@ -92,6 +92,23 @@ describe('RAW repair service (#368)', () => {
     assert.equal(loads, 0);
   });
 
+  test('a repaired batch publishes one library change instead of one refresh per photo', async () => {
+    const changed: string[][] = [];
+    const service = new RawRepairService({
+      candidates: () => [raw(), raw({ id: 'RAW2', contentHash: 'b'.repeat(64) })],
+      validThumbs: () => Promise.resolve(false),
+      loadOriginal: () => Promise.resolve(Buffer.from('raw')),
+      extractMetadata: () => Promise.resolve(EMPTY),
+      regenerate: () => Promise.resolve({ generated: true, width: 700, height: 525 }),
+      repairMetadata: () => true,
+      changed: (ids) => changed.push([...ids]),
+      yieldTurn: () => Promise.resolve(),
+    });
+
+    assert.deepEqual(await service.repair(), { scanned: 2, repaired: 2, failed: 0, skipped: 0 });
+    assert.deepEqual(changed, [['RAW1', 'RAW2']]);
+  });
+
   test('unsupported/corrupt RAW records failure without deleting the original', async () => {
     const bytes = Buffer.from('retained original');
     const service = new RawRepairService({

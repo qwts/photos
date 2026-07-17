@@ -58,8 +58,8 @@ export class ThumbnailPool {
 
   /**
    * Decodable-image derivatives per ADR-0006, or null when the bytes are not
-   * decodable (the placeholder contract) or the job was cancelled. RAF
-   * containers resolve their embedded preview first; a RAW with no usable
+   * decodable (the placeholder contract) or the job was cancelled. RAW
+   * containers resolve a validated embedded or native preview first; no usable
    * preview is a placeholder, never a failed import.
    */
   async generate(bytes: Buffer, signal?: AbortSignal, fileKind?: FileKind): Promise<ThumbnailDerivatives | null> {
