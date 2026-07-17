@@ -1048,6 +1048,7 @@
         {
           "type": "unit-dom",
           "paths": [
+            "tests/main/app-profile.test.ts",
             "tests/settings/library-registry.test.ts",
             "tests/db/multi-library.test.ts",
             "tests/library/library-lock.test.ts",
