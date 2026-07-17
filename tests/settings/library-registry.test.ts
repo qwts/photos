@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { LibraryRegistry, LibraryRegistryError, ensureDefaultEntry } from '../../src/main/library/library-registry.js';
+import { LibraryRegistryRuntime } from '../../src/main/library/library-registry-runtime.js';
+import { channels } from '../../src/shared/ipc/channels.js';
+import { wrapHandler } from '../../src/shared/ipc/registry.js';
 import { selectStartupLibrary, type LibraryEntry } from '../../src/shared/library/registry.js';
 
 // #384 / ADR-0017 §1/§7: standalone fail-loud registry with atomic writes,
@@ -106,6 +109,44 @@ describe('library registry (#384)', () => {
     assert.equal(selectStartupLibrary([never, opened])?.id, ULID_B);
     assert.equal(selectStartupLibrary([never])?.id, ULID_A);
     assert.equal(selectStartupLibrary([]), undefined);
+  });
+
+  test('select stamps the choice, reports requiresRestart while another library is open, and refuses missing paths', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
+    const first = runtime.resolveActive();
+    const realDir = join(userData, 'second');
+    mkdirSync(realDir, { recursive: true });
+    const second = runtime.getRegistry().register(entry({ id: ULID_B, path: realDir, name: 'Second' }));
+    const ghost = runtime.getRegistry().register(entry({ id: '01CRZ3NDEKTSV4RRFFQ69G5FAC', path: join(userData, 'gone'), name: 'Ghost' }));
+
+    // Nothing open yet: selection re-points the active library in place.
+    const idle = runtime.select(second.id, null);
+    assert.equal(idle.requiresRestart, false);
+    assert.equal(runtime.dataDir(), realDir);
+
+    // A different library is open: selection persists but needs a restart
+    // until #385 lands the live switch.
+    const busy = runtime.select(first.id, second.id);
+    assert.equal(busy.requiresRestart, true);
+
+    assert.throws(() => runtime.select(ghost.id, null), LibraryRegistryError, 'missing directory refuses selection');
+  });
+
+  test('removeEntry guards the open library and re-resolves a removed selection', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
+    const first = runtime.resolveActive();
+    assert.throws(() => runtime.removeEntry(first.id, first.id), LibraryRegistryError, 'the open library cannot be removed');
+    assert.equal(runtime.removeEntry(first.id, null), true, 'removable once nothing has it open');
+    assert.notEqual(runtime.resolveActive().path, '', 're-resolution migrates a fresh default');
+  });
+
+  test('IPC boundary: the open channel rejects a malformed library id at the schema', async () => {
+    const handler = wrapHandler(channels.libraryRegistryOpen, () => {
+      throw new Error('handler must not run');
+    });
+    await assert.rejects(handler({ id: 'not-a-ulid' }));
   });
 
   test('EXIT CRITERIA: migration registers the legacy directory in place, exactly once', () => {

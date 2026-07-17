@@ -926,6 +926,21 @@
           "reason": "The VoiceOver pass is the half axe cannot automate: announcement order, live-region behaviour, and whether a screen-reader user can actually complete each flow. Owner-run on macOS per the wiki script (Manual-Test-A11y-VoiceOver); re-run when a child of #381 lands a semantics change."
         }
       ]
+    },
+    {
+      "id": "multi-library-registry-keying",
+      "wiki": "ADR-0017-Multi-Library-Registry-Keying-And-Lifecycle",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "paths": ["tests/settings/library-registry.test.ts", "tests/db/multi-library.test.ts"]
+        },
+        {
+          "type": "deferred",
+          "issue": 385,
+          "reason": "create/switch/relaunch E2E lands with the lifecycle slice (#385) and switcher UI (#386) per epic #378 exit criteria; #384 has no renderer surface yet"
+        }
+      ]
     }
   ]
 }

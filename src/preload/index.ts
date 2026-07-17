@@ -26,6 +26,8 @@ const closeWindow = createInvoker(channels.windowClose, invokeTransport);
 
 const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
 const settingsGet = createInvoker(channels.settingsGet, invokeTransport);
+const libraryRegistryList = createInvoker(channels.libraryRegistryList, invokeTransport);
+const libraryRegistryCurrent = createInvoker(channels.libraryRegistryCurrent, invokeTransport);
 const backupProviders = createInvoker(channels.backupProviders, invokeTransport);
 const backupProviderStatus = createInvoker(channels.backupProviderStatus, invokeTransport);
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
@@ -157,6 +159,13 @@ const overlook: OverlookApi = {
     get: async () => settingsGet({}),
     set: createInvoker(channels.settingsSet, invokeTransport),
     onChanged: createSubscriber(events.settingsChanged, subscribeTransport),
+  }),
+  libraries: Object.freeze({
+    list: async () => libraryRegistryList({}),
+    create: createInvoker(channels.libraryRegistryCreate, invokeTransport),
+    open: createInvoker(channels.libraryRegistryOpen, invokeTransport),
+    remove: createInvoker(channels.libraryRegistryRemove, invokeTransport),
+    current: async () => libraryRegistryCurrent({}),
   }),
   import: Object.freeze({
     listSources: async () => importListSources({}),
