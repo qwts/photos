@@ -29,6 +29,25 @@ npmRebuild: true
 # signed Touch ID bridge beside the archive where Electron can dlopen it.
 asarUnpack:
   - '**/*.node'
+# Production runtime hardening (#460). electron-builder flips these fuses on the
+# packaged binary before signing, so signed and notarized builds ship with them
+# baked in:
+#   - runAsNode off: the packaged app ignores ELECTRON_RUN_AS_NODE, so it can
+#     never be relaunched as a bare Node process. Safe here — the thumbnail
+#     worker uses worker_threads (new Worker), not process.fork.
+#   - cookie encryption on: the on-disk cookie store is OS-encrypted.
+#   - NODE_OPTIONS / NODE_EXTRA_CA_CERTS and --inspect/--inspect-brk ignored:
+#     removes two standard code-injection / debugger footholds in production.
+#   - onlyLoadAppFromAsar + embedded asar integrity validation: Electron loads
+#     app code only from app.asar and validates its hash against the value
+#     electron-builder embeds in Info.plist, so tampered/added code cannot load.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
 # App icons live in build/ (electron-builder's default buildResources dir),
 # regenerated from the design handoff via scripts/generate-app-icons.sh
 # (#236). Committed so CI needs no icon tooling.
