@@ -1,5 +1,19 @@
 # photos
 
+## 0.27.1
+
+### Patch Changes
+
+- 9a751c0: Add local diagnostics review, exact JSONL export, and deletion controls while keeping transmission disabled.
+- bb1014d: Remove unused renderer fetch privileges from the thumbnail protocol while preserving full-image prefetch support.
+- 5f3a095: Add a strict privacy-safe diagnostics contract, encrypted bounded local custody, and versioned consent that never upgrades the former local-only preference silently.
+- c902d1a: Make Lightbox Fill cover both viewport axes while keeping overflow pannable across viewport and Inspector size changes.
+- f795f92: Keep unlocked protected albums authorized while navigating within the active unlocked app session.
+- 7e6fb3c: Capture only allowlisted main, renderer, and child process-health signals into the consent-gated encrypted local diagnostics queue.
+- b75dbbc: Keep Lock when hidden from firing during macOS native full-screen transitions while preserving genuine hide and minimize locking.
+- adb955c: Scrub main-process IPC failures to opaque renderer-safe error codes while retaining details only in main-process logs.
+- 13876a7: Style the Transfer & Sync Settings action with the shared primary button.
+
 ## 0.27.0
 
 ### Minor Changes
