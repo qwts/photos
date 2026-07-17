@@ -7,6 +7,7 @@ import type { Page } from '@playwright/test';
 
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import { BUDGETS, type PerfReport } from './budgets.js';
+import { SCROLL_TRIAL_COUNT, summarizeScrollTrials, type ScrollStats, type ScrollTrial } from './scroll-stats.js';
 
 // #123: the 200K target becomes measurable — one harness, written budgets
 // (ratchets: never loosen), a stable report. Runs the E4.8 synthetic
@@ -35,13 +36,7 @@ async function queryMedianMs(page: Page, expression: string): Promise<number> {
   return median(samples);
 }
 
-interface FrameStats {
-  frames: number;
-  dropped: number;
-  worstMs: number;
-}
-
-async function scrollRun(page: Page, zoom: number): Promise<FrameStats & { dropRate: number }> {
+async function scrollRun(page: Page, zoom: number): Promise<ScrollTrial> {
   await page.getByRole('slider', { name: 'Zoom' }).fill(String(zoom));
   const grid = page.getByTestId('virtual-grid');
   await grid.hover();
@@ -54,8 +49,20 @@ async function scrollRun(page: Page, zoom: number): Promise<FrameStats & { dropR
     await page.mouse.wheel(0, 4_000);
     await page.waitForTimeout(50);
   }
-  const stats = await page.evaluate<FrameStats>(`globalThis.__overlookFrameStats ?? { frames: 0, dropped: 0, worstMs: 0 }`);
+  const stats = await page.evaluate<Omit<ScrollTrial, 'dropRate'>>(
+    `globalThis.__overlookFrameStats ?? { frames: 0, dropped: 0, worstMs: 0 }`,
+  );
   return { ...stats, dropRate: stats.frames === 0 ? 0 : stats.dropped / stats.frames };
+}
+
+async function scrollTrials(page: Page, zoom: number): Promise<ScrollStats> {
+  const trials: ScrollTrial[] = [];
+  for (let trial = 0; trial < SCROLL_TRIAL_COUNT; trial += 1) {
+    const stats = await scrollRun(page, zoom);
+    trials.push(stats);
+    console.log(`[perf] scroll zoom=${String(zoom)} trial=${String(trial + 1)}`, JSON.stringify(stats));
+  }
+  return summarizeScrollTrials(trials);
 }
 
 test('200K perf harness: cold start, queries, scroll, import, memory', async () => {
@@ -127,9 +134,9 @@ test('200K perf harness: cold start, queries, scroll, import, memory', async () 
 
     // Scroll frame drops at the three design zooms.
     const scroll = {
-      zoom96: await scrollRun(page, 96),
-      zoom160: await scrollRun(page, 160),
-      zoom320: await scrollRun(page, 320),
+      zoom96: await scrollTrials(page, 96),
+      zoom160: await scrollTrials(page, 160),
+      zoom320: await scrollTrials(page, 320),
     };
     console.log('[perf] scroll done', JSON.stringify(scroll));
 
@@ -157,8 +164,8 @@ test('200K perf harness: cold start, queries, scroll, import, memory', async () 
     expect(countsMs, 'counts median').toBeLessThan(BUDGETS.countsMs);
     expect(searchMs, 'search median').toBeLessThan(BUDGETS.searchMs);
     for (const [zoom, stats] of Object.entries(scroll)) {
-      expect(stats.dropRate, `${zoom} drop rate`).toBeLessThan(BUDGETS.scrollDropRate);
-      expect(stats.worstMs, `${zoom} worst frame`).toBeLessThan(BUDGETS.scrollWorstMs);
+      expect(stats.medianDropRate, `${zoom} median drop rate`).toBeLessThan(BUDGETS.scrollDropRate);
+      expect(stats.maxWorstMs, `${zoom} maximum worst frame`).toBeLessThan(BUDGETS.scrollWorstMs);
     }
     expect(importPhotosPerSec, 'import throughput').toBeGreaterThan(BUDGETS.importPhotosPerSecMin);
     expect(mainRssMb, 'main RSS').toBeLessThan(BUDGETS.mainRssMbMax);
