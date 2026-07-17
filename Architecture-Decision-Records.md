@@ -26,6 +26,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0016](ADR-0016-Isolated-Encrypted-Interop-Transports)           | Isolated Interop Transports  | Accepted |
 | [ADR-0017](ADR-0017-Multi-Library-Registry-Keying-And-Lifecycle)     | Multi-Library Registry & Lifecycle | Accepted |
 | [ADR-0018](ADR-0018-Semantic-Search-And-Language-Model-Architecture) | Semantic Search & LLM Architecture | Accepted |
+| [ADR-0019](ADR-0019-User-Theme-Contract)                             | User Theme Contract          | Proposed |
 
 ## Template
 
