@@ -1,4 +1,28 @@
 {
+  "restore.local.error.alreadyRegistered": {
+    "defaultMessage": "That library is already registered."
+  },
+  "restore.local.error.alreadyRegisteredHelp": {
+    "defaultMessage": "Choose the registered library from the library switcher."
+  },
+  "restore.local.error.notLibrary": {
+    "defaultMessage": "That folder isn't an Overlook library."
+  },
+  "restore.local.error.notLibraryHelp": {
+    "defaultMessage": "Choose the Overlook library folder that contains library.db."
+  },
+  "restore.local.error.openFailed": {
+    "defaultMessage": "The existing local library could not be opened."
+  },
+  "restore.local.error.openFailedHelp": {
+    "defaultMessage": "The local library was not changed. Choose its folder and try again."
+  },
+  "restore.local.openExisting": {
+    "defaultMessage": "Open existing library…"
+  },
+  "restore.local.openingExisting": {
+    "defaultMessage": "Opening local library…"
+  },
   "settings.general.appearance": {
     "defaultMessage": "Appearance"
   },

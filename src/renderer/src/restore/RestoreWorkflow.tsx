@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
 import type { RestoreLibrarySummary, RestoreProgressContract } from '../../../shared/backup/restore-contract.js';
@@ -27,11 +28,28 @@ const ERROR_HELP: Record<string, string> = {
   unsupported: 'Update Overlook before restoring this newer backup.',
   'destructive-authorization': 'Confirm replacement before restoring over this library.',
   cancelled: 'Restore paused. Verified staged work remains available to resume.',
-  'not-a-library': 'Choose the Overlook library folder that contains library.db.',
-  'already-registered': 'Choose the registered library from the library switcher.',
-  'local-open': 'The local library was not changed. Choose its folder and try again.',
   io: 'The restore could not continue. Your active library remains unchanged.',
 };
+
+const messages = defineMessages({
+  openExisting: { id: 'restore.local.openExisting', defaultMessage: 'Open existing library…' },
+  openingExisting: { id: 'restore.local.openingExisting', defaultMessage: 'Opening local library…' },
+  notLibrary: { id: 'restore.local.error.notLibrary', defaultMessage: "That folder isn't an Overlook library." },
+  notLibraryHelp: {
+    id: 'restore.local.error.notLibraryHelp',
+    defaultMessage: 'Choose the Overlook library folder that contains library.db.',
+  },
+  alreadyRegistered: { id: 'restore.local.error.alreadyRegistered', defaultMessage: 'That library is already registered.' },
+  alreadyRegisteredHelp: {
+    id: 'restore.local.error.alreadyRegisteredHelp',
+    defaultMessage: 'Choose the registered library from the library switcher.',
+  },
+  openFailed: { id: 'restore.local.error.openFailed', defaultMessage: 'The existing local library could not be opened.' },
+  openFailedHelp: {
+    id: 'restore.local.error.openFailedHelp',
+    defaultMessage: 'The local library was not changed. Choose its folder and try again.',
+  },
+});
 
 function fileName(path: string): string {
   return path.split(/[\\/]/u).at(-1) ?? path;
@@ -97,6 +115,7 @@ function LibraryCard({
 }
 
 export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): ReactElement {
+  const intl = useIntl();
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [providerId, setProviderId] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -185,7 +204,9 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
             setError({
               reason: outcome.reason,
               message:
-                outcome.reason === 'not-a-library' ? "That folder isn't an Overlook library." : 'That library is already registered.',
+                outcome.reason === 'not-a-library'
+                  ? intl.formatMessage(messages.notLibrary)
+                  : intl.formatMessage(messages.alreadyRegistered),
             });
           }
           return;
@@ -199,7 +220,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
       })
       .catch(() => {
         setOpeningLocal(false);
-        setError({ reason: 'local-open', message: 'The existing local library could not be opened.' });
+        setError({ reason: 'local-open', message: intl.formatMessage(messages.openFailed) });
       });
   };
 
@@ -278,7 +299,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
             {context === 'onboarding' ? (
               <>
                 <Button variant="secondary" icon="folder-open" disabled={openingLocal} onClick={openExisting}>
-                  {openingLocal ? 'Opening local library…' : 'Open existing library…'}
+                  {intl.formatMessage(openingLocal ? messages.openingExisting : messages.openExisting)}
                 </Button>
                 <Button variant="ghost" onClick={onStartNew}>
                   Start a new library
@@ -368,7 +389,15 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
       {error === null ? null : (
         <div className="ovl-restore__error" role="alert">
           <strong>{error.message}</strong>
-          <span>{ERROR_HELP[error.reason] ?? ERROR_HELP['io']}</span>
+          <span>
+            {error.reason === 'not-a-library'
+              ? intl.formatMessage(messages.notLibraryHelp)
+              : error.reason === 'already-registered'
+                ? intl.formatMessage(messages.alreadyRegisteredHelp)
+                : error.reason === 'local-open'
+                  ? intl.formatMessage(messages.openFailedHelp)
+                  : (ERROR_HELP[error.reason] ?? ERROR_HELP['io'])}
+          </span>
         </div>
       )}
     </div>
