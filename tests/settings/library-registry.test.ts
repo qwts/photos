@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -154,6 +154,25 @@ describe('library registry (#384)', () => {
     assert.equal(busy.requiresRestart, true);
 
     assert.throws(() => runtime.select(ghost.id, null), LibraryRegistryError, 'missing directory refuses selection');
+  });
+
+  test('REGRESSION (PR #425): startup validation fails loud when the active registered directory is missing', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    seedLegacyInstall(userData);
+    const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
+    assert.equal(runtime.resolveFailure(), null, 'present directory passes the startup gate');
+
+    rmSync(join(userData, 'library'), { recursive: true, force: true });
+    const fresh = new LibraryRegistryRuntime({ userDataDir: () => userData });
+    assert.match(
+      fresh.resolveFailure() ?? '',
+      /library directory is missing/,
+      'unplugged volume is a startup error, never a "fresh profile"',
+    );
+
+    // A truly fresh profile (virtual default, nothing registered) still passes.
+    const pristine = new LibraryRegistryRuntime({ userDataDir: () => mkdtempSync(join(tmpdir(), 'overlook-registry-')) });
+    assert.equal(pristine.resolveFailure(), null);
   });
 
   test('removeEntry guards the open library and re-resolves a removed selection', () => {

@@ -17,6 +17,10 @@ export interface LibraryRegistryRuntimeOptions {
   readonly userDataDir: () => string;
 }
 
+function missingDirectoryError(dir: string): LibraryRegistryError {
+  return new LibraryRegistryError(`library directory is missing: ${dir} — reconnect the volume or locate/remove the library`);
+}
+
 export class LibraryRegistryRuntime {
   private registry: LibraryRegistry | undefined;
   private active: LibraryEntry | undefined;
@@ -79,7 +83,15 @@ export class LibraryRegistryRuntime {
    * Returns the user-facing message, or null when resolution succeeds. */
   resolveFailure(): string | null {
     try {
-      this.resolveActive();
+      const entry = this.resolveActive();
+      // A registered active library whose directory vanished must fail loud
+      // at STARTUP too (PR #425 review): past this gate the restore flow
+      // reads the missing library.db as "fresh profile" and onboarding
+      // would target the dead path. The virtual default is exempt — its
+      // directory is only created on first open.
+      if (this.active !== undefined && !existsSync(entry.path)) {
+        throw missingDirectoryError(entry.path);
+      }
       return null;
     } catch (error) {
       if (error instanceof LibraryRegistryError) {
@@ -108,7 +120,7 @@ export class LibraryRegistryRuntime {
     // must fail loud (#385): the id-mint below would otherwise mkdir and
     // silently provision a fresh empty library where the real one lived.
     if (!existsSync(entry.path)) {
-      throw new LibraryRegistryError(`library directory is missing: ${entry.path} — reconnect the volume or locate/remove the library`);
+      throw missingDirectoryError(entry.path);
     }
     const directoryId = readOrMintLibraryId(entry.path);
     if (directoryId !== entry.id) {

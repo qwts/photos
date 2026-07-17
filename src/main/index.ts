@@ -719,6 +719,7 @@ const closeLibraryForLock = (): Promise<void> => closeLibrary('lock');
 // Live switch (#385): see library/switch-runtime.ts for the contract.
 const switchLibrary = createSwitchLibrary({
   registry: registryRuntime,
+  activeId: () => registryRuntime.resolveActive().id,
   openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
   lockState: () => appLockHost?.snapshot().state,
   providerBusy: () => providerWorkCount > 0,

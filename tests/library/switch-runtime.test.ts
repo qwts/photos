@@ -36,6 +36,7 @@ function harness(overrides: Partial<Record<keyof SwitchLibraryDeps, unknown>> = 
         return { library: descriptor(id), requiresRestart: openId !== null && openId !== id };
       },
     },
+    activeId: () => A,
     openLibraryId: () => A,
     lockState: () => 'unconfigured-unlocked',
     providerBusy: () => false,
@@ -77,14 +78,20 @@ describe('switch runtime (#385)', () => {
     );
   });
 
-  test('same library or nothing open completes by selection alone — no teardown', async () => {
+  test('same library completes by selection alone — no teardown, no swap', async () => {
     const same = harness();
     await createSwitchLibrary(same.deps)(A);
     assert.deepEqual(same.calls, [`select:${A}:${A}`], 'same id: selection only');
+  });
 
+  test('a repoint before first open skips teardown but still swaps app-lock and reloads (PR #425 review)', async () => {
     const idle = harness({ openLibraryId: () => null });
     await createSwitchLibrary(idle.deps)(B);
-    assert.deepEqual(idle.calls, [`select:${B}:null`], 'nothing open: selection only');
+    assert.deepEqual(
+      idle.calls,
+      [`select:${B}:null`, 'swap', 'reload'],
+      'the app-lock boundary follows the new directory — a lock-configured target lands on ITS lock screen',
+    );
   });
 
   test('refuses while locked, while provider work is active, and while already switching', async () => {
