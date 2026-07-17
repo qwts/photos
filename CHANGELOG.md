@@ -1,5 +1,11 @@
 # photos
 
+## 0.29.1
+
+### Patch Changes
+
+- ba59725: Fix Google Drive desktop authorization to use Google's documented root loopback redirect and show bounded, credential-redacted provider error details when token exchange or refresh fails.
+
 ## 0.29.0
 
 ### Minor Changes
