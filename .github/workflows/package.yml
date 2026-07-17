@@ -109,4 +109,6 @@ jobs:
             release/*.dmg
             release/*.zip
             release/*.exe
+            release/sbom.cyclonedx.json
+            THIRD-PARTY-NOTICES.md
           retention-days: 14
