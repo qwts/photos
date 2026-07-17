@@ -21,6 +21,8 @@ instructions or entrypoints (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, root
 - [User Stories](User-Stories) — milestone / user-story planning home
 - [Cloud Provider Contract Matrix](Provider-Contract-Matrix) — adapter backup/restore readiness and live evidence
 - [Manual Test — M18 Cloud Disaster Recovery](Manual-Test-M18-Cloud-Disaster-Recovery) — isolated owner-run pCloud procedure
+- [Accessibility Audit — WCAG 2.2 AA (July 2026)](Accessibility-Audit-2026-07) — baseline, severity ranking, accepted exceptions (#398)
+- [Manual Test — VoiceOver](Manual-Test-A11y-VoiceOver) — the screen-reader half the axe gates cannot cover
 
 ## Maintenance Convention
 

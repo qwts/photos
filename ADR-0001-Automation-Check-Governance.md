@@ -40,6 +40,7 @@ why not.
 | Build                        | `build` (`electron-vite build` → `out/` main/preload/renderer bundles) | The app compiles and bundles.                                            |
 | E2E                          | `test:e2e` (Playwright `_electron` drives the built app; path-filtered CI job under xvfb) | The real app launches, renders, and its typed IPC works end to end.      |
 | Storybook interaction tests  | `test:stories:ci` (static build + test-runner `play` assertions, chromium, in the core CI job) | Component-level UI behavior regressions.                                  |
+| A11y violation budget        | `check:a11y-budget` (`scripts/check-a11y-budget.mjs`, in `npm run ci`) + axe in `test:stories:ci` (per story) and `test:e2e` (composed flows) | WCAG 2.2 AA regressions (#398, epic #381). Budget is a **shrink-only** ratchet; unlisted surfaces are budgeted at zero; under-budget fails too. `axe-core` pinned exact + overridden into `axe-playwright` — its rule set defines the counts. |
 | `E2E gate`                   | Always-reporting CI job                                         | Required-check stability: passes on success or a legitimate filter skip; fails if change detection broke. |
 | CodeQL                       | Default setup: `javascript-typescript` + `actions` configs      | Security findings block above threshold (ruleset code-scanning rule).    |
 | CODEOWNERS                   | `.github/CODEOWNERS` → repo owner                               | Governance files stay owner-reviewed once the ruleset requires it.        |
@@ -51,6 +52,10 @@ why not.
 
 - **Floors ratchet upward only:** c8 lines/branches, type-coverage, and the
   800-line file budget are never lowered to make a change pass.
+- **The a11y violation budget ratchets downward only** (#398): its counts are the
+  audited baseline and only ever shrink. A surface coming in *under* budget fails
+  until the entry is tightened or deleted — an unbanked win is a silent licence to
+  regress. Narrowing the audited WCAG tag set is the same offence as raising a floor.
 - **Version lines are pinned deliberately:** TypeScript stays on the 6.x line
   while typescript-eslint's peer range caps at `<6.1.0`; `@types/node` tracks
   the runtime major in `.nvmrc` (Node 24). Both are enforced as Dependabot

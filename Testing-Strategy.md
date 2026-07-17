@@ -11,7 +11,9 @@
 - **CI runs everything** on every PR to `main` and every push to `main`,
   including the coverage floor and the Playwright E2E lane (path-filtered).
 - **Floors ratchet upward only:** c8 lines 90 / branches 80 (`.c8rc.json`),
-  type-coverage 99.8 strict, file-size budget 800 lines.
+  type-coverage 99.8 strict, file-size budget 800 lines. The **a11y violation
+  budget** (`tests/a11y/violation-budget.json`, #398) is the same policy
+  inverted — its counts only ever **shrink**.
 - **Policy:** coverage travels with the change — a new or changed user-facing
   flow lands with tests at the cheapest lane that proves the behavior.
 
@@ -26,6 +28,7 @@
 | 5   | Story         | `npm run test:stories:ci` — static Storybook build + test-runner (`play` assertions, chromium) | Component-level UI behavior on the real token canvas        | Active (#56 — token + Icon stories are the first content) |
 | 6a  | E2E smoke     | `npm run test:e2e` — Playwright `_electron` launches the built app (`tests/e2e/smoke.spec.ts`) | The real Electron app launches, renders the React root, exposes only the typed bridge, IPC round-trips | Active (#52 — replaced the http-server fixture, which stayed green regardless of app health) |
 | 6b  | Acceptance    | Playwright specs per canonical flow + a coverage-map ledger  | End-to-end user flows                                        | **Deferred** until user-facing surfaces exist |
+| 7   | Accessibility | `check:a11y-budget` (static, in `npm run ci`) + axe in `test:stories:ci` (per story) and `test:e2e` (`tests/e2e/a11y.spec.ts`, composed flows) | WCAG 2.2 AA violations against a shrink-only budget | Active (#398 — baseline 103) |
 
 ### Compile-then-run model
 
@@ -171,6 +174,42 @@ component stories), and **2 deferred-with-issues** for the design README's
 "not yet designed" set: semantic search results UI (#224) and album
 drag-and-drop reordering (#225). Zero unmapped flows; the validator
 enforces shape, path existence, and that deferred entries carry issues.
+
+### Accessibility gates (#398 — RATCHET: shrink, never raise)
+
+WCAG 2.2 AA is the bar (epic #381). Three gates, two of which need a browser:
+
+| Gate | Where | What it catches |
+| --- | --- | --- |
+| `npm run check:a11y-budget` | `npm run ci` + the CI `ci` job | Budget shape, path existence, unowned debt, a raised number. No browser, so it fails fast. |
+| axe per story | `test:stories:ci` (existing chromium runner, +0 lanes) | Component-level violations across all 107 stories, scoped to `#storybook-root`. |
+| axe per composed flow | `test:e2e` (`tests/e2e/a11y.spec.ts`) | What isolated stories structurally cannot show: landmark uniqueness, focus order across regions, an overlay leaving the shell in the a11y tree. |
+
+**The budget** (`tests/a11y/violation-budget.json`) is the honest list of KNOWN
+violations, keyed by story id / flow id, each naming the issue that owns the fix.
+
+- **Unlisted surfaces are budgeted at ZERO** — a new violation anywhere fails
+  without anyone remembering to add an entry.
+- **Under budget also fails.** An unrecorded improvement leaves a stale number that
+  silently permits regression back up to it. The failure message names the value to
+  set; a fixed surface has its entry **deleted**, not zeroed.
+- Fix the violation or shrink the entry. **Never raise one, and never narrow the
+  `tags`** — the tag set is pinned in the budget and re-checked by the validator.
+
+**`axe-core` is pinned exact and overridden into `axe-playwright`'s floating
+`^4.10.1`.** Its rule set *defines* every count, so a Dependabot bump is *expected*
+to move numbers: re-audit and re-baseline in that PR.
+
+Re-baseline (this is how the audit was produced):
+
+```sh
+OVERLOOK_A11Y_REPORT=/tmp/a11y.jsonl npm run test:stories:ci   # JSONL, one line per story
+```
+
+The [July 2026 audit](Accessibility-Audit-2026-07) records the baseline, the severity
+ranking, the accepted exceptions, and — importantly — **what the automation cannot
+see**. The [VoiceOver script](Manual-Test-A11y-VoiceOver) covers that half; axe detects
+roughly a third of WCAG issues, so a green gate is not a claim of accessibility.
 
 ## Policy: coverage travels with the change
 
