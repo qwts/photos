@@ -53,6 +53,7 @@ test('ACCEPTANCE: create a library in the switcher and land in it; keyboard-only
     await page.getByTestId('library-trigger').focus();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('library-switcher')).toBeVisible();
+    await expect(page.getByTestId('library-row-My Library')).toBeVisible();
     await page.keyboard.press('ArrowDown');
     await expect(page.getByTestId('library-row-My Library')).toBeFocused();
     await page.keyboard.press('Enter');
