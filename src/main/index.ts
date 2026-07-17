@@ -53,7 +53,8 @@ import { getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { LibraryRegistryRuntime } from './library/library-registry-runtime.js';
-import { acquireLibraryLock } from './library/library-lock.js';
+import { acquireLibraryLock, readLockHolder } from './library/library-lock.js';
+import { pickLibraryDirectory } from './library/library-picker.js';
 import { createSwitchLibrary } from './library/switch-runtime.js';
 import { AppLockHost } from './crypto/app-lock-host.js';
 import { registerQuitTeardown, registerSingleInstance } from './app-bootstrap.js';
@@ -80,7 +81,10 @@ registerEarlyRuntime();
 // Lazy bootstrap: no keychain or database access before the renderer's first library call.
 let libraryService: LibraryService | undefined;
 
-const registryRuntime = new LibraryRegistryRuntime({ userDataDir: () => app.getPath('userData') });
+const registryRuntime = new LibraryRegistryRuntime({
+  userDataDir: () => app.getPath('userData'),
+  lockHolder: (dir) => readLockHolder(dir, instanceId),
+});
 const libraryDataDir = (): string => registryRuntime.dataDir();
 
 // Per-library advisory lock (ADR-0017 §5, #385): acquired at open, released last in teardown.
@@ -723,6 +727,7 @@ const switchLibrary = createSwitchLibrary({
   openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
   lockState: () => appLockHost?.snapshot().state,
   providerBusy: () => providerWorkCount > 0,
+  probeTarget: (id) => registryRuntime.probeSwitchTarget(id),
   closeLibrary: () => closeLibrary('switch'),
   swapAppLock: async () => {
     if (appLockHost !== undefined) await appLockHost.swap(buildAppLockController());
@@ -817,6 +822,7 @@ void externalOpen.whenReady().then(async () => {
       ...registryRuntime.facade({
         openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
         safeStorage: pickSafeStorage,
+        pickDirectory: () => pickLibraryDirectory(harnessEnv('OVERLOOK_PICK_LIBRARY_DIR')),
       }),
       open: switchLibrary,
     },

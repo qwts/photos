@@ -15,6 +15,10 @@ import type { LibraryDescriptor, LibraryEntry } from '../../shared/library/regis
 
 export interface LibraryRegistryRuntimeOptions {
   readonly userDataDir: () => string;
+  /** Live-lock probe for descriptors (#386): hostname of ANOTHER instance
+   * holding a library's advisory lock, or null. Absent = never locked
+   * (tests, pre-#386 callers). */
+  readonly lockHolder?: (dir: string) => string | null;
 }
 
 function missingDirectoryError(dir: string): LibraryRegistryError {
@@ -140,7 +144,9 @@ export class LibraryRegistryRuntime {
    * time and never persisted (§1). openId is the id of the library the
    * process currently has open, or null before first bootstrap. */
   describe(entry: LibraryEntry, openId: string | null): LibraryDescriptor {
-    return { ...entry, missing: !existsSync(entry.path), open: entry.id === openId };
+    const missing = !existsSync(entry.path);
+    const open = entry.id === openId;
+    return { ...entry, missing, open, lockedBy: missing || open ? null : (this.options.lockHolder?.(entry.path) ?? null) };
   }
 
   list(openId: string | null): LibraryDescriptor[] {
@@ -193,6 +199,44 @@ export class LibraryRegistryRuntime {
     }
   }
 
+  /** Register an EXISTING library directory (#386): the directory's own
+   * library-id is authoritative (minted only when a real library.db exists
+   * without one — pre-#384 installs). Never touches library contents. */
+  addExisting(
+    dir: string,
+    openId: string | null,
+  ): { ok: true; library: LibraryDescriptor } | { ok: false; reason: 'not-a-library' | 'already-registered' } {
+    if (!existsSync(path.join(dir, 'library.db'))) {
+      return { ok: false, reason: 'not-a-library' };
+    }
+    const id = readOrMintLibraryId(dir);
+    try {
+      const entry = this.getRegistry().register({
+        id,
+        name: path.basename(dir),
+        path: dir,
+        createdAt: new Date().toISOString(),
+        lastOpenedAt: null,
+      });
+      return { ok: true, library: this.describe(entry, openId) };
+    } catch (error) {
+      if (error instanceof LibraryRegistryError) {
+        return { ok: false, reason: 'already-registered' };
+      }
+      throw error;
+    }
+  }
+
+  /** Switch pre-flight (#386): why the target cannot be opened right now, or
+   * null when it can. Unregistered ids fall through to select()'s loud throw. */
+  probeSwitchTarget(id: string): { reason: 'missing' | 'locked-elsewhere'; host: string | null } | null {
+    const entry = this.getRegistry().get(id);
+    if (entry === undefined) return null;
+    if (!existsSync(entry.path)) return { reason: 'missing', host: null };
+    const host = this.options.lockHolder?.(entry.path) ?? null;
+    return host === null ? null : { reason: 'locked-elsewhere', host };
+  }
+
   /** Select which library the NEXT bootstrap opens. The live in-process
    * switch is #385's contract (ADR-0017 §4); until it lands, selecting while
    * a different library is open reports requiresRestart. */
@@ -218,12 +262,21 @@ export class LibraryRegistryRuntime {
 
   /** The IPC facade (structurally matches ipc.ts LibraryRegistryFacade).
    * openLibraryId reports what the process has open — null before bootstrap. */
-  facade(deps: { openLibraryId: () => string | null; safeStorage: () => SafeStorageLike }): {
+  facade(deps: {
+    openLibraryId: () => string | null;
+    safeStorage: () => SafeStorageLike;
+    /** Native directory picker (#386) — resolves null on cancel. */
+    pickDirectory: () => Promise<string | null>;
+  }): {
     list: () => LibraryDescriptor[];
     create: (name: string, dir: string | null) => LibraryDescriptor;
     open: (id: string) => { library: LibraryDescriptor; requiresRestart: boolean };
     remove: (id: string) => boolean;
     current: () => LibraryDescriptor;
+    add: (
+      dir: string | null,
+    ) => Promise<{ ok: true; library: LibraryDescriptor } | { ok: false; reason: 'cancelled' | 'not-a-library' | 'already-registered' }>;
+    pickLocation: () => Promise<{ path: string | null }>;
   } {
     return {
       list: () => this.list(deps.openLibraryId()),
@@ -231,6 +284,12 @@ export class LibraryRegistryRuntime {
       open: (id) => this.select(id, deps.openLibraryId()),
       remove: (id) => this.removeEntry(id, deps.openLibraryId()),
       current: () => this.current(deps.openLibraryId()),
+      add: async (dir) => {
+        const chosen = dir ?? (await deps.pickDirectory());
+        if (chosen === null) return { ok: false, reason: 'cancelled' };
+        return this.addExisting(chosen, deps.openLibraryId());
+      },
+      pickLocation: async () => ({ path: await deps.pickDirectory() }),
     };
   }
 

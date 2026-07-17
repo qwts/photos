@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
+import type { z } from 'zod';
 
 import { channels } from '../shared/ipc/channels.js';
 import { wrapHandler as createValidatedHandler } from '../shared/ipc/registry.js';
@@ -310,14 +311,17 @@ export interface DiagnosticsFacade {
   export(destination: string, eventIds: readonly string[]): number;
 }
 
+export type LibraryOpenOutcome = z.output<typeof channels.libraryRegistryOpen.response>;
+export type LibraryAddOutcome = z.output<typeof channels.libraryRegistryAdd.response>;
+
 export interface LibraryRegistryFacade {
   list(): LibraryDescriptor[];
   create(name: string, path: string | null): LibraryDescriptor;
-  open(
-    id: string,
-  ): { library: LibraryDescriptor; requiresRestart: boolean } | Promise<{ library: LibraryDescriptor; requiresRestart: boolean }>;
+  open(id: string): LibraryOpenOutcome | Promise<LibraryOpenOutcome>;
   remove(id: string): boolean;
   current(): LibraryDescriptor;
+  add(path: string | null): Promise<LibraryAddOutcome>;
+  pickLocation(): Promise<{ path: string | null }>;
 }
 
 // Multi-library registry (#384): registry mutations never require content
@@ -338,6 +342,12 @@ export function registerLibraryRegistryHandlers(getFacade: () => LibraryRegistry
   );
   ipcMain.handle(channels.libraryRegistryCurrent.name, (_event, request: unknown) =>
     validateHandler(channels.libraryRegistryCurrent, () => ({ library: getFacade().current() }))(request),
+  );
+  ipcMain.handle(channels.libraryRegistryAdd.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRegistryAdd, ({ path }) => getFacade().add(path))(request),
+  );
+  ipcMain.handle(channels.libraryRegistryPickLocation.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRegistryPickLocation, () => getFacade().pickLocation())(request),
   );
 }
 

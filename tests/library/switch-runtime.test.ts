@@ -5,7 +5,7 @@ import { createSwitchLibrary, type SwitchLibraryDeps } from '../../src/main/libr
 import type { LibraryDescriptor } from '../../src/shared/library/registry.js';
 
 // #385 / ADR-0017 §4: switch guards, ordering, and the crash-safety anchor
-// (selection stamped before teardown).
+// (selection stamped before teardown). #386: refusals are returned outcomes.
 
 function descriptor(id: string): LibraryDescriptor {
   return {
@@ -16,6 +16,7 @@ function descriptor(id: string): LibraryDescriptor {
     lastOpenedAt: null,
     missing: false,
     open: false,
+    lockedBy: null,
   };
 }
 
@@ -40,6 +41,7 @@ function harness(overrides: Partial<Record<keyof SwitchLibraryDeps, unknown>> = 
     openLibraryId: () => A,
     lockState: () => 'unconfigured-unlocked',
     providerBusy: () => false,
+    probeTarget: () => null,
     closeLibrary: () => {
       calls.push('close');
       return Promise.resolve();
@@ -65,8 +67,11 @@ describe('switch runtime (#385)', () => {
     const result = await createSwitchLibrary(deps)(B);
 
     assert.deepEqual(calls, [`select:${B}:${A}`, 'close', `select:${B}:null`, 'swap', 'reload']);
-    assert.equal(result.requiresRestart, false);
-    assert.equal(result.library.id, B);
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.requiresRestart, false);
+      assert.equal(result.library.id, B);
+    }
   });
 
   test('selection is stamped BEFORE teardown — the crash-safety anchor', async () => {
@@ -94,13 +99,13 @@ describe('switch runtime (#385)', () => {
     );
   });
 
-  test('refuses while locked, while provider work is active, and while already switching', async () => {
+  test('refusals return typed outcomes (#386): locked, provider busy, already switching — nothing is stamped', async () => {
     const locked = harness({ lockState: () => 'locked' });
-    await assert.rejects(createSwitchLibrary(locked.deps)(B), /locked/);
+    assert.deepEqual(await createSwitchLibrary(locked.deps)(B), { ok: false, reason: 'locked', host: null });
     assert.deepEqual(locked.calls, [], 'refusal happens before anything is stamped');
 
     const busy = harness({ providerBusy: () => true });
-    await assert.rejects(createSwitchLibrary(busy.deps)(B), /backup or restore/);
+    assert.deepEqual(await createSwitchLibrary(busy.deps)(B), { ok: false, reason: 'provider-busy', host: null });
     assert.deepEqual(busy.calls, []);
 
     let releaseClose: () => void = () => undefined;
@@ -112,9 +117,19 @@ describe('switch runtime (#385)', () => {
     });
     const switchLibrary = createSwitchLibrary(slow.deps);
     const first = switchLibrary(B);
-    await assert.rejects(switchLibrary(B), /already in progress/);
+    assert.deepEqual(await switchLibrary(B), { ok: false, reason: 'switch-in-progress', host: null });
     releaseClose();
     await first;
+  });
+
+  test('the pre-flight probe refuses a missing or locked-elsewhere target BEFORE teardown (#386)', async () => {
+    const missing = harness({ probeTarget: () => ({ reason: 'missing', host: null }) });
+    assert.deepEqual(await createSwitchLibrary(missing.deps)(B), { ok: false, reason: 'missing', host: null });
+    assert.deepEqual(missing.calls, [], 'the open library was never torn down');
+
+    const elsewhere = harness({ probeTarget: () => ({ reason: 'locked-elsewhere', host: 'MAC-B' }) });
+    assert.deepEqual(await createSwitchLibrary(elsewhere.deps)(B), { ok: false, reason: 'locked-elsewhere', host: 'MAC-B' });
+    assert.deepEqual(elsewhere.calls, []);
   });
 
   test('an unconfigured or unlocked lock state allows switching', async () => {

@@ -175,6 +175,59 @@ describe('library registry (#384)', () => {
     assert.equal(pristine.resolveFailure(), null);
   });
 
+  test('addExisting (#386): registers a real library in place, refuses non-libraries and duplicates', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    seedLegacyInstall(userData);
+    const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
+    runtime.resolveActive();
+
+    const plain = join(userData, 'not-a-library');
+    mkdirSync(plain, { recursive: true });
+    assert.deepEqual(runtime.addExisting(plain, null), { ok: false, reason: 'not-a-library' }, 'a directory without library.db refuses');
+
+    const real = join(userData, 'external-lib');
+    mkdirSync(real, { recursive: true });
+    writeFileSync(join(real, 'library.db'), 'sqlcipher-bytes', 'utf8');
+    const added = runtime.addExisting(real, null);
+    assert.equal(added.ok, true);
+    if (added.ok) {
+      assert.equal(added.library.name, 'external-lib', 'named after its directory');
+      assert.equal(readFileSync(join(real, 'library-id'), 'utf8'), added.library.id, 'directory id pinned in place');
+    }
+    assert.deepEqual(runtime.addExisting(real, null), { ok: false, reason: 'already-registered' }, 'second add refuses');
+  });
+
+  test('lockedBy + probeSwitchTarget (#386): descriptors and pre-flight surface a live foreign lock', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    seedLegacyInstall(userData);
+    const lockedDirs = new Set<string>();
+    const runtime = new LibraryRegistryRuntime({
+      userDataDir: () => userData,
+      lockHolder: (dir) => (lockedDirs.has(dir) ? 'MAC-B' : null),
+    });
+    const first = runtime.resolveActive();
+    const other = join(userData, 'second');
+    mkdirSync(other, { recursive: true });
+    writeFileSync(join(other, 'library.db'), 'sqlcipher-bytes', 'utf8');
+    const second = runtime.getRegistry().register(entry({ id: ULID_B, path: other, name: 'Second' }));
+
+    lockedDirs.add(other);
+    const described = runtime.list(first.id).find((lib) => lib.id === second.id);
+    assert.equal(described?.lockedBy, 'MAC-B', 'a foreign live lock is named on the descriptor');
+    assert.equal(runtime.list(first.id).find((lib) => lib.id === first.id)?.lockedBy, null, 'the open library is never locked-elsewhere');
+    assert.deepEqual(runtime.probeSwitchTarget(second.id), { reason: 'locked-elsewhere', host: 'MAC-B' });
+
+    lockedDirs.delete(other);
+    assert.equal(runtime.probeSwitchTarget(second.id), null, 'a free target clears pre-flight');
+    rmSync(other, { recursive: true, force: true });
+    assert.deepEqual(
+      runtime.probeSwitchTarget(second.id),
+      { reason: 'missing', host: null },
+      'a vanished directory refuses before teardown',
+    );
+    assert.equal(runtime.probeSwitchTarget('01CRZ3NDEKTSV4RRFFQ69G5FAC'), null, 'unregistered ids fall through to select()');
+  });
+
   test('removeEntry guards the open library and re-resolves a removed selection', () => {
     const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
     seedLegacyInstall(userData);
