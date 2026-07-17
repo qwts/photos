@@ -10,7 +10,7 @@ export function useGlobalKeys(): void {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
-    const anyDialogOpen = state.importOpen || state.exportOpen || state.settingsOpen;
+    const anyDialogOpen = state.importOpen || state.exportOpen || state.settingsOpen || state.librariesOpen;
     const onKeyDown = (event: KeyboardEvent): void => {
       const inField = event.target instanceof HTMLElement && event.target.closest('input, textarea') !== null;
       if ((event.metaKey || event.ctrlKey) && event.key === 'a' && !inField && !anyDialogOpen) {
@@ -37,5 +37,5 @@ export function useGlobalKeys(): void {
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [state.photos, state.lightboxId, state.importOpen, state.exportOpen, state.settingsOpen, dispatch]);
+  }, [state.photos, state.lightboxId, state.importOpen, state.exportOpen, state.settingsOpen, state.librariesOpen, dispatch]);
 }

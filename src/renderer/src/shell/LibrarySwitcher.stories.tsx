@@ -39,6 +39,7 @@ const LIBRARIES: readonly LibraryDescriptor[] = [
 interface StubOptions {
   readonly libraries?: readonly LibraryDescriptor[];
   readonly openOutcome?: Awaited<ReturnType<OverlookApi['libraries']['open']>>;
+  readonly openRejects?: boolean;
   readonly addOutcome?: Awaited<ReturnType<OverlookApi['libraries']['add']>>;
 }
 
@@ -49,6 +50,7 @@ function installStub(options: StubOptions = {}): { readonly calls: string[] } {
     current: () => Promise.resolve({ library: (options.libraries ?? LIBRARIES).find((entry) => entry.open) ?? LIBRARIES[0] }),
     open: ({ id }: { id: string }) => {
       calls.push(`open:${id}`);
+      if (options.openRejects === true) return Promise.reject(new Error('IPC_HANDLER_FAILED'));
       // Default: hang like the real switch (the window reloads mid-await).
       if (options.openOutcome === undefined) return new Promise(() => undefined);
       return Promise.resolve(options.openOutcome);
@@ -168,6 +170,29 @@ export const RefusalLockedElsewhere: Story = {
     // A missing row explains reconnection instead of switching.
     await userEvent.click(body.getByTestId('library-row-ExpeditionX 2026'));
     await expect(body.getByTestId('switch-refusal')).toHaveTextContent("This library's folder is missing");
+  },
+};
+
+export const SwitchFailureRecovers: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ openRejects: true });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(async () => {
+      await expect(body.getByTestId('library-row-Alpha')).toBeVisible();
+    });
+    // A real IPC failure must NOT wedge the progress screen (PR #450
+    // review) — the switcher returns to a fresh list with an error banner.
+    await userEvent.click(body.getByTestId('library-row-Beta'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('switch-refusal')).toHaveTextContent('Something went wrong');
+    });
+    await expect(body.queryByTestId('switch-progress')).toBeNull();
+    await expect(body.getByTestId('library-row-Beta')).toBeVisible();
   },
 };
 

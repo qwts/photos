@@ -98,8 +98,15 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
         // nothing to do; the switching screen holds until then.
       })
       .catch(() => {
-        // The reload usually tears this context down mid-IPC; a rejection
-        // here is the switch SUCCEEDING. Stay on the progress screen.
+        // A successful switch DESTROYS this JS context mid-IPC (window
+        // reload) — no callback ever runs. So a rejection that reaches us
+        // is a real failure (entry removed under us, teardown threw):
+        // return to a fresh list instead of wedging on the progress screen
+        // (PR #450 review).
+        setPhase('list');
+        setSwitchTarget(null);
+        setRefusal({ kind: 'error' });
+        refresh();
       });
   };
 
