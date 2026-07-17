@@ -198,7 +198,6 @@ function getLibraryService(): LibraryService {
 }
 
 let importService: ImportService | undefined, thumbnailPool: ThumbnailPool | undefined;
-
 function getImportService(): ImportService {
   if (importService === undefined) {
     getLibraryService();

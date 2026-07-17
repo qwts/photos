@@ -65,6 +65,7 @@ export interface ImportEngineDeps {
     readonly hasContentHash: (hash: string) => boolean;
     readonly get: (id: string) => PhotoRecord | undefined;
     readonly insert: (photo: PhotoInsert) => void;
+    readonly repairDimensions?: (id: string, width: number, height: number) => boolean;
   };
   readonly blobs: {
     readonly putOriginal: (

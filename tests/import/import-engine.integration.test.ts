@@ -60,6 +60,12 @@ describe('import engine integration (#87)', () => {
           rows.set(photo.id, photo);
           hashes.add(photo.contentHash);
         },
+        repairDimensions: (id, width, height) => {
+          const photo = rows.get(id);
+          if (photo === undefined || (photo.width > 0 && photo.height > 0)) return false;
+          rows.set(id, { ...photo, width, height });
+          return true;
+        },
       },
       blobs: store,
       generateThumbs: async (request) => new ThumbnailService(pool, store).generateFor(request),

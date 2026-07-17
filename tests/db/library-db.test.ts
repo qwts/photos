@@ -256,6 +256,25 @@ describe('PhotosRepository', () => {
     db.close();
   });
 
+  test('dimension repair updates only unknown records and dirties the manifest row (#367)', () => {
+    const { db, repo } = openSeeded();
+    const unknown = samplePhoto({ width: 0, height: 0 });
+    const known = samplePhoto({ width: 700, height: 525 });
+    repo.insert(unknown);
+    repo.insert(known);
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+
+    assert.equal(repo.repairDimensions(unknown.id, 1919, 1279), true);
+    assert.deepEqual({ width: repo.get(unknown.id)?.width, height: repo.get(unknown.id)?.height }, { width: 1919, height: 1279 });
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', unknown.id)?.dirty, 1);
+
+    assert.equal(repo.repairDimensions(known.id, 1400, 1050), false, 'valid metadata is never overwritten');
+    assert.deepEqual({ width: repo.get(known.id)?.width, height: repo.get(known.id)?.height }, { width: 700, height: 525 });
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', known.id)?.dirty, 0);
+    assert.equal(repo.repairDimensions('missing', 1, 1), false);
+    db.close();
+  });
+
   test('duplicate content hashes are rejected (dedup by construction)', () => {
     const { db, repo } = openSeeded();
     repo.insert(samplePhoto({ contentHash: 'same' }));
