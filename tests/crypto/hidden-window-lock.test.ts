@@ -123,7 +123,9 @@ describe('native full-screen hidden-window lock guard (#370)', () => {
     assert.equal(locks, 1);
     assert.equal(timer.pending(), false);
   });
+});
 
+describe('hidden-window lock guard platform and lifecycle behavior (#370)', () => {
   test('non-macOS windows keep the immediate hide/minimize lock path', () => {
     const source = new FakeWindow();
     let locks = 0;
