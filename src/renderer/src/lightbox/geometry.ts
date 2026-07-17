@@ -23,7 +23,11 @@ export const ZOOM_MIN = 0.25;
 export const ZOOM_MAX = 8;
 
 export function rotateOrientation(orientation: LightboxOrientation, delta: -1 | 1): LightboxOrientation {
-  const quarterTurns = (orientation.quarterTurns + delta + 4) % 4;
+  // A screen-horizontal reflection reverses handedness. Invert the stored
+  // source-space turn so Rotate right/left stays visually right/left after a
+  // flip instead of appearing to run backwards.
+  const visualDelta = orientation.flipped ? -delta : delta;
+  const quarterTurns = (orientation.quarterTurns + visualDelta + 4) % 4;
   return { ...orientation, quarterTurns: quarterTurns as LightboxOrientation['quarterTurns'] };
 }
 

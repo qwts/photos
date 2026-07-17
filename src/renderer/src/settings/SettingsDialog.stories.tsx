@@ -167,7 +167,7 @@ function installStub(): void {
           generation: 7,
           photos: 1542,
           resumed: true,
-          fallbackFromGeneration: null,
+          fallbackFromGeneration: 9,
           relaunching: true,
         },
         error: null,
@@ -321,6 +321,9 @@ export const RestoreDiscoveryAndWarnings: Story = {
     await expect(body.getByRole('button', { name: 'Restore 1,542 photos' })).toBeDisabled();
     await userEvent.click(body.getByRole('checkbox'));
     await expect(body.getByRole('button', { name: 'Restore 1,542 photos' })).toBeEnabled();
+    await userEvent.click(body.getByRole('button', { name: 'Restore 1,542 photos' }));
+    await waitFor(() => expect(body.getByText('Restore complete')).toBeVisible());
+    await expect(body.getByText('Generation 9 failed validation; restored generation 7.')).toBeVisible();
   },
 };
 
