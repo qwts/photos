@@ -13,7 +13,11 @@ import { AppStateProvider } from '../state/app-state-context';
 // section (connection card + disconnected-disables-everything). The
 // decorator installs in-memory window.overlook settings + backup stubs.
 
-function installStub(): void {
+interface StoryWindow extends Window {
+  releaseInitialProviderStatus?: () => void;
+}
+
+function installStub(options?: { readonly deferInitialProviderStatus?: boolean }): void {
   let current: AppSettings = { ...defaultSettings };
   const mockProvider = {
     id: 'mock',
@@ -77,6 +81,13 @@ function installStub(): void {
       return () => listeners.delete(listener);
     },
   };
+  const initialProviderStatus =
+    options?.deferInitialProviderStatus === true
+      ? new Promise<void>((resolve) => {
+          (globalThis as unknown as StoryWindow).releaseInitialProviderStatus = resolve;
+        })
+      : Promise.resolve();
+  let providerStatusRequests = 0;
   const backupApi: OverlookApi['backup'] = {
     run: () =>
       Promise.resolve({
@@ -109,18 +120,21 @@ function installStub(): void {
       }),
     providers: () => Promise.resolve({ providers: [mockProvider, googleDriveProvider, archiveProvider], defaultProviderId: 'mock' }),
     // The card's truth follows the stub store's providerId, like main does.
-    providerStatus: ({ providerId }) => {
+    providerStatus: async ({ providerId }) => {
+      // Keep status observably asynchronous so the story proves the pane's
+      // unresolved state without relying on a same-microtask response.
+      const initialRequest = providerStatusRequests === 0;
+      providerStatusRequests += 1;
+      if (initialRequest) await initialProviderStatus;
       const provider =
         providerId === archiveProvider.id ? archiveProvider : providerId === googleDriveProvider.id ? googleDriveProvider : mockProvider;
-      return Promise.resolve(
-        current.providerId !== providerId
-          ? { provider, connected: false, account: null, usedBytes: null, totalBytes: null }
-          : providerId === archiveProvider.id
-            ? { provider, connected: true, account: null, usedBytes: null, totalBytes: null }
-            : providerId === googleDriveProvider.id
-              ? { provider, connected: true, account: null, usedBytes: 42_000_000_000, totalBytes: 100_000_000_000 }
-              : { provider, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
-      );
+      return current.providerId !== providerId
+        ? { provider, connected: false, account: null, usedBytes: null, totalBytes: null }
+        : providerId === archiveProvider.id
+          ? { provider, connected: true, account: null, usedBytes: null, totalBytes: null }
+          : providerId === googleDriveProvider.id
+            ? { provider, connected: true, account: null, usedBytes: 42_000_000_000, totalBytes: 100_000_000_000 }
+            : { provider, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 };
     },
     // Connect/disconnect (#254) mirror main's mock policy: flip providerId.
     connect: ({ providerId }) => {
@@ -260,11 +274,26 @@ export default meta;
 type Story = StoryObj<typeof SettingsDialog>;
 
 export const StorageOpensByDefault: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ deferInitialProviderStatus: true });
+      return <Story />;
+    },
+  ],
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await expect(body.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     const storage = body.getByRole('button', { name: 'Storage & Backup' });
     await expect(storage).toHaveAttribute('aria-current', 'true');
+    // A slow provider check stays neutral: never claim the selected provider
+    // is disconnected or offer connection actions before truth resolves.
+    await waitFor(() => expect(body.getByText('Checking connection…')).toBeVisible());
+    await expect(body.getByRole('button', { name: 'Checking…' })).toBeDisabled();
+    await expect(body.queryByText('Not connected')).not.toBeInTheDocument();
+    await expect(body.queryByText('Link a provider to store encrypted originals off-device.')).not.toBeInTheDocument();
+    const storyWindow = canvasElement.ownerDocument.defaultView as StoryWindow | null;
+    if (storyWindow?.releaseInitialProviderStatus === undefined) throw new Error('expected deferred provider status');
+    storyWindow.releaseInitialProviderStatus();
     // The real pane (#114): connected card with live quota + enabled knobs.
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
@@ -310,7 +339,7 @@ export const ProviderSelectionAndUnknownQuota: Story = {
     const body = within(canvasElement.ownerDocument.body);
     await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
     await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
-    await userEvent.click(body.getByRole('radio', { name: 'Archive Cloud' }));
+    await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Archive Cloud' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · STORAGE USAGE NOT REPORTED')).toBeVisible());
     await expect(body.getByText(/VERIFY BY DOWNLOAD/u)).toBeVisible();
@@ -322,7 +351,7 @@ export const GoogleDriveSelection: Story = {
     const body = within(canvasElement.ownerDocument.body);
     await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
     await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
-    await userEvent.click(body.getByRole('radio', { name: 'Google Drive' }));
+    await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Google Drive' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Google Drive' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · 42 GB / 100 GB USED')).toBeVisible());
     await expect(body.getByText(/SERVER CHECKSUM · RESUMABLE UPLOADS/u)).toBeVisible();

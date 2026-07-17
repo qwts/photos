@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { formatBytes } from '../../../shared/library/format.js';
 import { Badge } from '../components/Badge';
@@ -32,6 +32,10 @@ export interface ProviderStatus {
   readonly totalBytes: number | null;
 }
 
+type ProviderStatusLoad =
+  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderStatus }
+  | { readonly targetId: string; readonly state: 'error' };
+
 export interface StoragePaneProps {
   readonly settings: AppSettings;
   readonly selectedPhotoIds: readonly string[];
@@ -44,22 +48,34 @@ export interface StoragePaneProps {
 }
 
 export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: StoragePaneProps): ReactElement {
-  const [status, setStatus] = useState<ProviderStatus | null>(null);
+  const [statusLoad, setStatusLoad] = useState<ProviderStatusLoad | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const statusRequestRef = useRef(0);
 
   const refresh = useCallback(() => {
-    if (targetId !== null) {
-      void window.overlook.backup.providerStatus({ providerId: targetId }).then(setStatus);
+    const request = statusRequestRef.current + 1;
+    statusRequestRef.current = request;
+    if (targetId === null) {
+      return;
     }
+    void window.overlook.backup
+      .providerStatus({ providerId: targetId })
+      .then((loaded) => {
+        if (statusRequestRef.current === request) setStatusLoad({ targetId, state: 'ready', value: loaded });
+      })
+      .catch(() => {
+        if (statusRequestRef.current === request) setStatusLoad({ targetId, state: 'error' });
+      });
   }, [targetId]);
 
   const toggleConnection = useCallback(
     (isConnected: boolean) => {
       setConnecting(true);
       setConnectError(null);
+      setStatusLoad(null);
       if (targetId === null) {
         setConnecting(false);
         return;
@@ -97,8 +113,17 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
     refresh();
   }, [refresh]);
 
+  const status = statusLoad?.targetId === targetId && statusLoad.state === 'ready' ? statusLoad.value : null;
   const descriptor = providers.find((provider) => provider.id === targetId) ?? status?.provider ?? null;
-  const connected = settings.providerId === targetId && status?.connected === true;
+  const connection =
+    statusLoad?.targetId === targetId && statusLoad.state === 'error'
+      ? 'error'
+      : status === null
+        ? 'loading'
+        : settings.providerId === targetId && status.connected
+          ? 'connected'
+          : 'disconnected';
+  const connected = connection === 'connected';
   const name = descriptor?.label ?? 'Cloud provider';
   const bandwidth = settings.bandwidthLimit;
 
@@ -109,9 +134,21 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         <div className="ovl-settings__providerBody">
           <div className="ovl-settings__providerHead">
             <span className="ovl-settings__providerName">{name}</span>
-            {connected ? <Badge tone="green">Connected</Badge> : <Badge tone="neutral">Not connected</Badge>}
+            {connection === 'loading' ? (
+              <Badge tone="neutral">Checking…</Badge>
+            ) : connected ? (
+              <Badge tone="green">Connected</Badge>
+            ) : connection === 'error' ? (
+              <Badge tone="neutral">Status unavailable</Badge>
+            ) : (
+              <Badge tone="neutral">Not connected</Badge>
+            )}
           </div>
-          {connected && status !== null && status.usedBytes !== null && status.totalBytes !== null ? (
+          {connection === 'loading' ? (
+            <div className="ovl-settings__providerMeta">Checking connection…</div>
+          ) : connection === 'error' ? (
+            <div className="ovl-settings__providerMeta">Could not check this provider’s connection.</div>
+          ) : connected && status !== null && status.usedBytes !== null && status.totalBytes !== null ? (
             <>
               <div className="ovl-settings__providerMeta mono-data">
                 {status.account ?? 'THIS DEVICE'} · {formatBytes(status.usedBytes).toUpperCase()} /{' '}
@@ -136,16 +173,27 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         </div>
         <Button
           variant={connected ? 'secondary' : 'primary'}
-          disabled={connecting || descriptor?.available === false}
+          disabled={connection === 'loading' || connecting || descriptor?.available === false}
           onClick={() => {
-            toggleConnection(connected);
+            if (connection === 'error') {
+              setStatusLoad(null);
+              refresh();
+            } else toggleConnection(connected);
           }}
         >
-          {connecting ? 'Connecting…' : connected ? 'Disconnect' : `Connect ${name}`}
+          {connection === 'loading'
+            ? 'Checking…'
+            : connecting
+              ? 'Connecting…'
+              : connection === 'error'
+                ? 'Try again'
+                : connected
+                  ? 'Disconnect'
+                  : `Connect ${name}`}
         </Button>
       </div>
 
-      {!connected && providers.length > 1 && targetId !== null ? (
+      {connection === 'disconnected' && providers.length > 1 && targetId !== null ? (
         <Field label="Backup provider" hint="Choose where encrypted library data is stored.">
           <Segmented
             label="Backup provider"
@@ -153,7 +201,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
             options={providers.map((provider) => ({ value: provider.id, label: provider.label, disabled: !provider.available }))}
             onChange={(providerId) => {
               setTargetId(providerId);
-              setStatus(null);
+              setStatusLoad(null);
               setConnectError(null);
             }}
           />
