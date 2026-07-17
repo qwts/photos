@@ -1,5 +1,11 @@
 # photos
 
+## 0.31.2
+
+### Patch Changes
+
+- eb1af86: Add the biometric usage description and verify the final provisioned macOS app's embedded profile and signed Touch ID identity.
+
 ## 0.31.1
 
 ### Patch Changes
