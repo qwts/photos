@@ -313,7 +313,9 @@ export interface DiagnosticsFacade {
 export interface LibraryRegistryFacade {
   list(): LibraryDescriptor[];
   create(name: string, path: string | null): LibraryDescriptor;
-  open(id: string): { library: LibraryDescriptor; requiresRestart: boolean };
+  open(
+    id: string,
+  ): { library: LibraryDescriptor; requiresRestart: boolean } | Promise<{ library: LibraryDescriptor; requiresRestart: boolean }>;
   remove(id: string): boolean;
   current(): LibraryDescriptor;
 }

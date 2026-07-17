@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
-import { app, BrowserWindow, dialog, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, session } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
@@ -33,7 +33,8 @@ import { createRecoveryHealthCheck } from './backup/recovery-health.js';
 import type { OffloadService } from './backup/offload.js';
 import type { EphemeralOriginalService } from './backup/ephemeral-originals.js';
 import { createOriginalCustodyRuntime } from './backup/original-custody-runtime.js';
-import { ProviderRuntime } from './backup/provider-runtime.js';
+import type { ProviderRuntime } from './backup/provider-runtime.js';
+import { createProviderRuntime } from './backup/provider-runtime-factory.js';
 import type { RestoreRuntime } from './backup/restore-runtime.js';
 import { createRestoreRuntime } from './backup/restore-runtime-factory.js';
 import { recoverInterruptedActivation, restorePaths } from './backup/restore-staging.js';
@@ -43,7 +44,8 @@ import { PurgeService } from './library/purge-service.js';
 import { createPurgeRuntime, type DrainablePurgeFacade } from './library/purge-runtime.js';
 import { StartupMaintenance } from './library/startup-maintenance.js';
 import { SyncLedger } from './backup/sync-ledger.js';
-import { createExportRuntime, type DrainableExportFacade } from './export/export-runtime.js';
+import type { DrainableExportFacade } from './export/export-runtime.js';
+import { createExportFacade } from './export/export-facade-factory.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import { pickExportDestination } from './export/export-destination.js';
 import { registerIpcHandlers } from './ipc.js';
@@ -52,6 +54,7 @@ import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { LibraryRegistryRuntime } from './library/library-registry-runtime.js';
 import { acquireLibraryLock } from './library/library-lock.js';
+import { createSwitchLibrary } from './library/switch-runtime.js';
 import { AppLockHost } from './crypto/app-lock-host.js';
 import { registerQuitTeardown, registerSingleInstance } from './app-bootstrap.js';
 import { ProtectedRuntime } from './library/protected-runtime.js';
@@ -188,15 +191,19 @@ function getLibraryService(): LibraryService {
   return libraryService;
 }
 
+/** Triggers the lazy bootstrap and asserts the parts exist — the shared
+ * guard for every service accessor below. */
+function requireParts(what: string): LibraryParts {
+  getLibraryService();
+  if (libraryParts === undefined) throw new Error(`library bootstrap failed; ${what} unavailable`);
+  return libraryParts;
+}
+
 let importRuntime: ImportRuntime | undefined;
 let rawRepairService: RawRepairService | undefined;
 function getImportService(): ImportService {
   if (importRuntime === undefined) {
-    getLibraryService();
-    const parts = libraryParts;
-    if (parts === undefined) {
-      throw new Error('library bootstrap failed; import service unavailable');
-    }
+    const parts = requireParts('import service');
     const repo = new PhotosRepository(parts.db);
     const emitScanProgress = createEmitter(events.scanProgress, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
@@ -278,11 +285,7 @@ let thumbService: ThumbService | undefined;
 
 function getThumbService(): ThumbService {
   if (thumbService === undefined) {
-    getLibraryService();
-    const parts = libraryParts;
-    if (parts === undefined) {
-      throw new Error('library bootstrap failed; thumb service unavailable');
-    }
+    const parts = requireParts('thumb service');
     const repo = new PhotosRepository(parts.db);
     thumbService = new ThumbService({
       admit: (photoId) => repo.get(photoId) !== undefined,
@@ -310,11 +313,7 @@ let fullService: FullService | undefined;
 
 function getFullService(): FullService {
   if (fullService === undefined) {
-    getLibraryService();
-    const parts = libraryParts;
-    if (parts === undefined) {
-      throw new Error('library bootstrap failed; full-res service unavailable');
-    }
+    const parts = requireParts('full-res service');
     const repo = new PhotosRepository(parts.db);
     fullService = createFullRuntime({
       repo,
@@ -328,9 +327,7 @@ function getFullService(): FullService {
 }
 
 function getProtectedRuntime(): ProtectedRuntime {
-  getLibraryService();
-  if (libraryParts === undefined) throw new Error('library bootstrap failed; protected runtime unavailable');
-  return libraryParts.protected;
+  return requireParts('protected runtime').protected;
 }
 
 let backupEngine: BackupEngine | undefined;
@@ -356,15 +353,9 @@ function providerIdle(): Promise<void> {
 }
 
 function getProviderRuntime(): ProviderRuntime {
-  providerRuntime ??= new ProviderRuntime({
+  providerRuntime ??= createProviderRuntime({
     dataDir: () => libraryDataDir(),
-    providerCredentialDir: (providerId) => path.join(app.getPath('userData'), 'provider-auth', providerId),
-    safeStorage: pickSafeStorage,
-    openExternal: async (url) => shell.openExternal(url),
-    setProviderId: (id) => getSettingsStore().set({ providerId: id }),
-    providerId: () => getSettingsStore().get().providerId,
     isWorkActive: () => providerWorkCount > 0,
-    isPackaged: app.isPackaged,
     harnessEnv,
   });
   return providerRuntime;
@@ -409,35 +400,32 @@ function cancelScheduledLibraryWork(): void {
   startupMaintenance.cancel();
 }
 
-function getPurgeService(): PurgeService {
-  getBackupEngine();
-  if (purgeService === undefined) throw new Error('backup bootstrap failed; purge unavailable');
-  return purgeService;
+// The backup cluster is built as one unit by getBackupEngine(); these
+// accessors trigger it and assert the member exists.
+function builtByBackupEngine<T>(value: T | undefined, what: string): T {
+  if (value === undefined) throw new Error(`backup bootstrap failed; ${what} unavailable`);
+  return value;
 }
-function getPurgeRuntime(): DrainablePurgeFacade {
+const getPurgeService = (): PurgeService => {
+  getBackupEngine();
+  return builtByBackupEngine(purgeService, 'purge');
+};
+const getPurgeRuntime = (): DrainablePurgeFacade => {
   getPurgeService();
-  if (purgeRuntime === undefined) throw new Error('backup bootstrap failed; purge runtime unavailable');
-  return purgeRuntime;
-}
-function getOffloadService(): OffloadService {
+  return builtByBackupEngine(purgeRuntime, 'purge runtime');
+};
+const getOffloadService = (): OffloadService => {
   getBackupEngine();
-  if (offloadService === undefined) throw new Error('backup bootstrap failed; offload unavailable');
-  return offloadService;
-}
-
-function getEphemeralOriginalService(): EphemeralOriginalService {
+  return builtByBackupEngine(offloadService, 'offload');
+};
+const getEphemeralOriginalService = (): EphemeralOriginalService => {
   getBackupEngine();
-  if (ephemeralOriginalService === undefined) throw new Error('backup bootstrap failed; ephemeral originals unavailable');
-  return ephemeralOriginalService;
-}
+  return builtByBackupEngine(ephemeralOriginalService, 'ephemeral originals');
+};
 
 function getBackupEngine(): BackupEngine {
   if (backupEngine === undefined) {
-    getLibraryService();
-    const parts = libraryParts;
-    if (parts === undefined) {
-      throw new Error('library bootstrap failed; backup unavailable');
-    }
+    const parts = requireParts('backup');
     const repo = new PhotosRepository(parts.db);
     const ledger = new SyncLedger(parts.db);
     const emitProgress = createEmitter(events.backupProgress, (name, payload) => {
@@ -659,21 +647,12 @@ let exportFacade: DrainableExportFacade | undefined;
 
 function getExportFacade(): DrainableExportFacade {
   if (exportFacade === undefined) {
-    getLibraryService();
-    const parts = libraryParts;
-    if (parts === undefined) {
-      throw new Error('library bootstrap failed; export unavailable');
-    }
-    const repo = new PhotosRepository(parts.db);
-    exportFacade = createExportRuntime({
-      repo: { get: (id) => repo.get(id) },
-      blobs: parts.blobStore,
+    const parts = requireParts('export');
+    exportFacade = createExportFacade({
+      db: parts.db,
+      blobStore: parts.blobStore,
       resolveKey: parts.keyStore.resolver(),
-      openOriginal: async (photo) => {
-        const service = getEphemeralOriginalService();
-        const opened = await service.open(photo.id, 'export');
-        return { stream: opened.stream, release: opened.custody === 'ephemeral' ? () => service.release(photo.id, 'export') : undefined };
-      },
+      ephemeral: getEphemeralOriginalService,
       pickDestination: () => pickExportDestination(harnessEnv),
       progress: (done, total) => emitExportProgress({ done, total }),
     });
@@ -681,7 +660,8 @@ function getExportFacade(): DrainableExportFacade {
   return exportFacade;
 }
 
-async function closeLibrary(drainRestore: boolean): Promise<void> {
+async function closeLibrary(mode: 'restore' | 'lock' | 'switch'): Promise<void> {
+  const full = mode !== 'restore';
   autoBackupTrigger = undefined;
   manifestSyncTrigger = undefined;
   importRuntime?.service.close();
@@ -697,11 +677,12 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
     purgeRuntime?.drain() ?? Promise.resolve(),
     startupMaintenance.drain(),
     Promise.allSettled([...activeBackupRuns]),
-    drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
-    drainRestore ? providerIdle() : Promise.resolve(),
+    full ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
+    full ? providerIdle() : Promise.resolve(),
     Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),
     importRuntime?.pool.close() ?? Promise.resolve(),
-    ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
+    ...(full ? [session.defaultSession.clearCache()] : []),
+    ...(mode === 'lock' ? [reloadContentWindowsForLock()] : []),
   ]);
   libraryParts?.protected.close();
   if (libraryParts !== undefined) {
@@ -727,13 +708,28 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   [purgeService, purgeRuntime] = [undefined, undefined];
   consistencyChecker = undefined;
   exportFacade = undefined;
-  if (drainRestore) restoreRuntime = undefined;
+  if (full) restoreRuntime = undefined;
   releaseLibraryLock?.();
   releaseLibraryLock = undefined;
 }
 
-const closeLibraryForRestore = (): Promise<void> => closeLibrary(false);
-const closeLibraryForLock = (): Promise<void> => closeLibrary(true);
+const closeLibraryForRestore = (): Promise<void> => closeLibrary('restore');
+const closeLibraryForLock = (): Promise<void> => closeLibrary('lock');
+
+// Live switch (#385): see library/switch-runtime.ts for the contract.
+const switchLibrary = createSwitchLibrary({
+  registry: registryRuntime,
+  openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
+  lockState: () => appLockHost?.snapshot().state,
+  providerBusy: () => providerWorkCount > 0,
+  closeLibrary: () => closeLibrary('switch'),
+  swapAppLock: async () => {
+    if (appLockHost !== undefined) await appLockHost.swap(buildAppLockController());
+  },
+  reloadWindows: reloadContentWindowsForLock,
+  fault: () => harnessEnv('OVERLOOK_SWITCH_FAULT'),
+  exit: (code) => app.exit(code),
+});
 
 let appLockHost: AppLockHost | undefined;
 
@@ -802,9 +798,7 @@ void externalOpen.whenReady().then(async () => {
   registerAppLockIpc({
     controller: lock,
     currentMaster: () => {
-      getLibraryService();
-      if (libraryParts === undefined) throw new Error('library bootstrap failed; no master key available');
-      return libraryParts.keyStore.masterKeyBytes();
+      return requireParts('master key').keyStore.masterKeyBytes();
     },
     libraryId: () => getProviderRuntime().libraryId(),
     dataDir: () => libraryDataDir(),
@@ -818,19 +812,20 @@ void externalOpen.whenReady().then(async () => {
     requireContentAccess: () => lock.requireContentAccess(),
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
     getLibrary: getLibraryService,
-    libraries: registryRuntime.facade({
-      openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
-      safeStorage: pickSafeStorage,
-    }),
+    libraries: {
+      ...registryRuntime.facade({
+        openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
+        safeStorage: pickSafeStorage,
+      }),
+      open: switchLibrary,
+    },
     getProtected: getProtectedRuntime,
     getThumbs: getThumbService,
     getFull: getFullService,
     getImport: getImportService,
     getExport: getExportFacade,
     getKeyStore: () => {
-      getLibraryService();
-      if (libraryParts === undefined) throw new Error('library bootstrap failed; no key available');
-      return libraryParts.keyStore;
+      return requireParts('key store').keyStore;
     },
     getRestore: getRestoreRuntime,
     getPurge: getPurgeRuntime,
