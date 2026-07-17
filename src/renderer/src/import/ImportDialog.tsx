@@ -223,12 +223,16 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
   useEffect(
     () => () => {
       googlePickRequestRef.current += 1;
+      void window.overlook.import.cancelGoogleDrivePick().catch(() => undefined);
     },
     [],
   );
 
   useEffect(() => {
-    if (!open) googlePickRequestRef.current += 1;
+    if (!open) {
+      googlePickRequestRef.current += 1;
+      void window.overlook.import.cancelGoogleDrivePick().catch(() => undefined);
+    }
   }, [open]);
 
   useEffect(() => {
@@ -291,6 +295,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
 
   const close = (showRecent: boolean): void => {
     googlePickRequestRef.current += 1;
+    void window.overlook.import.cancelGoogleDrivePick().catch(() => undefined);
     if (cleanCount !== null) {
       onComplete?.(cleanCount); // the modal is gone — the toast is visible
     }

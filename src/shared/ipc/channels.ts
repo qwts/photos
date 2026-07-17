@@ -481,6 +481,7 @@ export const channels = {
       z.object({ status: googleDrivePickFailureSchema }),
     ]),
   ),
+  importGoogleDriveCancelPick: defineChannel('import:google-drive-cancel-pick', z.object({}), z.object({})),
   importGoogleDriveRun: defineChannel('import:google-drive-run', z.object({ selectionId: z.string().uuid() }), importRunSummarySchema),
   importGoogleDriveDiscard: defineChannel('import:google-drive-discard', z.object({ selectionId: z.string().uuid() }), z.object({})),
   // Renderer readiness handshake for queued OS/Finder open-file batches.

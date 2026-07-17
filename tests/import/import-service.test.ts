@@ -202,6 +202,39 @@ describe('import service fixture source is injector-gated (#129 F1)', () => {
 });
 
 describe('Google Drive import service (#465)', () => {
+  test('renderer cancellation closes the active Picker through the service boundary', async () => {
+    let rejectResult: ((error: Error) => void) | undefined;
+    let closes = 0;
+    const googleDrive = new GoogleDriveImportSource({
+      stagingRoot: mkdtempSync(join(tmpdir(), 'overlook-drive-service-cancel-')),
+      clientId: () => 'desktop.apps.googleusercontent.com',
+      openExternal: () => Promise.resolve(),
+      capture: () => ({
+        listening: Promise.resolve({ port: 1, redirectUri: 'http://127.0.0.1:1' }),
+        result: new Promise((_resolve, reject) => {
+          rejectResult = reject;
+        }),
+        close: () => {
+          closes += 1;
+          rejectResult?.(new Error('cancelled'));
+        },
+      }),
+    });
+    const service = new ImportService(
+      fakeRepo(),
+      IDLE_EVENTS,
+      { resume: () => Promise.resolve(null) } as unknown as ImportEngine,
+      () => undefined,
+      undefined,
+      googleDrive,
+    );
+    const picking = service.pickGoogleDrive();
+    await new Promise((resolve) => setImmediate(resolve));
+    service.cancelGoogleDrivePick();
+    assert.deepEqual(await picking, { status: 'cancelled' });
+    assert.ok(closes >= 1);
+  });
+
   test('selected files reuse the serialized copy pipeline with a stable source label', async () => {
     const fixture = mkdtempSync(join(tmpdir(), 'overlook-drive-service-'));
     writeFileSync(join(fixture, 'cloud.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
