@@ -67,6 +67,29 @@
   margin-left: var(--space-1);
 }
 
+@media (max-width: 620px) {
+  .ovl-toolbar__row {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--toolbar-h);
+    gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .ovl-toolbar__wordmark {
+    width: auto;
+  }
+
+  .ovl-toolbar__row > .ovl-search {
+    flex: 1 1 220px;
+    width: auto !important;
+  }
+
+  .ovl-toolbar__spacer {
+    display: none;
+  }
+}
+
 /* Toast surfacing (#79): bottom-right above the status bar. */
 .ovl-shell__toast {
   position: absolute;
