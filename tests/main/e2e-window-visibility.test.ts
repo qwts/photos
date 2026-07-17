@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { initialWindowBehavior, resolveE2EWindowMode, shouldShowInitialWindow } from '../../src/main/e2e-window-visibility.js';
+import { configurePerfEnvironment } from '../perf/global-setup.js';
 
 test('E2E window mode hides local macOS only', () => {
   assert.equal(resolveE2EWindowMode('darwin', undefined), 'hidden');
@@ -26,4 +27,17 @@ test('hidden E2E windows disable background throttling without changing producti
     show: true,
     backgroundThrottling: true,
   });
+});
+
+test('the performance lane explicitly measures a visible window', () => {
+  const previous = process.env['OVERLOOK_E2E_VISIBLE'];
+  delete process.env['OVERLOOK_E2E_VISIBLE'];
+  try {
+    configurePerfEnvironment();
+    assert.equal(process.env['OVERLOOK_E2E_VISIBLE'], '1');
+    assert.equal(resolveE2EWindowMode('darwin', process.env['OVERLOOK_E2E_VISIBLE']), 'visible');
+  } finally {
+    if (previous === undefined) delete process.env['OVERLOOK_E2E_VISIBLE'];
+    else process.env['OVERLOOK_E2E_VISIBLE'] = previous;
+  }
 });

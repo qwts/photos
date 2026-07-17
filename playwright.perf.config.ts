@@ -5,7 +5,7 @@ import { defineConfig } from '@playwright/test';
 // long test, real timings.
 export default defineConfig({
   testDir: './tests/perf',
-  globalSetup: './tests/e2e/global-setup.ts',
+  globalSetup: './tests/perf/global-setup.ts',
   fullyParallel: false,
   workers: 1,
   timeout: 600_000,
