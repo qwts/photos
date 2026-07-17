@@ -872,6 +872,32 @@
       ]
     },
     {
+      "id": "m15-google-drive-selected-file-import",
+      "wiki": "User-Story-M15-Import-sources",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/import-flow.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/import/ImportDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/import/google-drive-source.test.ts",
+            "tests/import/import-service.test.ts",
+            "tests/backup/google-drive-loopback.test.ts"
+          ]
+        },
+        {
+          "type": "manual",
+          "reason": "Use a packaged build configured with the owner's Google Desktop OAuth client to verify the real system-browser Picker callback, multi-selection, supported and unsupported file handling, and that the configured backup provider and account remain unchanged."
+        }
+      ]
+    },
+    {
       "id": "m18-recovery-key-backup-import",
       "wiki": "User-Story-M18-Recovery-key",
       "coverage": [

@@ -26,6 +26,46 @@ function pickedFileIds(url: URL): string[] | null {
   return ids;
 }
 
+type ParsedCallback =
+  | { readonly ok: true; readonly result: { readonly code: string; readonly pickedFileIds: readonly string[] } }
+  | { readonly ok: false; readonly message: string; readonly error: GoogleDriveOAuthError | null };
+
+function parseCallback(url: URL, state: string, requirePickedFiles: boolean): ParsedCallback {
+  if (url.searchParams.get('state') !== state) return { ok: false, message: 'Invalid authorization state.', error: null };
+  const providerError = url.searchParams.get('error');
+  if (providerError !== null) {
+    return {
+      ok: false,
+      message: 'Google Drive connection failed. Return to Overlook and try again.',
+      error: new GoogleDriveOAuthError(`Google Drive authorization failed: ${providerError}`),
+    };
+  }
+  const code = url.searchParams.get('code');
+  if (code === null || code === '') {
+    return {
+      ok: false,
+      message: 'Google Drive did not return an authorization code.',
+      error: new GoogleDriveOAuthError('Google Drive authorization did not return a code.'),
+    };
+  }
+  const selected = pickedFileIds(url);
+  if (selected === null) {
+    return {
+      ok: false,
+      message: 'Google Drive returned an invalid file selection.',
+      error: new GoogleDriveOAuthError('Google Drive returned invalid selected file IDs.'),
+    };
+  }
+  if (requirePickedFiles && selected.length === 0) {
+    return {
+      ok: false,
+      message: 'No Google Drive files were selected.',
+      error: new GoogleDriveOAuthError('Google Drive selection returned no files.'),
+    };
+  }
+  return { ok: true, result: { code, pickedFileIds: selected } };
+}
+
 /** Desktop installed-app callback. A random loopback port avoids fixed-port
  * collisions; only the matching state nonce can settle the pending flow. */
 export function startGoogleDriveLoopbackCapture(options: {
@@ -72,35 +112,14 @@ export function startGoogleDriveLoopbackCapture(options: {
       response.writeHead(409).end();
       return;
     }
-    if (url.searchParams.get('state') !== options.state) {
-      response.writeHead(400).end('Invalid authorization state.');
-      return;
-    }
-    const providerError = url.searchParams.get('error');
-    if (providerError !== null) {
-      response.writeHead(400).end('Google Drive connection failed. Return to Overlook and try again.');
-      settle({ ok: false, error: new GoogleDriveOAuthError(`Google Drive authorization failed: ${providerError}`) });
-      return;
-    }
-    const code = url.searchParams.get('code');
-    if (code === null || code === '') {
-      response.writeHead(400).end('Google Drive did not return an authorization code.');
-      settle({ ok: false, error: new GoogleDriveOAuthError('Google Drive authorization did not return a code.') });
-      return;
-    }
-    const selected = pickedFileIds(url);
-    if (selected === null) {
-      response.writeHead(400).end('Google Drive returned an invalid file selection.');
-      settle({ ok: false, error: new GoogleDriveOAuthError('Google Drive returned invalid selected file IDs.') });
-      return;
-    }
-    if (options.requirePickedFiles === true && selected.length === 0) {
-      response.writeHead(400).end('No Google Drive files were selected.');
-      settle({ ok: false, error: new GoogleDriveOAuthError('Google Drive selection returned no files.') });
+    const callback = parseCallback(url, options.state, options.requirePickedFiles === true);
+    if (!callback.ok) {
+      response.writeHead(400).end(callback.message);
+      if (callback.error !== null) settle({ ok: false, error: callback.error });
       return;
     }
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(SUCCESS_PAGE);
-    settle({ ok: true, result: { code, pickedFileIds: selected } });
+    settle({ ok: true, result: callback.result });
   });
 
   const listening = new Promise<{ port: number; redirectUri: string }>((resolve, reject) => {

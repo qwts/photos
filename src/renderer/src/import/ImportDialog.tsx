@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { Button } from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
@@ -57,12 +57,13 @@ type GoogleDriveState =
     }
   | {
       readonly status: 'error';
-      readonly reason: 'cancelled' | 'unavailable' | 'authorization-failed' | 'no-supported-files' | 'download-failed';
+      readonly reason: 'cancelled' | 'unavailable' | 'busy' | 'authorization-failed' | 'no-supported-files' | 'download-failed';
     };
 
 const GOOGLE_DRIVE_ERROR: Readonly<Record<Extract<GoogleDriveState, { status: 'error' }>['reason'], string>> = {
   cancelled: 'No Google Drive photos selected',
   unavailable: 'Google Drive import is unavailable in this build',
+  busy: 'A Google Drive selection is already open',
   'authorization-failed': 'Could not connect to Google Drive',
   'no-supported-files': 'No supported photos were selected',
   'download-failed': 'Selected photos could not be downloaded',
@@ -96,6 +97,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
   const [folder, setFolder] = useState<FolderState>({ status: 'empty' });
   const [drop, setDrop] = useState<DropState>({ status: 'scanning' });
   const [googleDrive, setGoogleDrive] = useState<GoogleDriveState>({ status: 'empty' });
+  const googlePickRequestRef = useRef(0);
   // A drop can land while the dialog is already open (toolbar-opened, or a
   // second drop): re-select the Dropped segment so the footer imports what
   // the user just dropped (PR #249 review). During-render adjustment, per
@@ -190,10 +192,18 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
   };
 
   const chooseGoogleDrive = (): void => {
+    const request = googlePickRequestRef.current + 1;
+    googlePickRequestRef.current = request;
     setGoogleDrive({ status: 'picking' });
     void window.overlook.import
       .pickGoogleDrive()
       .then((result) => {
+        if (request !== googlePickRequestRef.current) {
+          if (result.status === 'ready') {
+            void window.overlook.import.discardGoogleDrive({ selectionId: result.selectionId }).catch(() => undefined);
+          }
+          return;
+        }
         setGoogleDrive(
           result.status === 'ready'
             ? {
@@ -206,9 +216,20 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
         );
       })
       .catch(() => {
-        setGoogleDrive({ status: 'error', reason: 'authorization-failed' });
+        if (request === googlePickRequestRef.current) setGoogleDrive({ status: 'error', reason: 'authorization-failed' });
       });
   };
+
+  useEffect(
+    () => () => {
+      googlePickRequestRef.current += 1;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!open) googlePickRequestRef.current += 1;
+  }, [open]);
 
   useEffect(() => {
     if (googleDrive.status !== 'ready') return;
@@ -269,6 +290,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
   const available = activeSummary !== null && total > 0;
 
   const close = (showRecent: boolean): void => {
+    googlePickRequestRef.current += 1;
     if (cleanCount !== null) {
       onComplete?.(cleanCount); // the modal is gone — the toast is visible
     }

@@ -48,6 +48,30 @@ function testSource(options?: { readonly metadata?: Readonly<Record<string, obje
 }
 
 describe('Google Drive import source (#465)', () => {
+  test('a second picker request is refused while the browser flow is active', async () => {
+    let finish: ((value: { code: string; pickedFileIds: readonly string[] }) => void) | undefined;
+    const result = new Promise<{ code: string; pickedFileIds: readonly string[] }>((resolve) => {
+      finish = resolve;
+    });
+    const source = new GoogleDriveImportSource({
+      stagingRoot: mkdtempSync(join(tmpdir(), 'overlook-drive-busy-')),
+      clientId: () => CLIENT_ID,
+      openExternal: () => Promise.resolve(),
+      capture: () => ({
+        listening: Promise.resolve({ port: 1, redirectUri: 'http://127.0.0.1:1' }),
+        result,
+        close: () => undefined,
+      }),
+      fetchImpl: () =>
+        Promise.resolve(new Response(JSON.stringify({ access_token: 'access-1', scope: GOOGLE_DRIVE_SCOPE }), { status: 200 })),
+    });
+    const first = source.pick();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(await source.pick(), { status: 'busy' });
+    finish?.({ code: 'code-1', pickedFileIds: [] });
+    assert.deepEqual(await first, { status: 'no-supported-files' });
+  });
+
   test('Picker grants selected files only, stages supported media, and discards it', async () => {
     const world = testSource();
     const result = await world.source.pick();
