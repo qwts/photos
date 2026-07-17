@@ -133,6 +133,9 @@ export function registerLibraryHandlers(getService: () => LibraryService, onDele
   ipcMain.handle(channels.libraryGet.name, (_event, request: unknown) =>
     wrapHandler(channels.libraryGet, ({ id }) => ({ photo: getService().get(id) ?? null }))(request),
   );
+  ipcMain.handle(channels.libraryRepairDimensions.name, (_event, request: unknown) =>
+    wrapHandler(channels.libraryRepairDimensions, ({ id, width, height }) => getService().repairDimensions(id, width, height))(request),
+  );
   ipcMain.handle(channels.libraryToggleFavorite.name, (_event, request: unknown) =>
     wrapHandler(channels.libraryToggleFavorite, ({ id }) => getService().toggleFavorite(id))(request),
   );

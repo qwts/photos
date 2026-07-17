@@ -102,3 +102,41 @@ test('full circle: import a real RAF, lightbox-export as JPEG from its preview',
     await app.close();
   }
 });
+
+test('metadata-lite JPEG imports with decoded dimensions, renders, and exports byte-identically (#367)', async () => {
+  const destination = mkdtempSync(join(tmpdir(), 'overlook-export-dest-'));
+  const card = join(mkdtempSync(join(tmpdir(), 'overlook-zero-dim-card-')), 'SDCARD');
+  mkdirSync(card);
+  const source = join(import.meta.dirname, '../fixtures/exif/exif-stripped.jpg');
+  copyFileSync(source, join(card, 'exif-stripped.jpg'));
+  const { app, page } = await launch(destination, { OVERLOOK_SEED: '0', OVERLOOK_IMPORT_SOURCE: card });
+  try {
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('button', { name: 'Import 1 photos' }).click();
+    await expect(page.getByText('All 1 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Show in library' }).click();
+
+    const row = await page.evaluate<{ width: number; height: number }>(
+      `window.overlook.library.page({ source: 'all', limit: 1 }).then((r) => ({ width: r.photos[0].width, height: r.photos[0].height }))`,
+    );
+    expect(row).toEqual({ width: 960, height: 1280 });
+    await page.getByRole('button', { name: 'Open exif-stripped.jpg' }).click();
+    const viewport = page.getByTestId('lightbox-viewport');
+    await expect(viewport).toHaveAttribute('data-image-width', '960');
+    await expect(viewport).toHaveAttribute('data-image-height', '1280');
+    const bounds = await viewport.getByRole('img', { name: 'exif-stripped.jpg' }).boundingBox();
+    expect(bounds?.width ?? 0).toBeGreaterThan(0);
+    expect(bounds?.height ?? 0).toBeGreaterThan(0);
+    await page.keyboard.press('i');
+    await expect(page.getByTestId('inspector')).toContainText('960×1280 · 1.2 MP');
+
+    await page.getByTestId('lightbox').getByRole('button', { name: 'Export' }).click();
+    await page.getByRole('radio', { name: 'Original' }).click();
+    await page.getByRole('button', { name: /Choose folder/u }).click();
+    await page.getByRole('button', { name: 'Export 1 photo', exact: true }).click();
+    await expect(page.getByText('1 photo exported and decrypted.')).toBeVisible({ timeout: 20_000 });
+    expect(readFileSync(join(destination, 'exif-stripped.jpg'))).toEqual(readFileSync(source));
+  } finally {
+    await app.close();
+  }
+});

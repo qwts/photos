@@ -30,6 +30,16 @@ export class LibraryService {
     return this.repo.get(photoId);
   }
 
+  repairDimensions(photoId: string, width: number, height: number): { repaired: boolean; pendingCount: number } {
+    const repaired = this.repo.repairDimensions(photoId, width, height);
+    const pendingCount = this.repo.pendingCount();
+    if (repaired) {
+      this.events.libraryChanged([photoId]);
+      this.events.pendingCountChanged(pendingCount);
+    }
+    return { repaired, pendingCount };
+  }
+
   toggleFavorite(photoId: string): { favorite: boolean; pendingCount: number } {
     const favorite = this.repo.toggleFavorite(photoId);
     const pendingCount = this.repo.pendingCount();

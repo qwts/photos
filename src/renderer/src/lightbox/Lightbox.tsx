@@ -34,6 +34,7 @@ export interface LightboxProps {
   readonly onOffload: () => void;
   /** Rehydrate failed — the host shows the red toast (#107). */
   readonly onRehydrateError?: (() => void) | undefined;
+  readonly onRepairDimensions: (width: number, height: number) => void;
   /** An offload for this photo is being confirmed or executed. */
   readonly suppressRehydrate?: boolean | undefined;
   /** Soft-deletes this photo (#120) — the row leaving the visible set
@@ -66,6 +67,7 @@ export function Lightbox({
   onTransfer,
   onOffload,
   onRehydrateError,
+  onRepairDimensions,
   suppressRehydrate = false,
   onDelete,
 }: LightboxProps): ReactElement {
@@ -166,6 +168,7 @@ export function Lightbox({
         imageSrc={imageSrc}
         chromeClass={chromeClass}
         onActivity={wakeChrome}
+        onDimensionsResolved={onRepairDimensions}
       />
       {photo.fileKind === 'raw' ? <span className="ovl-lightbox__preview mono-data">PREVIEW</span> : null}
       <div className={`ovl-lightbox__top ovl-lightbox__chrome${chromeClass}`}>

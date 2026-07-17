@@ -45,7 +45,10 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
       </div>
     );
   }
-  const megapixels = ((photo.width * photo.height) / 1_000_000).toFixed(1);
+  const dimensions =
+    photo.width > 0 && photo.height > 0
+      ? `${String(photo.width)}×${String(photo.height)} · ${((photo.width * photo.height) / 1_000_000).toFixed(1)} MP`
+      : 'Unknown — repair pending';
   const exposure = [
     photo.aperture === null ? null : `ƒ/${photo.aperture}`,
     photo.shutter === null ? null : `${photo.shutter}S`,
@@ -93,7 +96,7 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
         {photo.focalLength === null ? null : <MetadataRow label="Focal" value={`${String(photo.focalLength)}MM`} />}
       </Section>
       <Section title="File">
-        <MetadataRow label="Dimensions" value={`${String(photo.width)}×${String(photo.height)} · ${megapixels} MP`} />
+        <MetadataRow label="Dimensions" value={dimensions} />
         <MetadataRow label="Size" value={formatBytes(photo.bytes)} />
         <MetadataRow label="Imported" value={`${photo.importedAt.slice(0, 10)} · ${photo.importSource.toUpperCase()}`} />
       </Section>

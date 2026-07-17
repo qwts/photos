@@ -95,6 +95,15 @@ export const MetadataLite: Story = {
   },
 };
 
+export const UnknownDimensions: Story = {
+  args: { photo: { ...PHOTO, width: 0, height: 0, fileName: 'legacy-zero.jpg' } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Unknown — repair pending')).toBeVisible();
+    await expect(canvas.queryByText('0×0 · 0.0 MP')).toBeNull();
+  },
+};
+
 export const Empty: Story = {
   args: { photo: null },
   play: async ({ canvasElement }) => {
