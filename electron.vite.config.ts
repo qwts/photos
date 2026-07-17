@@ -31,6 +31,18 @@ function relaxCspForDev(): Plugin {
   };
 }
 
+// Production build hardening (#460): minify every bundle and emit no source
+// maps, so the shipped app carries neither readable source nor map files that
+// could re-expand it. electron-vite leaves main/preload unminified by default
+// (only the renderer inherits Vite's production minify), so main and preload
+// set it explicitly here — and pinning it on all three stops a silent
+// regression if the electron-vite default ever changes. esbuild (not terser)
+// keeps builds fast while still stripping whitespace, comments, and locals.
+const HARDENED_BUILD = {
+  minify: 'esbuild',
+  sourcemap: false,
+} as const;
+
 export default defineConfig({
   main: {
     define: {
@@ -38,6 +50,7 @@ export default defineConfig({
       __OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET__: JSON.stringify(process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET'] ?? ''),
     },
     build: {
+      ...HARDENED_BUILD,
       rollupOptions: {
         input: {
           index: 'src/main/index.ts',
@@ -50,6 +63,7 @@ export default defineConfig({
   },
   preload: {
     build: {
+      ...HARDENED_BUILD,
       rollupOptions: {
         output: {
           // Sandboxed renderers can only load CJS preloads; the package is ESM
@@ -61,6 +75,7 @@ export default defineConfig({
     },
   },
   renderer: {
+    build: HARDENED_BUILD,
     plugins: [react(), relaxCspForDev()],
   },
 });
