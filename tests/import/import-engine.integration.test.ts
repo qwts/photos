@@ -31,6 +31,32 @@ after(async () => {
 });
 
 describe('import engine integration (#87)', () => {
+  test('per-library import journals never resume another library batch (#387)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-import-library-isolation-'));
+    const libraryA = join(root, 'library-a');
+    const libraryB = join(root, 'library-b');
+    mkdirSync(libraryA);
+    mkdirSync(libraryB);
+    const journalA = new ImportJournal(join(libraryA, 'import-journal.json'));
+    const journalB = new ImportJournal(join(libraryB, 'import-journal.json'));
+    await journalA.write({
+      batchId: 'batch-a',
+      mode: 'copy',
+      source: '/card-a',
+      files: [{ path: '/card-a/a.jpg', fileName: 'a.jpg', kind: 'jpeg', stage: 'pending' }],
+    });
+
+    assert.equal(await journalB.read(), null, 'library B has no resumable work from A');
+    await journalB.write({
+      batchId: 'batch-b',
+      mode: 'move',
+      source: '/card-b',
+      files: [{ path: '/card-b/b.jpg', fileName: 'b.jpg', kind: 'jpeg', stage: 'pending' }],
+    });
+    assert.equal((await journalA.read())?.batchId, 'batch-a');
+    assert.equal((await journalB.read())?.batchId, 'batch-b');
+  });
+
   test('EXIT CRITERIA: fixture card imports (Move), ULID ids, EXIF flows, no orphans, journal cleared', async () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'overlook-import-'));
     const sourceDir = join(dataDir, 'CARD');

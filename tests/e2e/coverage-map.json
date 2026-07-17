@@ -1019,9 +1019,17 @@
           ]
         },
         {
-          "type": "deferred",
-          "issue": 387,
-          "reason": "per-library scoping of settings/caches (#387); the registry, lifecycle, and switcher UI are covered by the lanes above"
+          "type": "playwright-e2e",
+          "paths": ["tests/e2e/library-switch.spec.ts", "tests/e2e/protected-albums.spec.ts"]
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/settings/scoped-settings-store.test.ts",
+            "tests/backup/provider-runtime.test.ts",
+            "tests/import/import-engine.integration.test.ts",
+            "tests/library/switch-runtime.test.ts"
+          ]
         }
       ]
     },
