@@ -40,7 +40,7 @@ function fakeController(libraryId: string | null): AppLockControllerLike & {
       touchIdListeners.add(listener);
       return () => touchIdListeners.delete(listener);
     },
-    touchIdStatus: () => Promise.resolve({ available: false, reason: 'unsupported-platform', enabled: false }),
+    touchIdStatus: () => Promise.resolve({ available: false, reason: 'unsupported-platform', enabled: false, reenrollmentRequired: false }),
     requireContentAccess: () => log.push('requireContentAccess'),
     unlock: (password) => {
       log.push(`unlock:${password}`);
@@ -105,7 +105,7 @@ describe('app-lock host (#385)', () => {
     const touch: boolean[] = [];
     host.subscribeTouchId((status) => touch.push(status.enabled));
 
-    first.emitTouchId({ available: true, reason: null, enabled: true });
+    first.emitTouchId({ available: true, reason: null, enabled: true, reenrollmentRequired: false });
     off();
     first.emit({ state: 'locked', libraryId: 'lib-a' });
     assert.deepEqual(states, [], 'unsubscribed listener never fires');
@@ -113,7 +113,7 @@ describe('app-lock host (#385)', () => {
 
     const second = fakeController('lib-b');
     await host.swap(second);
-    second.emitTouchId({ available: true, reason: null, enabled: false });
+    second.emitTouchId({ available: true, reason: null, enabled: false, reenrollmentRequired: false });
     assert.deepEqual(touch, [true, false], 'touch-id subscription followed the swap');
   });
 });
