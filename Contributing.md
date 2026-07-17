@@ -65,9 +65,21 @@ Automated coding agents follow the same hygiene as human contributors, plus:
   claim comment. Use those signals to coordinate visibly: describe the intended
   slice on the issue, avoid overwriting work in flight, and continue with
   independent or explicitly shared work when it is safe.
-- Open PRs as drafts; link them to their issue with a closing reference
-  (`Closes #N`) in the body. The merged-PR body is what the close-linked-issues
-  automation parses.
+- Open a PR and link it to its issue with a closing reference (`Closes #N`) in
+  the body. The merged-PR body is what the close-linked-issues automation parses.
+  **Drafts are optional** — opening as a draft is welcome while work is in
+  flight, and opening ready straight away is equally fine.
+- **If you open a draft, take it out of draft the moment the work is complete.**
+  Draft is a starting state, never an ending state. As soon as `npm run ci`
+  passes, run `gh pr ready <n>` — do not wait to be asked. **A draft PR is
+  reviewed by nobody — not the owner, not the Codex bot — so a PR abandoned in
+  draft is the same as never doing the work**: from the outside it is
+  indistinguishable from abandoned work. Never end a session with your own PR
+  still in draft; check `gh pr list --state open --json number,isDraft,title`
+  before reporting completion. If something truly blocks ready-for-review, say so
+  on the PR and name the blocker — silence reads as abandonment. **"Ready for
+  review" is the definition of done for a code slice**; "pushed" and "CI is
+  green" are not.
 - Verify before claiming success: run the same gates CI runs (`npm run ci`).
 - After pushing, wait for required checks; report failures factually.
 - Record lessons and follow-ups in issues, PRs, or the wiki — not only in chat.
