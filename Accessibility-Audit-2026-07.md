@@ -25,8 +25,16 @@ Two methods, because neither is sufficient alone:
 1. **Automated** — axe-core 4.12.1 against the `wcag2a`, `wcag2aa`, `wcag21a`,
    `wcag21aa`, `wcag22aa` tags, over all 107 stories and 5 composed E2E flows.
 2. **Manual source + interaction audit** — the criteria axe cannot test. In practice axe
-   detects roughly a third of WCAG issues; everything in
-   [Manual findings](#manual-findings) below is invisible to it.
+   detects roughly a third of WCAG issues; every finding in
+   [Severity ranking](#severity-ranking) below that is not tied to an axe rule is
+   invisible to it.
+
+**Amended 2026-07-17** — the first pass shipped this page titled "WCAG 2.2 AA" while
+four of the six criteria that are *new* at A/AA in 2.2 had never been checked
+(2.4.11, 2.5.7, 3.2.6, 3.3.7). They are now audited below in
+[WCAG 2.2 completeness](#wcag-22-completeness), and the disability categories the scope
+never stated are stated in [Coverage by category](#coverage-by-category). Net: one new
+finding ([#449](https://github.com/qwts/photos/issues/449)), three passes, one N/A.
 
 ## Baseline: 103 automated violations
 
@@ -84,6 +92,7 @@ Ranked by user impact, not by count.
 | 10 | **`Dialog` never restores focus on close.** Closing drops focus to `<body>`. Every dialog inherits it; `Shell` and `Sidebar` hand-patch around it per-site, which is the tell. **One fix in the primitive deletes the workarounds.** | [#399](https://github.com/qwts/photos/issues/399) |
 | 11 | **Nothing hides the background from AT when a modal is open.** The Tab trap holds, but virtual-cursor/browse-mode users can still read and activate the entire app behind the scrim. The counterpart to the trap that already exists. | [#399](https://github.com/qwts/photos/issues/399) |
 | 12 | **Live regions ~60% covered and inconsistent.** Missing on: StatusBar sync state, Inspector content swap, Import/Export progress, selection count, empty states, SD-card detection, the Lightbox custody strip. Present and correct on LockScreen, Ceremony, Offload, Interop. | [#400](https://github.com/qwts/photos/issues/400) |
+| <a id="28"></a>28 | **Zoomed lightbox pan is wheel-only (2.1.1, Level A).** `onWheel` is the only pan path. Zoom has keys (`+` `-` `0`) and pan has none — so a keyboard user can zoom in and then never reach the rest of the photo. The zoom controls lead them into a state only `0` (reset to fit) escapes. Added by the 2026-07-17 amendment; missed first time because the gap is the *absence* of a handler for a function living in a different event family, and both keydown handlers look complete on their own. `panBy` is already pure — this is wiring. Needs an arrows-vs-modifier decision, since `use-global-keys.ts` already owns Arrow keys for stepping photos. | [#449](https://github.com/qwts/photos/issues/449) |
 | 13 | **`aria-label` on `<div>`s with no role** — silently ignored by AT. `LightboxViewport` zoom group, `InteropWorkflowDialog` transfer toggle, `ProtectedAlbumCeremony` password meter. Good intent, zero effect. axe catches only the third (`aria-prohibited-attr`). | [#400](https://github.com/qwts/photos/issues/400) |
 | 14 | **SC 2.1.4 Character Key Shortcuts (Level A)** — `i`, `+`, `-`, `0` are unmodified single-key shortcuts on `window`: not remappable, not disableable, not focus-scoped. The `inField` guard checks only `input, textarea` — not `[contenteditable]`, `select`, or `role="textbox"`, and the two guards in the codebase disagree with each other. | [#399](https://github.com/qwts/photos/issues/399) |
 
@@ -104,6 +113,34 @@ Ranked by user impact, not by count.
 | 25 | **`prefers-reduced-motion` is only partially honoured** (3 usages) — the `syncing` spin and the Lightbox chrome fade are unguarded (2.3.3 / 2.2.2). | [#401](https://github.com/qwts/photos/issues/401) |
 | 26 | **LockScreen's throttle countdown re-renders the submit button's name ~4×/sec**, so AT re-announces the focused button continuously (4.1.3). | [#400](https://github.com/qwts/photos/issues/400) |
 | 27 | **All-caps literal strings in `.mono-data`** — some AT spells all-caps letter-by-letter. Prefer `text-transform: uppercase` over uppercase content strings. Coordinates with i18n [#382](https://github.com/qwts/photos/issues/382). | [#400](https://github.com/qwts/photos/issues/400) |
+
+## WCAG 2.2 completeness
+
+WCAG 2.2 adds six criteria at Level A/AA over 2.1. The first pass audited two of them and
+did not say so. All six, with evidence:
+
+| SC | Level | Verdict | Evidence |
+| --- | --- | --- | --- |
+| **2.4.11 Focus Not Obscured (Minimum)** | AA | **Pass — measured** | axe has no rule for this one, so it is now gated by a probe in `tests/e2e/a11y.spec.ts`: focus every focusable control in the composed shell with the selection pill up, then test whether any is *entirely* covered. **103 controls, 0 obscured.** The two floating surfaces (`.ovl-toast-host`, `.ovl-pill`) are thin bars over much larger tiles, and reveal-on-hover controls use `:focus-within`, so they are visible exactly when focus arrives. |
+| **2.5.7 Dragging Movements** | AA | **Pass** | Three drag paths, each with a single-pointer alternative: tile/row → album drag is also `SelectionPill` → "Add to album" → `AlbumPicker`; the shell's OS file-drop is also Toolbar → Import; `KeyDialog`'s "Choose or drop a .key file" is also a click. Lightbox pan is **wheel**, not drag (`draggable={false}` on the image) — so 2.5.7 does not reach it, but [2.1.1 does](#28). |
+| **2.5.8 Target Size (Minimum)** | AA | Fail | Finding 8 — [#415](https://github.com/qwts/photos/issues/415). Audited in the first pass. |
+| **3.2.6 Consistent Help** | AA | **Pass — vacuous** | The SC only applies when a help mechanism repeats across pages. The app has **none**: no help link, no contact route, no docs affordance. `RestoreWorkflow`'s `ERROR_HELP` is inline error text on one surface, not a help mechanism. **Expiry: the moment a Help/Support/docs affordance is added to more than one surface, this becomes live** and it must sit in the same relative order everywhere. |
+| **3.3.7 Redundant Entry** | A | **Pass** | The only repeat-entry in the app is password confirmation (`ProtectedAlbumCeremony`, `AppPasswordDialog`), which is the SC's own security/essential exception. No multi-step flow re-asks for data it already holds; the ceremonies clear their fields **only on success** (after `onComplete`) and retain them on error, which is the correct behaviour — clearing on failure would create the violation. |
+| **3.3.8 Accessible Authentication (Minimum)** | AA | Pass | `PasswordField` blocks copy/cut but **not paste**, so password managers work. Verified in the first pass; recorded under [Accepted exceptions](#accepted-exceptions) because it reads like a failure. |
+
+## Coverage by category
+
+The first pass organised by criterion and by axe rule, which hid an obvious question:
+which disabilities are actually covered? Stated plainly, because "WCAG 2.2 AA" is a
+standard, not a synonym for "accessible":
+
+| Category | State |
+| --- | --- |
+| **Visual** | **Strongest.** The 61 contrast violations are measured per surface, not estimated ([#409](https://github.com/qwts/photos/issues/409)); reduced motion, contrast tooling, and text scaling are [#401](https://github.com/qwts/photos/issues/401). Gap axe cannot close: **text over photos** (lightbox chrome, tile overlays) sits on user content of unknown luminance and stays manual. |
+| **Screen reader / comprehension of the UI** | Well covered — most of the 27 manual findings are semantics, owned by [#400](https://github.com/qwts/photos/issues/400). The [VoiceOver script](Manual-Test-A11y-VoiceOver) is the only thing that judges whether a flow is *completable*; NVDA parity is an explicit follow-up, not silently skipped. |
+| **Motor** | **Partial, by scope decision.** Keyboard operation ([#399](https://github.com/qwts/photos/issues/399)), target size ([#415](https://github.com/qwts/photos/issues/415)), dragging alternatives (2.5.7, above) are in. **Switch control and voice control are explicitly out of scope** in [#381](https://github.com/qwts/photos/issues/381) as "beyond what AA requires" — that is a scope line, not coverage, and AA does not imply either works. |
+| **Hearing** | **N/A — verified, with an expiry.** There is no `<video>`, no `<audio>`, and no time-based media anywhere in the renderer, so 1.2.x has nothing to apply to. **This is a fact about today, not a property of the app**: a photo library acquires video import sooner or later, and on that day captions (1.2.2) and audio description (1.2.5) go from N/A to unaudited. **The expiry is enforced, not remembered** — `jsx-a11y/media-has-caption` is on and errors the build the first time a `<video>`/`<audio>` element lands without a `<track>`. |
+| **Cognitive** | **Thinnest — and AA is thin here too.** What is covered is timing: toasts auto-dismissing in 4s ([#411](https://github.com/qwts/photos/issues/411)), lightbox chrome auto-hiding (finding 2), the lock throttle (accepted). All were found via 2.2.1 as *keyboard* issues; none were found by asking a cognitive question. 3.2.6 and 3.3.7 (the two 2.2 criteria closest to this category) now pass, both vacuously. Honest read: the app is not hostile here, and nobody has actually evaluated it here. Level AAA is where this category lives (3.1.5 reading level, 2.2.6 timeouts, 3.3.9 accessible authentication (no exception)) and is not a target. |
 
 ## Accepted exceptions
 
@@ -132,6 +169,13 @@ Recorded so the gate is not mistaken for proof of accessibility.
   in [#401](https://github.com/qwts/photos/issues/401).
 - **`target-size` and other 2.2-era rules only run because the tag set asks for them.**
   They are not in axe's defaults.
+- **Neither axe lane sees pointer-only handlers.** A `div` with `onClick` and no key
+  handler renders identically to an accessible one; axe audits the DOM, not the intent.
+  This is what the `jsx-a11y` lint lane (strict, on `src/renderer`) is for — it reads the
+  source. It is why finding 28 exists.
+- **What the amendment changed:** 2.4.11 was in this list — "axe has no rule, so nobody
+  is checking" — and is now measured by the focus-obscured probe. The remaining entries
+  above are still true.
 
 ## Strengths worth preserving
 
@@ -148,6 +192,12 @@ Frame remediation as "apply the pattern already here", not "invent one":
   `role="status"`. The correct live-region technique; `Toast.tsx` should copy it.
 - **`Sidebar.tsx`** — Shift+F10 / ContextMenu key, and focus restore that falls back when
   the opener row is destroyed.
+- **`AlbumActionMenu.tsx`** — added by the amendment; the first pass missed it. A
+  **complete** APG menu: initial focus on the first menuitem, Escape, outside-pointerdown
+  close, and ArrowUp/ArrowDown/Home/End roving. This is the reference for finding 22
+  (`SelectionPill`'s `role="menu"` that is not a menu) — the correct implementation was
+  already in the repo, two directories away from the broken one. Its `:focus-within`
+  reveal of `.ovl-sidebar__album-actions` is also why 2.4.11 passes.
 - **`OffloadDialog`** (`<ul>`), **`InteropWorkflowDialog`** (`<dl>`, `<fieldset>`/
   `<legend>`, `htmlFor`) — the only correct instances of each; generalise them.
 
@@ -183,5 +233,15 @@ page, not the library** — "select all" is a lie at scale (3.2.4-adjacent, wort
 - Story lane scopes to `#storybook-root`, so Storybook's own chrome never enters the budget.
 - E2E flows: `shell-grid`, `shell-lightbox`, `shell-inspector`, `shell-settings-dialog`,
   `shell-selection`, on the deterministic seeded profile.
-- Manual pass: full source audit of all renderer surfaces against the 2.2 AA criteria axe
-  does not implement, plus verification of each "needs checking" item against the CSS.
+- Manual pass: source audit of all renderer surfaces against the 2.2 AA criteria axe does
+  not implement, plus verification of each "needs checking" item against the CSS.
+  **The first pass claimed this was complete and it was not** — it was organised around
+  the surfaces and the axe rule set, so criteria with no axe rule and no obvious surface
+  (2.4.11, 2.5.7, 3.2.6, 3.3.7) fell through. The 2026-07-17 amendment walks the
+  criterion list itself, which is why [WCAG 2.2 completeness](#wcag-22-completeness) is a
+  table of all six rather than prose. Re-audit the same way: **enumerate the criteria,
+  then go looking** — auditing what the tools point at reproduces exactly this gap.
+- Where a criterion is now gated rather than reasoned about, the gate is named in the
+  evidence column. Three of the four amended criteria are gated by construction:
+  2.4.11 by the focus-obscured probe, hearing/1.2.x by `jsx-a11y/media-has-caption`,
+  and pointer-only handlers (2.1.1, how finding 28 surfaces) by `jsx-a11y`'s strict rules.
