@@ -24,13 +24,19 @@ describe('OS credential anchor platform contract (#311)', () => {
     const operations: { operation: string | undefined; target: string | undefined; value: string | undefined; command: string }[] = [];
     const spawn = ((command: string, _args: readonly string[], options?: { readonly env?: NodeJS.ProcessEnv }) => {
       const operation = options?.env?.['OVERLOOK_ANCHOR_OPERATION'];
+      const target = options?.env?.['OVERLOOK_ANCHOR_TARGET'];
       operations.push({
         operation,
-        target: options?.env?.['OVERLOOK_ANCHOR_TARGET'],
+        target,
         value: options?.env?.['OVERLOOK_ANCHOR_VALUE'],
         command,
       });
-      const stdout = operation === 'read' ? `${JSON.stringify(anchor)}\n` : '';
+      const stdout =
+        operation === 'read'
+          ? target?.startsWith('com.zts1.overlook.app-lock-anchor-migration:') === true
+            ? '{"version":1,"legacyService":"com.qwts.overlook.app-lock-anchor"}'
+            : `${JSON.stringify(anchor)}\n`
+          : '';
       return { pid: 1, output: [null, stdout, ''], stdout, stderr: '', status: 0, signal: null };
     }) as unknown as typeof spawnSync;
     const store = new OsCredentialAnchorStore({ dataDir: 'C:\\profile\\library', platform: 'win32', spawn });
@@ -42,34 +48,11 @@ describe('OS credential anchor platform contract (#311)', () => {
     assert.ok(operations.every(({ command }) => command === 'powershell.exe'));
     assert.deepEqual(
       operations.slice(1).map(({ operation }) => operation),
-      ['read', 'write', 'clear', 'clear'],
+      ['read', 'read', 'write', 'write', 'clear', 'clear', 'clear'],
     );
-    assert.equal(operations[2]?.value, JSON.stringify(anchor));
+    assert.equal(operations[3]?.value, JSON.stringify(anchor));
     assert.match(operations[1]?.target ?? '', /^com\.zts1\.overlook\.app-lock-anchor:/u);
-    assert.match(operations[4]?.target ?? '', /^com\.qwts\.overlook\.app-lock-anchor:/u);
-  });
-
-  test('legacy service is copied to the canonical service without deleting legacy custody', () => {
-    const anchor = { libraryId: 'library-a', generation: 3, recordHash: 'b'.repeat(64) };
-    const services: string[] = [];
-    const spawn = ((_command: string, args: readonly string[]) => {
-      const serviceIndex = args.indexOf('-s');
-      const service = serviceIndex >= 0 ? args[serviceIndex + 1] : undefined;
-      if (service !== undefined) services.push(service);
-      const operation = args[0];
-      const foundLegacy = operation === 'find-generic-password' && service === 'com.qwts.overlook.app-lock-anchor';
-      const stdout = foundLegacy ? `${JSON.stringify(anchor)}\n` : '';
-      const status = foundLegacy || operation === 'add-generic-password' ? 0 : 44;
-      return { pid: 1, output: [null, stdout, ''], stdout, stderr: '', status, signal: null };
-    }) as unknown as typeof spawnSync;
-    const store = new OsCredentialAnchorStore({ dataDir: '/profile/library', platform: 'darwin', spawn });
-
-    assert.deepEqual(store.read(), anchor);
-    assert.deepEqual(services, [
-      'com.zts1.overlook.app-lock-anchor',
-      'com.qwts.overlook.app-lock-anchor',
-      'com.zts1.overlook.app-lock-anchor',
-    ]);
+    assert.match(operations[7]?.target ?? '', /^com\.qwts\.overlook\.app-lock-anchor:/u);
   });
 
   test('a corrupt canonical anchor fails closed instead of rolling back to legacy', () => {
@@ -87,6 +70,33 @@ describe('OS credential anchor platform contract (#311)', () => {
   });
 });
 
+describe('macOS credential anchor identity migration (#374)', () => {
+  test('legacy service is copied behind a canonical migration marker without deleting legacy custody', () => {
+    const anchor = { libraryId: 'library-a', generation: 3, recordHash: 'b'.repeat(64) };
+    const services: string[] = [];
+    const spawn = ((_command: string, args: readonly string[]) => {
+      const serviceIndex = args.indexOf('-s');
+      const service = serviceIndex >= 0 ? args[serviceIndex + 1] : undefined;
+      if (service !== undefined) services.push(service);
+      const operation = args[0];
+      const foundLegacy = operation === 'find-generic-password' && service === 'com.qwts.overlook.app-lock-anchor';
+      const stdout = foundLegacy ? `${JSON.stringify(anchor)}\n` : '';
+      const status = foundLegacy || operation === 'add-generic-password' ? 0 : 44;
+      return { pid: 1, output: [null, stdout, ''], stdout, stderr: '', status, signal: null };
+    }) as unknown as typeof spawnSync;
+    const store = new OsCredentialAnchorStore({ dataDir: '/profile/library', platform: 'darwin', spawn });
+
+    assert.deepEqual(store.read(), anchor);
+    assert.deepEqual(services, [
+      'com.zts1.overlook.app-lock-anchor',
+      'com.zts1.overlook.app-lock-anchor-migration',
+      'com.qwts.overlook.app-lock-anchor',
+      'com.zts1.overlook.app-lock-anchor',
+      'com.zts1.overlook.app-lock-anchor-migration',
+    ]);
+  });
+});
+
 describe('Windows credential anchor identity migration (#374)', () => {
   test('missing canonical service falls through to and copies legacy custody', () => {
     const anchor = { libraryId: 'library-a', generation: 4, recordHash: 'c'.repeat(64) };
@@ -98,7 +108,8 @@ describe('Windows credential anchor identity migration (#374)', () => {
       operations.push({ operation, target, value });
       const stdout =
         operation === 'read'
-          ? target?.startsWith('com.zts1.overlook.app-lock-anchor:') === true
+          ? target?.startsWith('com.zts1.overlook.app-lock-anchor:') === true ||
+            target?.startsWith('com.zts1.overlook.app-lock-anchor-migration:') === true
             ? '__OVERLOOK_CREDENTIAL_NOT_FOUND__'
             : JSON.stringify(anchor)
           : '';
@@ -109,11 +120,46 @@ describe('Windows credential anchor identity migration (#374)', () => {
     assert.deepEqual(store.read(), anchor);
     assert.deepEqual(
       operations.map(({ operation }) => operation),
-      ['read', 'read', 'write'],
+      ['read', 'read', 'read', 'write', 'write'],
     );
     assert.match(operations[0]?.target ?? '', /^com\.zts1\.overlook\.app-lock-anchor:/u);
-    assert.match(operations[1]?.target ?? '', /^com\.qwts\.overlook\.app-lock-anchor:/u);
-    assert.equal(operations[2]?.value, JSON.stringify(anchor));
+    assert.match(operations[1]?.target ?? '', /^com\.zts1\.overlook\.app-lock-anchor-migration:/u);
+    assert.match(operations[2]?.target ?? '', /^com\.qwts\.overlook\.app-lock-anchor:/u);
+    assert.equal(operations[3]?.value, JSON.stringify(anchor));
+  });
+
+  test('a migration marker blocks stale legacy rollback after canonical rotation and loss', () => {
+    const legacy = { libraryId: 'library-a', generation: 4, recordHash: 'd'.repeat(64) };
+    const rotated = { libraryId: 'library-a', generation: 5, recordHash: 'e'.repeat(64) };
+    const values = new Map<string, string>();
+    const reads: string[] = [];
+    const spawn = ((_command: string, _args: readonly string[], options?: { readonly env?: NodeJS.ProcessEnv }) => {
+      const operation = options?.env?.['OVERLOOK_ANCHOR_OPERATION'];
+      const target = options?.env?.['OVERLOOK_ANCHOR_TARGET'] ?? '';
+      if (operation === 'read') {
+        reads.push(target);
+        if (target.startsWith('com.qwts.overlook.app-lock-anchor:') && !values.has(target)) values.set(target, JSON.stringify(legacy));
+        const stdout = values.get(target) ?? '__OVERLOOK_CREDENTIAL_NOT_FOUND__';
+        return { pid: 1, output: [null, stdout, ''], stdout, stderr: '', status: 0, signal: null };
+      }
+      if (operation === 'write') values.set(target, options?.env?.['OVERLOOK_ANCHOR_VALUE'] ?? '');
+      if (operation === 'clear') values.delete(target);
+      return { pid: 1, output: [null, '', ''], stdout: '', stderr: '', status: 0, signal: null };
+    }) as unknown as typeof spawnSync;
+    const store = new OsCredentialAnchorStore({ dataDir: 'C:\\profile\\library', platform: 'win32', spawn });
+
+    assert.deepEqual(store.read(), legacy);
+    store.write(rotated);
+    const currentTarget = [...values.keys()].find((target) => target.startsWith('com.zts1.overlook.app-lock-anchor:'));
+    assert.ok(currentTarget !== undefined);
+    values.delete(currentTarget);
+    reads.length = 0;
+
+    assert.equal(store.read(), null);
+    assert.deepEqual(
+      reads.map((target) => target.split(':')[0]),
+      ['com.zts1.overlook.app-lock-anchor', 'com.zts1.overlook.app-lock-anchor-migration'],
+    );
   });
 
   test('corrupt canonical service fails closed without probing legacy custody', () => {
