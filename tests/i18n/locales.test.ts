@@ -1,7 +1,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SOURCE_LOCALE, baseLanguage, fallbackChain, directionOf, resolveLocale } from '../../src/shared/i18n/locales.js';
+import {
+  SOURCE_LOCALE,
+  baseLanguage,
+  fallbackChain,
+  directionOf,
+  resolveLocale,
+  resolveRuntimeLocale,
+} from '../../src/shared/i18n/locales.js';
 
 describe('locale model: baseLanguage', () => {
   test('takes the primary subtag, lowercased', () => {
@@ -60,5 +67,23 @@ describe('locale model: resolveLocale (ADR §2 order + fallback chain)', () => {
   test('defaults to the shipped set (en-only at launch)', () => {
     assert.equal(resolveLocale(['de']), SOURCE_LOCALE);
     assert.equal(resolveLocale(['en-US']), 'en');
+  });
+});
+
+describe('locale model: resolveRuntimeLocale (OVERLOOK_LOCALE pin)', () => {
+  test('an unpackaged build honours a pinned shipped or pseudo locale', () => {
+    assert.equal(resolveRuntimeLocale({ pinned: 'en-XA', packaged: false, osLocale: 'de-DE' }), 'en-XA');
+    assert.equal(resolveRuntimeLocale({ pinned: 'en-XB', packaged: false, osLocale: 'de-DE' }), 'en-XB');
+    assert.equal(resolveRuntimeLocale({ pinned: 'en', packaged: false, osLocale: 'de-DE' }), 'en');
+  });
+
+  test('a packaged build ignores the pin and negotiates the OS locale', () => {
+    assert.equal(resolveRuntimeLocale({ pinned: 'en-XA', packaged: true, osLocale: 'en-US' }), 'en');
+    assert.equal(resolveRuntimeLocale({ pinned: 'en-XB', packaged: true, osLocale: 'fr-FR' }), SOURCE_LOCALE);
+  });
+
+  test('an unknown or absent pin falls through to OS negotiation', () => {
+    assert.equal(resolveRuntimeLocale({ pinned: 'zz-ZZ', packaged: false, osLocale: 'en-GB' }), 'en');
+    assert.equal(resolveRuntimeLocale({ pinned: undefined, packaged: false, osLocale: 'ja-JP' }), SOURCE_LOCALE);
   });
 });

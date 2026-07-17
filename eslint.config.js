@@ -151,7 +151,7 @@ export default tseslint.config(
     // requiring `void`/`await` on every registration is pure noise. Scope the
     // exemption to exactly those calls so a missed await on an async helper or
     // assertion inside a test still fails lint.
-    files: ['tests/**/*.ts'],
+    files: ['tests/**/*.ts', 'tests/**/*.tsx'],
     rules: {
       '@typescript-eslint/no-floating-promises': [
         'error',

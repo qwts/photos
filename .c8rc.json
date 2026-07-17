@@ -12,6 +12,7 @@
     "src/main/export/export-facade-factory.ts",
     "src/main/export/export-destination.ts",
     "src/main/library/library-picker.ts",
+    "src/main/i18n/locale-resolver.ts",
     "src/preload/**",
     "src/shared/**/types.ts"
   ],

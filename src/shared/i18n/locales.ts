@@ -66,3 +66,22 @@ export function resolveLocale(preferences: readonly (string | null | undefined)[
   }
   return SOURCE_LOCALE;
 }
+
+/** Locales an unpackaged build may pin via OVERLOOK_LOCALE — the shipped set
+ * plus the dev-only pseudo-locales. Pinning is ignored in packaged builds so a
+ * stray env var can never surface pseudo text to a user. */
+const PINNABLE_LOCALES = new Set<string>([...SHIPPED_LOCALES, ...PSEUDO_LOCALES]);
+
+/**
+ * The active runtime locale from process inputs (ADR §2). An OVERLOOK_LOCALE pin
+ * wins in unpackaged builds only (test determinism, dev pseudo-locales);
+ * otherwise the OS locale negotiates against the shipped catalogs, falling back
+ * to `en`. Pure so it is unit-tested without Electron; main's resolver is a thin
+ * wrapper that reads `app`.
+ */
+export function resolveRuntimeLocale(input: { pinned?: string | undefined; packaged: boolean; osLocale: string }): string {
+  if (!input.packaged && input.pinned !== undefined && PINNABLE_LOCALES.has(input.pinned)) {
+    return input.pinned;
+  }
+  return resolveLocale([input.osLocale]);
+}
