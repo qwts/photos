@@ -746,6 +746,10 @@
           "path": "tests/e2e/import-flow.spec.ts"
         },
         {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/external-open.spec.ts"
+        },
+        {
           "type": "storybook",
           "path": "src/renderer/src/import/ImportDialog.stories.tsx"
         }
