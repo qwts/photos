@@ -98,8 +98,25 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
 
     const viewport = page.getByTestId('lightbox-viewport');
     const image = viewport.getByRole('img');
+    const orientationToolbar = page.getByRole('toolbar', { name: 'Image orientation controls' });
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+    await expect(orientationToolbar).toBeVisible();
+
+    await orientationToolbar.getByRole('button', { name: 'Rotate right (])' }).click();
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+    await orientationToolbar.getByRole('button', { name: 'Flip horizontal (Backslash)' }).click();
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
+    await page.keyboard.press('r');
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
+
+    await page.keyboard.press('+');
+    await page.keyboard.press(']');
+    await orientationToolbar.getByRole('button', { name: 'Reset orientation (R)' }).click();
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.250');
+    await page.keyboard.press('0');
 
     await image.dblclick();
     await expect(viewport).toHaveAttribute('data-mode', 'fill');
@@ -121,6 +138,7 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
     await page.keyboard.press('i');
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
     await page.keyboard.press('i');
 
     await page.keyboard.press('+');
@@ -128,11 +146,15 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
     await page.keyboard.press('0');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
 
+    await page.keyboard.press(']');
+    await page.keyboard.press('Backslash');
     await page.keyboard.press('+');
     await page.keyboard.press('ArrowRight');
     await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
   } finally {
     await app.close();
   }
@@ -206,15 +228,19 @@ test('viewing journey: selection survives Esc-from-lightbox; chrome autohides an
     await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
     await page.locator('.ovl-grid__cell').first().click();
     const lightbox = page.getByTestId('lightbox');
+    const orientationToolbar = page.getByRole('toolbar', { name: 'Image orientation controls' });
     await expect(lightbox).toBeVisible();
 
     // Chrome starts awake, hides after the 2.2s idle window (no mouse), and
     // wakes on movement.
     await expect(lightbox).toHaveAttribute('data-chrome', 'on');
     await expect(lightbox).toHaveAttribute('data-chrome', 'off', { timeout: 5000 });
+    await expect(orientationToolbar).toHaveCSS('opacity', '0');
+    await expect(orientationToolbar).toHaveCSS('pointer-events', 'none');
     await page.mouse.move(300, 300);
     await page.mouse.move(320, 320);
     await expect(lightbox).toHaveAttribute('data-chrome', 'on');
+    await expect(orientationToolbar).toHaveCSS('opacity', '1');
 
     // Esc #1 exits the lightbox ONLY — the selection is intact…
     await page.keyboard.press('Escape');

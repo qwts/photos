@@ -81,8 +81,9 @@ const meta: Meta<typeof Lightbox> = {
   decorators: [
     (Story, context) => {
       installBackupStub((context.parameters['ephemeralStage'] as EphemeralStage | null | undefined) ?? null);
+      const width = (context.parameters['lightboxWidth'] as number | undefined) ?? 960;
       return (
-        <div style={{ position: 'relative', width: 'min(960px, 100vw)', height: '640px', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', width: `min(${String(width)}px, 100vw)`, height: '640px', overflow: 'hidden' }}>
           <Story />
         </div>
       );
@@ -184,6 +185,53 @@ export const KeyboardZoom: Story = {
     await expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('125%');
     await userEvent.keyboard('0');
     await expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('100%');
+  },
+};
+
+export const OrientationToolbar: Story = {
+  args: {
+    photo: { ...PHOTO, width: 960, height: 1280, fileName: 'PORTRAIT.JPG' },
+    imageSrc: portraitPhoto,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    const image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
+    const resetOrientation = canvas.getByRole('button', { name: 'Reset orientation (R)' });
+    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
+    await expect(resetOrientation).toBeDisabled();
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Zoom in (+)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+    await expect(image.style.transform).toContain('rotate(90deg)');
+    await userEvent.click(canvas.getByRole('button', { name: 'Flip horizontal (Backslash)' }));
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
+    await userEvent.click(resetOrientation);
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.250');
+
+    await userEvent.keyboard(']');
+    await userEvent.keyboard('\\');
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
+    await userEvent.keyboard('r');
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
+  },
+};
+
+export const NarrowOrientationToolbar: Story = {
+  ...OrientationToolbar,
+  parameters: { lightboxWidth: 600 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const orientation = canvas.getByRole('toolbar', { name: 'Image orientation controls' });
+    const zoom = canvas.getByLabelText('Image zoom controls');
+    await expect(orientation).toBeVisible();
+    await expect(zoom).toBeVisible();
+    await waitFor(() => expect(zoom.getBoundingClientRect().bottom).toBeLessThanOrEqual(orientation.getBoundingClientRect().top));
   },
 };
 
