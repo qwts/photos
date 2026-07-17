@@ -4,6 +4,14 @@
 // Compiled id → message string for the renderer's IntlProvider.
 
 export const en: Readonly<Record<string, string>> = {
+  "restore.local.error.alreadyRegistered": "That library is already registered.",
+  "restore.local.error.alreadyRegisteredHelp": "Choose the registered library from the library switcher.",
+  "restore.local.error.notLibrary": "That folder isn't an Overlook library.",
+  "restore.local.error.notLibraryHelp": "Choose the Overlook library folder that contains library.db.",
+  "restore.local.error.openFailed": "The existing local library could not be opened.",
+  "restore.local.error.openFailedHelp": "The local library was not changed. Choose its folder and try again.",
+  "restore.local.openExisting": "Open existing library…",
+  "restore.local.openingExisting": "Opening local library…",
   "settings.general.appearance": "Appearance",
   "settings.general.appearance.dark": "Dark",
   "settings.general.appearance.hint": "Dark only for now — a light theme isn't part of the design system yet.",
