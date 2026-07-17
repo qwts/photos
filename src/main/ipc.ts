@@ -2,7 +2,8 @@ import { BrowserWindow, ipcMain } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 
 import { channels } from '../shared/ipc/channels.js';
-import { wrapHandler as validateHandler } from '../shared/ipc/registry.js';
+import { wrapHandler as createValidatedHandler } from '../shared/ipc/registry.js';
+import type { HandlerErrorReport } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
 import type { LibraryDescriptor } from '../shared/library/registry.js';
 import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js';
@@ -17,6 +18,13 @@ import type { AppLockState, AppTouchIdUnlockResult, AppUnlockResult, LockStateSn
 import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
 
 let contentAdmission = (): void => undefined;
+
+const reportIpcError = ({ channelName, code, error }: HandlerErrorReport): void => {
+  console.error(`[overlook] ${code} on ${channelName}`, error);
+};
+
+const validateHandler: typeof createValidatedHandler = (channel, handler) =>
+  createValidatedHandler(channel, handler, { reportError: reportIpcError });
 
 export function setContentAdmissionGate(gate: () => void): void {
   contentAdmission = gate;

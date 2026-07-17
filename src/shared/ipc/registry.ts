@@ -11,6 +11,56 @@ export type InvokeTransport = (channelName: string, request: unknown) => Promise
 
 export type SubscribeTransport = (eventName: string, listener: (payload: unknown) => void) => () => void;
 
+export const ipcFailureCodes = ['IPC_INVALID_REQUEST', 'IPC_HANDLER_FAILED', 'IPC_INVALID_RESPONSE'] as const;
+export type IpcFailureCode = (typeof ipcFailureCodes)[number];
+
+export interface IpcFailureEnvelope {
+  readonly __overlookIpcFailure: true;
+  readonly error: { readonly code: IpcFailureCode };
+}
+
+export interface HandlerErrorReport {
+  readonly channelName: string;
+  readonly code: IpcFailureCode;
+  readonly error: unknown;
+}
+
+export interface HandlerOptions {
+  readonly reportError?: (report: HandlerErrorReport) => void;
+}
+
+/** Renderer-safe rejection. The original main-process exception is never attached as a cause. */
+export class IpcRemoteError extends Error {
+  constructor(readonly code: IpcFailureCode) {
+    super(code);
+    this.name = 'IpcRemoteError';
+  }
+}
+
+function isFailureCode(value: unknown): value is IpcFailureCode {
+  return typeof value === 'string' && ipcFailureCodes.some((code) => code === value);
+}
+
+function isFailureEnvelope(value: unknown): value is IpcFailureEnvelope {
+  if (typeof value !== 'object' || value === null) return false;
+  const envelope = value as { __overlookIpcFailure?: unknown; error?: unknown };
+  if (envelope.__overlookIpcFailure !== true || typeof envelope.error !== 'object' || envelope.error === null) return false;
+  return isFailureCode((envelope.error as { code?: unknown }).code);
+}
+
+function failure(code: IpcFailureCode): IpcFailureEnvelope {
+  return { __overlookIpcFailure: true, error: { code } };
+}
+
+function reportFailure(options: HandlerOptions, report: HandlerErrorReport): IpcFailureEnvelope {
+  try {
+    options.reportError?.(report);
+  } catch {
+    // Logging must never reopen the renderer boundary or replace the opaque response.
+  }
+  return failure(report.code);
+}
+
 /** Renderer-side (preload) invoker: validates the request before it leaves
  * and the response before the renderer sees it. */
 export function createInvoker<TRequest extends z.ZodType, TResponse extends z.ZodType>(
@@ -20,20 +70,38 @@ export function createInvoker<TRequest extends z.ZodType, TResponse extends z.Zo
   return async (request) => {
     const parsedRequest = channel.request.parse(request);
     const rawResponse = await transport(channel.name, parsedRequest);
+    if (isFailureEnvelope(rawResponse)) throw new IpcRemoteError(rawResponse.error.code);
     return channel.response.parse(rawResponse);
   };
 }
 
-/** Main-side handler wrapper: validates the incoming request before the
- * handler runs and the handler's response before it is sent back. */
+/** Main-side handler wrapper: validates both directions and converts every
+ * failure into a detail-free transport envelope. Full detail stays main-side. */
 export function wrapHandler<TRequest extends z.ZodType, TResponse extends z.ZodType>(
   channel: ChannelDefinition<TRequest, TResponse>,
   handler: (request: z.output<TRequest>) => Promise<z.output<TResponse>> | z.output<TResponse>,
-): (rawRequest: unknown) => Promise<z.output<TResponse>> {
+  options: HandlerOptions = {},
+): (rawRequest: unknown) => Promise<z.output<TResponse> | IpcFailureEnvelope> {
   return async (rawRequest) => {
-    const request = channel.request.parse(rawRequest);
-    const response = await handler(request);
-    return channel.response.parse(response);
+    let request: z.output<TRequest>;
+    try {
+      request = channel.request.parse(rawRequest);
+    } catch (error) {
+      return reportFailure(options, { channelName: channel.name, code: 'IPC_INVALID_REQUEST', error });
+    }
+
+    let response: z.output<TResponse>;
+    try {
+      response = await handler(request);
+    } catch (error) {
+      return reportFailure(options, { channelName: channel.name, code: 'IPC_HANDLER_FAILED', error });
+    }
+
+    try {
+      return channel.response.parse(response);
+    } catch (error) {
+      return reportFailure(options, { channelName: channel.name, code: 'IPC_INVALID_RESPONSE', error });
+    }
   };
 }
 

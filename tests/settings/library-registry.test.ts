@@ -170,7 +170,10 @@ describe('library registry (#384)', () => {
     const handler = wrapHandler(channels.libraryRegistryOpen, () => {
       throw new Error('handler must not run');
     });
-    await assert.rejects(handler({ id: 'not-a-ulid' }));
+    assert.deepEqual(await handler({ id: 'not-a-ulid' }), {
+      __overlookIpcFailure: true,
+      error: { code: 'IPC_INVALID_REQUEST' },
+    });
   });
 
   test('EXIT CRITERIA: migration registers the legacy directory in place, exactly once', () => {

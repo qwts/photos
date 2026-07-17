@@ -213,7 +213,8 @@ test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for 
     const rejected = await page.evaluate<string>(
       `window.overlook.import.run({ path: ${JSON.stringify(folder)}, mode: 'move' }).then(() => 'resolved', (e) => String(e))`,
     );
-    expect(rejected).toContain('Move is only available for removable volumes');
+    expect(rejected).toContain('IPC_HANDLER_FAILED');
+    expect(rejected).not.toContain('Move is only available for removable volumes');
 
     await page.getByRole('button', { name: 'Import 3 photos' }).click();
     await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
