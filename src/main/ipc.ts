@@ -8,7 +8,6 @@ import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
-import type { ProtectedAlbumService } from './crypto/protected-album-service.js';
 import type { ProtectedLibraryService } from './library/protected-library-service.js';
 import type { ProtectedExportFacade } from './export/protected-export-runtime.js';
 import type { ProtectedWorkflowService } from './library/protected-workflow-service.js';
@@ -192,7 +191,6 @@ export function registerAlbumHandlers(getService: () => LibraryService, newId: (
 }
 
 export function registerProtectedAlbumHandlers(
-  getAlbums: () => ProtectedAlbumService,
   getLibrary: () => ProtectedLibraryService,
   getExport: () => ProtectedExportFacade,
   getWorkflow: () => ProtectedWorkflowService,

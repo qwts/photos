@@ -1,4 +1,4 @@
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, useRef, type ReactElement } from 'react';
 
 import type { ProtectedPhotoRecord } from '../../../shared/library/protected-types.js';
 import { protectedFullUrl } from '../../../shared/library/full-url.js';
@@ -23,19 +23,48 @@ export function ProtectedLightbox({
   onNext,
   onToggleFavorite,
 }: ProtectedLightboxProps): ReactElement {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const priorFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
+    priorFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panelRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
-      else if (event.key === 'ArrowLeft') onPrevious();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      } else if (event.key === 'ArrowLeft') onPrevious();
       else if (event.key === 'ArrowRight') onNext();
+      else if (event.key === 'Tab') {
+        const controls = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? []);
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      priorFocusRef.current?.focus();
+    };
   }, [onClose, onNext, onPrevious]);
 
   const taken = photo.takenAt ?? photo.importedAt;
   return (
-    <div className="ovl-protected-lightbox" role="dialog" aria-modal="true" aria-label={`Viewing ${photo.fileName}`}>
+    <div
+      ref={panelRef}
+      className="ovl-protected-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Viewing ${photo.fileName}`}
+      tabIndex={-1}
+    >
       <img src={imageSrc ?? protectedFullUrl(albumId, photo.id)} alt={photo.fileName} draggable={false} />
       <div className="ovl-protected-lightbox__top">
         <IconButton icon="arrow-left" label="Back to protected album (Esc)" onClick={onClose} />
