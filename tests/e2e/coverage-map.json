@@ -214,6 +214,32 @@
       ]
     },
     {
+      "id": "m05-jpeg-dimension-repair",
+      "wiki": "User-Story-M05-Import-pipeline",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/export-flow.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/inspector/Inspector.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/import/import-engine.integration.test.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/library/library-service.test.ts"
+        }
+      ]
+    },
+    {
       "id": "m06-full-res-delivery",
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [
