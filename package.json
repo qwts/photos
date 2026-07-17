@@ -1,6 +1,6 @@
 {
   "name": "photos",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "description": "A photo library app.",
   "private": true,
   "type": "module",
