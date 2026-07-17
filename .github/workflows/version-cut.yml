@@ -67,7 +67,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run required checks on the version branch
-        if: steps.changesets.outputs.hasChangesets == 'true'
+        # Empty changesets make hasChangesets true, but the action creates no
+        # branch or PR for them. The PR number is only set after that ref exists.
+        if: steps.changesets.outputs.pullRequestNumber != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run ci.yml --ref changeset-release/main
