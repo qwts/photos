@@ -15,6 +15,19 @@ import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import type { PhotoInsert } from '../../src/shared/library/types.js';
 
 const DB_KEY = randomBytes(32);
+const EMPTY_METADATA = {
+  width: null,
+  height: null,
+  camera: null,
+  lens: null,
+  iso: null,
+  aperture: null,
+  shutter: null,
+  focalLength: null,
+  takenAt: null,
+  gpsLat: null,
+  gpsLon: null,
+} as const;
 
 function tempDbPath(): string {
   return join(mkdtempSync(join(tmpdir(), 'overlook-db-')), 'library.db');
@@ -272,6 +285,50 @@ describe('PhotosRepository', () => {
     assert.deepEqual({ width: repo.get(known.id)?.width, height: repo.get(known.id)?.height }, { width: 700, height: 525 });
     assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', known.id)?.dirty, 0);
     assert.equal(repo.repairDimensions('missing', 1, 1), false);
+    db.close();
+  });
+
+  test('RAW repair candidates stay local and metadata repair fills only unknown values (#368)', () => {
+    const { db, repo } = openSeeded();
+    const affected = samplePhoto({ width: 0, height: 0, camera: null, lens: null });
+    const trusted = samplePhoto({ width: 700, height: 525, camera: 'Trusted camera' });
+    const offloaded = samplePhoto({ width: 0, height: 0 });
+    const jpeg = samplePhoto({ fileKind: 'jpeg', width: 0, height: 0 });
+    for (const photo of [affected, trusted, offloaded, jpeg]) repo.insert(photo);
+    run(db, "UPDATE sync_ledger SET status = 'offloaded' WHERE photo_id = ?", offloaded.id);
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+
+    assert.deepEqual(
+      repo.rawRepairCandidates().map(({ id }) => id),
+      [affected.id, trusted.id],
+    );
+    assert.equal(
+      repo.repairRawMetadata(affected.id, {
+        width: 8256,
+        height: 5504,
+        camera: 'Nikon Z8',
+        lens: 'NIKKOR Z 24-70mm',
+        iso: 100,
+        aperture: '2.8',
+        shutter: '1/250',
+        focalLength: 35,
+        takenAt: '2026-07-01T12:00:00',
+        gpsLat: null,
+        gpsLon: null,
+      }),
+      true,
+    );
+    assert.deepEqual(
+      { width: repo.get(affected.id)?.width, height: repo.get(affected.id)?.height, camera: repo.get(affected.id)?.camera },
+      { width: 8256, height: 5504, camera: 'Nikon Z8' },
+    );
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', affected.id)?.dirty, 1);
+
+    assert.equal(repo.repairRawMetadata(trusted.id, { ...EMPTY_METADATA, width: 1400, height: 1050, camera: 'Replacement' }), false);
+    assert.deepEqual(
+      { width: repo.get(trusted.id)?.width, height: repo.get(trusted.id)?.height, camera: repo.get(trusted.id)?.camera },
+      { width: 700, height: 525, camera: 'Trusted camera' },
+    );
     db.close();
   });
 

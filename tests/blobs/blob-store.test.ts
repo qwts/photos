@@ -53,6 +53,17 @@ describe('BlobStore', () => {
     assert.deepEqual(back, thumb);
   });
 
+  test('thumbnail repair atomically replaces a corrupt legacy envelope', async () => {
+    const { store } = await freshStore();
+    const original = randomBytes(2048);
+    const oldThumb = randomBytes(128);
+    const repairedThumb = randomBytes(256);
+    const ref = await store.putOriginal(Readable.from([original]), KEY, 'photo-repair');
+    await store.putThumb(Readable.from([oldThumb]), KEY, 'photo-repair', ref.contentHash, 'thumb');
+    await store.replaceThumb(Readable.from([repairedThumb]), KEY, 'photo-repair', ref.contentHash, 'thumb');
+    assert.deepEqual(await buffer(store.getThumbStream(ref.contentHash, 'thumb', RESOLVE, 'photo-repair')), repairedThumb);
+  });
+
   test('EXIT CRITERIA: no plaintext fixture bytes anywhere under the store', async () => {
     const { store, dataDir } = await freshStore();
     // A recognizable fixture: repeated marker so any at-rest leak is findable.

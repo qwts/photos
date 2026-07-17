@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import realPhoto from '../../../../design/handoff/assets/thumbs/t01.png';
 import { PhotoTile } from './PhotoTile';
@@ -66,5 +66,22 @@ export const ClickTargetsAreIndependent: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Open IMG_4021.RAF' }));
     await expect(args.onClick).toHaveBeenCalledOnce();
     await expect(args.onToggleSelect).toHaveBeenCalledOnce();
+  },
+};
+
+export const PreviewUnavailable: Story = {
+  args: {
+    src: 'data:image/jpeg;base64,AA==',
+    alt: 'unsupported.NEF',
+  },
+  render: (args) => (
+    <div style={{ width: 160, height: 160, padding: 'var(--space-7)', boxSizing: 'content-box' }}>
+      <PhotoTile {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByRole('status')).toHaveTextContent('PREVIEW UNAVAILABLE'));
+    await expect(canvas.getByRole('img')).toHaveAttribute('data-unavailable', 'true');
   },
 };

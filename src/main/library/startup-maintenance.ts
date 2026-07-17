@@ -10,6 +10,10 @@ export interface StartupRepairSummary {
 export interface StartupMaintenanceOptions {
   readonly purge: () => Promise<unknown>;
   readonly repair: () => Promise<StartupRepairSummary> | undefined;
+  readonly rawRepair?:
+    | (() =>
+        Promise<{ readonly scanned: number; readonly repaired: number; readonly failed: number; readonly skipped: number }> | undefined)
+    | undefined;
 }
 
 export class StartupMaintenance {
@@ -42,16 +46,29 @@ export class StartupMaintenance {
     );
 
     const repair = this.options.repair();
-    if (repair === undefined) return;
+    if (repair !== undefined) {
+      void this.work.track(
+        repair
+          .then((summary) => {
+            const issues =
+              summary.orphanOriginals.length + summary.orphanThumbs.length + summary.stagedLeftovers.length + summary.lyingRows.length;
+            if (issues > 0) console.warn('[overlook] consistency repair:', JSON.stringify(summary));
+          })
+          .catch((error: unknown) => {
+            console.error('[overlook] consistency check failed', error);
+          }),
+      );
+    }
+
+    const rawRepair = this.options.rawRepair?.();
+    if (rawRepair === undefined) return;
     void this.work.track(
-      repair
+      rawRepair
         .then((summary) => {
-          const issues =
-            summary.orphanOriginals.length + summary.orphanThumbs.length + summary.stagedLeftovers.length + summary.lyingRows.length;
-          if (issues > 0) console.warn('[overlook] consistency repair:', JSON.stringify(summary));
+          if (summary.repaired > 0 || summary.failed > 0) console.info('[overlook] RAW preview repair:', JSON.stringify(summary));
         })
         .catch((error: unknown) => {
-          console.error('[overlook] consistency check failed', error);
+          console.error('[overlook] RAW preview maintenance failed', error);
         }),
     );
   }

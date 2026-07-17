@@ -14,11 +14,15 @@ test('startup maintenance is cancellable before launch and drainable after launc
   let starts = 0;
   let releasePurge: (() => void) | undefined;
   let releaseRepair: (() => void) | undefined;
+  let releaseRawRepair: (() => void) | undefined;
   const purge = new Promise<void>((resolve) => {
     releasePurge = resolve;
   });
   const repair = new Promise<StartupRepairSummary>((resolve) => {
     releaseRepair = () => resolve(emptySummary);
+  });
+  const rawRepair = new Promise<{ scanned: number; repaired: number; failed: number; skipped: number }>((resolve) => {
+    releaseRawRepair = () => resolve({ scanned: 1, repaired: 1, failed: 0, skipped: 0 });
   });
   const maintenance = new StartupMaintenance({
     purge: () => {
@@ -26,6 +30,7 @@ test('startup maintenance is cancellable before launch and drainable after launc
       return purge;
     },
     repair: () => repair,
+    rawRepair: () => rawRepair,
   });
 
   maintenance.schedule();
@@ -44,6 +49,9 @@ test('startup maintenance is cancellable before launch and drainable after launc
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(drained, false);
   releaseRepair?.();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(drained, false);
+  releaseRawRepair?.();
   await draining;
   assert.equal(drained, true);
 });

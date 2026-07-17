@@ -1,0 +1,77 @@
+import { readFile, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+
+import type { BlobStore } from '../blobs/blob-store.js';
+import type { EnvelopeKey, KeyResolver } from '../crypto/envelope.js';
+import type { PhotosRepository } from '../db/photos-repository.js';
+import { extractMetadata } from './exif.js';
+import { ImportEngine, type ImportSummary } from './import-engine.js';
+import { ImportJournal } from './import-journal.js';
+import { ImportService, type ImportServiceEvents } from './import-service.js';
+import { ThumbnailPool } from './thumbnail-pool.js';
+import { ThumbnailService } from './thumbnail-service.js';
+import { ulid } from './ulid.js';
+
+export interface ImportRuntimeOptions {
+  readonly dataDir: string;
+  readonly workerUrl: URL;
+  readonly repo: PhotosRepository;
+  readonly blobs: BlobStore;
+  readonly blobsReady: Promise<void>;
+  readonly currentKey: () => EnvelopeKey;
+  readonly resolveKey: KeyResolver;
+  readonly events: ImportServiceEvents;
+  readonly fixtureSource: () => string | undefined;
+  readonly resumed: (summary: ImportSummary) => void;
+}
+
+export interface ImportRuntime {
+  readonly service: ImportService;
+  readonly pool: ThumbnailPool;
+  readonly thumbnails: ThumbnailService;
+}
+
+export function createImportRuntime(options: ImportRuntimeOptions): ImportRuntime {
+  const pool = new ThumbnailPool({ workerUrl: options.workerUrl });
+  const thumbnails = new ThumbnailService(pool, options.blobs);
+  const journal = new ImportJournal(join(options.dataDir, 'import-journal.json'));
+  const engine = new ImportEngine({
+    readFile: async (filePath) => readFile(filePath),
+    deleteFile: async (filePath) => unlink(filePath),
+    readManifest: async () => journal.read(),
+    writeManifest: async (manifest) => journal.write(manifest),
+    repo: {
+      hasContentHash: (hash) => options.repo.hasContentHash(hash),
+      get: (id) => options.repo.get(id),
+      insert: (photo) => options.repo.insert(photo),
+      repairDimensions: (id, width, height) => options.repo.repairDimensions(id, width, height),
+    },
+    blobs: {
+      putOriginal: async (plaintext, key, photoId) => {
+        await options.blobsReady;
+        return options.blobs.putOriginal(plaintext, key, photoId);
+      },
+      verifyOriginal: async (contentHash, resolveKey, photoId) => options.blobs.verifyOriginal(contentHash, resolveKey, photoId),
+    },
+    generateThumbs: async (request) => {
+      await options.blobsReady;
+      return thumbnails.generateFor(request);
+    },
+    extractMetadata,
+    currentKey: options.currentKey,
+    resolveKey: options.resolveKey,
+    newId: ulid,
+    now: () => new Date().toISOString(),
+    events: options.events,
+  });
+  const service = new ImportService(options.repo, options.events, engine, options.fixtureSource);
+  void service
+    .resume()
+    .then((summary) => {
+      if (summary !== null && summary.imported > 0) options.resumed(summary);
+    })
+    .catch((error: unknown) => {
+      console.error('[overlook] import resume failed', error);
+    });
+  return { service, pool, thumbnails };
+}
