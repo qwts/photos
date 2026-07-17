@@ -1,5 +1,5 @@
 {
-  "$schema-note": "Policy for scripts/check-licenses.mjs (#462). `allowed` lists SPDX identifiers permitted anywhere in the shipped closure; a package passes if its license expression is satisfiable using only allowed ids (OR = any branch, AND = every operand). `exceptions` are individually reviewed packages whose license is otherwise disallowed or undeclared — each needs a reason. Keep both lists tight; they only ever shrink or gain justified entries.",
+  "$schema-note": "Policy for scripts/check-licenses.mjs (#462). `allowed` lists SPDX identifiers permitted anywhere in the shipped closure; a package passes if its license expression is satisfiable using only allowed ids (OR = any branch, AND = every operand). `exceptions` are reviewed grants: for packages whose name matches `packages` (exact, or a trailing `*` prefix), the ids in `allow` (or the synthetic `UNKNOWN` token) are additionally permitted. Each needs a reason. Keep both tight.",
   "allowed": [
     "0BSD",
     "Apache-2.0",
@@ -15,14 +15,21 @@
     "WTFPL",
     "Zlib"
   ],
-  "exceptions": {
-    "@overlook/touch-id": {
-      "license": "UNKNOWN",
-      "reason": "First-party native Touch ID bridge (@overlook scope, published without an SPDX field). Covered by this project's MIT LICENSE; not third-party."
+  "exceptions": [
+    {
+      "packages": "@img/sharp-libvips-*",
+      "allow": ["LGPL-3.0-or-later"],
+      "reason": "libvips prebuilt shared libraries (all platform variants), loaded dynamically by sharp as separate .node/.dylib/.dll binaries. LGPL permits distribution inside an MIT app provided its license text ships (THIRD-PARTY-NOTICES.md) and the library can be relinked — satisfied because each ships as a replaceable standalone binary, not statically linked."
     },
-    "@img/sharp-libvips-darwin-arm64": {
-      "license": "LGPL-3.0-or-later",
-      "reason": "libvips prebuilt shared library, loaded dynamically by sharp as a separate .node/.dylib. LGPL permits distribution inside an MIT app provided its license text ships (THIRD-PARTY-NOTICES.md) and the library can be relinked — satisfied because it ships as a replaceable standalone binary, not statically linked."
+    {
+      "packages": "@img/sharp-win32-*",
+      "allow": ["LGPL-3.0-or-later"],
+      "reason": "Windows sharp binaries statically embed libvips, so npm declares `Apache-2.0 AND LGPL-3.0-or-later`. Same LGPL basis as the libvips prebuilts above; Apache-2.0 is already allowlisted."
+    },
+    {
+      "packages": "@img/sharp-wasm32",
+      "allow": ["LGPL-3.0-or-later"],
+      "reason": "WASM sharp binary declares `Apache-2.0 AND LGPL-3.0-or-later AND MIT`. Same LGPL basis as the libvips prebuilts; Apache-2.0 and MIT are already allowlisted."
     }
-  }
+  ]
 }
