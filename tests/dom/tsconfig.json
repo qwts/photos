@@ -1,0 +1,12 @@
+{
+  "extends": "../../src/renderer/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "../../.test-dist-dom",
+    "noEmit": false,
+    "sourceMap": true,
+    "types": ["node", "vite/client"]
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"],
+  "exclude": []
+}

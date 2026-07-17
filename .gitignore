@@ -5,6 +5,7 @@ release/
 storybook-static/
 coverage/
 .test-dist/
+.test-dist-dom/
 native/touch-id/build/
 native/touch-id/prebuilds/
 playwright-report/
