@@ -4,6 +4,7 @@ import path from 'node:path';
 import { LibraryRegistry, LibraryRegistryError, ensureDefaultEntry } from './library-registry.js';
 import { readOrMintLibraryId, writeLibraryId } from './library-id.js';
 import { KeyStore, type SafeStorageLike } from '../crypto/keystore.js';
+import { openLibraryDatabase } from '../db/database.js';
 import { ulid } from '../import/ulid.js';
 import type { LibraryDescriptor, LibraryEntry } from '../../shared/library/registry.js';
 
@@ -154,7 +155,19 @@ export class LibraryRegistryRuntime {
     mkdirSync(dir, { recursive: true });
     try {
       writeLibraryId(dir, id);
-      KeyStore.open({ safeStorage: options.safeStorage, dataDir: dir }).close();
+      const keyStore = KeyStore.open({ safeStorage: options.safeStorage, dataDir: dir });
+      try {
+        // Provision the empty database too (#385): the renderer's restore
+        // gate treats a missing library.db as "fresh profile", and a created
+        // library must open into its (empty) grid, not into onboarding.
+        const dbKey = keyStore.resolver()(1);
+        if (dbKey === undefined) throw new LibraryRegistryError('created key store has no KEY #1');
+        const db = openLibraryDatabase({ path: path.join(dir, 'library.db'), dbKey });
+        db.pragma('wal_checkpoint(TRUNCATE)');
+        db.close();
+      } finally {
+        keyStore.close();
+      }
       return this.getRegistry().register({
         id,
         name: options.name,

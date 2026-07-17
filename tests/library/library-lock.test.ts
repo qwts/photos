@@ -90,4 +90,18 @@ describe('library lock (#385)', () => {
     assert.equal((JSON.parse(readFileSync(lockPath(dir), 'utf8')) as LibraryLockRecord).pid, 101);
     release();
   });
+
+  test('the default pid-liveness probe: our own pid is alive, an absurd pid is not', () => {
+    const dir = tempDir();
+    // Held by THIS process on the real host: refused via the real probe.
+    acquireLibraryLock(dir, 'instance-a', { pid: process.pid });
+    assert.throws(() => acquireLibraryLock(dir, 'instance-b', {}), LibraryLockError);
+    const host = (JSON.parse(readFileSync(lockPath(dir), 'utf8')) as LibraryLockRecord).hostname;
+
+    // Held by a pid that cannot exist: stale, reclaimed via the real probe.
+    const dir2 = tempDir();
+    writeFileSync(lockPath(dir2), JSON.stringify({ instanceId: 'ghost', pid: 2 ** 30, hostname: host, acquiredAt: 'x' }), 'utf8');
+    const release = acquireLibraryLock(dir2, 'instance-b', {});
+    release();
+  });
 });
