@@ -1,1 +1,179 @@
-{}
+{
+  "settings.general.appearance": {
+    "defaultMessage": "Appearance"
+  },
+  "settings.general.appearance.dark": {
+    "defaultMessage": "Dark"
+  },
+  "settings.general.appearance.hint": {
+    "defaultMessage": "Dark only for now — a light theme isn't part of the design system yet."
+  },
+  "settings.general.appearance.light": {
+    "defaultMessage": "Light"
+  },
+  "settings.general.sort.date": {
+    "defaultMessage": "Date"
+  },
+  "settings.general.sort.name": {
+    "defaultMessage": "Name"
+  },
+  "settings.general.sort.size": {
+    "defaultMessage": "Size"
+  },
+  "settings.general.sortOrder": {
+    "defaultMessage": "Default sort order"
+  },
+  "settings.general.thumbnails": {
+    "defaultMessage": "Generate thumbnails on import"
+  },
+  "settings.general.thumbnails.hint": {
+    "defaultMessage": "The grid browses thumbnails, even offline. Cannot be disabled."
+  },
+  "settings.nav.general": {
+    "defaultMessage": "General"
+  },
+  "settings.nav.label": {
+    "defaultMessage": "Settings sections"
+  },
+  "settings.nav.privacy": {
+    "defaultMessage": "Privacy"
+  },
+  "settings.nav.storage": {
+    "defaultMessage": "Storage & Backup"
+  },
+  "settings.nav.transfer": {
+    "defaultMessage": "Transfer & Sync"
+  },
+  "settings.restore.title": {
+    "defaultMessage": "Restore from cloud backup"
+  },
+  "settings.title": {
+    "defaultMessage": "Settings"
+  },
+  "settings.transfer.body": {
+    "defaultMessage": "Pair Overlook with Image Trail through an isolated encrypted provider namespace. Backup credentials and files are never reused."
+  },
+  "settings.transfer.heading": {
+    "defaultMessage": "Transfer & Sync"
+  },
+  "settings.transfer.label": {
+    "defaultMessage": "Transfer and Sync settings"
+  },
+  "settings.transfer.open": {
+    "defaultMessage": "Open Transfer & Sync"
+  },
+  "settings.transfer.status": {
+    "defaultMessage": "Not paired · provider not connected"
+  },
+  "sidebar.album.actions": {
+    "defaultMessage": "Actions for {name}"
+  },
+  "sidebar.album.name": {
+    "defaultMessage": "Album name"
+  },
+  "sidebar.album.new": {
+    "defaultMessage": "New album"
+  },
+  "sidebar.backingUp": {
+    "defaultMessage": "Backing up"
+  },
+  "sidebar.collapse": {
+    "defaultMessage": "Collapse sidebar"
+  },
+  "sidebar.connect": {
+    "defaultMessage": "Connect"
+  },
+  "sidebar.encrypted": {
+    "defaultMessage": "Library encrypted"
+  },
+  "sidebar.encrypted.backingUp": {
+    "defaultMessage": "Library encrypted · backing up"
+  },
+  "sidebar.encrypted.openSettings": {
+    "defaultMessage": "Library encrypted — open Settings"
+  },
+  "sidebar.expand": {
+    "defaultMessage": "Expand sidebar"
+  },
+  "sidebar.heading.albums": {
+    "defaultMessage": "Albums"
+  },
+  "sidebar.heading.library": {
+    "defaultMessage": "Library"
+  },
+  "sidebar.heading.protected": {
+    "defaultMessage": "Protected"
+  },
+  "sidebar.nav": {
+    "defaultMessage": "Library"
+  },
+  "sidebar.notConnected": {
+    "defaultMessage": "{provider} not connected — <cta>Connect</cta>"
+  },
+  "sidebar.settings": {
+    "defaultMessage": "Settings"
+  },
+  "sidebar.source.all": {
+    "defaultMessage": "All Photos"
+  },
+  "sidebar.source.deleted": {
+    "defaultMessage": "Recently deleted"
+  },
+  "sidebar.source.favorites": {
+    "defaultMessage": "Favorites"
+  },
+  "sidebar.source.offloaded": {
+    "defaultMessage": "Offloaded"
+  },
+  "sidebar.source.recent": {
+    "defaultMessage": "Recent imports"
+  },
+  "toolbar.backup": {
+    "defaultMessage": "Back up"
+  },
+  "toolbar.backup.now": {
+    "defaultMessage": "Back up now"
+  },
+  "toolbar.filter.favorites": {
+    "defaultMessage": "Favorites"
+  },
+  "toolbar.filter.localOnly": {
+    "defaultMessage": "Local only"
+  },
+  "toolbar.filter.offloaded": {
+    "defaultMessage": "Offloaded"
+  },
+  "toolbar.filter.raw": {
+    "defaultMessage": "RAW"
+  },
+  "toolbar.filters": {
+    "defaultMessage": "Filters"
+  },
+  "toolbar.import": {
+    "defaultMessage": "Import"
+  },
+  "toolbar.lock": {
+    "defaultMessage": "Lock now"
+  },
+  "toolbar.search": {
+    "defaultMessage": "Search library"
+  },
+  "toolbar.search.hint": {
+    "defaultMessage": "Semantic search — coming soon"
+  },
+  "toolbar.transfer": {
+    "defaultMessage": "Transfer & Sync"
+  },
+  "toolbar.view": {
+    "defaultMessage": "View"
+  },
+  "toolbar.view.grid": {
+    "defaultMessage": "Grid"
+  },
+  "toolbar.view.list": {
+    "defaultMessage": "List"
+  },
+  "toolbar.zoom": {
+    "defaultMessage": "Zoom"
+  }
+}

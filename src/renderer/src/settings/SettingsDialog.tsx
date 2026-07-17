@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
+import type { MessageDescriptor } from 'react-intl';
 
 import { Dialog } from '../components/Dialog';
 import { Button } from '../components/Button';
@@ -27,14 +29,26 @@ export interface SettingsDialogProps {
   readonly onTransfer?: (() => void) | undefined;
 }
 
-const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: string }[] = [
-  { key: 'general', icon: 'sliders-horizontal', label: 'General' },
-  { key: 'storage', icon: 'cloud', label: 'Storage & Backup' },
-  { key: 'transfer', icon: 'refresh-cw', label: 'Transfer & Sync' },
-  { key: 'privacy', icon: 'shield-check', label: 'Privacy' },
+const messages = defineMessages({
+  title: { id: 'settings.title', defaultMessage: 'Settings' },
+  sections: { id: 'settings.nav.label', defaultMessage: 'Settings sections' },
+  general: { id: 'settings.nav.general', defaultMessage: 'General' },
+  storage: { id: 'settings.nav.storage', defaultMessage: 'Storage & Backup' },
+  transfer: { id: 'settings.nav.transfer', defaultMessage: 'Transfer & Sync' },
+  privacy: { id: 'settings.nav.privacy', defaultMessage: 'Privacy' },
+  transferSettings: { id: 'settings.transfer.label', defaultMessage: 'Transfer and Sync settings' },
+  restoreTitle: { id: 'settings.restore.title', defaultMessage: 'Restore from cloud backup' },
+});
+
+const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: MessageDescriptor }[] = [
+  { key: 'general', icon: 'sliders-horizontal', label: messages.general },
+  { key: 'storage', icon: 'cloud', label: messages.storage },
+  { key: 'transfer', icon: 'refresh-cw', label: messages.transfer },
+  { key: 'privacy', icon: 'shield-check', label: messages.privacy },
 ];
 
 export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfer }: SettingsDialogProps): ReactElement | null {
+  const intl = useIntl();
   const [section, setSection] = useState<SettingsSection>('storage');
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Recovery-key dialog (#240): layered over Settings, per the mock.
@@ -84,9 +98,9 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
   };
 
   return (
-    <Dialog open title="Settings" icon="settings-2" width={640} onClose={onClose}>
+    <Dialog open title={intl.formatMessage(messages.title)} icon="settings-2" width={640} onClose={onClose}>
       <div className="ovl-settings" data-testid="settings-dialog">
-        <nav className="ovl-settings__nav" aria-label="Settings sections">
+        <nav className="ovl-settings__nav" aria-label={intl.formatMessage(messages.sections)}>
           {SECTIONS.map(({ key, icon, label }) => {
             const current = key === section;
             return (
@@ -100,7 +114,7 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
                 }}
               >
                 <Icon name={icon} size={14} color={current ? 'var(--accent-cyan)' : 'var(--text-faint)'} />
-                <span>{label}</span>
+                <span>{intl.formatMessage(label)}</span>
               </button>
             );
           })}
@@ -111,15 +125,21 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
           ) : section === 'storage' ? (
             <StoragePane settings={settings} selectedPhotoIds={selectedPhotoIds} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
           ) : section === 'transfer' ? (
-            <section className="ovl-settings__transfer" aria-label="Transfer and Sync settings">
-              <h3>Transfer &amp; Sync</h3>
+            <section className="ovl-settings__transfer" aria-label={intl.formatMessage(messages.transferSettings)}>
+              <h3>
+                <FormattedMessage id="settings.transfer.heading" defaultMessage="Transfer & Sync" />
+              </h3>
               <p>
-                Pair Overlook with Image Trail through an isolated encrypted provider namespace. Backup credentials and files are never
-                reused.
+                <FormattedMessage
+                  id="settings.transfer.body"
+                  defaultMessage="Pair Overlook with Image Trail through an isolated encrypted provider namespace. Backup credentials and files are never reused."
+                />
               </p>
-              <p className="mono-data">NOT PAIRED · PROVIDER NOT CONNECTED</p>
+              <p className="mono-data">
+                <FormattedMessage id="settings.transfer.status" defaultMessage="Not paired · provider not connected" />
+              </p>
               <Button className="ovl-settings__transferAction" variant="primary" icon="refresh-cw" onClick={onTransfer}>
-                Open Transfer &amp; Sync
+                <FormattedMessage id="settings.transfer.open" defaultMessage="Open Transfer & Sync" />
               </Button>
             </section>
           ) : (
@@ -159,7 +179,13 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
         />
       ) : null}
       {restoreOpen ? (
-        <Dialog open title="Restore from cloud backup" icon="cloud-download" width={640} onClose={() => setRestoreOpen(false)}>
+        <Dialog
+          open
+          title={intl.formatMessage(messages.restoreTitle)}
+          icon="cloud-download"
+          width={640}
+          onClose={() => setRestoreOpen(false)}
+        >
           <RestoreWorkflow context="settings" />
         </Dialog>
       ) : null}
