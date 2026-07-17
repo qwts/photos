@@ -1,5 +1,15 @@
 # photos
 
+## 0.30.0
+
+### Minor Changes
+
+- 03708be: Library switcher UI (#386): the titlebar now names the current library and opens the switcher — a modal listing every registered library with its state (open now, available, missing volume, locked by another computer), live switch on click or keyboard (↑↓/⏎), a create flow with location picker, add-existing registration, and registry-only removal with reassurance copy. Switch refusals (backup running, locked, target locked elsewhere or missing) surface as typed inline banners instead of opaque errors.
+
+### Patch Changes
+
+- 3c5d75a: Keep dense photo grids responsive when unavailable thumbnails enter the viewport by avoiding a React rerender for every image load failure.
+
 ## 0.29.1
 
 ### Patch Changes
