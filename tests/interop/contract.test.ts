@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, pbkdf2Sync } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
@@ -221,6 +221,15 @@ describe('published interoperability artifacts', () => {
   test('maps every companion epic scenario to current cross-repository evidence', () => {
     const output = execFileSync(process.execPath, ['scripts/check-interop-acceptance.mjs'], { encoding: 'utf8' });
     assert.equal(output, 'Verified 10 interop scenarios with 40 automated evidence references; manual 0/4.\n');
+  });
+
+  test('refuses companion evidence from a checkout that is not pinned to the reviewed revision', () => {
+    const result = spawnSync(process.execPath, ['scripts/check-interop-acceptance.mjs'], {
+      encoding: 'utf8',
+      env: { ...process.env, INTEROP_IMAGE_TRAIL_ROOT: process.cwd() },
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /evidence checkout must be pinned/u);
   });
 
   test('matches the generated Draft 2020-12 schemas byte-for-byte', () => {

@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 const LOCAL_REPOSITORY = 'qwts/photos';
+const COMPANION_REPOSITORY = 'qwts/image-trail';
+const COMPANION_COMMIT = 'cf3fe884c7729db73cfe0ddb7c90be6c4d881c09';
 const MANIFEST_PATH = 'design/handoff/contracts/v1/acceptance-evidence.json';
 const REPOSITORIES = new Set(['qwts/image-trail', 'qwts/photos']);
 const EXPECTED_SCENARIOS = new Set([
@@ -56,7 +59,30 @@ function checkExactIds(entries, expected, label, failures) {
   for (const id of ids) if (!expected.has(id)) failures.push(`${label} contains unexpected id ${id}.`);
 }
 
-async function validateEvidence(evidence, scenarioId, rootDirectory, failures) {
+function resolveRepositoryRoots(rootDirectory, failures) {
+  const companionDirectory = process.env['INTEROP_IMAGE_TRAIL_ROOT'];
+  if (!nonEmptyString(companionDirectory)) {
+    failures.push('INTEROP_IMAGE_TRAIL_ROOT must point to the pinned Image Trail evidence checkout.');
+    return new Map([[LOCAL_REPOSITORY, rootDirectory]]);
+  }
+
+  const companionRoot = path.resolve(companionDirectory);
+  try {
+    const revision = execFileSync('git', ['-C', companionRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    if (revision !== COMPANION_COMMIT) {
+      failures.push(`${COMPANION_REPOSITORY} evidence checkout must be pinned to ${COMPANION_COMMIT}; found ${revision}.`);
+    }
+  } catch {
+    failures.push(`Unable to read the ${COMPANION_REPOSITORY} evidence checkout at ${companionRoot}.`);
+  }
+
+  return new Map([
+    [LOCAL_REPOSITORY, rootDirectory],
+    [COMPANION_REPOSITORY, companionRoot],
+  ]);
+}
+
+async function validateEvidence(evidence, scenarioId, repositoryRoots, failures) {
   if (!Array.isArray(evidence) || evidence.length === 0) {
     failures.push(`${scenarioId}: evidence must be a non-empty array.`);
     return;
@@ -69,14 +95,17 @@ async function validateEvidence(evidence, scenarioId, rootDirectory, failures) {
       failures.push(`${label}: unsupported repository ${String(item?.repository)}.`);
       continue;
     }
-    represented.add(item.repository);
     if (!safeRelativePath(item.path)) failures.push(`${label}: path must be repository-relative and traversal-free.`);
     if (!nonEmptyString(item.contains)) failures.push(`${label}: contains must name stable test evidence.`);
-    if (item.repository !== LOCAL_REPOSITORY || !safeRelativePath(item.path) || !nonEmptyString(item.contains)) continue;
+    if (!safeRelativePath(item.path) || !nonEmptyString(item.contains)) continue;
+
+    const repositoryRoot = repositoryRoots.get(item.repository);
+    if (!repositoryRoot) continue;
 
     try {
-      const source = await readFile(path.resolve(rootDirectory, item.path), 'utf8');
+      const source = await readFile(path.resolve(repositoryRoot, item.path), 'utf8');
       if (!source.includes(item.contains)) failures.push(`${label}: ${item.path} no longer contains ${JSON.stringify(item.contains)}.`);
+      else represented.add(item.repository);
     } catch (error) {
       if (error?.code === 'ENOENT') failures.push(`${label}: evidence path does not exist: ${item.path}.`);
       else throw error;
@@ -112,6 +141,7 @@ export async function verifyInteropAcceptance(options = {}) {
   const manifestPath = path.resolve(rootDirectory, options.manifestPath ?? MANIFEST_PATH);
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   const failures = [];
+  const repositoryRoots = resolveRepositoryRoots(rootDirectory, failures);
 
   if (manifest.schemaVersion !== 1) failures.push('schemaVersion must be 1.');
   if (manifest.contractVersion !== 1) failures.push('contractVersion must be 1.');
@@ -131,7 +161,7 @@ export async function verifyInteropAcceptance(options = {}) {
     const label = nonEmptyString(scenario?.id) ? scenario.id : 'scenario';
     if (!arrayOfStrings(scenario?.parentScenarios)) failures.push(`${label}: parentScenarios must be non-empty strings.`);
     if (!arrayOfStrings(scenario?.requirements)) failures.push(`${label}: requirements must be non-empty strings.`);
-    await validateEvidence(scenario?.evidence, label, rootDirectory, failures);
+    await validateEvidence(scenario?.evidence, label, repositoryRoots, failures);
   }
 
   const manualChecks = Array.isArray(manifest.manualChecks) ? manifest.manualChecks : [];
