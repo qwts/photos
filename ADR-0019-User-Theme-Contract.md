@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed 2026-07-17 on issue [#394](https://github.com/qwts/photos/issues/394) — open for owner review; downstream children of [#380](https://github.com/qwts/photos/issues/380) may implement against the sections below while the review window is open, and any section may be amended by owner veto before its implementing code lands. This ADR extends [ADR-0001](ADR-0001-Automation-Check-Governance) (gates) and coordinates with the accessibility tooling from #381; it rewrites nothing.
+Accepted 2026-07-17 on issue [#394](https://github.com/qwts/photos/issues/394) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands). This ADR extends [ADR-0001](ADR-0001-Automation-Check-Governance) (gates) and coordinates with the accessibility tooling from #381; it rewrites nothing.
 
 Section map for the epic's children: §2, §5, §7 govern [#395](https://github.com/qwts/photos/issues/395) (application plumbing + light theme); §1, §3, §4, §5 govern [#396](https://github.com/qwts/photos/issues/396) (theme manager); §6 governs [#397](https://github.com/qwts/photos/issues/397) (template export + LLM docs).
 
