@@ -59,6 +59,10 @@ const VOCABULARY = [
   'arrow-left',
   'chevron-left',
   'chevron-right',
+  // Orientation-toolbar glyphs from the current lightbox handoff (#369).
+  'flip-horizontal-2',
+  'rotate-ccw',
+  'rotate-cw',
   // ExportDialog glyphs the design's ExportDialog.jsx uses beyond the readme
   // list (#99): the folder picker and the done check.
   'folder',

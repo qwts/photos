@@ -5,7 +5,19 @@ import { fullUrl } from '../../../shared/library/full-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
-import { clampTransform, fillZoom, fitSize, panBy, zoomAround, type LightboxSize, type LightboxTransform } from './geometry.js';
+import {
+  DEFAULT_ORIENTATION,
+  clampTransform,
+  fillZoom,
+  fitSize,
+  orientedSize,
+  panBy,
+  rotateOrientation,
+  zoomAround,
+  type LightboxOrientation,
+  type LightboxSize,
+  type LightboxTransform,
+} from './geometry.js';
 
 const FIT: LightboxTransform = { zoom: 1, x: 0, y: 0 };
 const HINT_STORAGE_KEY = 'overlook.lightbox-gestures-seen';
@@ -54,12 +66,16 @@ export function LightboxViewport({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<LightboxSize>({ width: 0, height: 0 });
   const [transform, setTransform] = useState<LightboxTransform>(FIT);
+  const [orientation, setOrientation] = useState<LightboxOrientation>(DEFAULT_ORIENTATION);
   const [mode, setMode] = useState<'fit' | 'fill' | 'custom'>('fit');
   const [showHint, setShowHint] = useState(shouldShowHint);
   const [decoded, setDecoded] = useState<LightboxSize | null>(null);
   const [decodeFailed, setDecodeFailed] = useState(false);
   const image = useMemo(() => decoded ?? { width: photo.width, height: photo.height }, [decoded, photo.height, photo.width]);
-  const fitted = fitSize(image, viewport);
+  const orientedImage = useMemo(() => orientedSize(image, orientation), [image, orientation]);
+  const fitted = fitSize(orientedImage, viewport);
+  const elementSize = orientedSize(fitted, orientation);
+  const toolbarTop = Math.max(64, Math.min((viewport.height + fitted.height) / 2 - 8, viewport.height - 92));
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -68,13 +84,13 @@ export function LightboxViewport({
       if (entry === undefined) return;
       const next = { width: entry.contentRect.width, height: entry.contentRect.height };
       setViewport(next);
-      setTransform((current) => clampTransform(current, fitSize(image, next), next));
+      setTransform((current) => clampTransform(current, fitSize(orientedImage, next), next));
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
     };
-  }, [image]);
+  }, [orientedImage]);
 
   useEffect(() => {
     if (!showHint) return;
@@ -87,11 +103,39 @@ export function LightboxViewport({
     };
   }, [showHint]);
 
-  const reset = useCallback(() => {
+  const resetView = useCallback(() => {
     setTransform(FIT);
     setMode('fit');
     onActivity();
   }, [onActivity]);
+
+  const applyOrientation = useCallback(
+    (next: LightboxOrientation) => {
+      const axesChanged = next.quarterTurns % 2 !== orientation.quarterTurns % 2;
+      const nextFitted = fitSize(orientedSize(image, next), viewport);
+      setTransform((current) => clampTransform(current, nextFitted, viewport));
+      if (axesChanged && mode === 'fill') setMode('custom');
+      setOrientation(next);
+      setShowHint(false);
+      onActivity();
+    },
+    [image, mode, onActivity, orientation.quarterTurns, viewport],
+  );
+
+  const rotateBy = useCallback(
+    (delta: -1 | 1) => {
+      applyOrientation(rotateOrientation(orientation, delta));
+    },
+    [applyOrientation, orientation],
+  );
+
+  const flipHorizontal = useCallback(() => {
+    applyOrientation({ ...orientation, flipped: !orientation.flipped });
+  }, [applyOrientation, orientation]);
+
+  const resetOrientation = useCallback(() => {
+    applyOrientation(DEFAULT_ORIENTATION);
+  }, [applyOrientation]);
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -118,21 +162,33 @@ export function LightboxViewport({
         zoomBy(1 / KEYBOARD_ZOOM_STEP);
       } else if (event.key === '0') {
         event.preventDefault();
-        reset();
+        resetView();
+      } else if (event.key === '[') {
+        event.preventDefault();
+        rotateBy(-1);
+      } else if (event.key === ']') {
+        event.preventDefault();
+        rotateBy(1);
+      } else if (event.key === '\\') {
+        event.preventDefault();
+        flipHorizontal();
+      } else if (event.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        resetOrientation();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [reset, zoomBy]);
+  }, [flipHorizontal, resetOrientation, resetView, rotateBy, zoomBy]);
 
   const toggleFill = (): void => {
     if (mode === 'fill') {
-      reset();
+      resetView();
       return;
     }
-    setTransform({ zoom: fillZoom(image, viewport), x: 0, y: 0 });
+    setTransform({ zoom: fillZoom(orientedImage, viewport), x: 0, y: 0 });
     setMode('fill');
     setShowHint(false);
     onActivity();
@@ -179,6 +235,8 @@ export function LightboxViewport({
       data-pan-y={transform.y.toFixed(1)}
       data-image-width={image.width}
       data-image-height={image.height}
+      data-orientation-turns={orientation.quarterTurns}
+      data-orientation-flipped={orientation.flipped ? 'true' : 'false'}
       data-unavailable={decodeFailed ? 'true' : 'false'}
     >
       <img
@@ -189,9 +247,9 @@ export function LightboxViewport({
         data-orientation={photo.width >= photo.height ? 'landscape' : 'portrait'}
         draggable={false}
         style={{
-          width: fitted.width,
-          height: fitted.height,
-          transform: `translate3d(${String(transform.x)}px, ${String(transform.y)}px, 0) scale(${String(transform.zoom)})`,
+          width: elementSize.width,
+          height: elementSize.height,
+          transform: `translate3d(${String(transform.x)}px, ${String(transform.y)}px, 0) scale(${String(transform.zoom)}) scaleX(${orientation.flipped ? '-1' : '1'}) rotate(${String(orientation.quarterTurns * 90)}deg)`,
         }}
         onLoad={onImageLoad}
         onError={() => setDecodeFailed(true)}
@@ -208,9 +266,35 @@ export function LightboxViewport({
           DOUBLE-CLICK TO FILL · OPTION + SCROLL TO ZOOM · SCROLL TO PAN
         </div>
       ) : null}
-      <div className={`ovl-lightbox__zoom ovl-lightbox__chrome${chromeClass}`} aria-label="Image zoom controls">
+      <div
+        className={`ovl-lightbox__orientation ovl-lightbox__chrome${chromeClass}`}
+        role="toolbar"
+        aria-label="Image orientation controls"
+        style={{ top: toolbarTop }}
+      >
+        <IconButton
+          icon="refresh-cw"
+          size="sm"
+          label="Reset orientation (R)"
+          aria-keyshortcuts="R"
+          disabled={orientation.quarterTurns === 0 && !orientation.flipped}
+          onClick={resetOrientation}
+        />
+        <IconButton
+          icon="flip-horizontal-2"
+          size="sm"
+          label="Flip horizontal (Backslash)"
+          aria-keyshortcuts="\\"
+          active={orientation.flipped}
+          onClick={flipHorizontal}
+        />
+        <span className="ovl-lightbox__orientation-divider" role="separator" aria-orientation="vertical" />
+        <IconButton icon="rotate-ccw" size="sm" label="Rotate left ([)" aria-keyshortcuts="[" onClick={() => rotateBy(-1)} />
+        <IconButton icon="rotate-cw" size="sm" label="Rotate right (])" aria-keyshortcuts="]" onClick={() => rotateBy(1)} />
+      </div>
+      <div className={`ovl-lightbox__zoom ovl-lightbox__chrome${chromeClass}`} aria-label="Image zoom controls" style={{ top: toolbarTop }}>
         <IconButton icon="minus" size="sm" label="Zoom out (−)" onClick={() => zoomBy(1 / KEYBOARD_ZOOM_STEP)} />
-        <Button className="ovl-lightbox__zoom-reset mono-data" variant="ghost" size="sm" aria-label="Fit image (0)" onClick={reset}>
+        <Button className="ovl-lightbox__zoom-reset mono-data" variant="ghost" size="sm" aria-label="Fit image (0)" onClick={resetView}>
           {Math.round(transform.zoom * 100)}%
         </Button>
         <IconButton icon="plus" size="sm" label="Zoom in (+)" onClick={() => zoomBy(KEYBOARD_ZOOM_STEP)} />

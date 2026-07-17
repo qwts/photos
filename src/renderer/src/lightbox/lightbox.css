@@ -20,6 +20,7 @@
   overflow: hidden;
   pointer-events: none;
   overscroll-behavior: none;
+  container-type: inline-size;
 }
 
 .ovl-lightbox__img {
@@ -56,20 +57,39 @@
   animation: ovl-lightbox-hint-in var(--duration-normal) var(--ease-out);
 }
 
+.ovl-lightbox__orientation,
 .ovl-lightbox__zoom {
   position: absolute;
-  left: 50%;
-  bottom: 64px;
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  translate: -50% 0;
   padding: var(--space-1);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: oklch(0.1 0.005 250 / 0.78);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.28);
+  backdrop-filter: blur(12px);
 }
 
+.ovl-lightbox__orientation {
+  left: 50%;
+  translate: -50% 0;
+}
+
+.ovl-lightbox__orientation-divider {
+  align-self: center;
+  width: 1px;
+  height: 18px;
+  margin: 0 var(--space-1);
+  background: var(--border-subtle);
+}
+
+.ovl-lightbox__zoom {
+  left: calc(50% + 82px);
+  translate: 0 0;
+}
+
+.ovl-lightbox__orientation.ovl-lightbox__chrome--on,
 .ovl-lightbox__zoom.ovl-lightbox__chrome--on {
   pointer-events: auto;
 }
@@ -208,6 +228,27 @@
 
   .ovl-lightbox__custody {
     order: -1;
+  }
+}
+
+@container (max-width: 860px) {
+  .ovl-lightbox__orientation {
+    translate: -50% -32px;
+  }
+
+  .ovl-lightbox__zoom {
+    translate: 0 -32px;
+  }
+}
+
+@container (max-width: 720px) {
+  .ovl-lightbox__zoom {
+    left: 50%;
+    translate: -50% -76px;
+  }
+
+  .ovl-lightbox__gesture-hint {
+    bottom: 194px;
   }
 }
 
