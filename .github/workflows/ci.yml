@@ -67,7 +67,7 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     env:
-      INTEROP_IMAGE_TRAIL_ROOT: ${{ github.workspace }}/.interop-evidence/image-trail
+      INTEROP_IMAGE_TRAIL_ROOT: ${{ github.workspace }}/node_modules/.interop-image-trail
 
     steps:
       - name: Checkout
@@ -76,13 +76,6 @@ jobs:
           # Full history so lint:new-files can compute a merge-base with origin/main;
           # the default single-commit fetch made that gate silently skip in PR runs.
           fetch-depth: 0
-
-      - name: Checkout pinned Image Trail acceptance evidence
-        uses: actions/checkout@v7
-        with:
-          repository: qwts/image-trail
-          ref: cf3fe884c7729db73cfe0ddb7c90be6c4d881c09
-          path: .interop-evidence/image-trail
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -95,6 +88,16 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Keep the companion checkout under the already-ignored dependency tree:
+      # repo-wide Photos lint and package-pin scans must not treat Image Trail as
+      # local source, while the acceptance gate still reads its pinned evidence.
+      - name: Checkout pinned Image Trail acceptance evidence
+        uses: actions/checkout@v7
+        with:
+          repository: qwts/image-trail
+          ref: cf3fe884c7729db73cfe0ddb7c90be6c4d881c09
+          path: node_modules/.interop-image-trail
 
       - name: Lint
         run: npm run lint
