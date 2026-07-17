@@ -39,6 +39,7 @@
     "test:pcloud:live": "npm run test:compile && OVERLOOK_PCLOUD_LIVE=1 ELECTRON_RUN_AS_NODE=1 electron --test '.test-dist/tests/backup/pcloud-live-contract.test.js'",
     "test:google-drive:live": "npm run test:compile && OVERLOOK_GOOGLE_DRIVE_LIVE=1 ELECTRON_RUN_AS_NODE=1 electron --test '.test-dist/tests/backup/google-drive-live-contract.test.js'",
     "test:e2e": "playwright test",
+    "test:e2e:visible": "OVERLOOK_E2E_VISIBLE=1 playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:perf": "playwright test --config playwright.perf.config.ts",

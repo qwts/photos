@@ -600,6 +600,20 @@
       ]
     },
     {
+      "id": "tooling-hidden-electron-e2e",
+      "wiki": "Testing-Strategy",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/window-visibility.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/main/e2e-window-visibility.test.ts"
+        }
+      ]
+    },
+    {
       "id": "m10-albums-crud",
       "wiki": "User-Story-M10-Albums-organization-deletion",
       "coverage": [
