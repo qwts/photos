@@ -40,7 +40,7 @@
 .ovl-tile__unavailable {
   position: absolute;
   inset: 0;
-  display: none;
+  display: grid;
   place-items: center;
   padding: var(--space-3);
   color: var(--text-tertiary);
@@ -48,10 +48,6 @@
   letter-spacing: 0.08em;
   text-align: center;
   pointer-events: none;
-}
-
-.ovl-tile__img[data-unavailable='true'] + .ovl-tile__unavailable {
-  display: grid;
 }
 
 .ovl-tile--selected .ovl-tile__img {

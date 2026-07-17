@@ -20,6 +20,15 @@ export interface PhotoTileProps {
   readonly onDragEnd?: (() => void) | undefined;
 }
 
+function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean): void {
+  image.dataset['unavailable'] = unavailable ? 'true' : 'false';
+  const fallback = image.nextElementSibling;
+  if (!(fallback instanceof HTMLElement)) return;
+  fallback.textContent = unavailable ? 'PREVIEW UNAVAILABLE' : '';
+  if (unavailable) fallback.setAttribute('role', 'status');
+  else fallback.removeAttribute('role');
+}
+
 // media/PhotoTile.jsx — hover states ride CSS (:hover/:focus-within) instead
 // of JS mouse tracking; the select circle is a real button (keyboard
 // reachable) whose clicks never bubble into the open action.
@@ -67,15 +76,13 @@ export function PhotoTile({
         className="ovl-tile__img"
         data-unavailable="false"
         onLoad={(event) => {
-          event.currentTarget.dataset['unavailable'] = 'false';
+          setPreviewUnavailable(event.currentTarget, false);
         }}
         onError={(event) => {
-          event.currentTarget.dataset['unavailable'] = 'true';
+          setPreviewUnavailable(event.currentTarget, true);
         }}
       />
-      <div className="ovl-tile__unavailable mono-data" role="status">
-        PREVIEW UNAVAILABLE
-      </div>
+      <div className="ovl-tile__unavailable mono-data" />
       <div className="ovl-tile__hover-overlay" />
       {onToggleSelect === undefined ? null : (
         <button
