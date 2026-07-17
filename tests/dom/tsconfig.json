@@ -7,6 +7,6 @@
     "sourceMap": true,
     "types": ["node", "vite/client"]
   },
-  "include": ["./**/*.ts", "./**/*.tsx"],
+  "include": ["./**/*.ts", "./**/*.tsx", "../../src/renderer/src/overlook.d.ts"],
   "exclude": []
 }
