@@ -213,8 +213,11 @@ test('protected albums: no-leak restart, session relock, credential recovery, li
     await page.setViewportSize({ width: 1100, height: 720 });
 
     await page.getByRole('button', { name: /All Photos/u }).click();
-    await assertLockedWithoutLeak(page, protectedNames);
-    await unlockProtected(page, ALBUM_PASSWORD);
+    const sessionAlbum = page.getByRole('button', { name: 'Private originals 2', exact: true });
+    await expect(sessionAlbum).toBeVisible();
+    await sessionAlbum.click();
+    await expect(page.getByRole('heading', { name: 'Private originals' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Unlock protected album' })).toHaveCount(0);
     const protectedSrc = await page.locator('.ovl-protected-route img').first().getAttribute('src');
     await page.getByRole('button', { name: 'Relock' }).click();
     await assertLockedWithoutLeak(page, protectedNames);
@@ -235,6 +238,12 @@ test('protected albums: no-leak restart, session relock, credential recovery, li
     await unlockProtected(page, RECOVERED_PASSWORD);
     await configureAppLock(page);
     await unlockApp(page);
+
+    await unlockProtected(page, RECOVERED_PASSWORD);
+    await page.getByRole('button', { name: 'Lock now' }).click();
+    await expect(page.getByTestId('lock-screen')).toBeVisible();
+    await unlockApp(page);
+    await assertLockedWithoutLeak(page, protectedNames);
 
     for (const event of ['lock-screen', 'suspend', 'user-did-resign-active'] as const) {
       await unlockProtected(page, RECOVERED_PASSWORD);

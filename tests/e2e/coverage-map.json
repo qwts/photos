@@ -742,8 +742,16 @@
       "wiki": "User-Story-M20-Privacy-lock-protected-albums",
       "coverage": [
         {
-          "type": "deferred",
-          "issue": 309
+          "type": "playwright-e2e",
+          "path": "tests/e2e/protected-albums.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/protected/ProtectedAlbumView.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/crypto/protected-album-authority.test.ts"
         }
       ]
     },

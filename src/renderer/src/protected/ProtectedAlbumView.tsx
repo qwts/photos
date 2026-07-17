@@ -33,7 +33,6 @@ export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedA
   const [generation, setGeneration] = useState(0);
   const relockedRef = useRef(false);
   const requestRef = useRef(0);
-  const scheduledRelockRef = useRef<{ readonly albumId: string; cancelled: boolean } | null>(null);
   const requestKey = `${albumId}\0${query}\0${generation}`;
   const loading = loadedKey !== requestKey || loadingMore;
 
@@ -48,20 +47,7 @@ export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedA
   }, [onRelocked]);
 
   useEffect(() => {
-    const scheduled = scheduledRelockRef.current;
-    if (scheduled?.albumId === albumId) {
-      scheduled.cancelled = true;
-      scheduledRelockRef.current = null;
-    }
     relockedRef.current = false;
-    return () => {
-      if (relockedRef.current) return;
-      const pending = { albumId, cancelled: false };
-      scheduledRelockRef.current = pending;
-      queueMicrotask(() => {
-        if (!pending.cancelled) void window.overlook.protectedAlbums.relock({ albumId });
-      });
-    };
   }, [albumId]);
 
   useEffect(
