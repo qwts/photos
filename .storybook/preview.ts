@@ -5,8 +5,11 @@ import type { Preview } from '@storybook/react-vite';
 // duplication to drift.
 import '../src/renderer/src/styles/index.css';
 import budget from '../tests/a11y/violation-budget.json' with { type: 'json' };
+import { localeGlobalType, withIntl } from './intl-decorator';
 
 const preview: Preview = {
+  decorators: [withIntl],
+  globalTypes: localeGlobalType,
   parameters: {
     layout: 'fullscreen',
     // Point the a11y panel at the SAME tag set the budget is counted against, read from

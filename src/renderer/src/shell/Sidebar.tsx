@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement, Ref } from 'react';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
+import type { MessageDescriptor } from 'react-intl';
 
 import { formatBytes, formatCount } from '../../../shared/library/format.js';
 import type { AlbumSummary, LibraryStats, SourceCounts, SourceFilter } from '../../../shared/library/types.js';
@@ -17,12 +19,32 @@ import { useAlbumPhotoDrop } from './use-album-photo-drop';
 // by its stories (PR #245).
 import './shell.css';
 
-const SOURCES: readonly { key: SourceFilter; icon: IconName; label: string }[] = [
-  { key: 'all', icon: 'images', label: 'All Photos' },
-  { key: 'favorites', icon: 'star', label: 'Favorites' },
-  { key: 'recent', icon: 'download', label: 'Recent imports' },
-  { key: 'offloaded', icon: 'cloud', label: 'Offloaded' },
-  { key: 'deleted', icon: 'trash-2', label: 'Recently deleted' },
+const messages = defineMessages({
+  nav: { id: 'sidebar.nav', defaultMessage: 'Library' },
+  headingLibrary: { id: 'sidebar.heading.library', defaultMessage: 'Library' },
+  headingAlbums: { id: 'sidebar.heading.albums', defaultMessage: 'Albums' },
+  headingProtected: { id: 'sidebar.heading.protected', defaultMessage: 'Protected' },
+  expand: { id: 'sidebar.expand', defaultMessage: 'Expand sidebar' },
+  collapse: { id: 'sidebar.collapse', defaultMessage: 'Collapse sidebar' },
+  newAlbum: { id: 'sidebar.album.new', defaultMessage: 'New album' },
+  albumName: { id: 'sidebar.album.name', defaultMessage: 'Album name' },
+  settings: { id: 'sidebar.settings', defaultMessage: 'Settings' },
+  encrypted: { id: 'sidebar.encrypted', defaultMessage: 'Library encrypted' },
+  encryptedOpenSettings: { id: 'sidebar.encrypted.openSettings', defaultMessage: 'Library encrypted — open Settings' },
+  connect: { id: 'sidebar.connect', defaultMessage: 'Connect' },
+  sourceAll: { id: 'sidebar.source.all', defaultMessage: 'All Photos' },
+  sourceFavorites: { id: 'sidebar.source.favorites', defaultMessage: 'Favorites' },
+  sourceRecent: { id: 'sidebar.source.recent', defaultMessage: 'Recent imports' },
+  sourceOffloaded: { id: 'sidebar.source.offloaded', defaultMessage: 'Offloaded' },
+  sourceDeleted: { id: 'sidebar.source.deleted', defaultMessage: 'Recently deleted' },
+});
+
+const SOURCES: readonly { key: SourceFilter; icon: IconName; label: MessageDescriptor }[] = [
+  { key: 'all', icon: 'images', label: messages.sourceAll },
+  { key: 'favorites', icon: 'star', label: messages.sourceFavorites },
+  { key: 'recent', icon: 'download', label: messages.sourceRecent },
+  { key: 'offloaded', icon: 'cloud', label: messages.sourceOffloaded },
+  { key: 'deleted', icon: 'trash-2', label: messages.sourceDeleted },
 ];
 
 // Collapsed state persists across launches under the mock's own key (#238).
@@ -129,6 +151,7 @@ export interface SidebarProps {
 // shows the encrypted badge, the settings gear (opens the M09 dialog), a
 // live aggregate bar while a backup runs (#108), and the mono storage line.
 export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbums = [], onProtectedOpen }: SidebarProps): ReactElement {
+  const intl = useIntl();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const albumDrop = useAlbumPhotoDrop(albums);
@@ -177,13 +200,13 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
     };
   }, []);
   return (
-    <nav className={`ovl-sidebar${collapsed ? ' ovl-sidebar--collapsed' : ''}`} aria-label="Library">
+    <nav className={`ovl-sidebar${collapsed ? ' ovl-sidebar--collapsed' : ''}`} aria-label={intl.formatMessage(messages.nav)}>
       <div className="ovl-sidebar__toggle-row">
-        <Tooltip label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right">
+        <Tooltip label={intl.formatMessage(collapsed ? messages.expand : messages.collapse)} side="right">
           <button
             type="button"
             className="ovl-sidebar__toggle"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={intl.formatMessage(collapsed ? messages.expand : messages.collapse)}
             aria-expanded={!collapsed}
             onClick={toggleCollapsed}
           >
@@ -194,7 +217,9 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
       {collapsed ? (
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (
-        <div className="ovl-sidebar__heading mono-data">Library</div>
+        <div className="ovl-sidebar__heading mono-data">
+          <FormattedMessage id="sidebar.heading.library" defaultMessage="Library" />
+        </div>
       )}
       {SOURCES.filter(
         // Offloaded only earns its row once something is actually offloaded
@@ -206,7 +231,7 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
         <SideRow
           key={key}
           icon={icon}
-          label={label}
+          label={intl.formatMessage(label)}
           count={counts === null ? null : counts[key]}
           active={state.album === null && state.source === key}
           collapsed={collapsed}
@@ -220,11 +245,13 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (
         <div className="ovl-sidebar__heading mono-data">
-          <span>Albums</span>
+          <span>
+            <FormattedMessage id="sidebar.heading.albums" defaultMessage="Albums" />
+          </span>
           <button
             type="button"
             className="ovl-sidebar__gear"
-            aria-label="New album"
+            aria-label={intl.formatMessage(messages.newAlbum)}
             onClick={() => {
               setNamingAlbum(true);
             }}
@@ -236,8 +263,8 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
       {namingAlbum && !collapsed ? (
         <input
           className="ovl-sidebar__albumname"
-          aria-label="Album name"
-          placeholder="Album name"
+          aria-label={intl.formatMessage(messages.albumName)}
+          placeholder={intl.formatMessage(messages.albumName)}
           // The affordance just appeared under the pointer — take focus so
           // Enter/Escape work immediately.
           autoFocus
@@ -283,7 +310,7 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
             <button
               type="button"
               className="ovl-sidebar__album-actions"
-              aria-label={`Actions for ${album.name}`}
+              aria-label={intl.formatMessage({ id: 'sidebar.album.actions', defaultMessage: 'Actions for {name}' }, { name: album.name })}
               aria-haspopup="menu"
               onClick={(event) => {
                 const bounds = event.currentTarget.getBoundingClientRect();
@@ -299,7 +326,9 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
       {protectedAlbums.length === 0 ? null : collapsed ? (
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (
-        <div className="ovl-sidebar__heading mono-data">Protected</div>
+        <div className="ovl-sidebar__heading mono-data">
+          <FormattedMessage id="sidebar.heading.protected" defaultMessage="Protected" />
+        </div>
       )}
       {protectedAlbums.map((album) => {
         const label = album.locked ? album.label : (album.name ?? album.label);
@@ -390,12 +419,19 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
       )}
       <div className="ovl-sidebar__spacer" />
       {collapsed ? (
-        <Tooltip label={`Library encrypted${backupRun !== null && backupRun.done < backupRun.total ? ' · backing up' : ''}`} side="right">
+        <Tooltip
+          label={
+            backupRun !== null && backupRun.done < backupRun.total
+              ? intl.formatMessage({ id: 'sidebar.encrypted.backingUp', defaultMessage: 'Library encrypted · backing up' })
+              : intl.formatMessage(messages.encrypted)
+          }
+          side="right"
+        >
           <button
             type="button"
             className="ovl-sidebar__shield"
             data-testid="backup-shield"
-            aria-label="Library encrypted — open Settings"
+            aria-label={intl.formatMessage(messages.encryptedOpenSettings)}
             onClick={() => {
               dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
             }}
@@ -407,11 +443,13 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
         <div className="ovl-sidebar__card" data-testid="backup-card">
           <div className="ovl-sidebar__card-head">
             <Icon name="shield-check" size={14} color="var(--accent-green)" />
-            <span className="ovl-sidebar__card-title">Library encrypted</span>
+            <span className="ovl-sidebar__card-title">
+              <FormattedMessage id="sidebar.encrypted" defaultMessage="Library encrypted" />
+            </span>
             <button
               type="button"
               className="ovl-sidebar__gear"
-              aria-label="Settings"
+              aria-label={intl.formatMessage(messages.settings)}
               onClick={() => {
                 dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
               }}
@@ -421,7 +459,7 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
           </div>
           {state.providerConnected && backupRun !== null && backupRun.done < backupRun.total ? (
             <ProgressBar
-              label="Backing up"
+              label={intl.formatMessage({ id: 'sidebar.backingUp', defaultMessage: 'Backing up' })}
               detail={`${formatCount(backupRun.done)} / ${formatCount(backupRun.total)}`}
               value={backupRun.done}
               max={Math.max(backupRun.total, 1)}
@@ -448,7 +486,14 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
             >
               <Icon name="cloud-off" size={12} color="var(--text-faint)" />
               <span>
-                {state.providerLabel} not connected — <span className="ovl-sidebar__connect-cta">Connect</span>
+                <FormattedMessage
+                  id="sidebar.notConnected"
+                  defaultMessage="{provider} not connected — <cta>Connect</cta>"
+                  values={{
+                    provider: state.providerLabel,
+                    cta: (chunks) => <span className="ovl-sidebar__connect-cta">{chunks}</span>,
+                  }}
+                />
               </span>
             </button>
           )}

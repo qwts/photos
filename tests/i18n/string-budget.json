@@ -162,11 +162,6 @@
       "issues": [403]
     },
     {
-      "file": "src/renderer/src/settings/SettingsDialog.tsx",
-      "count": 6,
-      "issues": [403]
-    },
-    {
       "file": "src/renderer/src/settings/StoragePane.tsx",
       "count": 21,
       "issues": [403]
@@ -198,7 +193,7 @@
     },
     {
       "file": "src/renderer/src/shell/Sidebar.tsx",
-      "count": 18,
+      "count": 3,
       "issues": [403]
     },
     {
@@ -209,11 +204,6 @@
     {
       "file": "src/renderer/src/shell/ToastAction.tsx",
       "count": 3,
-      "issues": [403]
-    },
-    {
-      "file": "src/renderer/src/shell/Toolbar.tsx",
-      "count": 4,
       "issues": [403]
     },
     {

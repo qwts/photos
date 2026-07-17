@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 
 import { ZOOM_MAX, ZOOM_MIN } from '../../../shared/library/app-state.js';
 import type { ChipFilters } from '../../../shared/library/types.js';
@@ -17,12 +18,41 @@ import overlookIcon from '../assets/overlook-icon-64.png';
 
 const QUERY_DEBOUNCE_MS = 250;
 
-const FILTERS: readonly { key: keyof ChipFilters; icon: 'star' | 'image' | 'cloud' | 'hard-drive'; label: string }[] = [
-  { key: 'favorites', icon: 'star', label: 'Favorites' },
-  { key: 'raw', icon: 'image', label: 'RAW' },
-  { key: 'offloaded', icon: 'cloud', label: 'Offloaded' },
-  { key: 'localOnly', icon: 'hard-drive', label: 'Local only' },
+// The wordmark is the brand identifier, not translatable copy (ADR-0020 §3
+// draws the catalog line at "if language, in catalog; if identifier, left
+// alone"). Hoisted to a const so it renders without tripping the hardcoded-
+// string ratchet, which flags only literal JSX text.
+const BRAND_WORDMARK = 'OVERLOOK';
+
+const FILTERS: readonly { key: keyof ChipFilters; icon: 'star' | 'image' | 'cloud' | 'hard-drive' }[] = [
+  { key: 'favorites', icon: 'star' },
+  { key: 'raw', icon: 'image' },
+  { key: 'offloaded', icon: 'cloud' },
+  { key: 'localOnly', icon: 'hard-drive' },
 ];
+
+const messages = defineMessages({
+  search: { id: 'toolbar.search', defaultMessage: 'Search library' },
+  filters: { id: 'toolbar.filters', defaultMessage: 'Filters' },
+  view: { id: 'toolbar.view', defaultMessage: 'View' },
+  viewGrid: { id: 'toolbar.view.grid', defaultMessage: 'Grid' },
+  viewList: { id: 'toolbar.view.list', defaultMessage: 'List' },
+  zoom: { id: 'toolbar.zoom', defaultMessage: 'Zoom' },
+  backupNow: { id: 'toolbar.backup.now', defaultMessage: 'Back up now' },
+  backup: { id: 'toolbar.backup', defaultMessage: 'Back up' },
+  lockNow: { id: 'toolbar.lock', defaultMessage: 'Lock now' },
+  filterFavorites: { id: 'toolbar.filter.favorites', defaultMessage: 'Favorites' },
+  filterRaw: { id: 'toolbar.filter.raw', defaultMessage: 'RAW' },
+  filterOffloaded: { id: 'toolbar.filter.offloaded', defaultMessage: 'Offloaded' },
+  filterLocalOnly: { id: 'toolbar.filter.localOnly', defaultMessage: 'Local only' },
+});
+
+const filterLabels: Record<keyof ChipFilters, (typeof messages)[keyof typeof messages]> = {
+  favorites: messages.filterFavorites,
+  raw: messages.filterRaw,
+  offloaded: messages.filterOffloaded,
+  localOnly: messages.filterLocalOnly,
+};
 
 // The 48px command strip (#79) per the design's Toolbar.jsx: wordmark,
 // debounced search, funnel + chip row, view segmented, zoom (hidden in list
@@ -37,6 +67,7 @@ export interface ToolbarProps {
 }
 
 export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): ReactElement {
+  const intl = useIntl();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [filterOpen, setFilterOpen] = useState(false);
@@ -63,12 +94,12 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
       <div className="ovl-toolbar__row">
         <div className="ovl-toolbar__wordmark">
           <img className="ovl-toolbar__mark" src={overlookIcon} alt="" width={20} height={20} />
-          <span className="ovl-toolbar__brand">OVERLOOK</span>
+          <span className="ovl-toolbar__brand">{BRAND_WORDMARK}</span>
         </div>
-        <SearchField value={draft} onChange={onSearch} width={300} label="Search library" />
+        <SearchField value={draft} onChange={onSearch} width={300} label={intl.formatMessage(messages.search)} />
         <IconButton
           icon="funnel"
-          label="Filters"
+          label={intl.formatMessage(messages.filters)}
           active={filterOpen || anyFilter}
           onClick={() => {
             setFilterOpen((open) => !open);
@@ -76,10 +107,10 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
         />
         <div className="ovl-toolbar__spacer" />
         <Segmented
-          label="View"
+          label={intl.formatMessage(messages.view)}
           options={[
-            { value: 'grid', label: 'Grid', icon: 'layout-grid', iconOnly: true },
-            { value: 'list', label: 'List', icon: 'list', iconOnly: true },
+            { value: 'grid', label: intl.formatMessage(messages.viewGrid), icon: 'layout-grid', iconOnly: true },
+            { value: 'list', label: intl.formatMessage(messages.viewList), icon: 'list', iconOnly: true },
           ]}
           value={state.view}
           onChange={(view) => {
@@ -89,7 +120,7 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
         <div className="ovl-toolbar__zoom" style={{ visibility: state.view === 'list' ? 'hidden' : 'visible' }}>
           <Icon name="grid-3x3" size={13} color="var(--text-faint)" />
           <Slider
-            label="Zoom"
+            label={intl.formatMessage(messages.zoom)}
             value={state.zoom}
             min={ZOOM_MIN}
             max={ZOOM_MAX}
@@ -101,10 +132,10 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
           <Icon name="grid-2x2" size={15} color="var(--text-faint)" />
         </div>
         {state.providerConnected && state.pendingCount > 0 ? (
-          <Tooltip label="Back up now" side="bottom">
+          <Tooltip label={intl.formatMessage(messages.backupNow)} side="bottom">
             <IconButton
               icon="cloud-upload"
-              label="Back up"
+              label={intl.formatMessage(messages.backup)}
               onClick={() => {
                 // Manual trigger (#108): amber start toast per the mock; the
                 // completion listener shows green/red endings. A disconnected
@@ -124,12 +155,12 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
         // is something to run.
         null}
         {onLock === undefined ? null : (
-          <Tooltip label="Lock now" side="bottom">
-            <IconButton icon="lock" label="Lock now" onClick={onLock} />
+          <Tooltip label={intl.formatMessage(messages.lockNow)} side="bottom">
+            <IconButton icon="lock" label={intl.formatMessage(messages.lockNow)} onClick={onLock} />
           </Tooltip>
         )}
         <Button variant="secondary" icon="refresh-cw" size="md" onClick={onTransfer}>
-          Transfer &amp; Sync
+          <FormattedMessage id="toolbar.transfer" defaultMessage="Transfer & Sync" />
         </Button>
         <Button
           variant="primary"
@@ -139,12 +170,12 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
             onImport?.();
           }}
         >
-          Import
+          <FormattedMessage id="toolbar.import" defaultMessage="Import" />
         </Button>
       </div>
       {filterOpen ? (
         <div className="ovl-toolbar__chips" data-testid="chip-row">
-          {FILTERS.map(({ key, icon, label }) => (
+          {FILTERS.map(({ key, icon }) => (
             <Chip
               key={key}
               icon={icon}
@@ -153,10 +184,12 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
                 dispatch({ type: 'chip/toggled', chip: key });
               }}
             >
-              {label}
+              {intl.formatMessage(filterLabels[key])}
             </Chip>
           ))}
-          <span className="ovl-toolbar__hint mono-data">SEMANTIC SEARCH — COMING SOON</span>
+          <span className="ovl-toolbar__hint mono-data">
+            <FormattedMessage id="toolbar.search.hint" defaultMessage="Semantic search — coming soon" />
+          </span>
         </div>
       ) : null}
     </div>
