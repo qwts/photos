@@ -20,11 +20,11 @@ describe('macOS release signing safety (#357)', () => {
     const packageJson = JSON.parse(source('package.json')) as { readonly scripts?: Record<string, string> };
     const provisioned = source('build/entitlements.mac.provisioned.plist');
     const packager = source('scripts/package-signed-provisioned.mjs');
-    for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.qwts.overlook']) {
+    for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.zts1.overlook']) {
       assert.match(provisioned, new RegExp(identity, 'u'));
     }
     assert.match(packager, /Z5DM34QS5U/u);
-    assert.match(packager, /com\.qwts\.overlook/u);
+    assert.match(packager, /com\.zts1\.overlook/u);
     assert.match(packageJson.scripts?.['package:signed:provisioned'] ?? '', /package-signed-provisioned\.mjs/u);
     assert.match(packager, /OVERLOOK_MAC_PROVISIONING_PROFILE/u);
     assert.match(packager, /provisioningProfile/u);

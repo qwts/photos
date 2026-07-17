@@ -7,7 +7,7 @@
          authorizes both values; scripts/package-signed-provisioned.mjs
          validates that contract before electron-builder runs. -->
     <key>com.apple.application-identifier</key>
-    <string>Z5DM34QS5U.com.qwts.overlook</string>
+    <string>Z5DM34QS5U.com.zts1.overlook</string>
     <key>com.apple.developer.team-identifier</key>
     <string>Z5DM34QS5U</string>
     <key>com.apple.security.cs.allow-jit</key>
