@@ -1,4 +1,4 @@
-import type { DragEvent, ReactElement } from 'react';
+import { Fragment, type DragEvent, type ReactElement } from 'react';
 
 import './phototile.css';
 import { Icon } from './Icon';
@@ -68,21 +68,23 @@ export function PhotoTile({
         }
       }}
     >
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        draggable={false}
-        className="ovl-tile__img"
-        data-unavailable="false"
-        onLoad={(event) => {
-          setPreviewUnavailable(event.currentTarget, false);
-        }}
-        onError={(event) => {
-          setPreviewUnavailable(event.currentTarget, true);
-        }}
-      />
-      <div className="ovl-tile__unavailable mono-data" />
+      <Fragment key={src}>
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          draggable={false}
+          className="ovl-tile__img"
+          data-unavailable="false"
+          onLoad={(event) => {
+            setPreviewUnavailable(event.currentTarget, false);
+          }}
+          onError={(event) => {
+            setPreviewUnavailable(event.currentTarget, true);
+          }}
+        />
+        <div className="ovl-tile__unavailable mono-data" />
+      </Fragment>
       <div className="ovl-tile__hover-overlay" />
       {onToggleSelect === undefined ? null : (
         <button

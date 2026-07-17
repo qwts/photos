@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import realPhoto from '../../../../design/handoff/assets/thumbs/t01.png';
@@ -90,6 +90,37 @@ export const PreviewUnavailable: Story = {
     // failure path when many unavailable records enter the viewport.
     if (image !== null) await fireEvent.load(image);
     await expect(image).toHaveAttribute('data-unavailable', 'false');
+    await expect(canvas.queryByRole('status')).not.toBeInTheDocument();
+  },
+};
+
+function ReusedTile(): ReactElement {
+  const [src, setSrc] = useState('data:image/jpeg;base64,AA==');
+  return (
+    <div>
+      <button type="button" onClick={() => setSrc(realPhoto)}>
+        Replace preview
+      </button>
+      <div style={{ width: 160, height: 160, padding: 'var(--space-7)', boxSizing: 'content-box' }}>
+        <PhotoTile src={src} alt="reused tile" />
+      </div>
+    </div>
+  );
+}
+
+export const SourceChangeClearsUnavailable: Story = {
+  render: () => <ReusedTile />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByRole('status')).toHaveTextContent('PREVIEW UNAVAILABLE'));
+    const failedImage = canvasElement.querySelector('img');
+    await expect(failedImage).toHaveAttribute('data-unavailable', 'true');
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Replace preview' }));
+
+    const replacementImage = canvasElement.querySelector('img');
+    await expect(replacementImage).not.toBe(failedImage);
+    await expect(replacementImage).toHaveAttribute('data-unavailable', 'false');
     await expect(canvas.queryByRole('status')).not.toBeInTheDocument();
   },
 };
