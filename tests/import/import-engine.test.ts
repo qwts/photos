@@ -252,6 +252,7 @@ describe('import engine (#87)', () => {
       const summary = await world.engine().resume();
       assert.equal(summary?.imported, 1, 'finished as imported, not duplicate');
       assert.equal(world.insertCalls(), before, 'no second insert');
+      assert.deepEqual({ width: world.rows.get('OWNROW')?.width, height: world.rows.get('OWNROW')?.height }, { width: 1, height: 1 });
       assert.equal(world.journalRaw(), null);
     });
 

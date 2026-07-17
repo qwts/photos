@@ -77,7 +77,6 @@ function harnessEnv(name: string): string | undefined {
 const userDataOverride = harnessEnv('OVERLOOK_USER_DATA');
 if (userDataOverride !== undefined && userDataOverride !== '') app.setPath('userData', userDataOverride);
 
-// Privileged-scheme registration must precede app ready (#75, #91).
 registerSchemePrivileges();
 
 // Lazy library bootstrap: nothing touches the keychain or the database until
@@ -232,9 +231,8 @@ function getImportService(): ImportService {
       repo: {
         hasContentHash: (hash) => repo.hasContentHash(hash),
         get: (id) => repo.get(id),
-        insert: (photo) => {
-          repo.insert(photo);
-        },
+        insert: (photo) => repo.insert(photo),
+        repairDimensions: (id, width, height) => repo.repairDimensions(id, width, height),
       },
       blobs: {
         putOriginal: async (plaintext, key, photoId) => {
