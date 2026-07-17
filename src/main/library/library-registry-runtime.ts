@@ -19,6 +19,12 @@ export interface LibraryRegistryRuntimeOptions {
 export class LibraryRegistryRuntime {
   private registry: LibraryRegistry | undefined;
   private active: LibraryEntry | undefined;
+  /** Fresh-profile default (§7): held in memory only — registering it (and
+   * creating its directory) waits for the first real open, because startup
+   * must leave a fresh profile pristine. A restore into a fresh profile
+   * requires an EMPTY target directory (restore-staging destructive-
+   * authorization guard); an eagerly minted library-id file would break it. */
+  private virtualDefault: LibraryEntry | undefined;
 
   constructor(private readonly options: LibraryRegistryRuntimeOptions) {}
 
@@ -37,16 +43,29 @@ export class LibraryRegistryRuntime {
   }
 
   resolveActive(): LibraryEntry {
-    if (this.active === undefined) {
-      const registry = this.getRegistry();
-      this.active =
-        registry.startupEntry() ??
-        ensureDefaultEntry(registry, {
-          legacyDir: this.legacyDir(),
-          libraryId: () => readOrMintLibraryId(this.legacyDir()),
-        });
+    if (this.active !== undefined) return this.active;
+    const registry = this.getRegistry();
+    const existing = registry.startupEntry();
+    if (existing !== undefined) {
+      this.active = existing;
+      return existing;
     }
-    return this.active;
+    if (existsSync(path.join(this.legacyDir(), 'library.db'))) {
+      // Existing pre-registry install: register it in place (§7).
+      this.active = ensureDefaultEntry(registry, {
+        legacyDir: this.legacyDir(),
+        libraryId: () => readOrMintLibraryId(this.legacyDir()),
+      });
+      return this.active;
+    }
+    this.virtualDefault ??= {
+      id: ulid(),
+      name: 'My Library',
+      path: this.legacyDir(),
+      createdAt: new Date().toISOString(),
+      lastOpenedAt: null,
+    };
+    return this.virtualDefault;
   }
 
   dataDir(): string {
@@ -70,10 +89,20 @@ export class LibraryRegistryRuntime {
   }
 
   /** Open-time identity check (§2): the directory's library-id file is
-   * authoritative — mint it eagerly if absent and heal the registry's cached
-   * id if they diverge. Returns the healed entry. */
+   * authoritative — minted here if absent — and heals the registry's cached
+   * id if they diverge. First open of a fresh profile materializes the
+   * virtual default: this is the moment the legacy directory may be created
+   * and the entry registered (§7). Returns the healed entry. */
   healActiveId(): LibraryEntry {
     const entry = this.resolveActive();
+    if (this.active === undefined) {
+      const idPath = path.join(entry.path, 'library-id');
+      if (!existsSync(idPath)) writeLibraryId(entry.path, entry.id);
+      const directoryId = readOrMintLibraryId(entry.path);
+      this.active = this.getRegistry().register({ ...entry, id: directoryId });
+      this.virtualDefault = undefined;
+      return this.active;
+    }
     const directoryId = readOrMintLibraryId(entry.path);
     if (directoryId !== entry.id) {
       this.active = this.getRegistry().updateId(entry.id, directoryId);

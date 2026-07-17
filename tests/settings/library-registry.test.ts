@@ -111,8 +111,31 @@ describe('library registry (#384)', () => {
     assert.equal(selectStartupLibrary([]), undefined);
   });
 
+  test('REGRESSION: a fresh profile resolves without touching disk (restore needs a pristine target)', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
+
+    const virtual = runtime.resolveActive();
+    assert.equal(runtime.dataDir(), join(userData, 'library'));
+    assert.ok(!existsSync(join(userData, 'library')), 'no legacy directory created at resolution');
+    assert.ok(!existsSync(join(userData, 'libraries.json')), 'no registry file written at resolution');
+    assert.deepEqual(runtime.list(null), [], 'virtual default is not a registry entry');
+
+    // First real open materializes it (§7): directory id pinned, entry registered.
+    const opened = runtime.healActiveId();
+    assert.equal(opened.id, virtual.id);
+    assert.equal(readFileSync(join(userData, 'library', 'library-id'), 'utf8'), opened.id);
+    assert.equal(runtime.list(null).length, 1);
+  });
+
+  function seedLegacyInstall(userData: string): void {
+    mkdirSync(join(userData, 'library'), { recursive: true });
+    writeFileSync(join(userData, 'library', 'library.db'), 'sqlcipher-bytes', 'utf8');
+  }
+
   test('select stamps the choice, reports requiresRestart while another library is open, and refuses missing paths', () => {
     const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    seedLegacyInstall(userData);
     const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
     const first = runtime.resolveActive();
     const realDir = join(userData, 'second');
@@ -135,11 +158,12 @@ describe('library registry (#384)', () => {
 
   test('removeEntry guards the open library and re-resolves a removed selection', () => {
     const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
+    seedLegacyInstall(userData);
     const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
     const first = runtime.resolveActive();
     assert.throws(() => runtime.removeEntry(first.id, first.id), LibraryRegistryError, 'the open library cannot be removed');
     assert.equal(runtime.removeEntry(first.id, null), true, 'removable once nothing has it open');
-    assert.notEqual(runtime.resolveActive().path, '', 're-resolution migrates a fresh default');
+    assert.notEqual(runtime.resolveActive().path, '', 're-resolution yields a usable default');
   });
 
   test('IPC boundary: the open channel rejects a malformed library id at the schema', async () => {
