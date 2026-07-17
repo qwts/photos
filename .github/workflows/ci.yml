@@ -30,6 +30,10 @@ jobs:
   # behavior (docs-only, unit-test-only); re-run it whenever the app, the E2E harness,
   # build scripts, dependencies, the toolchain, or this workflow change. On push to main
   # E2E always runs (main must stay green regardless of the diff).
+  #
+  # tests/a11y/* is in the list because the violation budget (#398) decides whether the
+  # a11y spec passes: tightening an entry without re-running E2E would leave the new
+  # number unverified.
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
@@ -54,7 +58,7 @@ jobs:
           else
             while IFS= read -r file; do
               case "$file" in
-                src/*|tests/e2e/*|scripts/*|playwright.config.ts|package.json|package-lock.json|tsconfig*.json|.nvmrc|.github/workflows/ci.yml)
+                src/*|tests/e2e/*|tests/a11y/*|scripts/*|playwright.config.ts|package.json|package-lock.json|tsconfig*.json|.nvmrc|.github/workflows/ci.yml)
                   e2e=true
                   break
                   ;;
@@ -113,6 +117,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: npm run check:acceptance-coverage
+
+      # The static half of the a11y gate (#398): shape, path existence, and owned debt.
+      # The counts themselves are enforced at runtime by the Storybook and E2E axe lanes
+      # below — those need a browser, this does not, so it fails fast and cheap.
+      - name: A11y violation budget
+        run: npm run check:a11y-budget
 
       # NODE_OPTIONS adds a second node:test reporter that turns failures into GitHub annotations
       # (file/line-anchored ::error in the run summary) — without it a red test step shows only a

@@ -898,6 +898,24 @@
           "path": "tests/backup/ephemeral-originals.test.ts"
         }
       ]
+    },
+    {
+      "id": "a11y-audit-and-gates",
+      "wiki": "Accessibility-Audit-2026-07",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/a11y.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/tooling/a11y-budget.test.ts"]
+        },
+        {
+          "type": "manual",
+          "reason": "The VoiceOver pass is the half axe cannot automate: announcement order, live-region behaviour, and whether a screen-reader user can actually complete each flow. Owner-run on macOS per the wiki script (Manual-Test-A11y-VoiceOver); re-run when a child of #381 lands a semantics change."
+        }
+      ]
     }
   ]
 }

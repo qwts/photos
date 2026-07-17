@@ -48,10 +48,11 @@ const config: TestRunnerConfig = {
 
     // Scope to the story root, not <body>: Storybook's own chrome is not our surface, and
     // auditing it would put someone else's violations in our budget.
-    const violations = await getViolations(page, '#storybook-root', {
-      detailedReport: false,
-      axeOptions: { runOnly: { type: 'tag', values: [...budget.tags] } },
-    });
+    //
+    // The third argument is axe's RunOptions DIRECTLY — not the {axeOptions} wrapper that
+    // checkA11y takes. The wrapper shape is silently ignored here, which audits against
+    // axe's full default rule set instead of the WCAG 2.2 AA tags the budget declares.
+    const violations = await getViolations(page, '#storybook-root', { runOnly: { type: 'tag', values: [...budget.tags] } });
 
     if (reportPath !== undefined) {
       const record = {

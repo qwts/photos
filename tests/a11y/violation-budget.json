@@ -215,51 +215,51 @@
     {
       "id": "app-sidebar--album-drop-states",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "violations": 2,
+      "issues": [409, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
     },
     {
       "id": "app-sidebar--album-management",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "violations": 2,
+      "issues": [409, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
     },
     {
       "id": "app-sidebar--collapse-and-expand",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "violations": 2,
+      "issues": [409, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
     },
     {
       "id": "app-sidebar--disconnected",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "violations": 2,
+      "issues": [409, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
     },
     {
       "id": "app-sidebar--expanded",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "violations": 2,
+      "issues": [409, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
     },
     {
       "id": "app-sidebar--locked-protected-album-leaks-nothing",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "violations": 2,
+      "issues": [409, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
     },
     {
       "id": "app-sidebar--offloaded-hidden-when-empty",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "violations": 2,
+      "issues": [409, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
     },
     {
       "id": "core-badge--all-tones",
@@ -327,9 +327,9 @@
     {
       "id": "grid-listrow--state-matrix",
       "story": "src/renderer/src/grid/ListRow.stories.tsx",
-      "violations": 2,
-      "issues": [409, 412],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive"
+      "violations": 3,
+      "issues": [409, 412, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
     },
     {
       "id": "grid-selectionpill--album-picker-flow",
@@ -362,9 +362,9 @@
     {
       "id": "grid-virtualgrid--tile-click-vs-select-circle",
       "story": "src/renderer/src/grid/VirtualGrid.stories.tsx",
-      "violations": 1,
-      "issues": [412],
-      "note": "1\u00d7 nested-interactive"
+      "violations": 2,
+      "issues": [412, 415],
+      "note": "1\u00d7 nested-interactive, 1\u00d7 target-size"
     },
     {
       "id": "interop-transfer-and-sync--authentication-expired",
@@ -439,9 +439,9 @@
     {
       "id": "media-phototile--click-targets-are-independent",
       "story": "src/renderer/src/components/PhotoTile.stories.tsx",
-      "violations": 1,
-      "issues": [412],
-      "note": "1\u00d7 nested-interactive"
+      "violations": 2,
+      "issues": [412, 415],
+      "note": "1\u00d7 nested-interactive, 1\u00d7 target-size"
     },
     {
       "id": "overlays-toast--tones",
@@ -455,37 +455,37 @@
     {
       "id": "shell-grid",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 4,
-      "issues": [400, 409, 412],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 page-has-heading-one, 1\u00d7 region"
+      "violations": 3,
+      "issues": [409, 412, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
     },
     {
       "id": "shell-inspector",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 4,
-      "issues": [400, 409, 412],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 page-has-heading-one, 1\u00d7 region"
+      "violations": 3,
+      "issues": [409, 412, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
     },
     {
       "id": "shell-lightbox",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 2,
-      "issues": [400, 412],
-      "note": "1\u00d7 nested-interactive, 1\u00d7 region"
+      "violations": 1,
+      "issues": [412],
+      "note": "1\u00d7 nested-interactive"
     },
     {
       "id": "shell-selection",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 4,
-      "issues": [400, 409, 412],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 page-has-heading-one, 1\u00d7 region"
+      "violations": 3,
+      "issues": [409, 412, 415],
+      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
     },
     {
       "id": "shell-settings-dialog",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 5,
-      "issues": [400, 409, 410, 412],
-      "note": "1\u00d7 aria-progressbar-name, 1\u00d7 button-name, 1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 region"
+      "violations": 4,
+      "issues": [409, 410, 412],
+      "note": "1\u00d7 aria-progressbar-name, 1\u00d7 button-name, 1\u00d7 color-contrast, 1\u00d7 nested-interactive"
     }
   ]
 }

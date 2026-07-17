@@ -98,8 +98,11 @@ possible, enforced as executable checks._
   interaction tests — CI runs them in the core job). Do not report a build you
   did not run.
 - Floors are ratchets — c8 (lines 90 / branches 80), type-coverage (99.8), the
-  800-line file budget: raise them as coverage improves; never lower them to
-  pass. See the wiki [Testing Strategy](https://github.com/qwts/photos/wiki/Testing-Strategy)
+  800-line file budget, the a11y violation budget (`tests/a11y/violation-budget.json`):
+  raise them as coverage improves; never lower them to pass. The a11y budget
+  ratchets the other way — its counts only **shrink**, and a surface that comes
+  in under budget fails until the number is tightened. See the wiki
+  [Testing Strategy](https://github.com/qwts/photos/wiki/Testing-Strategy)
   and [ADR-0001](https://github.com/qwts/photos/wiki/ADR-0001-Automation-Check-Governance).
 - Dependencies use **exact pins**; Dependabot is the only actor that bumps
   versions. A set of **toolchain caps** holds back majors that would break the
@@ -109,6 +112,14 @@ possible, enforced as executable checks._
   `electron-vite` supports Vite 8 and React 19 is migrated deliberately. Each is
   a Dependabot ignore; `.github/dependabot.yml` is the source of truth for the
   exact bounds and removal conditions.
+- **`axe-core` is pinned exact and overridden into `axe-playwright`** (which
+  depends on a floating `^4.10.1`). Its rule set _defines_ the a11y
+  violation-budget counts, so an unpinned bump would move every number with no
+  diff naming the cause. It sits in knip's `ignoreDependencies` because nothing
+  imports it directly — the pin exists to control resolution. A Dependabot bump
+  of it is _expected_ to move counts: re-audit and re-baseline in that PR
+  (`OVERLOOK_A11Y_REPORT=<path> npm run test:stories:ci`), never widen the tags
+  or raise a budget to make it pass.
 - Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only
   PRs may skip it. 0.x semantics (minor = behavior-changing, patch = fixes):
   wiki [ADR-0002 Versioning Policy](https://github.com/qwts/photos/wiki/ADR-0002-Versioning-Policy).
