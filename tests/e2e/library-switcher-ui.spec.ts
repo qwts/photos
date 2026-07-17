@@ -108,3 +108,34 @@ test('remove from list is registry-only in the UI: reassurance copy, row gone, f
     await app.close();
   }
 });
+
+test('fresh-profile onboarding opens a retained local library without cloud recovery (#479)', async () => {
+  test.setTimeout(60_000);
+  const originalProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-retained-library-'));
+  const freshProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-reinstall-profile-'));
+  const retainedLibrary = join(originalProfile, 'library');
+
+  const original = await launch(originalProfile, { OVERLOOK_SEED: '3' });
+  try {
+    const page = await original.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
+  } finally {
+    await original.close();
+  }
+
+  const reinstalled = await launch(freshProfile, { OVERLOOK_PICK_LIBRARY_DIR: retainedLibrary });
+  try {
+    let page = await reinstalled.firstWindow();
+    await expect(page.getByTestId('restore-onboarding')).toBeVisible();
+    await page.getByRole('button', { name: 'Open existing library…' }).click();
+
+    page = await reinstalled.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await expect(page.getByTestId('restore-onboarding')).not.toBeVisible();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
+    await expect(page.getByTestId('library-trigger')).toContainText('library');
+  } finally {
+    await reinstalled.close();
+  }
+});
