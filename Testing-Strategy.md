@@ -69,11 +69,14 @@ renderer logic beyond wiring belongs in `src/shared`.
 - Each test launches its own app instance from `out/` (hermetic, ~1s cost);
   global-setup builds once. `electron.launch({ args: ['.'] })` resolves the
   Electron binary from `node_modules` and the entry from `package.json#main`.
-- Local Electron windows are hidden by default so the suite does not take
-  keyboard focus. This is a real rendered `BrowserWindow`, not Chromium
-  headless mode. Use `npm run test:e2e:visible` for native-window debugging;
-  a lifecycle-dependent spec can set `OVERLOOK_E2E_WINDOW=visible` in its
-  launch environment. Packaged builds ignore the harness flag.
+- Local macOS Electron windows are hidden by default so the suite does not take
+  keyboard focus. This is a real rendered `BrowserWindow` with background
+  throttling disabled, not Chromium headless mode. Linux keeps the window
+  visible inside Xvfb because hidden Chromium windows can report zero layout
+  geometry. Use
+  `npm run test:e2e:visible` for native-window debugging; a lifecycle-dependent
+  spec can set `OVERLOOK_E2E_WINDOW=visible` in its launch environment.
+  Packaged builds ignore the harness flag.
 - On CI (ubuntu) Electron needs OS libraries (`npx playwright install-deps`)
   and a display server — the E2E step runs under `xvfb-run`. No browser
   download: Electron carries its own Chromium.
