@@ -56,7 +56,11 @@ interface TokenResponse {
 export function googleOAuthFailureReason(data: { readonly error?: unknown; readonly error_description?: unknown }, status: number): string {
   const code = typeof data.error === 'string' && data.error !== '' ? data.error : `HTTP ${String(status)}`;
   if (typeof data.error_description !== 'string' || data.error_description === '') return code;
-  const description = redactGoogleCredentials(data.error_description).replace(/[\u0000-\u001f\u007f]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 240);
+  const printable = Array.from(redactGoogleCredentials(data.error_description), (character) => {
+    const point = character.codePointAt(0) ?? 0;
+    return point < 32 || point === 127 ? ' ' : character;
+  }).join('');
+  const description = printable.replace(/\s+/gu, ' ').trim().slice(0, 240);
   return description === '' ? code : `${code}: ${description}`;
 }
 
