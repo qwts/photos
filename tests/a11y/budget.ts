@@ -9,7 +9,10 @@ export interface BudgetEntry {
   readonly story?: string;
   readonly spec?: string;
   readonly violations: number;
-  readonly issue: number;
+  // Plural: one surface routinely fails several rules at once, and those rules belong to
+  // different children of the epic. Naming every owner keeps a failure actionable — the
+  // reader learns which issue to go read, not just that debt exists.
+  readonly issues: readonly number[];
   readonly note: string;
 }
 
@@ -44,7 +47,7 @@ export function evaluateSurface({
   const budgeted = entry?.violations ?? 0;
 
   if (observed > budgeted) {
-    const owner = entry ? ` The budget of ${budgeted} is owned by #${entry.issue}.` : '';
+    const owner = entry ? ` The budget of ${budgeted} is owned by ${entry.issues.map((issue) => `#${issue}`).join(', ')}.` : '';
     return {
       ok: false,
       reason:
