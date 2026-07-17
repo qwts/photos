@@ -82,8 +82,13 @@ export class DiagnosticsService {
     return count;
   }
 
-  export(destination: string): number {
-    const reports = this.list();
+  export(destination: string, eventIds: readonly string[]): number {
+    const queued = new Map(this.list().map((report) => [report.event.eventId, report]));
+    const reports = eventIds.map((eventId) => {
+      const report = queued.get(eventId);
+      if (report === undefined) throw new Error('reviewed diagnostic is no longer available');
+      return report;
+    });
     writeDiagnosticsExport(destination, reports);
     return reports.length;
   }

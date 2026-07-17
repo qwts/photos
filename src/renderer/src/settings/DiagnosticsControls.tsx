@@ -107,7 +107,7 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
   };
   const exportReports = async (): Promise<void> => {
     try {
-      const result = await window.overlook.diagnostics.export();
+      const result = await window.overlook.diagnostics.export({ eventIds: reports.map((report) => report.eventId) });
       onNotice(result.exported ? `${result.count} ${result.count === 1 ? 'report' : 'reports'} exported.` : 'Export canceled.');
     } catch {
       onNotice('Local reports could not be exported.');

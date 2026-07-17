@@ -307,7 +307,7 @@ export interface DiagnosticsFacade {
   }[];
   remove(eventId: string): boolean;
   purge(): number;
-  export(destination: string): number;
+  export(destination: string, eventIds: readonly string[]): number;
 }
 
 export interface LibraryRegistryFacade {
@@ -350,7 +350,7 @@ export function registerSettingsHandlers(getFacade: () => SettingsFacade): void 
 
 export function registerDiagnosticsHandlers(getFacade: () => DiagnosticsFacade, pickExportDestination: () => Promise<string | null>): void {
   ipcMain.handle(channels.diagnosticsList.name, (_event, request: unknown) =>
-    validateHandler(channels.diagnosticsList, () => ({
+    wrapHandler(channels.diagnosticsList, () => ({
       reports: getFacade()
         .list()
         .map(({ event, payload, encryptedBytes }) => ({
@@ -363,16 +363,16 @@ export function registerDiagnosticsHandlers(getFacade: () => DiagnosticsFacade, 
     }))(request),
   );
   ipcMain.handle(channels.diagnosticsDelete.name, (_event, request: unknown) =>
-    validateHandler(channels.diagnosticsDelete, ({ eventId }) => ({ deleted: getFacade().remove(eventId) }))(request),
+    wrapHandler(channels.diagnosticsDelete, ({ eventId }) => ({ deleted: getFacade().remove(eventId) }))(request),
   );
   ipcMain.handle(channels.diagnosticsPurge.name, (_event, request: unknown) =>
-    validateHandler(channels.diagnosticsPurge, () => ({ deleted: getFacade().purge() }))(request),
+    wrapHandler(channels.diagnosticsPurge, () => ({ deleted: getFacade().purge() }))(request),
   );
   ipcMain.handle(channels.diagnosticsExport.name, (_event, request: unknown) =>
-    validateHandler(channels.diagnosticsExport, async () => {
+    wrapHandler(channels.diagnosticsExport, async ({ eventIds }) => {
       const destination = await pickExportDestination();
       if (destination === null) return { exported: false, count: 0 };
-      return { exported: true, count: getFacade().export(destination) };
+      return { exported: true, count: getFacade().export(destination, eventIds) };
     })(request),
   );
 }

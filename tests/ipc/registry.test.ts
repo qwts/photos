@@ -99,6 +99,13 @@ describe('channel registry', () => {
       }),
     );
   });
+
+  test('diagnostics export accepts only a unique bounded reviewed snapshot (#286)', () => {
+    const eventId = '98f581d6-ef9a-45e2-ae19-8b90099aef2e';
+    assert.deepEqual(channels.diagnosticsExport.request.parse({ eventIds: [eventId] }), { eventIds: [eventId] });
+    assert.throws(() => channels.diagnosticsExport.request.parse({ eventIds: [eventId, eventId] }));
+    assert.throws(() => channels.diagnosticsExport.request.parse({ eventIds: Array.from({ length: 51 }, () => eventId) }));
+  });
 });
 
 describe('createInvoker', () => {

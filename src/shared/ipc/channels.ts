@@ -71,6 +71,10 @@ const queuedDiagnosticSchema = z.object({
   payload: z.string().max(4096),
   encryptedBytes: z.number().int().nonnegative(),
 });
+const diagnosticEventIdsSchema = z
+  .array(z.string().uuid())
+  .max(50)
+  .refine((ids) => new Set(ids).size === ids.length);
 
 const importSourceSchema = z.object({
   path: z.string(),
@@ -634,7 +638,7 @@ export const channels = {
   diagnosticsPurge: defineChannel('diagnostics:purge', z.object({}), z.object({ deleted: z.number().int().nonnegative() })),
   diagnosticsExport: defineChannel(
     'diagnostics:export',
-    z.object({}),
+    z.object({ eventIds: diagnosticEventIdsSchema }),
     z.object({ exported: z.boolean(), count: z.number().int().nonnegative() }),
   ),
   libraryStats: defineChannel(
