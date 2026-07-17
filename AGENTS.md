@@ -41,10 +41,25 @@ this file in the same PR as the change — never after the fact.
 
 ## Working Agreement
 
-- **Start with a draft PR.** After claiming an issue and branching, push the
-  branch and open a **draft pull request** immediately — the first commit can
-  be scaffolding or a failing test. Mark it ready-for-review only when
-  `npm run ci` passes locally.
+- **Open a PR early. A draft is optional — finishing it is not.** After claiming
+  an issue and branching, push the branch and open a pull request. Opening it as
+  a **draft** is welcome and encouraged when the first commit is scaffolding or a
+  failing test; it makes work in flight visible. Opening it ready straight away is
+  equally fine. Draft is a **starting state, never an ending state**.
+- **Take the PR out of draft the moment the work is complete.** As soon as
+  `npm run ci` passes locally (plus `test:e2e` / `test:stories:ci` where they
+  apply), run `gh pr ready <n>`. Do not wait to be asked. **A draft PR is
+  reviewed by nobody — not the owner, not the Codex bot — so a PR abandoned in
+  draft is the same as never doing the work**: from the outside it is
+  indistinguishable from abandoned work, and it hides the one signal the owner
+  has that a slice is finished. Never end a session with your own PR still in
+  draft — check `gh pr list --state open --json number,isDraft,title` before
+  reporting completion. If something genuinely blocks ready-for-review, say so on
+  the PR and in your summary and name the blocker; silence reads as abandonment.
+  **"Ready for review" is the definition of done for a code slice** — "pushed"
+  and "CI is green" are not. (Wiki-only work such as an ADR has no PR at all —
+  precedent [#394](https://github.com/qwts/photos/issues/394) /
+  [#402](https://github.com/qwts/photos/issues/402); say which case applies.)
 - **Commit frequently.** Small, coherent commits at each meaningful slice of
   work; push regularly so CI and the draft PR stay current. No end-of-session
   mega-commits.
