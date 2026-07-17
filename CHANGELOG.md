@@ -1,5 +1,11 @@
 # photos
 
+## 0.31.0
+
+### Minor Changes
+
+- 227f312: Keep settings, provider selection, remote backup homes, decrypted caches, protected-album authorization, import recovery, and offload custody isolated to the active library across live switches.
+
 ## 0.30.0
 
 ### Minor Changes
