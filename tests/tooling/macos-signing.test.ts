@@ -86,7 +86,7 @@ describe('macOS release signing safety (#357)', () => {
       'com.apple.developer.team-identifier',
       'Overlook Helper (Renderer)',
     ]) {
-      assert.match(provisionedVerifier, new RegExp(contract.replace(/[().]/gu, '\\$&'), 'u'));
+      assert.ok(provisionedVerifier.includes(contract), `verifier must enforce ${contract}`);
     }
     assert.match(provisionedVerifier, /codesign/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
