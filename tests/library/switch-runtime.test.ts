@@ -46,6 +46,7 @@ function harness(overrides: Partial<Record<keyof SwitchLibraryDeps, unknown>> = 
       calls.push('close');
       return Promise.resolve();
     },
+    activateLibrary: () => calls.push('activate'),
     swapAppLock: () => {
       calls.push('swap');
       return Promise.resolve();
@@ -66,7 +67,7 @@ describe('switch runtime (#385)', () => {
     const { deps, calls } = harness();
     const result = await createSwitchLibrary(deps)(B);
 
-    assert.deepEqual(calls, [`select:${B}:${A}`, 'close', `select:${B}:null`, 'swap', 'reload']);
+    assert.deepEqual(calls, [`select:${B}:${A}`, 'close', `select:${B}:null`, 'activate', 'swap', 'reload']);
     assert.equal(result.ok, true);
     if (result.ok) {
       assert.equal(result.requiresRestart, false);
@@ -94,7 +95,7 @@ describe('switch runtime (#385)', () => {
     await createSwitchLibrary(idle.deps)(B);
     assert.deepEqual(
       idle.calls,
-      [`select:${B}:null`, 'swap', 'reload'],
+      [`select:${B}:null`, 'activate', 'swap', 'reload'],
       'the app-lock boundary follows the new directory — a lock-configured target lands on ITS lock screen',
     );
   });

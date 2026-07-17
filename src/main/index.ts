@@ -49,7 +49,7 @@ import { createExportFacade } from './export/export-facade-factory.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import { pickExportDestination } from './export/export-destination.js';
 import { registerIpcHandlers } from './ipc.js';
-import { getSettingsStore } from './settings/settings-runtime.js';
+import { activateSettingsLibrary, configureSettingsLibrary, getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { LibraryRegistryRuntime } from './library/library-registry-runtime.js';
@@ -86,6 +86,7 @@ const registryRuntime = new LibraryRegistryRuntime({
   lockHolder: (dir) => readLockHolder(dir, instanceId),
 });
 const libraryDataDir = (): string => registryRuntime.dataDir();
+configureSettingsLibrary(libraryDataDir);
 
 // Per-library advisory lock (ADR-0017 §5, #385): acquired at open, released last in teardown.
 const instanceId = ulid();
@@ -113,6 +114,7 @@ let libraryParts: LibraryParts | undefined, releasedMaster: Buffer | undefined;
 function getLibraryService(): LibraryService {
   if (libraryService === undefined) {
     const dataDir = registryRuntime.healActiveId().path;
+    activateSettingsLibrary();
     releaseLibraryLock ??= acquireLibraryLock(dataDir, instanceId);
     const keyStore =
       releasedMaster === undefined
@@ -729,6 +731,10 @@ const switchLibrary = createSwitchLibrary({
   providerBusy: () => providerWorkCount > 0,
   probeTarget: (id) => registryRuntime.probeSwitchTarget(id),
   closeLibrary: () => closeLibrary('switch'),
+  activateLibrary: () => {
+    activateSettingsLibrary();
+    getProviderRuntime().resetLibraryBinding();
+  },
   swapAppLock: async () => {
     if (appLockHost !== undefined) await appLockHost.swap(buildAppLockController());
   },

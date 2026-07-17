@@ -39,6 +39,23 @@ export const settingsPatchSchema = settingsSchema.omit({ diagnosticsConsentVersi
 export type AppSettings = z.output<typeof settingsSchema>;
 export type SettingsPatch = z.output<typeof settingsPatchSchema>;
 
+/** ADR-0017 §6: these preferences follow the app profile, not a library. */
+export const profileSettingsSchema = settingsSchema.pick({
+  appearance: true,
+  shareDiagnostics: true,
+  diagnosticsConsentVersion: true,
+});
+
+/** ADR-0017 §6: these policies belong to exactly one library directory. */
+export const librarySettingsSchema = settingsSchema.omit({
+  appearance: true,
+  shareDiagnostics: true,
+  diagnosticsConsentVersion: true,
+});
+
+export type ProfileSettings = z.output<typeof profileSettingsSchema>;
+export type LibrarySettings = z.output<typeof librarySettingsSchema>;
+
 export const defaultSettings: AppSettings = {
   sortOrder: 'date',
   appearance: 'dark',
@@ -53,6 +70,25 @@ export const defaultSettings: AppSettings = {
   appLockIdle: '5',
   lockWhenHidden: false,
   providerId: 'mock',
+};
+
+export const defaultProfileSettings: ProfileSettings = {
+  appearance: defaultSettings.appearance,
+  shareDiagnostics: defaultSettings.shareDiagnostics,
+  diagnosticsConsentVersion: defaultSettings.diagnosticsConsentVersion,
+};
+
+export const defaultLibrarySettings: LibrarySettings = {
+  sortOrder: defaultSettings.sortOrder,
+  thumbnailsOnImport: defaultSettings.thumbnailsOnImport,
+  autoBackupOnImport: defaultSettings.autoBackupOnImport,
+  reOffloadAfterViewing: defaultSettings.reOffloadAfterViewing,
+  importMode: defaultSettings.importMode,
+  wifiOnly: defaultSettings.wifiOnly,
+  bandwidthLimit: defaultSettings.bandwidthLimit,
+  appLockIdle: defaultSettings.appLockIdle,
+  lockWhenHidden: defaultSettings.lockWhenHidden,
+  providerId: defaultSettings.providerId,
 };
 
 // Per-key recovery: a readable file with one bad value loses only that key
@@ -82,6 +118,82 @@ export function recoverSettings(raw: unknown): AppSettings {
     return { ...recovered, shareDiagnostics: false, diagnosticsConsentVersion: 0 };
   }
   return recovered;
+}
+
+const profileRecoverySchema = z
+  .object({
+    appearance: settingsSchema.shape.appearance.catch(defaultProfileSettings.appearance),
+    shareDiagnostics: settingsSchema.shape.shareDiagnostics.catch(defaultProfileSettings.shareDiagnostics),
+    diagnosticsConsentVersion: settingsSchema.shape.diagnosticsConsentVersion.catch(0),
+  })
+  .catch(defaultProfileSettings);
+
+const libraryRecoverySchema = z
+  .object({
+    sortOrder: settingsSchema.shape.sortOrder.catch(defaultLibrarySettings.sortOrder),
+    thumbnailsOnImport: settingsSchema.shape.thumbnailsOnImport.catch(true),
+    autoBackupOnImport: settingsSchema.shape.autoBackupOnImport.catch(defaultLibrarySettings.autoBackupOnImport),
+    reOffloadAfterViewing: settingsSchema.shape.reOffloadAfterViewing.catch(defaultLibrarySettings.reOffloadAfterViewing),
+    importMode: settingsSchema.shape.importMode.catch(defaultLibrarySettings.importMode),
+    wifiOnly: settingsSchema.shape.wifiOnly.catch(defaultLibrarySettings.wifiOnly),
+    bandwidthLimit: settingsSchema.shape.bandwidthLimit.catch(defaultLibrarySettings.bandwidthLimit),
+    appLockIdle: settingsSchema.shape.appLockIdle.catch(defaultLibrarySettings.appLockIdle),
+    lockWhenHidden: settingsSchema.shape.lockWhenHidden.catch(defaultLibrarySettings.lockWhenHidden),
+    providerId: settingsSchema.shape.providerId.catch(defaultLibrarySettings.providerId),
+  })
+  .catch(defaultLibrarySettings);
+
+export function recoverProfileSettings(raw: unknown): ProfileSettings {
+  const recovered = profileRecoverySchema.parse(raw);
+  if (!recovered.shareDiagnostics || recovered.diagnosticsConsentVersion !== CURRENT_DIAGNOSTICS_CONSENT_VERSION) {
+    return { ...recovered, shareDiagnostics: false, diagnosticsConsentVersion: 0 };
+  }
+  return recovered;
+}
+
+export function recoverLibrarySettings(raw: unknown): LibrarySettings {
+  return libraryRecoverySchema.parse(raw);
+}
+
+export function profileSettingsOf(settings: AppSettings): ProfileSettings {
+  return {
+    appearance: settings.appearance,
+    shareDiagnostics: settings.shareDiagnostics,
+    diagnosticsConsentVersion: settings.diagnosticsConsentVersion,
+  };
+}
+
+export function librarySettingsOf(settings: AppSettings): LibrarySettings {
+  return {
+    sortOrder: settings.sortOrder,
+    thumbnailsOnImport: settings.thumbnailsOnImport,
+    autoBackupOnImport: settings.autoBackupOnImport,
+    reOffloadAfterViewing: settings.reOffloadAfterViewing,
+    importMode: settings.importMode,
+    wifiOnly: settings.wifiOnly,
+    bandwidthLimit: settings.bandwidthLimit,
+    appLockIdle: settings.appLockIdle,
+    lockWhenHidden: settings.lockWhenHidden,
+    providerId: settings.providerId,
+  };
+}
+
+export function combineSettings(profile: ProfileSettings, library: LibrarySettings): AppSettings {
+  return { ...library, ...profile };
+}
+
+const librarySettingKeys = new Set(Object.keys(defaultLibrarySettings));
+
+export function hasLegacyLibrarySettings(raw: unknown): boolean {
+  return typeof raw === 'object' && raw !== null && Object.keys(raw).some((key) => librarySettingKeys.has(key));
+}
+
+export function patchTouchesLibrary(patch: SettingsPatch): boolean {
+  return Object.keys(patch).some((key) => librarySettingKeys.has(key));
+}
+
+export function patchTouchesProfile(patch: SettingsPatch): boolean {
+  return Object.keys(patch).some((key) => !librarySettingKeys.has(key));
 }
 
 /** The backup engine's throttle view of the slider: 100 = unlimited. */
