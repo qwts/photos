@@ -35,7 +35,7 @@ describe('import engine integration (#87)', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'overlook-import-'));
     const sourceDir = join(dataDir, 'CARD');
     mkdirSync(sourceDir);
-    for (const name of ['exif-full.jpg', 'sample.raf', 'corrupt.jpg']) {
+    for (const name of ['exif-full.jpg', 'exif-stripped.jpg', 'sample.raf', 'corrupt.jpg']) {
       copyFileSync(join(FIXTURES, name), join(sourceDir, name));
     }
     const store = new BlobStore({ dataDir });
@@ -77,7 +77,7 @@ describe('import engine integration (#87)', () => {
       events: { copyProgress: () => undefined, thumbProgress: () => undefined },
     };
 
-    const files = ['exif-full.jpg', 'sample.raf', 'corrupt.jpg'].map((name) => ({
+    const files = ['exif-full.jpg', 'exif-stripped.jpg', 'sample.raf', 'corrupt.jpg'].map((name) => ({
       path: join(sourceDir, name),
       fileName: name,
       kind: name.endsWith('.raf') ? ('raw' as const) : ('jpeg' as const),
@@ -88,7 +88,7 @@ describe('import engine integration (#87)', () => {
     // undecodable pixels are not a failed import (E5.3).
     assert.deepEqual(
       { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed },
-      { imported: 3, duplicates: 0, failed: 0 },
+      { imported: 4, duplicates: 0, failed: 0 },
     );
 
     // ULID-shaped ids; EXIF flowed into the record; RAF got its metadata
@@ -98,6 +98,8 @@ describe('import engine integration (#87)', () => {
     const jpegRow = all.find((row) => row.fileName === 'exif-full.jpg');
     assert.equal(jpegRow?.camera, 'FUJIFILM X-T5');
     assert.equal(jpegRow?.takenAt, '2026-06-12T12:34:56');
+    const strippedRow = all.find((row) => row.fileName === 'exif-stripped.jpg');
+    assert.deepEqual({ width: strippedRow?.width, height: strippedRow?.height }, { width: 960, height: 1280 });
     const rafRow = all.find((row) => row.fileName === 'sample.raf');
     assert.equal(rafRow?.camera, 'FUJIFILM X-T5');
 

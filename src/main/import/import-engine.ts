@@ -65,7 +65,7 @@ export interface ImportEngineDeps {
     readonly hasContentHash: (hash: string) => boolean;
     readonly get: (id: string) => PhotoRecord | undefined;
     readonly insert: (photo: PhotoInsert) => void;
-    readonly repairDimensions?: (id: string, width: number, height: number) => boolean;
+    readonly repairDimensions: (id: string, width: number, height: number) => boolean;
   };
   readonly blobs: {
     readonly putOriginal: (
@@ -215,7 +215,10 @@ export class ImportEngine {
     if (file.stage === 'recorded') {
       // Idempotent on resume: putThumb's no-replace publish tolerates redone
       // derivatives; a placeholder outcome is an imported photo, not a fail.
-      await this.deps.generateThumbs({ photoId: file.photoId ?? '', bytes, contentHash, key: this.deps.currentKey() });
+      const outcome = await this.deps.generateThumbs({ photoId: file.photoId ?? '', bytes, contentHash, key: this.deps.currentKey() });
+      if (outcome.width !== null && outcome.height !== null) {
+        this.deps.repo.repairDimensions(file.photoId ?? '', outcome.width, outcome.height);
+      }
       file.stage = 'thumbed';
       await persist();
     }
