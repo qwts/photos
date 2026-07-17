@@ -313,13 +313,18 @@ export class RestoreEngine {
         ? store.getStream(photo.contentHash, discovery.resolveKey, photo.id)
         : addAbortSignal(signal, store.getStream(photo.contentHash, discovery.resolveKey, photo.id)),
     );
-    await thumbnails.generateFor({
-      photoId: photo.id,
-      bytes: plaintext,
-      contentHash: photo.contentHash,
-      key: { id: photo.keyId, key },
-      signal,
-    });
+    try {
+      await thumbnails.generateFor({
+        photoId: photo.id,
+        bytes: plaintext,
+        contentHash: photo.contentHash,
+        key: { id: photo.keyId, key },
+        fileKind: photo.fileKind,
+        signal,
+      });
+    } finally {
+      plaintext.fill(0);
+    }
   }
 
   private async rebuildCatalog(

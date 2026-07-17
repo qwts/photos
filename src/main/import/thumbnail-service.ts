@@ -3,6 +3,7 @@ import { Readable } from 'node:stream';
 import type { BlobStore } from '../blobs/blob-store.js';
 import type { EnvelopeKey } from '../crypto/envelope.js';
 import type { ThumbnailDerivatives, ThumbnailPool } from './thumbnail-pool.js';
+import type { FileKind } from '../../shared/library/types.js';
 
 // Thumbnail generation service (#86): pool output → encrypted blob store.
 // Derivatives stream through the same envelope path as originals (encrypt-
@@ -23,6 +24,7 @@ export interface ThumbnailRequest {
   /** Content hash of the ORIGINAL — derivatives are addressed under it. */
   readonly contentHash: string;
   readonly key: EnvelopeKey;
+  readonly fileKind?: FileKind | undefined;
   readonly signal?: AbortSignal | undefined;
 }
 
@@ -39,7 +41,7 @@ export class ThumbnailService {
    * crash), which the import engine surfaces as retryable.
    */
   async generateFor(request: ThumbnailRequest): Promise<ThumbnailOutcome> {
-    const derivatives = await this.pool.generate(request.bytes, request.signal);
+    const derivatives = await this.pool.generate(request.bytes, request.signal, request.fileKind);
     if (derivatives === null) {
       return { generated: false, width: null, height: null };
     }

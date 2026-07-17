@@ -11,3 +11,4 @@ const extension = process.arch === 'arm64' ? 'armv8.node' : 'node';
 const targetDirectory = join(__dirname, 'prebuilds', `darwin-${process.arch}`);
 mkdirSync(targetDirectory, { recursive: true });
 copyFileSync(join(__dirname, 'build', 'Release', 'overlook_touch_id.node'), join(targetDirectory, `node.napi.${extension}`));
+copyFileSync(join(__dirname, 'build', 'Release', 'overlook_raw_preview.node'), join(targetDirectory, `raw.node.napi.${extension}`));

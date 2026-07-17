@@ -2,7 +2,7 @@
   "name": "@overlook/touch-id",
   "version": "0.1.0",
   "private": true,
-  "description": "Overlook's signed macOS Touch ID and Data Protection Keychain bridge",
+  "description": "Overlook's native macOS security and media bridges",
   "main": "index.cjs",
   "os": [
     "darwin"
@@ -10,6 +10,7 @@
   "gypfile": true,
   "files": [
     "index.cjs",
+    "raw.cjs",
     "prebuilds/**/*.node"
   ],
   "binary": {
