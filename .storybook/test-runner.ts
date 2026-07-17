@@ -59,13 +59,7 @@ const config: TestRunnerConfig = {
         title: storyContext.title,
         name: storyContext.name,
         count: violations.length,
-        violations: violations.map((violation) => ({
-          id: violation.id,
-          impact: violation.impact,
-          help: violation.help,
-          helpUrl: violation.helpUrl,
-          nodes: violation.nodes.map((node) => node.target.join(' ')),
-        })),
+        violations,
       };
       appendFileSync(reportPath, `${JSON.stringify(record)}\n`);
       return;
