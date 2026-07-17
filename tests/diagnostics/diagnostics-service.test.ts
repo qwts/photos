@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -101,5 +101,20 @@ describe('diagnostics consent and capture service (#286)', () => {
     service.record({ kind: 'main-process-runtime-error' });
     assert.equal(service.purge(), 1);
     assert.deepEqual(service.list(), []);
+  });
+
+  test('export is restricted to the immutable reviewed event-id snapshot', () => {
+    const consent = { value: true };
+    const secondId = '242b0f8a-c985-4a2e-951b-8d49ae3c2b17';
+    const ids = [EVENT_ID, secondId];
+    const { dataDir, service } = world(consent, { eventId: () => ids.shift() ?? secondId });
+    service.record({ kind: 'main-process-runtime-error' });
+    const reviewedPayload = service.list()[0]?.payload;
+    service.record({ kind: 'renderer-unresponsive' });
+    const destination = join(dataDir, 'reviewed.jsonl');
+
+    assert.equal(service.export(destination, [EVENT_ID]), 1);
+    assert.equal(readFileSync(destination, 'utf8'), `${reviewedPayload}\n`);
+    assert.throws(() => service.export(destination, ['b3f71382-6a55-4491-b751-43855a292c63']));
   });
 });

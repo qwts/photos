@@ -139,7 +139,7 @@ export interface OverlookApi {
     readonly list: () => Promise<Res<typeof channels.diagnosticsList>>;
     readonly delete: (request: Req<typeof channels.diagnosticsDelete>) => Promise<Res<typeof channels.diagnosticsDelete>>;
     readonly purge: () => Promise<Res<typeof channels.diagnosticsPurge>>;
-    readonly export: () => Promise<Res<typeof channels.diagnosticsExport>>;
+    readonly export: (request: Req<typeof channels.diagnosticsExport>) => Promise<Res<typeof channels.diagnosticsExport>>;
   };
   readonly libraries: {
     readonly list: () => Promise<Res<typeof channels.libraryRegistryList>>;
