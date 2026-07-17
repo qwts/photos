@@ -99,8 +99,8 @@ test('200K perf harness: cold start, queries, scroll, import, memory', async () 
     const countsMs = await queryMedianMs(page, `window.overlook.library.counts({ recentSince: '2026-01-01T00:00:00.000Z' })`);
     const searchMs = await queryMedianMs(
       page,
-      // A real place substring — matches spread across the whole library,
-      // so the instr() scan pays full price (mock search semantics, #71).
+      // A real place — matches ~1/6 of the library, so bm25 ranks a large
+      // candidate set (#390; the FTS index replaced the old instr() scan).
       `window.overlook.library.page({ source: 'all', limit: 500, query: 'lisbon' })`,
     );
 
