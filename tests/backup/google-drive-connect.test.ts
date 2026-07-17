@@ -20,12 +20,25 @@ const safeStorage: SafeStorageLike = {
 
 let nextPort = 43_100;
 
-function world(options: { clientId?: string | null; browser: (url: URL, port: number) => Promise<void>; tokenResponse?: Response }) {
+function bodyText(body: RequestInit['body']): string {
+  if (typeof body === 'string') return body;
+  if (body instanceof URLSearchParams) return body.toString();
+  throw new Error('expected a string or URLSearchParams body');
+}
+
+function world(options: {
+  clientId?: string | null;
+  clientSecret?: string | null;
+  browser: (url: URL, port: number) => Promise<void>;
+  tokenResponse?: Response;
+}) {
   const port = nextPort++;
   const tokenStore = new GoogleDriveTokenStore({ safeStorage, dataDir: mkdtempSync(join(tmpdir(), 'overlook-google-connect-')) });
   const clientId = options.clientId === undefined ? CLIENT_ID : options.clientId;
-  const fetchImpl: typeof fetch = () =>
-    Promise.resolve(
+  let tokenRequest = '';
+  const fetchImpl: typeof fetch = (_input, init) => {
+    tokenRequest = bodyText(init?.body);
+    return Promise.resolve(
       options.tokenResponse ??
         new Response(
           JSON.stringify({ access_token: 'access-1', refresh_token: 'refresh-1', expires_in: 3600, scope: GOOGLE_DRIVE_SCOPE }),
@@ -34,10 +47,13 @@ function world(options: { clientId?: string | null; browser: (url: URL, port: nu
           },
         ),
     );
-  const authClient = new GoogleDriveAuthClient({ clientId: () => clientId, tokenStore, fetchImpl });
+  };
+  const clientSecret = options.clientSecret ?? null;
+  const authClient = new GoogleDriveAuthClient({ clientId: () => clientId, clientSecret: () => clientSecret, tokenStore, fetchImpl });
   let connected = 0;
   const connect = createGoogleDriveConnect({
     clientId: () => clientId,
+    clientSecret: () => clientSecret,
     tokenStore,
     authClient,
     openExternal: (url) => options.browser(new URL(url), port),
@@ -49,12 +65,13 @@ function world(options: { clientId?: string | null; browser: (url: URL, port: nu
     port,
     timeoutMs: 5000,
   });
-  return { connect, tokenStore, authClient, connected: () => connected };
+  return { connect, tokenStore, authClient, connected: () => connected, tokenRequest: () => new URLSearchParams(tokenRequest) };
 }
 
 describe('Google Drive connect flow (#277)', () => {
   test('system-browser PKCE handshake seals the refresh token then connects', async () => {
     const state = world({
+      clientSecret: 'desktop-secret',
       browser: async (url, port) => {
         assert.equal(url.searchParams.get('scope'), GOOGLE_DRIVE_SCOPE);
         assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
@@ -68,6 +85,7 @@ describe('Google Drive connect flow (#277)', () => {
       connectedAt: state.tokenStore.load()?.connectedAt,
     });
     assert.equal(state.connected(), 1);
+    assert.equal(state.tokenRequest().get('client_secret'), 'desktop-secret');
     assert.equal(await state.authClient.accessToken(), 'access-1', 'the exchanged access token is seeded in memory');
   });
 
