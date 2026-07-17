@@ -1,4 +1,9 @@
 {
   "extends": "../src/renderer/tsconfig.json",
-  "include": ["./*.ts"]
+  "compilerOptions": {
+    // test-runner.ts is Node-side (jest drives it), unlike main.ts/preview.ts which are
+    // bundled for the browser — so this project needs both type sets (#398).
+    "types": ["vite/client", "node"]
+  },
+  "include": ["./*.ts", "../tests/a11y/budget.ts"]
 }
