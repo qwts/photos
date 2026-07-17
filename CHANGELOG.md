@@ -1,5 +1,11 @@
 # photos
 
+## 0.32.1
+
+### Patch Changes
+
+- baadd2c: Show a neutral loading state while checking the selected backup provider instead of briefly rendering it as disconnected.
+
 ## 0.32.0
 
 ### Minor Changes
