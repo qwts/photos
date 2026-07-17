@@ -293,8 +293,8 @@ export const StorageOpensByDefault: Story = {
     await expect(body.queryByText('Link a provider to store encrypted originals off-device.')).not.toBeInTheDocument();
     await waitFor(() => expect(body.getByText('Checking backup provider before restoring…')).toBeVisible());
     await expect(body.queryByText('Connect the backup provider to restore.')).not.toBeInTheDocument();
-    await expect(body.getByRole('button', { name: 'Restore selected (2)' })).toBeDisabled();
-    await expect(body.getByRole('button', { name: 'Restore all' })).toBeDisabled();
+    await expect(body.queryByRole('button', { name: 'Restore selected (2)' })).not.toBeInTheDocument();
+    await expect(body.queryByRole('button', { name: 'Restore all' })).not.toBeInTheDocument();
     const storyWindow = canvasElement.ownerDocument.defaultView as StoryWindow | null;
     if (storyWindow?.releaseInitialProviderStatus === undefined) throw new Error('expected deferred provider status');
     storyWindow.releaseInitialProviderStatus();
@@ -325,6 +325,9 @@ export const DisconnectHidesBackupControls: Story = {
     await expect(body.queryByText('Back up new imports automatically')).not.toBeInTheDocument();
     await expect(body.queryByText('Wi-Fi only')).not.toBeInTheDocument();
     await expect(body.queryByRole('slider', { name: 'Upload bandwidth limit' })).not.toBeInTheDocument();
+    await expect(body.getByRole('button', { name: 'Restore selected (2)' })).toBeDisabled();
+    await expect(body.getByRole('button', { name: 'Restore all' })).toBeDisabled();
+    await expect(body.getByText('Connect the backup provider to restore.')).toBeVisible();
     await expect(body.getByRole('radio', { name: 'Copy' })).toBeEnabled();
     await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
     // Re-offload remains a user policy while disconnected; Encrypt is locked on.
