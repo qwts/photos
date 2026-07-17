@@ -466,6 +466,71 @@ describe('PhotosRepository', () => {
     db.close();
   });
 
+  test('page(query) ranks multi-word matches by bm25, prefix-matched (#390)', () => {
+    const { db, repo } = openSeeded();
+    // Exact multi-field match should outrank a single partial-field match.
+    const best = samplePhoto({ place: 'Kyoto', camera: 'FUJIFILM X-T5' });
+    const partial = samplePhoto({ place: 'Kyotango', camera: 'RICOH GR III' });
+    const unrelated = samplePhoto({ place: 'Lisbon', camera: 'RICOH GR III' });
+    repo.insert(unrelated);
+    repo.insert(partial);
+    repo.insert(best);
+    const page = repo.page({ source: 'all', limit: 10, query: 'kyoto fuji' });
+    assert.deepEqual(
+      page.photos.map((photo) => photo.id),
+      [best.id],
+    );
+    // Prefix matching: a partial last word still finds the full-word row.
+    const prefixPage = repo.page({ source: 'all', limit: 10, query: 'kyo' });
+    assert.deepEqual(new Set(prefixPage.photos.map((photo) => photo.id)), new Set([best.id, partial.id]));
+    db.close();
+  });
+
+  test('page(query) tolerates quotes/operators/special characters without erroring (#390)', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(samplePhoto({ place: 'Kyoto' }));
+    for (const query of [`"Kyoto" AND NOT place`, 'Kyoto*', '((()))', '   ', '"""', 'foo OR bar NEAR/2 baz']) {
+      assert.doesNotThrow(() => repo.page({ source: 'all', limit: 10, query }));
+    }
+    db.close();
+  });
+
+  test('page(query) keyset-pages through ranked results without gaps or overlap (#390)', () => {
+    const { db, repo } = openSeeded();
+    const ids: string[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      const photo = samplePhoto({ place: 'Kyoto', camera: `CAMERA ${i}` });
+      ids.push(photo.id);
+      repo.insert(photo);
+    }
+    const seen: string[] = [];
+    let cursor = undefined;
+    for (let i = 0; i < 6; i += 1) {
+      const page = repo.page({ source: 'all', limit: 2, query: 'kyoto', cursor });
+      seen.push(...page.photos.map((photo) => photo.id));
+      cursor = page.nextCursor ?? undefined;
+    }
+    assert.equal(seen.length, 12);
+    assert.equal(new Set(seen).size, 12);
+    assert.deepEqual(new Set(seen), new Set(ids));
+    db.close();
+  });
+
+  test('search index integrity check is a no-op when healthy; corruption triggers rebuild (#390)', () => {
+    const { db, repo } = openSeeded();
+    const kyoto = samplePhoto({ place: 'Kyoto' });
+    repo.insert(kyoto);
+    assert.deepEqual(repo.verifySearchIndex(), { rebuilt: false });
+    // Desync the index from the content table directly (bypassing the
+    // triggers, which can't be bypassed through normal application SQL) —
+    // an indexed row for a rowid that has no matching photos row.
+    run(db, `INSERT INTO photos_fts (rowid, file_name, place, camera) VALUES (999999, 'ghost.jpg', 'Ghost', 'Ghost')`);
+    assert.deepEqual(repo.verifySearchIndex(), { rebuilt: true });
+    assert.equal(queryGet<{ n: number }>(db, 'SELECT count(*) AS n FROM photos_fts WHERE photos_fts MATCH ?', 'Ghost')?.n, 0);
+    assert.equal(queryGet<{ n: number }>(db, 'SELECT count(*) AS n FROM photos_fts WHERE photos_fts MATCH ?', 'Kyoto')?.n, 1);
+    db.close();
+  });
+
   test('counts by source match the sidebar vocabulary', () => {
     const { db, repo } = openSeeded();
     repo.insert(samplePhoto({ importedAt: '2026-07-11T00:00:00.000Z' }));
