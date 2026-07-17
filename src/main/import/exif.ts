@@ -1,6 +1,8 @@
 import exifr from 'exifr';
 
 import { embeddedJpegFromRaf } from './raf-preview.js';
+import { resolveRawPreview } from './raw-preview.js';
+import type { FileKind } from '../../shared/library/types.js';
 
 // EXIF extraction (#85) per ADR-0006's field set, robust to weird files:
 // missing or corrupt metadata degrades to an all-null record — the import
@@ -87,22 +89,40 @@ function asFloatingIsoDate(value: unknown): string | null {
  * are detected by magic (not extension) and resolve to their embedded JPEG
  * first. Any parse failure returns the all-null record.
  */
-export async function extractMetadata(bytes: Buffer): Promise<ExtractedMetadata> {
-  const target = embeddedJpegFromRaf(bytes) ?? bytes;
-  let parsed: Record<string, unknown> | undefined;
+async function parseMetadata(bytes: Buffer): Promise<Record<string, unknown> | undefined> {
   try {
-    parsed = (await exifr.parse(target, { tiff: true, exif: true, gps: true })) as Record<string, unknown> | undefined;
+    return (await exifr.parse(bytes, { tiff: true, exif: true, gps: true })) as Record<string, unknown> | undefined;
   } catch {
-    return EMPTY;
+    return undefined;
+  }
+}
+
+export async function extractMetadata(bytes: Buffer, kind?: FileKind): Promise<ExtractedMetadata> {
+  let parsed = await parseMetadata(bytes);
+  let previewDimensions: { readonly width: number; readonly height: number } | null = null;
+  const raw = kind === 'raw' || embeddedJpegFromRaf(bytes) !== null;
+  if (raw) {
+    const preview = await resolveRawPreview(bytes);
+    if (preview !== null) {
+      try {
+        previewDimensions = { width: preview.width, height: preview.height };
+        const previewMetadata = await parseMetadata(preview.bytes);
+        // Container metadata is authoritative; the preview fills only fields
+        // the RAW parser could not expose.
+        parsed = { ...(previewMetadata ?? {}), ...(parsed ?? {}) };
+      } finally {
+        preview.bytes.fill(0);
+      }
+    }
   }
   if (parsed === undefined || parsed === null) {
-    return EMPTY;
+    return previewDimensions === null ? EMPTY : { ...EMPTY, ...previewDimensions };
   }
   const make = asText(parsed['Make']);
   const model = asText(parsed['Model']);
   return {
-    width: asFiniteNumber(parsed['ExifImageWidth']) ?? asFiniteNumber(parsed['ImageWidth']),
-    height: asFiniteNumber(parsed['ExifImageHeight']) ?? asFiniteNumber(parsed['ImageHeight']),
+    width: asFiniteNumber(parsed['ExifImageWidth']) ?? asFiniteNumber(parsed['ImageWidth']) ?? previewDimensions?.width ?? null,
+    height: asFiniteNumber(parsed['ExifImageHeight']) ?? asFiniteNumber(parsed['ImageHeight']) ?? previewDimensions?.height ?? null,
     // The mock's camera strings read "FUJIFILM X-T5" — make + model, deduped
     // when the model already leads with the make.
     camera: model === null ? make : make === null || model.toUpperCase().startsWith(make.toUpperCase()) ? model : `${make} ${model}`,

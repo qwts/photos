@@ -1,7 +1,9 @@
 import { Worker } from 'node:worker_threads';
 
 import { embeddedJpegFromRaf } from './raf-preview.js';
+import { resolveRawPreview } from './raw-preview.js';
 import type { ThumbJobRequest, ThumbJobResponse } from './thumbnail-worker.js';
+import type { FileKind } from '../../shared/library/types.js';
 
 // Bounded worker pool (#86): sharp runs off the main thread per ADR-0006.
 // Each worker carries permanent message/exit listeners and at most one
@@ -19,6 +21,7 @@ export interface ThumbnailDerivatives {
 
 interface Job {
   readonly bytes: Buffer;
+  readonly wipe: boolean;
   readonly signal: AbortSignal | undefined;
   readonly resolve: (result: ThumbnailDerivatives | null) => void;
   readonly reject: (error: Error) => void;
@@ -27,6 +30,7 @@ interface Job {
 interface CurrentJob {
   readonly jobId: number;
   readonly job: Job;
+  readonly abort: (() => void) | undefined;
 }
 
 export interface ThumbnailPoolOptions {
@@ -58,16 +62,19 @@ export class ThumbnailPool {
    * containers resolve their embedded preview first; a RAW with no usable
    * preview is a placeholder, never a failed import.
    */
-  async generate(bytes: Buffer, signal?: AbortSignal): Promise<ThumbnailDerivatives | null> {
+  async generate(bytes: Buffer, signal?: AbortSignal, fileKind?: FileKind): Promise<ThumbnailDerivatives | null> {
     if (this.closed) {
       throw new Error('thumbnail pool is closed');
     }
     if (signal?.aborted === true) {
       return null;
     }
-    const target = embeddedJpegFromRaf(bytes) ?? bytes;
+    const raw = fileKind === 'raw' || embeddedJpegFromRaf(bytes) !== null;
+    const preview = raw ? await resolveRawPreview(bytes, { signal }) : null;
+    if (raw && preview === null) return null;
+    const target = preview?.bytes ?? bytes;
     return new Promise<ThumbnailDerivatives | null>((resolve, reject) => {
-      this.queue.push({ bytes: target, signal, resolve, reject });
+      this.queue.push({ bytes: target, wipe: preview !== null, signal, resolve, reject });
       this.pump();
     });
   }
@@ -77,6 +84,7 @@ export class ThumbnailPool {
     // Jobs still queued would otherwise never settle (nothing pumps after
     // close) — reject them before tearing the workers down.
     for (const job of this.queue.splice(0)) {
+      if (job.wipe) job.bytes.fill(0);
       job.reject(new Error('thumbnail pool is closed'));
     }
     await Promise.all([...this.workers].map(async (worker) => worker.terminate()));
@@ -90,6 +98,7 @@ export class ThumbnailPool {
       }
       if (job.signal?.aborted === true) {
         this.queue.shift();
+        if (job.wipe) job.bytes.fill(0);
         job.resolve(null);
         continue;
       }
@@ -137,6 +146,8 @@ export class ThumbnailPool {
       return;
     }
     this.current.delete(worker);
+    entry.abort?.();
+    if (entry.job.wipe) entry.job.bytes.fill(0);
     if (entry.job.signal?.aborted === true || !response.ok) {
       // Undecodable bytes → placeholder marker, not a failure (E5.3); a
       // cancelled batch drops its in-flight result the same way.
@@ -166,7 +177,11 @@ export class ThumbnailPool {
     const entry = this.current.get(worker);
     if (entry !== undefined) {
       this.current.delete(worker);
-      entry.job.reject(new Error(`thumbnail worker exited with code ${String(code)}${cause === undefined ? '' : `: ${cause.message}`}`));
+      entry.abort?.();
+      if (entry.job.wipe) entry.job.bytes.fill(0);
+      if (entry.job.signal?.aborted === true) entry.job.resolve(null);
+      else
+        entry.job.reject(new Error(`thumbnail worker exited with code ${String(code)}${cause === undefined ? '' : `: ${cause.message}`}`));
     }
     if (!this.closed) {
       this.pump();
@@ -176,7 +191,11 @@ export class ThumbnailPool {
   private dispatch(worker: Worker, job: Job): void {
     const jobId = this.nextJobId;
     this.nextJobId += 1;
-    this.current.set(worker, { jobId, job });
+    const onAbort = job.signal === undefined ? undefined : () => void worker.terminate();
+    if (onAbort !== undefined) job.signal?.addEventListener('abort', onAbort, { once: true });
+    const removeAbort =
+      onAbort === undefined || job.signal === undefined ? undefined : () => job.signal?.removeEventListener('abort', onAbort);
+    this.current.set(worker, { jobId, job, abort: removeAbort });
     worker.postMessage({ jobId, bytes: job.bytes } satisfies ThumbJobRequest);
   }
 }

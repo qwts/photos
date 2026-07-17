@@ -44,7 +44,9 @@ function harness(overrides?: Partial<ImportEngineDeps>) {
   const deps: ImportEngineDeps = {
     readFile: (path) => {
       const bytes = sources.get(path);
-      return bytes === undefined ? Promise.reject(new Error(`ENOENT ${path}`)) : Promise.resolve(bytes);
+      // Model fs.readFile ownership: the engine may zeroize the returned
+      // plaintext allocation without mutating the source file's bytes.
+      return bytes === undefined ? Promise.reject(new Error(`ENOENT ${path}`)) : Promise.resolve(Buffer.from(bytes));
     },
     deleteFile: (path) => {
       sources.delete(path);

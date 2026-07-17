@@ -1,4 +1,4 @@
-import { embeddedJpegFromRaf, looksLikeJpeg } from '../import/raf-preview.js';
+import { resolveRawPreview } from '../import/raw-preview.js';
 import { ByteLru } from '../cache/byte-lru.js';
 import type { FileKind } from '../../shared/library/types.js';
 
@@ -116,14 +116,14 @@ export class FullService {
       // embedded JPEG; bytes that are already a JPEG serve as-is (dev seeds
       // and pre-converted files). Anything else has no v1 render — null.
       try {
-        const viewable = embeddedJpegFromRaf(original.bytes) ?? (looksLikeJpeg(original.bytes) ? original.bytes : null);
+        const viewable = await resolveRawPreview(original.bytes);
         if (viewable === null) {
           return null;
         }
         // RAF extraction returns a subarray into the decrypted original.
         // Cache an owned copy so wiping the source below clears the entire
         // RAW allocation, not only the embedded-preview range.
-        return { bytes: Buffer.from(viewable), contentHash: original.contentHash, mime: 'image/jpeg', preview: true };
+        return { bytes: viewable.bytes, contentHash: original.contentHash, mime: 'image/jpeg', preview: true };
       } finally {
         original.bytes.fill(0);
       }

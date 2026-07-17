@@ -57,6 +57,7 @@ export interface ImportProgressEvents {
 }
 
 export interface ImportEngineDeps {
+  /** Returns an owned plaintext buffer; the engine zeroizes it after use. */
   readonly readFile: (path: string) => Promise<Buffer>;
   readonly deleteFile: (path: string) => Promise<void>;
   readonly readManifest: () => Promise<ImportManifest | null>;
@@ -76,7 +77,7 @@ export interface ImportEngineDeps {
     readonly verifyOriginal: (contentHash: string, resolveKey: KeyResolver, photoId: string) => Promise<boolean>;
   };
   readonly generateThumbs: (request: ThumbnailRequest) => Promise<ThumbnailOutcome>;
-  readonly extractMetadata: (bytes: Buffer) => Promise<ExtractedMetadata>;
+  readonly extractMetadata: (bytes: Buffer, kind: FileKind) => Promise<ExtractedMetadata>;
   readonly currentKey: () => EnvelopeKey;
   readonly resolveKey: KeyResolver;
   readonly newId: () => string;
@@ -179,62 +180,72 @@ export class ImportEngine {
 
   private async advance(file: ManifestFile, manifest: ImportManifest, persist: () => Promise<void>): Promise<void> {
     const bytes = await this.deps.readFile(file.path);
-    const contentHash = createHash('sha256').update(bytes).digest('hex');
-    file.contentHash = contentHash;
+    try {
+      const contentHash = createHash('sha256').update(bytes).digest('hex');
+      file.contentHash = contentHash;
 
-    if (file.stage === 'pending') {
-      // A resumed file whose row already committed under OUR photoId (crash
-      // in the insert→journal window) is ours to finish, not a duplicate.
-      if (file.photoId !== undefined && this.deps.repo.get(file.photoId) !== undefined) {
-        file.status = 'imported';
-        file.stage = 'recorded';
+      if (file.stage === 'pending') {
+        // A resumed file whose row already committed under OUR photoId (crash
+        // in the insert→journal window) is ours to finish, not a duplicate.
+        if (file.photoId !== undefined && this.deps.repo.get(file.photoId) !== undefined) {
+          file.status = 'imported';
+          file.stage = 'recorded';
+          await persist();
+        } else if (this.deps.repo.hasContentHash(contentHash)) {
+          file.status = 'duplicate';
+          file.stage = 'done';
+          await persist();
+          return;
+        } else {
+          // Journal the id BEFORE the side effects so a resume can recognize
+          // its own half-finished work.
+          file.photoId ??= this.deps.newId();
+          await persist();
+          const key = this.deps.currentKey();
+          const ref = await this.deps.blobs.putOriginal(Readable.from([bytes]), key, file.photoId);
+          const meta = await this.deps.extractMetadata(bytes, file.kind);
+          // Single transaction per file (repo.insert): the row and its dirty
+          // sync-ledger entry commit together or not at all — partial records
+          // are never visible to queries.
+          this.deps.repo.insert(this.toRecord(file, manifest.source, meta, ref.bytes, ref.keyId));
+          file.status = 'imported';
+          file.stage = 'recorded';
+          await persist();
+        }
+      }
+
+      if (file.stage === 'recorded') {
+        // Idempotent on resume: putThumb's no-replace publish tolerates redone
+        // derivatives; a placeholder outcome is an imported photo, not a fail.
+        const outcome = await this.deps.generateThumbs({
+          photoId: file.photoId ?? '',
+          bytes,
+          contentHash,
+          key: this.deps.currentKey(),
+          fileKind: file.kind,
+        });
+        if (outcome.width !== null && outcome.height !== null) {
+          this.deps.repo.repairDimensions(file.photoId ?? '', outcome.width, outcome.height);
+        }
+        file.stage = 'thumbed';
         await persist();
-      } else if (this.deps.repo.hasContentHash(contentHash)) {
-        file.status = 'duplicate';
+      }
+
+      if (file.stage === 'thumbed') {
+        if (manifest.mode === 'move') {
+          // The Move contract (README §5): the source is deleted only after
+          // THIS file's blob decrypts and re-hashes clean — never sooner.
+          const verified = await this.deps.blobs.verifyOriginal(contentHash, this.deps.resolveKey, file.photoId ?? '');
+          if (!verified) {
+            throw new Error(`blob verification failed for ${file.fileName}; source retained`);
+          }
+          await this.deps.deleteFile(file.path);
+        }
         file.stage = 'done';
         await persist();
-        return;
-      } else {
-        // Journal the id BEFORE the side effects so a resume can recognize
-        // its own half-finished work.
-        file.photoId ??= this.deps.newId();
-        await persist();
-        const key = this.deps.currentKey();
-        const ref = await this.deps.blobs.putOriginal(Readable.from([bytes]), key, file.photoId);
-        const meta = await this.deps.extractMetadata(bytes);
-        // Single transaction per file (repo.insert): the row and its dirty
-        // sync-ledger entry commit together or not at all — partial records
-        // are never visible to queries.
-        this.deps.repo.insert(this.toRecord(file, manifest.source, meta, ref.bytes, ref.keyId));
-        file.status = 'imported';
-        file.stage = 'recorded';
-        await persist();
       }
-    }
-
-    if (file.stage === 'recorded') {
-      // Idempotent on resume: putThumb's no-replace publish tolerates redone
-      // derivatives; a placeholder outcome is an imported photo, not a fail.
-      const outcome = await this.deps.generateThumbs({ photoId: file.photoId ?? '', bytes, contentHash, key: this.deps.currentKey() });
-      if (outcome.width !== null && outcome.height !== null) {
-        this.deps.repo.repairDimensions(file.photoId ?? '', outcome.width, outcome.height);
-      }
-      file.stage = 'thumbed';
-      await persist();
-    }
-
-    if (file.stage === 'thumbed') {
-      if (manifest.mode === 'move') {
-        // The Move contract (README §5): the source is deleted only after
-        // THIS file's blob decrypts and re-hashes clean — never sooner.
-        const verified = await this.deps.blobs.verifyOriginal(contentHash, this.deps.resolveKey, file.photoId ?? '');
-        if (!verified) {
-          throw new Error(`blob verification failed for ${file.fileName}; source retained`);
-        }
-        await this.deps.deleteFile(file.path);
-      }
-      file.stage = 'done';
-      await persist();
+    } finally {
+      bytes.fill(0);
     }
   }
 

@@ -9,7 +9,7 @@ import sharp from 'sharp';
 
 export interface ThumbJobRequest {
   readonly jobId: number;
-  /** Decodable image bytes (RAW callers extract the embedded preview first). */
+  /** Decodable image bytes (RAW callers resolve embedded/native previews first). */
   readonly bytes: Uint8Array;
 }
 

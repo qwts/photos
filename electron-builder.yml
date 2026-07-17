@@ -20,6 +20,7 @@ files:
   - '!node_modules/@overlook/touch-id/install.cjs'
   - '!node_modules/@overlook/touch-id/prepare-prebuild.cjs'
   - '!node_modules/@overlook/touch-id/touch_id.mm'
+  - '!node_modules/@overlook/touch-id/raw_preview.mm'
 # Everything ships bundled by electron-vite (no runtime node_modules yet);
 # native modules must land in "dependencies" so npmRebuild picks them up
 # (ADR-0006's prebuilt-only policy — better-sqlite3/sharp arrive with M03).
