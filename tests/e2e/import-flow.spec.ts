@@ -227,3 +227,40 @@ test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for 
     await app.close();
   }
 });
+
+test('Google Drive import (#465): selected cloud files use the copy-only encrypted pipeline', async () => {
+  const driveFiles = makeCard();
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-drive-import-'));
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+      OVERLOOK_GOOGLE_DRIVE_IMPORT_SOURCE: driveFiles,
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByRole('button', { name: 'Start a new library' }).click();
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('radio', { name: 'Google Drive' }).click();
+    await page.getByText('Choose photos from Google Drive').click();
+
+    await expect(page.getByText('3 photos selected from Google Drive')).toBeVisible();
+    await expect(page.getByText('3 NEW ·')).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Move' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Import 3 photos' }).click();
+    await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Show in library' }).click();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
+
+    const sources = await page.evaluate<string[]>(
+      `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => p.importSource))`,
+    );
+    expect(sources).toEqual(['Google Drive', 'Google Drive', 'Google Drive']);
+    expect(readdirSync(driveFiles).sort()).toEqual([...CARD_FILES].sort());
+  } finally {
+    await app.close();
+  }
+});

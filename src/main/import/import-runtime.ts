@@ -11,6 +11,10 @@ import { ImportService, type ImportServiceEvents } from './import-service.js';
 import { ThumbnailPool } from './thumbnail-pool.js';
 import { ThumbnailService } from './thumbnail-service.js';
 import { ulid } from './ulid.js';
+import type { GoogleDriveImportSource } from './google-drive-source.js';
+
+export { createDriveImport } from './google-drive-source-runtime.js';
+export type { ImportService } from './import-service.js';
 
 export interface ImportRuntimeOptions {
   readonly dataDir: string;
@@ -23,6 +27,7 @@ export interface ImportRuntimeOptions {
   readonly events: ImportServiceEvents;
   readonly fixtureSource: () => string | undefined;
   readonly resumed: (summary: ImportSummary) => void;
+  readonly googleDrive: GoogleDriveImportSource;
 }
 
 export interface ImportRuntime {
@@ -63,10 +68,15 @@ export function createImportRuntime(options: ImportRuntimeOptions): ImportRuntim
     newId: ulid,
     now: () => new Date().toISOString(),
     events: options.events,
+    cleanupSource: (path) => options.googleDrive.cleanupRoot(path),
   });
-  const service = new ImportService(options.repo, options.events, engine, options.fixtureSource);
-  void service
-    .resume()
+  const service = new ImportService(options.repo, options.events, engine, options.fixtureSource, undefined, options.googleDrive);
+  void journal
+    .read()
+    .then(async (manifest) => {
+      await options.googleDrive.cleanupOrphans(manifest?.cleanupPath ?? null);
+      return service.resume();
+    })
     .then((summary) => {
       if (summary !== null && summary.imported > 0) options.resumed(summary);
     })

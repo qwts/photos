@@ -43,6 +43,7 @@ const protectedAlbumExportPickDestination = createInvoker(channels.protectedAlbu
 const protectedAlbumExportCancel = createInvoker(channels.protectedAlbumExportCancel, invokeTransport);
 const importListSources = createInvoker(channels.importListSources, invokeTransport);
 const importPickFolder = createInvoker(channels.importPickFolder, invokeTransport);
+const importGoogleDrivePick = createInvoker(channels.importGoogleDrivePick, invokeTransport);
 const importExternalReady = createInvoker(channels.importExternalReady, invokeTransport);
 const keysStatus = createInvoker(channels.keysStatus, invokeTransport);
 const keysPickFile = createInvoker(channels.keysPickFile, invokeTransport);
@@ -183,6 +184,9 @@ const overlook: OverlookApi = {
     scanSource: createInvoker(channels.importScanSource, invokeTransport),
     pickFolder: async () => importPickFolder({}),
     scanFiles: createInvoker(channels.importScanFiles, invokeTransport),
+    pickGoogleDrive: async () => importGoogleDrivePick({}),
+    runGoogleDrive: createInvoker(channels.importGoogleDriveRun, invokeTransport),
+    discardGoogleDrive: createInvoker(channels.importGoogleDriveDiscard, invokeTransport),
     externalReady: async () => {
       await importExternalReady({});
     },

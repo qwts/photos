@@ -92,6 +92,15 @@ const scanSummarySchema = z.object({
   newOther: z.number().int().nonnegative(),
 });
 
+const googleDrivePickFailureSchema = z.enum(['cancelled', 'unavailable', 'authorization-failed', 'no-supported-files', 'download-failed']);
+
+const importRunSummarySchema = z.object({
+  imported: z.number().int().nonnegative(),
+  duplicates: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  cancelled: z.number().int().nonnegative(),
+});
+
 const syncStatusSchema = z.enum(['local', 'syncing', 'synced', 'offloaded', 'error']);
 const backupIntegritySchema = z.object({
   checked: z.number().int().nonnegative(),
@@ -449,6 +458,24 @@ export const channels = {
   importPickFolder: defineChannel('import:pick-folder', z.object({}), z.object({ path: z.string().nullable() })),
   // Dropped files (#237): scan an explicit file list (window drag-and-drop).
   importScanFiles: defineChannel('import:scan-files', z.object({ paths: z.array(z.string()).min(1) }), scanSummarySchema),
+  // Google Picker (#465): only opaque selection IDs and aggregate counts
+  // cross the renderer boundary; OAuth tokens, Drive IDs, and staged paths
+  // remain main-process-only.
+  importGoogleDrivePick: defineChannel(
+    'import:google-drive-pick',
+    z.object({}),
+    z.union([
+      z.object({
+        status: z.literal('ready'),
+        selectionId: z.string().uuid(),
+        summary: scanSummarySchema,
+        skipped: z.number().int().nonnegative(),
+      }),
+      z.object({ status: googleDrivePickFailureSchema }),
+    ]),
+  ),
+  importGoogleDriveRun: defineChannel('import:google-drive-run', z.object({ selectionId: z.string().uuid() }), importRunSummarySchema),
+  importGoogleDriveDiscard: defineChannel('import:google-drive-discard', z.object({ selectionId: z.string().uuid() }), z.object({})),
   // Renderer readiness handshake for queued OS/Finder open-file batches.
   // Content admission keeps queued paths sealed behind app lock.
   importExternalReady: defineChannel('import:external-ready', z.object({}), z.object({})),
@@ -470,12 +497,7 @@ export const channels = {
       .refine((run) => run.files === undefined || run.mode === 'copy', {
         message: 'dropped-file imports always copy',
       }),
-    z.object({
-      imported: z.number().int().nonnegative(),
-      duplicates: z.number().int().nonnegative(),
-      failed: z.number().int().nonnegative(),
-      cancelled: z.number().int().nonnegative(),
-    }),
+    importRunSummarySchema,
   ),
   // Cancel semantics (#88): finish the file in flight, keep completed.
   importCancel: defineChannel('import:cancel', z.object({}), z.object({})),

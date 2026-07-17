@@ -155,6 +155,11 @@ export interface OverlookApi {
     readonly scanSource: (request: Req<typeof channels.importScanSource>) => Promise<Res<typeof channels.importScanSource>>;
     readonly pickFolder: () => Promise<Res<typeof channels.importPickFolder>>;
     readonly scanFiles: (request: Req<typeof channels.importScanFiles>) => Promise<Res<typeof channels.importScanFiles>>;
+    readonly pickGoogleDrive: () => Promise<Res<typeof channels.importGoogleDrivePick>>;
+    readonly runGoogleDrive: (request: Req<typeof channels.importGoogleDriveRun>) => Promise<Res<typeof channels.importGoogleDriveRun>>;
+    readonly discardGoogleDrive: (
+      request: Req<typeof channels.importGoogleDriveDiscard>,
+    ) => Promise<Res<typeof channels.importGoogleDriveDiscard>>;
     readonly externalReady: () => Promise<void>;
     readonly onExternalPaths: (listener: (payload: z.output<typeof events.importExternalPaths.payload>) => void) => () => void;
     /** Sandboxed renderers can't read File.path — the preload maps a

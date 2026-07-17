@@ -19,8 +19,7 @@ import { run } from './db/sql.js';
 import type { FullService } from './fullres/full-service.js';
 import { createFullRuntime } from './fullres/full-runtime.js';
 import { createExternalOpenRuntime } from './import/external-open-runtime.js';
-import { createImportRuntime, type ImportRuntime } from './import/import-runtime.js';
-import type { ImportService } from './import/import-service.js';
+import { createDriveImport, createImportRuntime, type ImportRuntime, type ImportService } from './import/import-runtime.js';
 import { createRawRepairRuntime } from './import/raw-repair-runtime.js';
 import type { RawRepairService } from './import/raw-repair-service.js';
 import { ulid } from './import/ulid.js';
@@ -248,6 +247,7 @@ function getImportService(): ImportService {
         },
       },
       fixtureSource: () => harnessEnv('OVERLOOK_IMPORT_SOURCE'),
+      googleDrive: createDriveImport(libraryDataDir(), () => harnessEnv('OVERLOOK_GOOGLE_DRIVE_IMPORT_SOURCE')),
       resumed: () => {
         getBackupEngine();
         autoBackupTrigger?.();

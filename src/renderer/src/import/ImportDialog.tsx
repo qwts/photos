@@ -19,9 +19,10 @@ import './import.css';
 // never deletes a user's own files (the service enforces it again). The
 // host mounts a fresh instance per invocation, so state needs no reset.
 
-export type ImportSourceKind = 'sd' | 'folder' | 'drop';
+export type ImportSourceKind = 'sd' | 'folder' | 'drop' | 'google-drive';
 
 interface ScanSummary {
+  readonly total: number;
   readonly newCount: number;
   readonly newBytes: number;
   readonly newRaw: number;
@@ -44,6 +45,28 @@ type FolderState =
   | { readonly status: 'ready'; readonly path: string; readonly summary: ScanSummary };
 
 type DropState = { readonly status: 'scanning' } | { readonly status: 'ready'; readonly summary: ScanSummary };
+
+type GoogleDriveState =
+  | { readonly status: 'empty' }
+  | { readonly status: 'picking' }
+  | {
+      readonly status: 'ready';
+      readonly selectionId: string;
+      readonly summary: ScanSummary;
+      readonly skipped: number;
+    }
+  | {
+      readonly status: 'error';
+      readonly reason: 'cancelled' | 'unavailable' | 'authorization-failed' | 'no-supported-files' | 'download-failed';
+    };
+
+const GOOGLE_DRIVE_ERROR: Readonly<Record<Extract<GoogleDriveState, { status: 'error' }>['reason'], string>> = {
+  cancelled: 'No Google Drive photos selected',
+  unavailable: 'Google Drive import is unavailable in this build',
+  'authorization-failed': 'Could not connect to Google Drive',
+  'no-supported-files': 'No supported photos were selected',
+  'download-failed': 'Selected photos could not be downloaded',
+};
 
 export interface ImportDialogProps {
   readonly open: boolean;
@@ -72,6 +95,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
   const [sd, setSd] = useState<SdState>({ status: 'scanning' });
   const [folder, setFolder] = useState<FolderState>({ status: 'empty' });
   const [drop, setDrop] = useState<DropState>({ status: 'scanning' });
+  const [googleDrive, setGoogleDrive] = useState<GoogleDriveState>({ status: 'empty' });
   // A drop can land while the dialog is already open (toolbar-opened, or a
   // second drop): re-select the Dropped segment so the footer imports what
   // the user just dropped (PR #249 review). During-render adjustment, per
@@ -141,7 +165,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
       })
       .catch(() => {
         if (!stale) {
-          setDrop({ status: 'ready', summary: { newCount: 0, newBytes: 0, newRaw: 0, newJpg: 0 } });
+          setDrop({ status: 'ready', summary: { total: 0, newCount: 0, newBytes: 0, newRaw: 0, newJpg: 0 } });
         }
       });
     return () => {
@@ -164,6 +188,35 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
         setFolder({ status: 'empty' });
       });
   };
+
+  const chooseGoogleDrive = (): void => {
+    setGoogleDrive({ status: 'picking' });
+    void window.overlook.import
+      .pickGoogleDrive()
+      .then((result) => {
+        setGoogleDrive(
+          result.status === 'ready'
+            ? {
+                status: 'ready',
+                selectionId: result.selectionId,
+                summary: result.summary,
+                skipped: result.skipped,
+              }
+            : { status: 'error', reason: result.status },
+        );
+      })
+      .catch(() => {
+        setGoogleDrive({ status: 'error', reason: 'authorization-failed' });
+      });
+  };
+
+  useEffect(() => {
+    if (googleDrive.status !== 'ready') return;
+    const selectionId = googleDrive.selectionId;
+    return () => {
+      void window.overlook.import.discardGoogleDrive({ selectionId }).catch(() => undefined);
+    };
+  }, [googleDrive]);
 
   const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: 0 });
   const [thumbBar, setThumbBar] = useState<Bar>({ done: 0, total: 0 });
@@ -197,17 +250,21 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
   const moveAllowed = usingSd; // never delete a user's own files (#237)
   const importMode = moveAllowed ? mode : 'copy';
   const activeSummary =
-    source === 'drop'
-      ? drop.status === 'ready'
-        ? drop.summary
+    source === 'google-drive'
+      ? googleDrive.status === 'ready'
+        ? googleDrive.summary
         : null
-      : source === 'sd'
-        ? sd.status === 'ready'
-          ? sd.summary
+      : source === 'drop'
+        ? drop.status === 'ready'
+          ? drop.summary
           : null
-        : folder.status === 'ready'
-          ? folder.summary
-          : null;
+        : source === 'sd'
+          ? sd.status === 'ready'
+            ? sd.summary
+            : null
+          : folder.status === 'ready'
+            ? folder.summary
+            : null;
   const total = activeSummary?.newCount ?? 0;
   const available = activeSummary !== null && total > 0;
 
@@ -226,12 +283,16 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
     setCopyBar({ done: 0, total });
     setThumbBar({ done: 0, total });
     const run =
-      source === 'drop'
-        ? window.overlook.import.run({ files: [...(dropped ?? [])], mode: 'copy' })
-        : window.overlook.import.run({
-            path: source === 'sd' ? (sd.status === 'ready' ? sd.path : '') : folder.status === 'ready' ? folder.path : '',
-            mode: importMode,
-          });
+      source === 'google-drive'
+        ? googleDrive.status === 'ready'
+          ? window.overlook.import.runGoogleDrive({ selectionId: googleDrive.selectionId })
+          : Promise.reject(new Error('Google Drive selection is unavailable'))
+        : source === 'drop'
+          ? window.overlook.import.run({ files: [...(dropped ?? [])], mode: 'copy' })
+          : window.overlook.import.run({
+              path: source === 'sd' ? (sd.status === 'ready' ? sd.path : '') : folder.status === 'ready' ? folder.path : '',
+              mode: importMode,
+            });
     void run
       .then((summary) => {
         setImported(summary.imported);
@@ -266,7 +327,12 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
       footer={
         phase === 'options' ? (
           <>
-            <Button variant="ghost" onClick={onClose}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                close(false);
+              }}
+            >
               Cancel
             </Button>
             <Button variant="primary" icon="download" disabled={!available} onClick={start}>
@@ -309,10 +375,55 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
                 ...(dropped === null ? [] : [{ value: 'drop' as const, icon: 'image' as const, label: 'Dropped' }]),
                 { value: 'sd' as const, icon: 'hard-drive' as const, label: 'SD card' },
                 { value: 'folder' as const, icon: 'folder' as const, label: 'Local folder' },
+                { value: 'google-drive' as const, icon: 'cloud' as const, label: 'Google Drive' },
               ]}
             />
           </div>
-          {source === 'drop' ? (
+          {source === 'google-drive' ? (
+            googleDrive.status === 'ready' ? (
+              <div className="ovl-import__card" data-testid="import-source-card">
+                <Icon name="cloud" size={16} color="var(--accent-cyan)" />
+                <div className="ovl-import__cardText">
+                  <div className="ovl-import__cardTitle">
+                    {formatCount(googleDrive.summary.total)} photo{googleDrive.summary.total === 1 ? '' : 's'} selected from Google Drive
+                  </div>
+                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(googleDrive.summary)}</div>
+                  {googleDrive.skipped > 0 ? (
+                    <div className="ovl-import__cardMeta mono-data">
+                      {formatCount(googleDrive.skipped)} unsupported or unavailable file{googleDrive.skipped === 1 ? '' : 's'} skipped
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className="ovl-import__clear"
+                  aria-label="Clear Google Drive selection"
+                  onClick={() => {
+                    setGoogleDrive({ status: 'empty' });
+                  }}
+                >
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+            ) : googleDrive.status === 'picking' ? (
+              <div className="ovl-import__card">
+                <Icon name="cloud" size={16} />
+                <div className="ovl-import__cardText">
+                  <div className="ovl-import__cardMeta mono-data">Waiting for Google Drive selection in your browser…</div>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="ovl-import__empty ovl-import__empty--action" onClick={chooseGoogleDrive}>
+                <Icon name="cloud" size={20} color="var(--text-faint)" />
+                <div className="ovl-import__emptyTitle">
+                  {googleDrive.status === 'error' ? GOOGLE_DRIVE_ERROR[googleDrive.reason] : 'Choose photos from Google Drive'}
+                </div>
+                <div className="ovl-import__emptyHint">
+                  {googleDrive.status === 'error' ? 'Try again' : 'Opens Google’s secure file picker in your browser'}
+                </div>
+              </button>
+            )
+          ) : source === 'drop' ? (
             drop.status === 'ready' ? (
               <div className="ovl-import__card" data-testid="import-source-card">
                 <Icon name="image" size={16} color="var(--accent-cyan)" />

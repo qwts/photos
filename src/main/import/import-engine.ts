@@ -37,6 +37,8 @@ export interface ImportManifest {
   readonly batchId: string;
   readonly mode: ImportMode;
   readonly source: string;
+  /** Private staged cloud source; removed only after the journal clears. */
+  readonly cleanupPath?: string | undefined;
   readonly files: ManifestFile[];
 }
 
@@ -83,6 +85,7 @@ export interface ImportEngineDeps {
   readonly newId: () => string;
   readonly now: () => string;
   readonly events: ImportProgressEvents;
+  readonly cleanupSource?: ((path: string) => Promise<void>) | undefined;
 }
 
 export interface ImportFileInput {
@@ -103,11 +106,18 @@ export class ImportEngine {
     return this.run(manifest, signal);
   }
 
-  async importFiles(files: readonly ImportFileInput[], mode: ImportMode, source: string, signal?: AbortSignal): Promise<ImportSummary> {
+  async importFiles(
+    files: readonly ImportFileInput[],
+    mode: ImportMode,
+    source: string,
+    signal?: AbortSignal,
+    cleanupPath?: string,
+  ): Promise<ImportSummary> {
     const manifest: ImportManifest = {
       batchId: this.deps.newId(),
       mode,
       source,
+      ...(cleanupPath === undefined ? {} : { cleanupPath }),
       files: files.map((file) => ({ ...file, stage: 'pending' as const })),
     };
     await this.deps.writeManifest(manifest);
@@ -160,6 +170,13 @@ export class ImportEngine {
     if (manifest.files.every((file) => file.stage === 'done')) {
       this.emitProgress(manifest);
       await this.deps.writeManifest(null); // batch complete — clear journal
+      if (manifest.cleanupPath !== undefined) {
+        // Cleanup cannot change a completed import into a failure. A leftover
+        // private stage is reaped at the next startup.
+        await this.deps.cleanupSource?.(manifest.cleanupPath).catch((error: unknown) => {
+          console.error('[overlook] import staging cleanup failed', error);
+        });
+      }
     }
     return {
       imported: manifest.files.filter((file) => file.status === 'imported').length,

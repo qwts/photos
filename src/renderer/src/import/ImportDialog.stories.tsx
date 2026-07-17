@@ -14,6 +14,7 @@ import type { OverlookApi } from '../../../shared/ipc/api.js';
 const SD_SUMMARY = { total: 1204, newCount: 1204, newBytes: 38_200_000_000, newRaw: 812, newJpg: 392, newOther: 0 };
 const FOLDER_SUMMARY = { total: 486, newCount: 486, newBytes: 12_400_000_000, newRaw: 0, newJpg: 486, newOther: 0 };
 const DROP_SUMMARY = { total: 2, newCount: 2, newBytes: 61_000_000, newRaw: 1, newJpg: 1, newOther: 0 };
+const DRIVE_SUMMARY = { total: 3, newCount: 2, newBytes: 82_000_000, newRaw: 1, newJpg: 1, newOther: 0 };
 
 function installStub(options?: { readonly noCard?: boolean }): void {
   let current: AppSettings = { ...defaultSettings };
@@ -33,6 +34,15 @@ function installStub(options?: { readonly noCard?: boolean }): void {
     scanSource: ({ path }: { path: string }) => Promise.resolve(path === '/Volumes/SONY128' ? SD_SUMMARY : FOLDER_SUMMARY),
     pickFolder: () => Promise.resolve({ path: '/Users/ansel/Pictures/Lightroom Exports' }),
     scanFiles: () => Promise.resolve(DROP_SUMMARY),
+    pickGoogleDrive: () =>
+      Promise.resolve({
+        status: 'ready' as const,
+        selectionId: '2b8d4600-b21c-4dea-8c5d-2fef831ea222',
+        summary: DRIVE_SUMMARY,
+        skipped: 1,
+      }),
+    runGoogleDrive: () => new Promise(() => undefined),
+    discardGoogleDrive: () => Promise.resolve({}),
     pathForFile: () => '',
     run: () => new Promise(() => undefined),
     cancel: () => Promise.resolve({}),
@@ -142,6 +152,22 @@ export const DroppedFiles: Story = {
     await expect(body.getByText('2 NEW · 61 MB · 1 RAW / 1 JPG')).toBeVisible();
     await expect(body.getByRole('button', { name: /Import 2 photos/u })).toBeVisible();
     // Dropped imports are copy-only.
+    await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();
+    await expect(body.getByText('Imported files are copied — source files are left untouched.')).toBeVisible();
+  },
+};
+
+export const GoogleDriveFiles: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole('radio', { name: 'Google Drive' }));
+    await userEvent.click(body.getByText('Choose photos from Google Drive'));
+    await waitFor(async () => {
+      await expect(body.getByText('3 photos selected from Google Drive')).toBeVisible();
+    });
+    await expect(body.getByText('2 NEW · 82 MB · 1 RAW / 1 JPG')).toBeVisible();
+    await expect(body.getByText('1 unsupported or unavailable file skipped')).toBeVisible();
+    await expect(body.getByRole('button', { name: /Import 2 photos/u })).toBeVisible();
     await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();
     await expect(body.getByText('Imported files are copied — source files are left untouched.')).toBeVisible();
   },

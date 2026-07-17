@@ -38,7 +38,7 @@ export function createGoogleDriveConnect(options: {
     try {
       const { redirectUri } = await capture.listening;
       await options.openExternal(buildGoogleDriveAuthorizeUrl({ clientId, redirectUri, state, challenge: pkce.challenge }));
-      const code = await capture.result;
+      const { code } = await capture.result;
       const tokens = await exchangeGoogleDriveCode({
         clientId,
         clientSecret: options.clientSecret?.() ?? null,
