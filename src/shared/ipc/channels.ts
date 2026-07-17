@@ -61,6 +61,7 @@ const touchIdStatusSchema = z.object({
   available: z.boolean(),
   reason: touchIdUnavailableReasonSchema.nullable(),
   enabled: z.boolean(),
+  reenrollmentRequired: z.boolean(),
 });
 
 const diagnosticKindSchema = z.enum(['main-process-runtime-error', 'renderer-process-gone', 'child-process-gone', 'renderer-unresponsive']);

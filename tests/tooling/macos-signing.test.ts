@@ -3,6 +3,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
+import {
+  OVERLOOK_MAC_APPLICATION_ID,
+  OVERLOOK_MAC_BUNDLE_ID,
+  OVERLOOK_PRODUCT_NAME,
+  OVERLOOK_TEAM_ID,
+} from '../../src/shared/app-identity.js';
+
 const root = process.cwd();
 
 function source(path: string): string {
@@ -10,6 +17,18 @@ function source(path: string): string {
 }
 
 describe('macOS release signing safety (#357)', () => {
+  test('canonical identity keeps the existing product and user-data name (#374)', () => {
+    const builder = source('electron-builder.yml');
+    const main = source('src/main/index.ts');
+    assert.equal(OVERLOOK_MAC_BUNDLE_ID, 'com.zts1.overlook');
+    assert.equal(OVERLOOK_MAC_APPLICATION_ID, 'Z5DM34QS5U.com.zts1.overlook');
+    assert.equal(OVERLOOK_TEAM_ID, 'Z5DM34QS5U');
+    assert.equal(OVERLOOK_PRODUCT_NAME, 'Overlook');
+    assert.match(builder, /^appId: com\.zts1\.overlook$/mu);
+    assert.match(builder, /^productName: Overlook$/mu);
+    assert.ok(main.indexOf('app.setName(OVERLOOK_PRODUCT_NAME)') < main.indexOf("app.getPath('userData')"));
+  });
+
   test('the default Developer ID build claims no profile-restricted identity entitlements', () => {
     const entitlements = source('build/entitlements.mac.plist');
     assert.doesNotMatch(entitlements, /com\.apple\.application-identifier/u);

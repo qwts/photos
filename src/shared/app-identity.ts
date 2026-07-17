@@ -1,4 +1,5 @@
 export const OVERLOOK_TEAM_ID = 'Z5DM34QS5U';
+export const OVERLOOK_PRODUCT_NAME = 'Overlook';
 export const OVERLOOK_MAC_BUNDLE_ID = 'com.zts1.overlook';
 export const OVERLOOK_MAC_APPLICATION_ID = `${OVERLOOK_TEAM_ID}.${OVERLOOK_MAC_BUNDLE_ID}`;
 

@@ -175,6 +175,10 @@ export function PrivacyPane({
 function touchIdHint(appLockConfigured: boolean, status: Awaited<ReturnType<typeof window.overlook.appLock.touchIdStatus>> | null): string {
   if (!appLockConfigured) return 'Set an app password first.';
   if (status === null) return 'Checking this Mac…';
+  if (status.reenrollmentRequired && status.available)
+    return 'Overlook was updated to its new signed identity. Turn Touch ID on again and confirm your app password.';
+  if (status.reenrollmentRequired)
+    return 'Your prior Touch ID enrollment belongs to Overlook’s previous app identity. Password unlock remains available.';
   if (status.enabled && status.available) return 'Enabled on this Mac. Your app password always remains available.';
   if (status.enabled) return 'Enabled, but Touch ID is currently unavailable. Use your app password or turn this off.';
   if (status.available) return 'Confirm your app password to opt in on this Mac.';

@@ -37,7 +37,7 @@ class FakeCredentials {
 }
 
 class FakeTouchId {
-  statusValue: TouchIdStatus = { available: true, reason: null, enabled: true };
+  statusValue: TouchIdStatus = { available: true, reason: null, enabled: true, reenrollmentRequired: false };
   enableValue: TouchIdEnableResult = { ok: true };
   unlockValue: TouchIdUnlockResult = { ok: true, masterKey: Buffer.alloc(32, 8) };
   credentialChanges = 0;
@@ -321,7 +321,7 @@ describe('Touch ID app-lock authority (#310)', () => {
   test('opt-in requires an open library and opt-out publishes the resulting status', async () => {
     const credentials = new FakeCredentials();
     const touchId = new FakeTouchId();
-    touchId.statusValue = { available: true, reason: null, enabled: false };
+    touchId.statusValue = { available: true, reason: null, enabled: false, reenrollmentRequired: false };
     const statuses: TouchIdStatus[] = [];
     const controller = new AppLockController({
       credentials,
@@ -333,10 +333,10 @@ describe('Touch ID app-lock authority (#310)', () => {
     await controller.unlock('password');
     controller.subscribeTouchId((status) => statuses.push(status));
     assert.deepEqual(await controller.enableTouchId('password'), { ok: true });
-    touchId.statusValue = { available: true, reason: null, enabled: true };
+    touchId.statusValue = { available: true, reason: null, enabled: true, reenrollmentRequired: false };
     assert.equal(await controller.disableTouchId(), true);
     assert.equal(touchId.disables, 1);
-    assert.deepEqual(statuses.at(-1), { available: true, reason: null, enabled: false });
+    assert.deepEqual(statuses.at(-1), { available: true, reason: null, enabled: false, reenrollmentRequired: false });
   });
 
   test('password rotation, removal, and recovery revoke old biometric custody', async () => {
