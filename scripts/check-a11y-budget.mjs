@@ -73,10 +73,21 @@ async function validateEntry(entry, { lane, pathKey, index }) {
     fail(`${where}: "${pathKey}" points at ${filePath}, which does not exist. Delete the entry or fix the path.`);
   }
 
-  // Zero is not a budget, it is the default — an explicit zero means someone fixed the
-  // surface and left the tombstone behind.
-  if (!isPositiveInteger(entry.violations)) {
-    fail(`${where}: "violations" must be a positive integer (delete the entry when it reaches zero).`);
+  // Keyed by axe rule id, never a bare total: a total lets a surface swap one rule for
+  // another at the same count and stay "within budget", hiding a fresh regression behind
+  // existing debt (PR #408 review). Zero is not a budget, it is the default — an explicit
+  // zero means someone fixed the surface and left the tombstone behind.
+  const rules = entry.rules;
+  if (typeof rules !== 'object' || rules === null || Array.isArray(rules)) {
+    fail(`${where}: "rules" must be an object mapping axe rule ids to counts.`);
+  } else {
+    const ruleNames = Object.keys(rules);
+    if (ruleNames.length === 0) fail(`${where}: "rules" is empty — delete the entry instead.`);
+    for (const rule of ruleNames) {
+      if (!isPositiveInteger(rules[rule])) {
+        fail(`${where}: rule "${rule}" must have a positive integer count (drop the rule when it reaches zero).`);
+      }
+    }
   }
 
   if (!Array.isArray(entry.issues) || entry.issues.length === 0) {
@@ -86,10 +97,45 @@ async function validateEntry(entry, { lane, pathKey, index }) {
       if (!isPositiveInteger(issue)) fail(`${where}: issue "${String(issue)}" is not a positive integer.`);
     }
   }
+}
 
-  if (typeof entry.note !== 'string' || entry.note.length === 0) {
-    fail(`${where}: "note" must say which rules make up the count.`);
+// --visited <file>: the orphan check, run after a lane has audited its surfaces (the file
+// is one id per line, appended by the runner). The static half cannot do this — a renamed
+// story export leaves the FILE in place, so path existence still passes while the runtime
+// lane silently stops evaluating that id (PR #408 review).
+async function checkVisited(budget, visitedPath, lane) {
+  let visited;
+  try {
+    visited = new Set(
+      (await readFile(path.resolve(rootDirectory, visitedPath), 'utf8'))
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean),
+    );
+  } catch (error) {
+    console.error(`A11y budget orphan check failed: could not read ${visitedPath}.`);
+    console.error(`  - ${error.message}`);
+    process.exitCode = 1;
+    return;
   }
+
+  // An empty file means the lane never ran, not that every entry is orphaned. Failing with
+  // "delete all 64 entries" would be catastrophic advice.
+  if (visited.size === 0) {
+    console.error(`A11y budget orphan check failed: ${visitedPath} is empty — the ${lane} lane recorded nothing.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const orphans = budget[lane].filter((entry) => !visited.has(entry.id)).map((entry) => entry.id);
+  if (orphans.length > 0) {
+    console.error(`A11y budget orphan check failed: ${orphans.length} budgeted ${lane} no longer exist.`);
+    for (const id of orphans) console.error(`  - ${id}: nothing audited this id. Delete the entry, or restore the surface.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`A11y budget orphan check OK: all ${budget[lane].length} budgeted ${lane} were audited (${visited.size} visited).`);
 }
 
 async function main() {
@@ -100,6 +146,21 @@ async function main() {
     console.error(`A11y budget check failed: could not read ${BUDGET_PATH}.`);
     console.error(`  - ${error.message}`);
     process.exitCode = 1;
+    return;
+  }
+
+  // Orphan mode runs after a lane, against what that lane actually audited; the shape
+  // validation below has already run in `npm run ci` by then.
+  const visitedIndex = process.argv.indexOf('--visited');
+  if (visitedIndex !== -1) {
+    const visitedPath = process.argv[visitedIndex + 1];
+    const lane = process.argv[process.argv.indexOf('--lane') + 1] ?? 'stories';
+    if (visitedPath === undefined) {
+      console.error('A11y budget orphan check failed: --visited needs a file path.');
+      process.exitCode = 1;
+      return;
+    }
+    await checkVisited(budget, visitedPath, lane);
     return;
   }
 
@@ -139,7 +200,10 @@ async function main() {
 
   const storyCount = budget.stories.length;
   const flowCount = budget.flows.length;
-  const total = [...budget.stories, ...budget.flows].reduce((sum, entry) => sum + entry.violations, 0);
+  const total = [...budget.stories, ...budget.flows].reduce(
+    (sum, entry) => sum + Object.values(entry.rules).reduce((count, value) => count + value, 0),
+    0,
+  );
   console.log(
     `A11y budget OK: ${total} known violation${total === 1 ? '' : 's'} across ` +
       `${storyCount} budgeted ${storyCount === 1 ? 'story' : 'stories'} and ${flowCount} ${flowCount === 1 ? 'flow' : 'flows'}.`,

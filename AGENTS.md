@@ -115,9 +115,8 @@ possible, enforced as executable checks._
 - **`axe-core` is pinned exact and overridden into `axe-playwright`** (which
   depends on a floating `^4.10.1`). Its rule set _defines_ the a11y
   violation-budget counts, so an unpinned bump would move every number with no
-  diff naming the cause. It sits in knip's `ignoreDependencies` because nothing
-  imports it directly — the pin exists to control resolution. A Dependabot bump
-  of it is _expected_ to move counts: re-audit and re-baseline in that PR
+  diff naming the cause. A Dependabot bump of it is _expected_ to move counts:
+  re-audit and re-baseline in that PR
   (`OVERLOOK_A11Y_REPORT=<path> npm run test:stories:ci`), never widen the tags
   or raise a budget to make it pass.
 - Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only

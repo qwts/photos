@@ -4,5 +4,5 @@
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.mjs"],
   "ignoreExportsUsedInFile": true,
   "ignoreBinaries": ["ditto", "plutil", "security"],
-  "ignoreDependencies": ["axe-core", "node-addon-api", "node-test-github-reporter", "prebuildify"]
+  "ignoreDependencies": ["node-addon-api", "node-test-github-reporter", "prebuildify"]
 }
