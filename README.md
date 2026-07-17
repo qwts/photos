@@ -38,9 +38,7 @@ npm run dev   # opens the Electron window with renderer HMR
 
 Unit tests live in `tests/` and run against compiled JS (image-trail's compile-then-run model:
 `tsconfig.test.json` emits `src/` + `tests/` to `.test-dist/`, then `node --test` runs the
-output — no loader magic). Coverage floors in `.c8rc.json` ratchet **upward only**.
-
-When UI code appears, add the DOM lane the same way image-trail does: a happy-dom global
-registrator imported via `node --import`, DOM tests under `tests/dom/`, and `test:dom` /
-`test:dom:run` scripts chained into `test` and `test:cov`. Not built until there is DOM code
-to test.
+output — no loader magic). Renderer DOM tests live in `tests/dom/`; their renderer-scoped
+TypeScript project emits to `.test-dist-dom/`, then `node --import` installs happy-dom and a
+CSS-module hook before `node --test` runs them. `test`, `test:dom`, and `test:cov` include the
+DOM lane. Coverage floors in `.c8rc.json` ratchet **upward only**.

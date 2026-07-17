@@ -12,7 +12,7 @@ import { pathToFileURL } from 'node:url';
 // is the slightly looser bound and this is the hard ceiling for brand-new files.
 const DEFAULT_MAX_LINES = 800;
 const GUARDED_SOURCE = /^(src|tests|scripts)\/.*\.(ts|tsx|js|mjs|css)$/u;
-const IGNORED_PATH = /^(\.test-dist|coverage|dist|node_modules)\//u;
+const IGNORED_PATH = /^(\.test-dist|\.test-dist-dom|coverage|dist|node_modules)\//u;
 
 function splitList(value) {
   return (value ?? '')

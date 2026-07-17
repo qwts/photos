@@ -10,6 +10,7 @@ export default tseslint.config(
       'out/**',
       'storybook-static/**',
       '.test-dist/**',
+      '.test-dist-dom/**',
       'coverage/**',
       'playwright-report/**',
       'test-results/**',

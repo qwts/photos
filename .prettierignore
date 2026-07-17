@@ -4,6 +4,7 @@ out/
 release/
 storybook-static/
 .test-dist/
+.test-dist-dom/
 coverage/
 .claude/
 playwright-report/

@@ -1,6 +1,6 @@
 {
   "all": true,
-  "include": ["src/**"],
+  "include": ["src/main/**", "src/shared/**", "src/renderer/src/components/Icon.tsx", "src/renderer/src/components/Switch.tsx"],
   "exclude": [
     "tests/**",
     "**/*.test.ts",
@@ -13,7 +13,6 @@
     "src/main/export/export-destination.ts",
     "src/main/library/library-picker.ts",
     "src/preload/**",
-    "src/renderer/**",
     "src/shared/**/types.ts"
   ],
   "excludeAfterRemap": true,
