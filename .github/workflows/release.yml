@@ -97,15 +97,20 @@ jobs:
             prerelease=true
             title="Overlook $TAG (unsigned dev build)"
           fi
+          mapfile -d '' -t assets < <(find dist -type f -print0 | sort -z)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::No release assets were downloaded."
+            exit 1
+          fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             # Re-runs must also promote/demote, not just swap assets — e.g. a
             # tag first published unsigned and rebuilt after secrets landed.
             echo "Release $TAG exists — updating flags and replacing assets."
             gh release edit "$TAG" --prerelease="$prerelease" --title "$title" \
               --repo "$GITHUB_REPOSITORY"
-            gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" dist/* \
+            gh release create "$TAG" "${assets[@]}" \
               --prerelease="$prerelease" \
               --title "$title" \
               --notes-file notes.md \
