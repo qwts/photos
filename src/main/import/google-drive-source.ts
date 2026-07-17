@@ -9,7 +9,8 @@ import { collectMediaCandidates, type ImportCandidate } from './source-scanner.j
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
 
-export type GoogleDrivePickFailure = 'cancelled' | 'unavailable' | 'authorization-failed' | 'no-supported-files' | 'download-failed';
+export type GoogleDrivePickFailure =
+  'cancelled' | 'unavailable' | 'busy' | 'authorization-failed' | 'no-supported-files' | 'download-failed';
 
 export interface GoogleDriveStagedSelection {
   readonly id: string;
@@ -44,12 +45,23 @@ export interface GoogleDriveImportSourceOptions {
  * ephemeral: it cannot switch or widen the configured backup account. */
 export class GoogleDriveImportSource {
   private readonly stagingRoot: string;
+  private picking = false;
 
   constructor(private readonly options: GoogleDriveImportSourceOptions) {
     this.stagingRoot = resolve(options.stagingRoot);
   }
 
   async pick(): Promise<GoogleDriveSourcePickResult> {
+    if (this.picking) return { status: 'busy' };
+    this.picking = true;
+    try {
+      return await this.pickOnce();
+    } finally {
+      this.picking = false;
+    }
+  }
+
+  private async pickOnce(): Promise<GoogleDriveSourcePickResult> {
     const fixture = this.options.fixtureSource?.();
     if (fixture !== undefined && fixture !== '') {
       const files = await collectMediaCandidates([fixture]);
@@ -180,7 +192,11 @@ export class GoogleDriveImportSource {
     }
     // Drive permits long names; keep the renderer/DB boundary bounded while
     // preserving the extension that drives the media allowlist.
-    return metadata.name.slice(0, 1024);
+    if (metadata.name.length <= 1024) return metadata.name;
+    const dot = metadata.name.lastIndexOf('.');
+    const candidateExtension = dot > 0 ? metadata.name.slice(dot) : '';
+    const extension = candidateExtension.length <= 32 ? candidateExtension : '';
+    return `${metadata.name.slice(0, Math.max(1, 1024 - extension.length))}${extension}`;
   }
 
   private authorizedFetch(url: string, accessToken: string): Promise<Response> {

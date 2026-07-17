@@ -92,7 +92,14 @@ const scanSummarySchema = z.object({
   newOther: z.number().int().nonnegative(),
 });
 
-const googleDrivePickFailureSchema = z.enum(['cancelled', 'unavailable', 'authorization-failed', 'no-supported-files', 'download-failed']);
+const googleDrivePickFailureSchema = z.enum([
+  'cancelled',
+  'unavailable',
+  'busy',
+  'authorization-failed',
+  'no-supported-files',
+  'download-failed',
+]);
 
 const importRunSummarySchema = z.object({
   imported: z.number().int().nonnegative(),

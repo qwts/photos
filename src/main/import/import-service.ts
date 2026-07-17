@@ -268,7 +268,10 @@ export class ImportService {
       for (const selection of this.googleSelections.values()) {
         const cleanup = this.googleDrive.discard(selection);
         this.selectionCleanups.add(cleanup);
-        void cleanup.finally(() => this.selectionCleanups.delete(cleanup));
+        const remove = (): void => {
+          this.selectionCleanups.delete(cleanup);
+        };
+        void cleanup.then(remove, remove);
       }
       this.googleSelections.clear();
     }
