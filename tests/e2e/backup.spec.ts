@@ -66,7 +66,9 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
 // #295 regression: backup status changes are not structural invalidations.
 // Keep two deep-page UI anchors alive while hundreds of dirty rows settle.
 test('large backup preserves deep selection and an open lightbox', async () => {
-  test.setTimeout(90_000);
+  // Seeding 504 real encrypted photos is intentionally heavier than ordinary
+  // E2E startup and competes with two other Electron workers in CI.
+  test.setTimeout(120_000);
   const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup-stability-'));
   const app = await electron.launch({
     args: ['.'],
@@ -78,7 +80,7 @@ test('large backup preserves deep selection and an open lightbox', async () => {
     },
   });
   try {
-    const page = await app.firstWindow();
+    const page = await app.firstWindow({ timeout: 60_000 });
     const grid = page.getByTestId('virtual-grid');
     await grid.waitFor();
     await grid.locator('.ovl-tile__img').first().waitFor({ timeout: 30_000 });
