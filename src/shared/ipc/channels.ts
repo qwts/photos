@@ -190,6 +190,9 @@ export const channels = {
   // Frameless-window chrome (#50): Windows/Linux draw custom controls, so the
   // renderer drives the window over IPC; mac uses native traffic lights.
   getPlatform: defineChannel('app:get-platform', z.object({}), z.object({ platform: z.string() })),
+  // Active UI locale, resolved in main (ADR-0020 §2). The renderer re-fetches on
+  // settings change so the future language setting (#405) switches live.
+  getLocale: defineChannel('app:get-locale', z.object({}), z.object({ locale: z.string() })),
   windowMinimize: defineChannel('window:minimize', z.object({}), z.object({})),
   windowToggleMaximize: defineChannel('window:toggle-maximize', z.object({}), z.object({ maximized: z.boolean() })),
   windowClose: defineChannel('window:close', z.object({}), z.object({})),

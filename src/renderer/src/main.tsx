@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 import './styles/index.css';
 import { App } from './App';
+import { IntlHost } from './i18n/IntlHost';
 
 const container = document.getElementById('root');
 if (container === null) {
@@ -11,6 +12,8 @@ if (container === null) {
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <IntlHost>
+      <App />
+    </IntlHost>
   </StrictMode>,
 );

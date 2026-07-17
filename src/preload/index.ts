@@ -20,6 +20,7 @@ const subscribeTransport: SubscribeTransport = (eventName, listener) => {
 };
 
 const getPlatform = createInvoker(channels.getPlatform, invokeTransport);
+const getLocale = createInvoker(channels.getLocale, invokeTransport);
 const minimizeWindow = createInvoker(channels.windowMinimize, invokeTransport);
 const toggleMaximizeWindow = createInvoker(channels.windowToggleMaximize, invokeTransport);
 const closeWindow = createInvoker(channels.windowClose, invokeTransport);
@@ -203,6 +204,7 @@ const overlook: OverlookApi = {
     onThumbProgress: createSubscriber(events.importThumbProgress, subscribeTransport),
   }),
   getPlatform: async () => (await getPlatform({})).platform,
+  getLocale: async () => (await getLocale({})).locale,
   minimizeWindow: async () => {
     await minimizeWindow({});
   },
