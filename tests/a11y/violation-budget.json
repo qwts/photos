@@ -19,46 +19,6 @@
       "issues": [409]
     },
     {
-      "id": "app-importdialog--dropped-files",
-      "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "rules": {
-        "color-contrast": 1
-      },
-      "issues": [409]
-    },
-    {
-      "id": "app-importdialog--folder-flow",
-      "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "rules": {
-        "color-contrast": 1
-      },
-      "issues": [409]
-    },
-    {
-      "id": "app-importdialog--move-warning",
-      "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "rules": {
-        "color-contrast": 1
-      },
-      "issues": [409]
-    },
-    {
-      "id": "app-importdialog--no-card-empty-state",
-      "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "rules": {
-        "color-contrast": 1
-      },
-      "issues": [409]
-    },
-    {
-      "id": "app-importdialog--sd-options",
-      "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "rules": {
-        "color-contrast": 1
-      },
-      "issues": [409]
-    },
-    {
       "id": "app-inspector--empty",
       "story": "src/renderer/src/inspector/Inspector.stories.tsx",
       "rules": {

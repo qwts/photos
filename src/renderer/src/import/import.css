@@ -29,7 +29,7 @@
 
 .ovl-import__cardMeta {
   font: var(--type-meta);
-  color: var(--text-faint);
+  color: var(--text-muted);
   margin-top: calc(var(--space-1) / 2);
 }
 
@@ -49,7 +49,7 @@
   display: flex;
   align-items: center;
   gap: calc(var(--space-1) * 1.5);
-  color: var(--text-faint);
+  color: var(--text-muted);
   font: var(--type-meta);
 }
 
@@ -78,7 +78,7 @@
 
 /* Source picker (#237) — mock's "Import from" section + source states. */
 .ovl-import__pickerLabel {
-  color: var(--text-faint);
+  color: var(--text-muted);
   margin-bottom: var(--space-2);
 }
 
@@ -131,7 +131,7 @@
 
 .ovl-import__emptyHint {
   font: var(--type-meta);
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .ovl-import__link {
@@ -144,13 +144,21 @@
 }
 
 .ovl-import__row--locked {
-  opacity: 0.45;
+  color: var(--text-muted);
 }
 
 .ovl-import__note {
   display: flex;
   align-items: center;
   gap: calc(var(--space-1) * 1.5);
-  color: var(--text-faint);
+  color: var(--text-muted);
   font: var(--type-meta);
+}
+
+.ovl-import__options .ovl-segmented__option {
+  color: var(--text-muted);
+}
+
+.ovl-import__options .ovl-segmented__option--on {
+  color: var(--text-body);
 }
