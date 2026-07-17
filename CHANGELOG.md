@@ -1,5 +1,11 @@
 # photos
 
+## 0.25.0
+
+### Minor Changes
+
+- 65615ae: Add independent protected-album passwords, migration ceremonies, session-only unlock and relock, recovery, and leakage-proof protected photo browsing.
+
 ## 0.24.1
 
 ### Patch Changes
