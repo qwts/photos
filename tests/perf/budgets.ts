@@ -2,7 +2,10 @@
 // never loosen. The written source of truth is the wiki Testing-Strategy
 // §Perf budgets; this file is what the harness enforces. Baselined on the
 // 200K synthetic profile (see the wiki table for the recorded numbers and
-// the machine caveat).
+// the machine caveat). Scroll drop rate is the median of three visible-window
+// trials; the worst-frame ceiling applies to the maximum across those trials.
+
+import type { ScrollStats } from './scroll-stats.js';
 
 export const BUDGETS = {
   /** Launch → an EXISTING 200K library's grid interactive (the harness
@@ -35,7 +38,7 @@ export interface PerfReport {
   readonly page500Ms: number;
   readonly countsMs: number;
   readonly searchMs: number;
-  readonly scroll: Record<'zoom96' | 'zoom160' | 'zoom320', { frames: number; dropped: number; worstMs: number; dropRate: number }>;
+  readonly scroll: Record<'zoom96' | 'zoom160' | 'zoom320', ScrollStats>;
   readonly importPhotosPerSec: number;
   readonly mainRssMb: number;
   readonly rendererHeapMb: number;
