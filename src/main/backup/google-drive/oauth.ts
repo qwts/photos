@@ -49,6 +49,15 @@ interface TokenResponse {
   readonly expires_in?: unknown;
   readonly refresh_token?: unknown;
   readonly scope?: unknown;
+  readonly error?: unknown;
+  readonly error_description?: unknown;
+}
+
+export function googleOAuthFailureReason(data: { readonly error?: unknown; readonly error_description?: unknown }, status: number): string {
+  const code = typeof data.error === 'string' && data.error !== '' ? data.error : `HTTP ${String(status)}`;
+  if (typeof data.error_description !== 'string' || data.error_description === '') return code;
+  const description = redactGoogleCredentials(data.error_description).replace(/[\u0000-\u001f\u007f]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 240);
+  return description === '' ? code : `${code}: ${description}`;
 }
 
 export async function exchangeGoogleDriveCode(options: {
@@ -76,9 +85,9 @@ export async function exchangeGoogleDriveCode(options: {
     const detail = error instanceof Error ? error.message : 'network failure';
     throw new GoogleDriveOAuthError(redactGoogleCredentials(`Google Drive token exchange failed: ${detail}`));
   }
-  const data = (await response.json().catch(() => ({}))) as TokenResponse & { readonly error?: unknown };
+  const data = (await response.json().catch(() => ({}))) as TokenResponse;
   if (!response.ok) {
-    const reason = typeof data.error === 'string' ? data.error : `HTTP ${String(response.status)}`;
+    const reason = googleOAuthFailureReason(data, response.status);
     throw new GoogleDriveOAuthError(redactGoogleCredentials(`Google Drive token exchange failed: ${reason}`));
   }
   const scopes = typeof data.scope === 'string' ? new Set(data.scope.split(/\s+/u)) : null;

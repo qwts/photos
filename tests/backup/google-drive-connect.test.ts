@@ -58,7 +58,7 @@ describe('Google Drive connect flow (#277)', () => {
       browser: async (url, port) => {
         assert.equal(url.searchParams.get('scope'), GOOGLE_DRIVE_SCOPE);
         assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
-        await fetch(`http://127.0.0.1:${String(port)}/callback?code=code-1&state=${url.searchParams.get('state') ?? ''}`);
+        await fetch(`http://127.0.0.1:${String(port)}?code=code-1&state=${url.searchParams.get('state') ?? ''}`);
       },
     });
     assert.deepEqual(await state.connect(), { ok: true, reason: null });
@@ -76,7 +76,7 @@ describe('Google Drive connect flow (#277)', () => {
     assert.deepEqual(await unavailable.connect(), { ok: false, reason: 'Google Drive is not configured in this build.' });
     const denied = world({
       browser: async (url, port) => {
-        await fetch(`http://127.0.0.1:${String(port)}/callback?code=SECRET&state=${url.searchParams.get('state') ?? ''}`);
+        await fetch(`http://127.0.0.1:${String(port)}?code=SECRET&state=${url.searchParams.get('state') ?? ''}`);
       },
       tokenResponse: new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }),
     });

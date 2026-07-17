@@ -1,5 +1,5 @@
 import { ProviderError, type ProviderAuthState } from '../provider.js';
-import { redactGoogleCredentials } from './oauth.js';
+import { googleOAuthFailureReason, redactGoogleCredentials } from './oauth.js';
 import type { GoogleDriveTokenStore } from './token-store.js';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -8,6 +8,7 @@ interface RefreshResponse {
   readonly access_token?: unknown;
   readonly expires_in?: unknown;
   readonly error?: unknown;
+  readonly error_description?: unknown;
 }
 
 /** Late-bound access tokens backed by one sealed refresh token. Access
@@ -78,7 +79,7 @@ export class GoogleDriveAuthClient {
     }
     const data = (await response.json().catch(() => ({}))) as RefreshResponse;
     if (!response.ok) {
-      const reason = typeof data.error === 'string' ? data.error : `HTTP ${String(response.status)}`;
+      const reason = googleOAuthFailureReason(data, response.status);
       const kind = response.status === 400 || response.status === 401 ? 'auth' : 'transient';
       throw new ProviderError(redactGoogleCredentials(`Google Drive token refresh failed: ${reason}`), kind);
     }

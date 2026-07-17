@@ -26,14 +26,14 @@ describe('Google Drive OAuth helpers (#277)', () => {
     const url = new URL(
       buildGoogleDriveAuthorizeUrl({
         clientId: CLIENT_ID,
-        redirectUri: 'http://127.0.0.1:43210/callback',
+        redirectUri: 'http://127.0.0.1:43210',
         state: 'nonce',
         challenge: pkce.challenge,
       }),
     );
     assert.equal(url.origin, 'https://accounts.google.com');
     assert.equal(url.searchParams.get('client_id'), CLIENT_ID);
-    assert.equal(url.searchParams.get('redirect_uri'), 'http://127.0.0.1:43210/callback');
+    assert.equal(url.searchParams.get('redirect_uri'), 'http://127.0.0.1:43210');
     assert.equal(url.searchParams.get('response_type'), 'code');
     assert.equal(url.searchParams.get('scope'), GOOGLE_DRIVE_SCOPE);
     assert.equal(url.searchParams.get('code_challenge_method'), 'S256');
@@ -61,7 +61,7 @@ describe('Google Drive OAuth helpers (#277)', () => {
       clientId: CLIENT_ID,
       code: 'code-1',
       verifier: 'verifier-1',
-      redirectUri: 'http://127.0.0.1:1/callback',
+      redirectUri: 'http://127.0.0.1:1',
       fetchImpl,
     });
     assert.deepEqual(result, { accessToken: 'access-1', refreshToken: 'refresh-1', expiresIn: 1800 });
@@ -78,7 +78,7 @@ describe('Google Drive OAuth helpers (#277)', () => {
         clientId: CLIENT_ID,
         code: 'code',
         verifier: 'verifier',
-        redirectUri: 'http://127.0.0.1:1/callback',
+        redirectUri: 'http://127.0.0.1:1',
         fetchImpl: () => Promise.resolve(new Response(JSON.stringify(payload), { status: 200 })),
       });
     await assert.rejects(exchange({ access_token: 'a', refresh_token: 'r', scope: 'other' }), /drive\.file scope/u);
@@ -93,17 +93,21 @@ describe('Google Drive OAuth helpers (#277)', () => {
         clientId: CLIENT_ID,
         code: 'secret',
         verifier: 'verifier',
-        redirectUri: 'http://127.0.0.1:1/callback',
-        fetchImpl: () => Promise.resolve(new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 })),
+        redirectUri: 'http://127.0.0.1:1',
+        fetchImpl: () =>
+          Promise.resolve(
+            new Response(JSON.stringify({ error: 'invalid_request', error_description: 'client_secret is missing.' }), { status: 400 }),
+          ),
       }),
-      (error: unknown) => error instanceof GoogleDriveOAuthError && /invalid_grant/u.test(error.message),
+      (error: unknown) =>
+        error instanceof GoogleDriveOAuthError && /invalid_request: client_secret is missing\./u.test(error.message),
     );
     await assert.rejects(
       exchangeGoogleDriveCode({
         clientId: CLIENT_ID,
         code: 'secret',
         verifier: 'verifier',
-        redirectUri: 'http://127.0.0.1:1/callback',
+        redirectUri: 'http://127.0.0.1:1',
         fetchImpl: () => Promise.reject(new Error('access_token=SECRET')),
       }),
       (error: unknown) => error instanceof GoogleDriveOAuthError && !error.message.includes('SECRET'),
@@ -111,6 +115,32 @@ describe('Google Drive OAuth helpers (#277)', () => {
     assert.equal(
       redactGoogleCredentials('access_token=A refresh_token=R code=C code_verifier=V Bearer TOKEN'),
       'access_token=redacted refresh_token=redacted code=redacted code_verifier=redacted Bearer redacted',
+    );
+  });
+
+  test('provider descriptions are redacted, normalized, and bounded', async () => {
+    await assert.rejects(
+      exchangeGoogleDriveCode({
+        clientId: CLIENT_ID,
+        code: 'secret',
+        verifier: 'verifier',
+        redirectUri: 'http://127.0.0.1:1',
+        fetchImpl: () =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: 'invalid_request',
+                error_description: `access_token=SECRET\n${'x'.repeat(300)}`,
+              }),
+              { status: 400 },
+            ),
+          ),
+      }),
+      (error: unknown) =>
+        error instanceof GoogleDriveOAuthError &&
+        !error.message.includes('SECRET') &&
+        !error.message.includes('\n') &&
+        error.message.length <= 'Google Drive token exchange failed: invalid_request: '.length + 240,
     );
   });
 });
