@@ -204,10 +204,10 @@ export const KeyboardZoom: Story = {
     const canvas = within(canvasElement);
     const viewport = canvas.getByTestId('lightbox-viewport');
     await userEvent.keyboard('+');
-    await expect(viewport).toHaveAttribute('data-mode', 'custom');
-    await expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('125%');
+    await waitFor(() => expect(viewport).toHaveAttribute('data-mode', 'custom'));
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('125%'));
     await userEvent.keyboard('0');
-    await expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('100%');
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Fit image (0)' })).toHaveTextContent('100%'));
   },
 };
 
