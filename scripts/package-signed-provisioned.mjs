@@ -1,6 +1,8 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+import { readProvisioningProfile, validateProvisioningProfile } from './provisioning-profile.mjs';
 
 const TEAM_ID = 'Z5DM34QS5U';
 const APPLICATION_ID = `${TEAM_ID}.com.zts1.overlook`;
@@ -17,26 +19,23 @@ if (profile === undefined || profile === '') fail('OVERLOOK_MAC_PROVISIONING_PRO
 const profilePath = resolve(profile);
 if (!existsSync(profilePath)) fail(`provisioning profile does not exist: ${profilePath}`);
 
-let payload;
+let metadata;
 try {
-  const plist = execFileSync('security', ['cms', '-D', '-i', profilePath]);
-  const json = execFileSync('plutil', ['-convert', 'json', '-o', '-', '-'], { input: plist, encoding: 'utf8' });
-  payload = JSON.parse(json);
+  metadata = readProvisioningProfile(profilePath);
 } catch (error) {
   fail(`provisioning profile is malformed: ${error instanceof Error ? error.message : 'unknown error'}`);
 }
 
-const entitlements = payload?.Entitlements;
-const teams = payload?.TeamIdentifier;
-const expiresAt = Date.parse(payload?.ExpirationDate ?? '');
-if (entitlements?.['com.apple.application-identifier'] !== APPLICATION_ID) {
-  fail(`profile does not authorize application identifier ${APPLICATION_ID}`);
+try {
+  validateProvisioningProfile(metadata, { applicationId: APPLICATION_ID, teamId: TEAM_ID });
+} catch (error) {
+  fail(error instanceof Error ? error.message : 'provisioning profile validation failed');
 }
-if (entitlements?.['com.apple.developer.team-identifier'] !== TEAM_ID) {
-  fail(`profile does not authorize team ${TEAM_ID}`);
+
+if (process.argv.includes('--validate-only')) {
+  console.log(`[overlook] provisioning profile is valid for ${APPLICATION_ID} through ${new Date(metadata.expiresAt).toISOString()}`);
+  process.exit(0);
 }
-if (!Array.isArray(teams) || !teams.includes(TEAM_ID)) fail(`profile TeamIdentifier does not contain ${TEAM_ID}`);
-if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) fail('provisioning profile is expired or has no valid expiry');
 
 const result = spawnSync(
   'electron-builder',
