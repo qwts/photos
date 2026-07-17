@@ -27,6 +27,12 @@ export interface ScannedFile {
   readonly isNew: boolean;
 }
 
+export interface ImportCandidate {
+  readonly path: string;
+  readonly fileName: string;
+  readonly kind: FileKind;
+}
+
 export interface SourceScanSummary {
   /** Media files on the source (allowlist only). */
   readonly total: number;
@@ -61,8 +67,8 @@ async function hashFile(path: string): Promise<string> {
   return hasher.digest('hex');
 }
 
-async function listMediaFiles(dir: string, signal?: AbortSignal): Promise<{ path: string; fileName: string; kind: FileKind }[]> {
-  const found: { path: string; fileName: string; kind: FileKind }[] = [];
+async function listMediaFiles(dir: string, signal?: AbortSignal): Promise<ImportCandidate[]> {
+  const found: ImportCandidate[] = [];
   // Unreadable directories (e.g. "System Volume Information" at a Windows
   // drive root) are skipped, never fatal — one system folder must not sink
   // the whole source-card scan (PR #174 review).
@@ -109,8 +115,15 @@ export async function scanFiles(
   onProgress?: (progress: SourceScanProgress) => void,
   signal?: AbortSignal,
 ): Promise<{ readonly summary: SourceScanSummary; readonly files: readonly ScannedFile[] }> {
-  const candidates = new Map<string, { path: string; fileName: string; kind: FileKind }>();
-  const add = (candidate: { path: string; fileName: string; kind: FileKind }): void => {
+  return scanCandidates(await collectMediaCandidates(paths, signal), deps, onProgress, signal);
+}
+
+/** Expands file/folder paths through the import allowlist without hashing.
+ * Cloud and test sources use this to preserve the original display name while
+ * still sharing the exact local-source admission policy. */
+export async function collectMediaCandidates(paths: readonly string[], signal?: AbortSignal): Promise<ImportCandidate[]> {
+  const candidates = new Map<string, ImportCandidate>();
+  const add = (candidate: ImportCandidate): void => {
     const key = process.platform === 'win32' || process.platform === 'darwin' ? candidate.path.toLocaleLowerCase('en-US') : candidate.path;
     candidates.set(key, candidate);
   };
@@ -130,11 +143,11 @@ export async function scanFiles(
       continue;
     }
   }
-  return scanCandidates([...candidates.values()], deps, onProgress, signal);
+  return [...candidates.values()];
 }
 
-async function scanCandidates(
-  candidates: readonly { path: string; fileName: string; kind: FileKind }[],
+export async function scanCandidates(
+  candidates: readonly ImportCandidate[],
   deps: SourceScannerDeps,
   onProgress?: (progress: SourceScanProgress) => void,
   signal?: AbortSignal,

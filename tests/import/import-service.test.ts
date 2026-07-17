@@ -9,6 +9,7 @@ import { ImportService } from '../../src/main/import/import-service.js';
 import type { ImportEngine, ImportSummary } from '../../src/main/import/import-engine.js';
 import type { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import type { SourceScanSummary } from '../../src/main/import/source-scanner.js';
+import { GoogleDriveImportSource } from '../../src/main/import/google-drive-source.js';
 
 // The service owns "one journal, one writer" (#87, PR #183 review): batches
 // and resumes never overlap, whatever order callers fire them in.
@@ -197,5 +198,45 @@ describe('import service fixture source is injector-gated (#129 F1)', () => {
       sources.every((s) => s.path !== ''),
       'empty string is not a source',
     );
+  });
+});
+
+describe('Google Drive import service (#465)', () => {
+  test('selected files reuse the serialized copy pipeline with a stable source label', async () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'overlook-drive-service-'));
+    writeFileSync(join(fixture, 'cloud.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
+    const googleDrive = new GoogleDriveImportSource({
+      stagingRoot: join(fixture, 'unused-staging'),
+      clientId: () => null,
+      openExternal: () => Promise.resolve(),
+      fixtureSource: () => fixture,
+    });
+    const calls: Array<{ source: string; mode: string; names: readonly string[]; cleanupPath: string | undefined }> = [];
+    const engine = {
+      importFiles: (files: readonly { fileName: string }[], mode: string, source: string, _signal: AbortSignal, cleanupPath?: string) => {
+        calls.push({ source, mode, names: files.map((file) => file.fileName), cleanupPath });
+        return Promise.resolve({ imported: 1, duplicates: 0, failed: 0, cancelled: 0, photoIds: ['P1'] });
+      },
+      resume: () => Promise.resolve(null),
+    } as unknown as ImportEngine;
+    const imported: string[][] = [];
+    const service = new ImportService(
+      fakeRepo(),
+      { ...IDLE_EVENTS, imported: (ids) => imported.push([...ids]) },
+      engine,
+      () => undefined,
+      undefined,
+      googleDrive,
+    );
+
+    const picked = await service.pickGoogleDrive();
+    assert.equal(picked.status, 'ready');
+    if (picked.status !== 'ready') return;
+    assert.equal(picked.summary.newCount, 1);
+    const summary = await service.runGoogleDrive(picked.selectionId);
+    assert.equal(summary.imported, 1);
+    assert.deepEqual(calls, [{ source: 'Google Drive', mode: 'copy', names: ['cloud.jpg'], cleanupPath: undefined }]);
+    assert.deepEqual(imported, [['P1']]);
+    await assert.rejects(service.runGoogleDrive(picked.selectionId), /selection is unavailable/u);
   });
 });

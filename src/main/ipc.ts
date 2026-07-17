@@ -407,6 +407,22 @@ export function registerImportHandlers(
   ipcMain.handle(channels.importScanFiles.name, (_event, request: unknown) =>
     wrapHandler(channels.importScanFiles, async ({ paths }) => getService().scanDropped(paths))(request),
   );
+  ipcMain.handle(channels.importGoogleDrivePick.name, (_event, request: unknown) =>
+    wrapHandler(channels.importGoogleDrivePick, () => getService().pickGoogleDrive())(request),
+  );
+  ipcMain.handle(channels.importGoogleDriveRun.name, (_event, request: unknown) =>
+    wrapHandler(channels.importGoogleDriveRun, async ({ selectionId }) => {
+      const summary = await getService().runGoogleDrive(selectionId);
+      if (summary.imported > 0) onImported?.();
+      return { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed, cancelled: summary.cancelled };
+    })(request),
+  );
+  ipcMain.handle(channels.importGoogleDriveDiscard.name, (_event, request: unknown) =>
+    wrapHandler(channels.importGoogleDriveDiscard, async ({ selectionId }) => {
+      await getService().discardGoogleDrive(selectionId);
+      return {};
+    })(request),
+  );
   ipcMain.handle(channels.importExternalReady.name, (_event, request: unknown) =>
     wrapHandler(channels.importExternalReady, () => {
       onExternalReady?.();

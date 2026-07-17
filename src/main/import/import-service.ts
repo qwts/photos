@@ -2,12 +2,14 @@ import {
   defaultVolumeListerDeps,
   folderSource,
   listVolumes,
+  scanCandidates,
   scanFiles,
   scanSource,
   type ImportSource,
   type SourceScanProgress,
   type SourceScanSummary,
 } from './source-scanner.js';
+import type { GoogleDriveImportSource, GoogleDrivePickFailure, GoogleDriveStagedSelection } from './google-drive-source.js';
 import type { ImportEngine, ImportMode, ImportSummary } from './import-engine.js';
 import type { PhotosRepository } from '../db/photos-repository.js';
 
@@ -30,6 +32,15 @@ export interface ImportScanners {
 
 const defaultScanners: ImportScanners = { source: scanSource, files: scanFiles };
 
+export type GoogleDriveImportPickResult =
+  | {
+      readonly status: 'ready';
+      readonly selectionId: string;
+      readonly summary: SourceScanSummary;
+      readonly skipped: number;
+    }
+  | { readonly status: GoogleDrivePickFailure };
+
 export class ImportService {
   /** One journal, one writer: batches and resumes run strictly in turn —
    * overlapping runs would overwrite or clear each other's resume state
@@ -38,6 +49,8 @@ export class ImportService {
   private controller: AbortController | null = null;
   private readonly scanControllers = new Set<AbortController>();
   private readonly scans = new Set<Promise<unknown>>();
+  private readonly googleSelections = new Map<string, GoogleDriveStagedSelection>();
+  private readonly selectionCleanups = new Set<Promise<unknown>>();
   private closed = false;
 
   constructor(
@@ -49,6 +62,7 @@ export class ImportService {
     // gets no injector, so the fixture folder can never be surfaced by env.
     private readonly fixtureSource: () => string | undefined = () => undefined,
     private readonly scanners: ImportScanners = defaultScanners,
+    private readonly googleDrive?: GoogleDriveImportSource,
   ) {}
 
   private trackScan<T>(scan: (signal: AbortSignal) => Promise<T>): Promise<T> {
@@ -181,6 +195,63 @@ export class ImportService {
     return summary;
   }
 
+  async pickGoogleDrive(): Promise<GoogleDriveImportPickResult> {
+    if (this.closed) throw new Error('import service is closed');
+    if (this.googleDrive === undefined) return { status: 'unavailable' };
+    const picked = await this.googleDrive.pick();
+    if (picked.status !== 'ready') return picked;
+    try {
+      const { summary } = await this.trackScan((signal) =>
+        scanCandidates(picked.selection.files, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, undefined, signal),
+      );
+      if (summary.total === 0) {
+        await this.googleDrive.discard(picked.selection);
+        return { status: 'no-supported-files' };
+      }
+      this.googleSelections.set(picked.selection.id, picked.selection);
+      return {
+        status: 'ready',
+        selectionId: picked.selection.id,
+        summary,
+        skipped: picked.selection.skipped,
+      };
+    } catch (error) {
+      await this.googleDrive.discard(picked.selection);
+      throw error;
+    }
+  }
+
+  async discardGoogleDrive(selectionId: string): Promise<void> {
+    const selection = this.googleSelections.get(selectionId);
+    if (selection === undefined || this.googleDrive === undefined) return;
+    this.googleSelections.delete(selectionId);
+    await this.googleDrive.discard(selection);
+  }
+
+  async runGoogleDrive(selectionId: string): Promise<ImportSummary> {
+    const selection = this.googleSelections.get(selectionId);
+    if (selection === undefined) throw new Error('Google Drive import selection is unavailable');
+    this.googleSelections.delete(selectionId);
+    return this.serialize(async () => {
+      const controller = new AbortController();
+      this.controller = controller;
+      try {
+        const { files } = await scanCandidates(
+          selection.files,
+          { hasContentHash: (hash) => this.repo.hasContentHash(hash) },
+          undefined,
+          controller.signal,
+        );
+        const fresh = files.filter((file) => file.isNew).map(({ path: filePath, fileName, kind }) => ({ path: filePath, fileName, kind }));
+        const summary = await this.engine.importFiles(fresh, 'copy', 'Google Drive', controller.signal, selection.rootPath ?? undefined);
+        if (summary.photoIds.length > 0) this.events.imported(summary.photoIds);
+        return summary;
+      } finally {
+        this.controller = null;
+      }
+    });
+  }
+
   /** Cancel semantics (#88): the engine finishes the file in flight, keeps
    * everything completed, and finalizes the rest as cancelled. */
   cancel(): void {
@@ -193,6 +264,14 @@ export class ImportService {
     this.closed = true;
     this.controller?.abort();
     for (const controller of this.scanControllers) controller.abort();
+    if (this.googleDrive !== undefined) {
+      for (const selection of this.googleSelections.values()) {
+        const cleanup = this.googleDrive.discard(selection);
+        this.selectionCleanups.add(cleanup);
+        void cleanup.finally(() => this.selectionCleanups.delete(cleanup));
+      }
+      this.googleSelections.clear();
+    }
   }
 
   /** Waits for the serialized import/resume queue to stop touching library
@@ -205,6 +284,9 @@ export class ImportService {
     );
     while (this.scans.size > 0) {
       await Promise.allSettled([...this.scans]);
+    }
+    while (this.selectionCleanups.size > 0) {
+      await Promise.allSettled([...this.selectionCleanups]);
     }
   }
 

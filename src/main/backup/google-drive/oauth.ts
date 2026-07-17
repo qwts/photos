@@ -29,6 +29,7 @@ export function buildGoogleDriveAuthorizeUrl(options: {
   readonly redirectUri: string;
   readonly state: string;
   readonly challenge: string;
+  readonly picker?: boolean;
 }): string {
   const url = new URL(AUTHORIZE_URL);
   url.searchParams.set('client_id', options.clientId);
@@ -42,6 +43,12 @@ export function buildGoogleDriveAuthorizeUrl(options: {
   // A user can clear local custody without revoking the Google grant. Consent
   // ensures reconnect receives a fresh refresh token in that case.
   url.searchParams.set('prompt', 'consent');
+  if (options.picker === true) {
+    // Google Picker's installed-app flow grants only the files the user
+    // explicitly selects while retaining the narrow drive.file scope.
+    url.searchParams.set('trigger_onepick', 'true');
+    url.searchParams.set('allow_multiple', 'true');
+  }
   return url.toString();
 }
 
@@ -65,14 +72,25 @@ export function googleOAuthFailureReason(data: { readonly error?: unknown; reado
   return description === '' ? code : `${code}: ${description}`;
 }
 
-export async function exchangeGoogleDriveCode(options: {
+interface GoogleDriveCodeExchangeOptions {
   readonly clientId: string;
   readonly clientSecret?: string | null;
   readonly code: string;
   readonly verifier: string;
   readonly redirectUri: string;
   readonly fetchImpl?: typeof fetch;
-}): Promise<{ refreshToken: string; accessToken: string; expiresIn: number }> {
+  readonly requireRefreshToken?: boolean;
+}
+
+export function exchangeGoogleDriveCode(
+  options: GoogleDriveCodeExchangeOptions & { readonly requireRefreshToken: false },
+): Promise<{ refreshToken: string | null; accessToken: string; expiresIn: number }>;
+export function exchangeGoogleDriveCode(
+  options: GoogleDriveCodeExchangeOptions,
+): Promise<{ refreshToken: string; accessToken: string; expiresIn: number }>;
+export async function exchangeGoogleDriveCode(
+  options: GoogleDriveCodeExchangeOptions,
+): Promise<{ refreshToken: string | null; accessToken: string; expiresIn: number }> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const body = new URLSearchParams({
     client_id: options.clientId,
@@ -103,12 +121,13 @@ export async function exchangeGoogleDriveCode(options: {
   if (scopes !== null && !scopes.has(GOOGLE_DRIVE_SCOPE)) {
     throw new GoogleDriveOAuthError('Google Drive authorization did not grant the required drive.file scope.');
   }
-  if (typeof data.refresh_token !== 'string' || data.refresh_token === '') {
+  const refreshToken = typeof data.refresh_token === 'string' && data.refresh_token !== '' ? data.refresh_token : null;
+  if (options.requireRefreshToken !== false && refreshToken === null) {
     throw new GoogleDriveOAuthError('Google Drive authorization did not return a refresh token.');
   }
   if (typeof data.access_token !== 'string' || data.access_token === '') {
     throw new GoogleDriveOAuthError('Google Drive authorization did not return an access token.');
   }
   const expiresIn = typeof data.expires_in === 'number' && data.expires_in > 0 ? data.expires_in : 3600;
-  return { refreshToken: data.refresh_token, accessToken: data.access_token, expiresIn };
+  return { refreshToken, accessToken: data.access_token, expiresIn };
 }

@@ -4,16 +4,26 @@ import { GoogleDriveOAuthError, redactGoogleCredentials } from './oauth.js';
 
 const SUCCESS_PAGE = `<!doctype html>
 <meta charset="utf-8">
-<title>Overlook — Google Drive connected</title>
+<title>Overlook — Google Drive complete</title>
 <body style="font-family: system-ui; display: grid; place-items: center; min-height: 80vh">
-<p>Connected — you can close this tab and return to Overlook.</p>
+<p>Done — you can close this tab and return to Overlook.</p>
 <script>history.replaceState(null, '', '/')</script>
 </body>`;
 
 export interface GoogleDriveLoopbackCapture {
   readonly listening: Promise<{ port: number; redirectUri: string }>;
-  readonly result: Promise<string>;
+  readonly result: Promise<{ readonly code: string; readonly pickedFileIds: readonly string[] }>;
   close(): void;
+}
+
+const DRIVE_FILE_ID = /^[A-Za-z0-9_-]{1,256}$/u;
+
+function pickedFileIds(url: URL): string[] | null {
+  const raw = url.searchParams.get('picked_file_ids');
+  if (raw === null || raw === '') return [];
+  const ids = [...new Set(raw.split(','))];
+  if (ids.length > 500 || ids.some((id) => !DRIVE_FILE_ID.test(id))) return null;
+  return ids;
 }
 
 /** Desktop installed-app callback. A random loopback port avoids fixed-port
@@ -22,24 +32,27 @@ export function startGoogleDriveLoopbackCapture(options: {
   readonly state: string;
   readonly port?: number;
   readonly timeoutMs?: number;
+  readonly requirePickedFiles?: boolean;
 }): GoogleDriveLoopbackCapture {
   const requestedPort = options.port ?? 0;
   const timeoutMs = options.timeoutMs ?? 5 * 60_000;
   let settled = false;
-  let resolveResult: (code: string) => void;
+  let resolveResult: (result: { readonly code: string; readonly pickedFileIds: readonly string[] }) => void;
   let rejectResult: (error: Error) => void;
-  const result = new Promise<string>((resolve, reject) => {
+  const result = new Promise<{ readonly code: string; readonly pickedFileIds: readonly string[] }>((resolve, reject) => {
     resolveResult = resolve;
     rejectResult = reject;
   });
   result.catch(() => undefined);
 
-  function settle(outcome: { ok: true; code: string } | { ok: false; error: Error }): void {
+  function settle(
+    outcome: { ok: true; result: { readonly code: string; readonly pickedFileIds: readonly string[] } } | { ok: false; error: Error },
+  ): void {
     if (settled) return;
     settled = true;
     clearTimeout(timer);
     setImmediate(() => server.close());
-    if (outcome.ok) resolveResult(outcome.code);
+    if (outcome.ok) resolveResult(outcome.result);
     else rejectResult(outcome.error);
   }
 
@@ -75,8 +88,19 @@ export function startGoogleDriveLoopbackCapture(options: {
       settle({ ok: false, error: new GoogleDriveOAuthError('Google Drive authorization did not return a code.') });
       return;
     }
+    const selected = pickedFileIds(url);
+    if (selected === null) {
+      response.writeHead(400).end('Google Drive returned an invalid file selection.');
+      settle({ ok: false, error: new GoogleDriveOAuthError('Google Drive returned invalid selected file IDs.') });
+      return;
+    }
+    if (options.requirePickedFiles === true && selected.length === 0) {
+      response.writeHead(400).end('No Google Drive files were selected.');
+      settle({ ok: false, error: new GoogleDriveOAuthError('Google Drive selection returned no files.') });
+      return;
+    }
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(SUCCESS_PAGE);
-    settle({ ok: true, code });
+    settle({ ok: true, result: { code, pickedFileIds: selected } });
   });
 
   const listening = new Promise<{ port: number; redirectUri: string }>((resolve, reject) => {

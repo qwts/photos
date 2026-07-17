@@ -72,6 +72,21 @@ describe('Google Drive OAuth helpers (#277)', () => {
     assert.equal(params.get('client_secret'), null);
   });
 
+  test('desktop Picker keeps drive.file and enables explicit multi-selection', () => {
+    const url = new URL(
+      buildGoogleDriveAuthorizeUrl({
+        clientId: CLIENT_ID,
+        redirectUri: 'http://127.0.0.1:43210',
+        state: 'nonce',
+        challenge: 'challenge',
+        picker: true,
+      }),
+    );
+    assert.equal(url.searchParams.get('scope'), GOOGLE_DRIVE_SCOPE);
+    assert.equal(url.searchParams.get('trigger_onepick'), 'true');
+    assert.equal(url.searchParams.get('allow_multiple'), 'true');
+  });
+
   test('authorization code exchange includes the issued Desktop client credential when configured', async () => {
     let body = '';
     await exchangeGoogleDriveCode({
@@ -103,6 +118,17 @@ describe('Google Drive OAuth helpers (#277)', () => {
       });
     await assert.rejects(exchange({ access_token: 'a', refresh_token: 'r', scope: 'other' }), /drive\.file scope/u);
     await assert.rejects(exchange({ access_token: 'a', scope: GOOGLE_DRIVE_SCOPE }), /refresh token/u);
+    assert.deepEqual(
+      await exchangeGoogleDriveCode({
+        clientId: CLIENT_ID,
+        code: 'code',
+        verifier: 'verifier',
+        redirectUri: 'http://127.0.0.1:1',
+        requireRefreshToken: false,
+        fetchImpl: () => Promise.resolve(new Response(JSON.stringify({ access_token: 'a', scope: GOOGLE_DRIVE_SCOPE }), { status: 200 })),
+      }),
+      { accessToken: 'a', refreshToken: null, expiresIn: 3600 },
+    );
     await assert.rejects(exchange({ refresh_token: 'r', scope: GOOGLE_DRIVE_SCOPE }), /access token/u);
     assert.equal((await exchange({ access_token: 'a', refresh_token: 'r' })).expiresIn, 3600);
   });
