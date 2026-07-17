@@ -71,4 +71,11 @@ describe('lightbox transform geometry (#307)', () => {
     const completeTurn = [1, 2, 3, 4].reduce((orientation) => rotateOrientation(orientation, 1), DEFAULT_ORIENTATION);
     assert.deepEqual(completeTurn, DEFAULT_ORIENTATION);
   });
+
+  test('rotate direction stays visual after a horizontal flip', () => {
+    const flipped = { ...DEFAULT_ORIENTATION, flipped: true };
+
+    assert.deepEqual(rotateOrientation(flipped, 1), { quarterTurns: 3, flipped: true });
+    assert.deepEqual(rotateOrientation(flipped, -1), { quarterTurns: 1, flipped: true });
+  });
 });
