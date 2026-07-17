@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { ZOOM_MAX, ZOOM_MIN, clampTransform, fillZoom, fitSize, panBy, zoomAround } from '../../src/renderer/src/lightbox/geometry.js';
+import {
+  DEFAULT_ORIENTATION,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  clampTransform,
+  fillZoom,
+  fitSize,
+  orientedSize,
+  rotateOrientation,
+  panBy,
+  zoomAround,
+} from '../../src/renderer/src/lightbox/geometry.js';
 
 function assertClose(actual: number, expected: number): void {
   assert.ok(Math.abs(actual - expected) < 1e-9, `${String(actual)} should be close to ${String(expected)}`);
@@ -50,5 +61,14 @@ describe('lightbox transform geometry (#307)', () => {
       x: 100,
       y: 50,
     });
+  });
+
+  test('quarter turns swap fit axes and normalize after a complete rotation', () => {
+    const clockwise = rotateOrientation(DEFAULT_ORIENTATION, 1);
+    assert.deepEqual(clockwise, { quarterTurns: 1, flipped: false });
+    assert.deepEqual(orientedSize({ width: 700, height: 525 }, clockwise), { width: 525, height: 700 });
+
+    const completeTurn = [1, 2, 3, 4].reduce((orientation) => rotateOrientation(orientation, 1), DEFAULT_ORIENTATION);
+    assert.deepEqual(completeTurn, DEFAULT_ORIENTATION);
   });
 });
