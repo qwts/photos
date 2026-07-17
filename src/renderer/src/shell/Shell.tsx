@@ -11,7 +11,6 @@ import { LibraryGridView } from '../grid/LibraryGridView';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ExportDialog } from '../export/ExportDialog';
 import { SettingsDialog } from '../settings/SettingsDialog';
-import { classifyMediaFile } from '../../../shared/library/media-files.js';
 import { ImportDialog } from '../import/ImportDialog';
 import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
@@ -31,6 +30,10 @@ import { ProtectedAlbumView } from '../protected/ProtectedAlbumView';
 // 4s per the design's ToastHost (#89 exit criteria).
 const TOAST_DISMISS_MS = 4000;
 
+function mergeDropPaths(current: readonly string[] | null, incoming: readonly string[]): readonly string[] {
+  return [...new Set([...(current ?? []), ...incoming])];
+}
+
 // Composition shell (#73): fixed chrome per README §1. The toolbar, grid,
 // sidebar internals, and status bar semantics land with #74–#81 — this keeps
 // their regions real (token dims, live counts) so each issue fills in place.
@@ -45,6 +48,15 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   // Dropped source; `dragging` shows the full-window overlay.
   const [dropped, setDropped] = useState<readonly string[] | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = window.overlook.import.onExternalPaths(({ paths }) => {
+      setDropped((current) => mergeDropPaths(current, paths));
+      dispatch({ type: 'dialog/set', dialog: 'import', open: true });
+    });
+    void window.overlook.import.externalReady();
+    return unsubscribe;
+  }, [dispatch]);
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
   const [interopEntry, setInteropEntry] = useState<{ readonly context: InteropEntryContext; readonly total: number } | null>(null);
@@ -271,14 +283,13 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
     dragDepth.current = 0;
     setDragging(false);
     const paths = Array.from(event.dataTransfer.files)
-      .filter((file) => classifyMediaFile(file.name) !== null)
       .map((file) => window.overlook.import.pathForFile(file))
       .filter((path) => path !== '');
     if (paths.length === 0) {
       dispatch({ type: 'toast/shown', toast: { title: 'Nothing to import — drop photo files', tone: 'amber' } });
       return;
     }
-    setDropped(paths);
+    setDropped((current) => mergeDropPaths(current, paths));
     dispatch({ type: 'dialog/set', dialog: 'import', open: true });
   };
 

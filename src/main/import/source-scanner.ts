@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, readdir, stat } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import { classifyMediaFile } from '../../shared/library/media-files.js';
 import type { FileKind } from '../../shared/library/types.js';
@@ -61,22 +61,23 @@ async function hashFile(path: string): Promise<string> {
   return hasher.digest('hex');
 }
 
-async function listMediaFiles(dir: string): Promise<{ path: string; fileName: string; kind: FileKind }[]> {
+async function listMediaFiles(dir: string, signal?: AbortSignal): Promise<{ path: string; fileName: string; kind: FileKind }[]> {
   const found: { path: string; fileName: string; kind: FileKind }[] = [];
   // Unreadable directories (e.g. "System Volume Information" at a Windows
   // drive root) are skipped, never fatal — one system folder must not sink
   // the whole source-card scan (PR #174 review).
   let entries;
   try {
-    entries = await readdir(dir, { withFileTypes: true });
+    entries = (await readdir(dir, { withFileTypes: true })).sort((left, right) => left.name.localeCompare(right.name));
   } catch {
     return found;
   }
   for (const entry of entries) {
+    if (signal?.aborted === true) break;
     const entryPath = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (!entry.name.startsWith('.')) {
-        found.push(...(await listMediaFiles(entryPath)));
+        found.push(...(await listMediaFiles(entryPath, signal)));
       }
       continue;
     }
@@ -97,35 +98,39 @@ export async function scanSource(
   onProgress?: (progress: SourceScanProgress) => void,
   signal?: AbortSignal,
 ): Promise<{ readonly summary: SourceScanSummary; readonly files: readonly ScannedFile[] }> {
-  return scanCandidates(await listMediaFiles(dir), deps, onProgress, signal);
+  return scanCandidates(await listMediaFiles(dir, signal), deps, onProgress, signal);
 }
 
-/** Dropped-file scan (#237): an explicit path list instead of a directory
- * walk — same allowlist, hashing, and NEW semantics as scanSource. Non-media
- * and unreadable paths are skipped, never fatal. */
+/** Dropped-entry scan (#237/#406): files and recursively expanded folders use
+ * the same allowlist, hashing, NEW, cancellation, and unreadable-path rules. */
 export async function scanFiles(
   paths: readonly string[],
   deps: SourceScannerDeps,
   onProgress?: (progress: SourceScanProgress) => void,
   signal?: AbortSignal,
 ): Promise<{ readonly summary: SourceScanSummary; readonly files: readonly ScannedFile[] }> {
-  const candidates: { path: string; fileName: string; kind: FileKind }[] = [];
-  for (const path of paths) {
-    const fileName = basename(path);
-    const kind = classifyMediaFile(fileName);
-    if (kind === null) {
-      continue;
-    }
+  const candidates = new Map<string, { path: string; fileName: string; kind: FileKind }>();
+  const add = (candidate: { path: string; fileName: string; kind: FileKind }): void => {
+    const key = process.platform === 'win32' || process.platform === 'darwin' ? candidate.path.toLocaleLowerCase('en-US') : candidate.path;
+    candidates.set(key, candidate);
+  };
+  for (const droppedPath of paths) {
+    if (signal?.aborted === true) break;
+    const absolute = resolve(droppedPath);
     try {
-      if (!(await stat(path)).isFile()) {
-        continue;
+      const info = await stat(absolute);
+      if (info.isDirectory()) {
+        for (const candidate of await listMediaFiles(absolute, signal)) add(candidate);
+      } else if (info.isFile()) {
+        const fileName = basename(absolute);
+        const kind = classifyMediaFile(fileName);
+        if (kind !== null) add({ path: absolute, fileName, kind });
       }
     } catch {
       continue;
     }
-    candidates.push({ path, fileName, kind });
   }
-  return scanCandidates(candidates, deps, onProgress, signal);
+  return scanCandidates([...candidates.values()], deps, onProgress, signal);
 }
 
 async function scanCandidates(

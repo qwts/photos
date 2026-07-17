@@ -434,6 +434,9 @@ export const channels = {
   importPickFolder: defineChannel('import:pick-folder', z.object({}), z.object({ path: z.string().nullable() })),
   // Dropped files (#237): scan an explicit file list (window drag-and-drop).
   importScanFiles: defineChannel('import:scan-files', z.object({ paths: z.array(z.string()).min(1) }), scanSummarySchema),
+  // Renderer readiness handshake for queued OS/Finder open-file batches.
+  // Content admission keeps queued paths sealed behind app lock.
+  importExternalReady: defineChannel('import:external-ready', z.object({}), z.object({})),
   // Import engine (#87, extended by #237): run a batch — a source path
   // (copy or move) or an explicit dropped-file list (always copy: Move is
   // enforced volume-only at the service layer so a user's own files are
@@ -662,6 +665,7 @@ export const events = {
     'import:thumb-progress',
     z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() }),
   ),
+  importExternalPaths: defineEvent('import:external-paths', z.object({ paths: z.array(z.string()).min(1).max(100_000).readonly() })),
   // Export progress (#97): n/total over the batch.
   exportProgress: defineEvent('export:progress', z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() })),
   // Backup completion (#106): drives the red toast + retry on failures.

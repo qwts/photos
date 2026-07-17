@@ -7,7 +7,7 @@ import { app, BrowserWindow, dialog, session, shell } from 'electron';
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
-import { createWindow, reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
+import { reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
 import { drainWithCancellationFence } from './crypto/library-shutdown.js';
@@ -24,6 +24,7 @@ import { ImportJournal } from './import/import-journal.js';
 import { ImportService } from './import/import-service.js';
 import { ThumbnailPool } from './import/thumbnail-pool.js';
 import { ThumbnailService } from './import/thumbnail-service.js';
+import { createExternalOpenRuntime } from './import/external-open-runtime.js';
 import { ulid } from './import/ulid.js';
 import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
@@ -57,25 +58,17 @@ import { registerSchemePrivileges } from './protocol-privileges.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 
-// Test/dev harness hooks (#72): OVERLOOK_USER_DATA isolates profiles (E2E
-// temp profile per run); OVERLOOK_SEED seeds an empty library at startup;
-// OVERLOOK_INSECURE_KEYSTORE swaps in an obfuscation-only keystore for
-// environments without a real keychain (CI Linux). The insecure keystore is
-// honored ONLY in unpackaged builds and logs loudly — real libraries never
-// touch it (ADR-0004 stance stands for production).
-//
-// Steering/fixture hooks (seeded rows, fixture import/export dirs, injected
-// backup faults, redirected profile) are honored ONLY in unpackaged builds
-// (#129 F1) — a packaged app must not be steerable via env, mirroring the
-// OVERLOOK_INSECURE_KEYSTORE gate. Read every such hook through harnessEnv so
-// the gate can't be forgotten at a call site. Genuine runtime tuning (e.g.
-// OVERLOOK_FULL_CACHE_MB, a cache budget) is not a harness hook and stays.
+// Test/dev steering hooks (#72/#129) are unpackaged-only. Read every fixture,
+// fault, seed, and profile override through this gate; runtime tuning is not a
+// harness hook and stays outside it.
 function harnessEnv(name: string): string | undefined {
   return app.isPackaged ? undefined : process.env[name];
 }
 
 const userDataOverride = harnessEnv('OVERLOOK_USER_DATA');
 if (userDataOverride !== undefined && userDataOverride !== '') app.setPath('userData', userDataOverride);
+
+const externalOpen = createExternalOpenRuntime();
 
 registerSchemePrivileges();
 
@@ -804,12 +797,13 @@ function getRestoreRuntime(): RestoreRuntime {
   return restoreRuntime;
 }
 
-void app.whenReady().then(async () => {
+void externalOpen.whenReady().then(async () => {
   if (exitForReleaseSmokeIfRequested(app)) return;
   // Recover the activation rename crash window before IPC can classify/open the library.
   await recoverInterruptedActivation(restorePaths(path.join(app.getPath('userData'), 'library')));
   const lock = getAppLockController();
   await lock.initialize();
+  externalOpen.followAuthorization(lock);
   registerIpcHandlers();
   registerAppLockIpc({
     controller: lock,
@@ -852,6 +846,7 @@ void app.whenReady().then(async () => {
       getBackupEngine();
       autoBackupTrigger?.();
     },
+    onImportRendererReady: externalOpen.rendererReady,
     broadcast: (name, payload) => broadcast((win) => win.webContents.send(name, payload)),
     backup: {
       runtime: ensureRestoreProviderRegistry,
@@ -880,14 +875,7 @@ void app.whenReady().then(async () => {
       seedSynthetic(libraryParts.db, libraryParts.keyStore.currentKey().id, 'synthetic', syntheticCount);
     }
   }
-  createWindow();
-
-  // macOS: re-create the window when the dock icon is clicked with none open.
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+  externalOpen.finishBootstrap();
 });
 
 app.on('window-all-closed', () => {
@@ -897,6 +885,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  externalOpen.close();
   restoreRuntime?.dispose();
   void thumbnailPool?.close();
 });

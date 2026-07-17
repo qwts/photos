@@ -302,6 +302,7 @@ export function registerImportHandlers(
   getService: () => ImportService,
   pickFolder: () => Promise<string | null>,
   onImported?: () => void,
+  onExternalReady?: () => void,
 ): void {
   ipcMain.handle(channels.importListSources.name, (_event, request: unknown) =>
     wrapHandler(channels.importListSources, async () => ({ sources: await getService().listSources() }))(request),
@@ -314,6 +315,12 @@ export function registerImportHandlers(
   );
   ipcMain.handle(channels.importScanFiles.name, (_event, request: unknown) =>
     wrapHandler(channels.importScanFiles, async ({ paths }) => getService().scanDropped(paths))(request),
+  );
+  ipcMain.handle(channels.importExternalReady.name, (_event, request: unknown) =>
+    wrapHandler(channels.importExternalReady, () => {
+      onExternalReady?.();
+      return {};
+    })(request),
   );
   ipcMain.handle(channels.importRun.name, (_event, request: unknown) =>
     wrapHandler(channels.importRun, async ({ path, files, mode }) => {
