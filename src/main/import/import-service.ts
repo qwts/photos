@@ -51,6 +51,8 @@ export class ImportService {
   private readonly scans = new Set<Promise<unknown>>();
   private readonly googleSelections = new Map<string, GoogleDriveStagedSelection>();
   private readonly selectionCleanups = new Set<Promise<unknown>>();
+  private googlePickEpoch = 0;
+  private googlePickScanController: AbortController | null = null;
   private closed = false;
 
   constructor(
@@ -65,9 +67,8 @@ export class ImportService {
     private readonly googleDrive?: GoogleDriveImportSource,
   ) {}
 
-  private trackScan<T>(scan: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  private trackScan<T>(scan: (signal: AbortSignal) => Promise<T>, controller = new AbortController()): Promise<T> {
     if (this.closed) return Promise.reject(new Error('import service is closed'));
-    const controller = new AbortController();
     this.scanControllers.add(controller);
     const work = Promise.resolve().then(() => scan(controller.signal));
     this.scans.add(work);
@@ -198,11 +199,20 @@ export class ImportService {
   async pickGoogleDrive(): Promise<GoogleDriveImportPickResult> {
     if (this.closed) throw new Error('import service is closed');
     if (this.googleDrive === undefined) return { status: 'unavailable' };
+    const epoch = this.googlePickEpoch;
     const picked = await this.googleDrive.pick();
     if (picked.status !== 'ready') return picked;
+    if (epoch !== this.googlePickEpoch) {
+      await this.googleDrive.discard(picked.selection);
+      return { status: 'cancelled' };
+    }
+    const controller = new AbortController();
+    this.googlePickScanController = controller;
+    if (epoch !== this.googlePickEpoch) controller.abort();
     try {
-      const { summary } = await this.trackScan((signal) =>
-        scanCandidates(picked.selection.files, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, undefined, signal),
+      const { summary } = await this.trackScan(
+        (signal) => scanCandidates(picked.selection.files, { hasContentHash: (hash) => this.repo.hasContentHash(hash) }, undefined, signal),
+        controller,
       );
       if (summary.total === 0) {
         await this.googleDrive.discard(picked.selection);
@@ -217,7 +227,10 @@ export class ImportService {
       };
     } catch (error) {
       await this.googleDrive.discard(picked.selection);
+      if (controller.signal.aborted) return { status: 'cancelled' };
       throw error;
+    } finally {
+      if (this.googlePickScanController === controller) this.googlePickScanController = null;
     }
   }
 
@@ -226,6 +239,12 @@ export class ImportService {
     if (selection === undefined || this.googleDrive === undefined) return;
     this.googleSelections.delete(selectionId);
     await this.googleDrive.discard(selection);
+  }
+
+  cancelGoogleDrivePick(): void {
+    this.googlePickEpoch += 1;
+    this.googleDrive?.cancelPick();
+    this.googlePickScanController?.abort();
   }
 
   async runGoogleDrive(selectionId: string): Promise<ImportSummary> {
@@ -263,6 +282,7 @@ export class ImportService {
   close(): void {
     this.closed = true;
     this.controller?.abort();
+    this.googleDrive?.cancelPick();
     for (const controller of this.scanControllers) controller.abort();
     if (this.googleDrive !== undefined) {
       for (const selection of this.googleSelections.values()) {

@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -48,6 +48,72 @@ function testSource(options?: { readonly metadata?: Readonly<Record<string, obje
 }
 
 describe('Google Drive import source (#465)', () => {
+  test('cancelling an active Picker closes capture and releases the busy guard', async () => {
+    let rejectResult: ((error: Error) => void) | undefined;
+    let closes = 0;
+    let configured = true;
+    const source = new GoogleDriveImportSource({
+      stagingRoot: mkdtempSync(join(tmpdir(), 'overlook-drive-cancel-picker-')),
+      clientId: () => (configured ? CLIENT_ID : null),
+      openExternal: () => Promise.resolve(),
+      capture: () => ({
+        listening: Promise.resolve({ port: 1, redirectUri: 'http://127.0.0.1:1' }),
+        result: new Promise((_resolve, reject) => {
+          rejectResult = reject;
+        }),
+        close: () => {
+          closes += 1;
+          rejectResult?.(new Error('cancelled'));
+        },
+      }),
+    });
+    const picking = source.pick();
+    await new Promise((resolve) => setImmediate(resolve));
+    source.cancelPick();
+    assert.deepEqual(await picking, { status: 'cancelled' });
+    assert.ok(closes >= 1);
+    configured = false;
+    assert.deepEqual(await source.pick(), { status: 'unavailable' });
+  });
+
+  test('cancelling an in-flight download removes partial plaintext staging', async () => {
+    const stagingRoot = mkdtempSync(join(tmpdir(), 'overlook-drive-cancel-download-'));
+    let downloadStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      downloadStarted = resolve;
+    });
+    const source = new GoogleDriveImportSource({
+      stagingRoot,
+      clientId: () => CLIENT_ID,
+      openExternal: () => Promise.resolve(),
+      capture: () => ({
+        listening: Promise.resolve({ port: 1, redirectUri: 'http://127.0.0.1:1' }),
+        result: Promise.resolve({ code: 'code-1', pickedFileIds: ['photo_1'] }),
+        close: () => undefined,
+      }),
+      fetchImpl: (input, init) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        if (url.hostname === 'oauth2.googleapis.com') {
+          return Promise.resolve(new Response(JSON.stringify({ access_token: 'access-1', scope: GOOGLE_DRIVE_SCOPE }), { status: 200 }));
+        }
+        if (url.searchParams.get('alt') !== 'media') {
+          return Promise.resolve(
+            Response.json({ id: 'photo_1', name: 'Cloud.jpg', mimeType: 'image/jpeg', capabilities: { canDownload: true } }),
+          );
+        }
+        downloadStarted?.();
+        return new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('cancelled')), { once: true });
+        });
+      },
+    });
+    const picking = source.pick();
+    await started;
+    source.cancelPick();
+    assert.deepEqual(await picking, { status: 'cancelled' });
+    assert.deepEqual(readdirSync(stagingRoot), []);
+  });
+
   test('a second picker request is refused while the browser flow is active', async () => {
     let finish: ((value: { code: string; pickedFileIds: readonly string[] }) => void) | undefined;
     const result = new Promise<{ code: string; pickedFileIds: readonly string[] }>((resolve) => {

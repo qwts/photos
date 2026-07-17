@@ -410,6 +410,12 @@ export function registerImportHandlers(
   ipcMain.handle(channels.importGoogleDrivePick.name, (_event, request: unknown) =>
     wrapHandler(channels.importGoogleDrivePick, () => getService().pickGoogleDrive())(request),
   );
+  ipcMain.handle(channels.importGoogleDriveCancelPick.name, (_event, request: unknown) =>
+    wrapHandler(channels.importGoogleDriveCancelPick, () => {
+      getService().cancelGoogleDrivePick();
+      return {};
+    })(request),
+  );
   ipcMain.handle(channels.importGoogleDriveRun.name, (_event, request: unknown) =>
     wrapHandler(channels.importGoogleDriveRun, async ({ selectionId }) => {
       const summary = await getService().runGoogleDrive(selectionId);

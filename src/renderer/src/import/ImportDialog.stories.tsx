@@ -41,6 +41,7 @@ function installStub(options?: { readonly noCard?: boolean }): void {
         summary: DRIVE_SUMMARY,
         skipped: 1,
       }),
+    cancelGoogleDrivePick: () => Promise.resolve({}),
     runGoogleDrive: () => new Promise(() => undefined),
     discardGoogleDrive: () => Promise.resolve({}),
     pathForFile: () => '',

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { buildGoogleDriveAuthorizeUrl, createPkce, exchangeGoogleDriveCode } from '../backup/google-drive/oauth.js';
@@ -46,6 +47,7 @@ export interface GoogleDriveImportSourceOptions {
 export class GoogleDriveImportSource {
   private readonly stagingRoot: string;
   private picking = false;
+  private pickController: AbortController | null = null;
 
   constructor(private readonly options: GoogleDriveImportSourceOptions) {
     this.stagingRoot = resolve(options.stagingRoot);
@@ -54,17 +56,25 @@ export class GoogleDriveImportSource {
   async pick(): Promise<GoogleDriveSourcePickResult> {
     if (this.picking) return { status: 'busy' };
     this.picking = true;
+    const controller = new AbortController();
+    this.pickController = controller;
     try {
-      return await this.pickOnce();
+      return await this.pickOnce(controller.signal);
     } finally {
+      if (this.pickController === controller) this.pickController = null;
       this.picking = false;
     }
   }
 
-  private async pickOnce(): Promise<GoogleDriveSourcePickResult> {
+  cancelPick(): void {
+    this.pickController?.abort();
+  }
+
+  private async pickOnce(signal: AbortSignal): Promise<GoogleDriveSourcePickResult> {
     const fixture = this.options.fixtureSource?.();
     if (fixture !== undefined && fixture !== '') {
       const files = await collectMediaCandidates([fixture]);
+      if (signal.aborted) return { status: 'cancelled' };
       return files.length === 0
         ? { status: 'no-supported-files' }
         : { status: 'ready', selection: { id: randomUUID(), rootPath: null, files, skipped: 0 } };
@@ -78,11 +88,12 @@ export class GoogleDriveImportSource {
       state,
       requirePickedFiles: true,
     });
+    const cancelCapture = (): void => capture.close();
+    signal.addEventListener('abort', cancelCapture, { once: true });
 
-    let pickedFileIds: readonly string[];
-    let accessToken: string;
     try {
       const { redirectUri } = await capture.listening;
+      signal.throwIfAborted();
       await this.options.openExternal(
         buildGoogleDriveAuthorizeUrl({ clientId, redirectUri, state, challenge: pkce.challenge, picker: true }),
       );
@@ -94,17 +105,17 @@ export class GoogleDriveImportSource {
         verifier: pkce.verifier,
         redirectUri,
         requireRefreshToken: false,
-        ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
+        fetchImpl: this.fetchWithSignal(signal),
       });
-      pickedFileIds = callback.pickedFileIds;
-      accessToken = tokens.accessToken;
+      return await this.stage(callback.pickedFileIds, tokens.accessToken, signal);
     } catch (error) {
-      capture.close();
+      if (signal.aborted) return { status: 'cancelled' };
       const message = error instanceof Error ? error.message : '';
       return /access_denied|cancelled|returned no files/iu.test(message) ? { status: 'cancelled' } : { status: 'authorization-failed' };
+    } finally {
+      signal.removeEventListener('abort', cancelCapture);
+      capture.close();
     }
-
-    return this.stage(pickedFileIds, accessToken);
   }
 
   async discard(selection: GoogleDriveStagedSelection): Promise<void> {
@@ -119,7 +130,7 @@ export class GoogleDriveImportSource {
   /** Startup removes abandoned selections but preserves the journal-owned
    * directory needed to resume an interrupted cloud import. */
   async cleanupOrphans(preserveRoot: string | null): Promise<void> {
-    let entries;
+    let entries: Dirent[];
     try {
       entries = await readdir(this.stagingRoot, { withFileTypes: true });
     } catch {
@@ -136,48 +147,58 @@ export class GoogleDriveImportSource {
     );
   }
 
-  private async stage(fileIds: readonly string[], accessToken: string): Promise<GoogleDriveSourcePickResult> {
+  private async stage(fileIds: readonly string[], accessToken: string, signal: AbortSignal): Promise<GoogleDriveSourcePickResult> {
     await mkdir(this.stagingRoot, { recursive: true, mode: 0o700 });
     const rootPath = await mkdtemp(join(this.stagingRoot, 'selection-'));
     const files: ImportCandidate[] = [];
     let skipped = 0;
     let downloadFailures = 0;
 
-    for (const [index, fileId] of fileIds.entries()) {
-      try {
-        const metadata = await this.metadata(fileId, accessToken);
-        const fileName = this.downloadableName(metadata, fileId);
-        const kind = fileName === null ? null : classifyMediaFile(fileName);
-        if (fileName === null || kind === null) {
+    try {
+      for (const [index, fileId] of fileIds.entries()) {
+        signal.throwIfAborted();
+        try {
+          const metadata = await this.metadata(fileId, accessToken, signal);
+          const fileName = this.downloadableName(metadata, fileId);
+          const kind = fileName === null ? null : classifyMediaFile(fileName);
+          if (fileName === null || kind === null) {
+            skipped += 1;
+            continue;
+          }
+          const response = await this.authorizedFetch(
+            `${DRIVE_API}/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
+            accessToken,
+            signal,
+          );
+          if (!response.ok) throw new Error(`download failed: HTTP ${String(response.status)}`);
+          const path = join(rootPath, `${String(index).padStart(4, '0')}-${randomUUID()}`);
+          await writeFile(path, Buffer.from(await response.arrayBuffer()), { flag: 'wx', mode: 0o600 });
+          signal.throwIfAborted();
+          files.push({ path, fileName, kind });
+        } catch {
+          if (signal.aborted) throw new Error('Google Drive selection cancelled');
           skipped += 1;
-          continue;
+          downloadFailures += 1;
         }
-        const response = await this.authorizedFetch(
-          `${DRIVE_API}/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
-          accessToken,
-        );
-        if (!response.ok) throw new Error(`download failed: HTTP ${String(response.status)}`);
-        const path = join(rootPath, `${String(index).padStart(4, '0')}-${randomUUID()}`);
-        await writeFile(path, Buffer.from(await response.arrayBuffer()), { flag: 'wx', mode: 0o600 });
-        files.push({ path, fileName, kind });
-      } catch {
-        skipped += 1;
-        downloadFailures += 1;
       }
-    }
 
-    if (files.length === 0) {
+      if (files.length === 0) {
+        await this.cleanupRoot(rootPath);
+        return { status: downloadFailures > 0 ? 'download-failed' : 'no-supported-files' };
+      }
+      return { status: 'ready', selection: { id: randomUUID(), rootPath, files, skipped } };
+    } catch (error) {
       await this.cleanupRoot(rootPath);
-      return { status: downloadFailures > 0 ? 'download-failed' : 'no-supported-files' };
+      throw error;
     }
-    return { status: 'ready', selection: { id: randomUUID(), rootPath, files, skipped } };
   }
 
-  private async metadata(fileId: string, accessToken: string): Promise<DriveFileMetadata> {
+  private async metadata(fileId: string, accessToken: string, signal: AbortSignal): Promise<DriveFileMetadata> {
     const fields = 'id,name,mimeType,trashed,capabilities(canDownload)';
     const response = await this.authorizedFetch(
       `${DRIVE_API}/${encodeURIComponent(fileId)}?fields=${encodeURIComponent(fields)}&supportsAllDrives=true`,
       accessToken,
+      signal,
     );
     if (!response.ok) throw new Error(`metadata failed: HTTP ${String(response.status)}`);
     return (await response.json()) as DriveFileMetadata;
@@ -199,8 +220,12 @@ export class GoogleDriveImportSource {
     return `${metadata.name.slice(0, Math.max(1, 1024 - extension.length))}${extension}`;
   }
 
-  private authorizedFetch(url: string, accessToken: string): Promise<Response> {
-    return (this.options.fetchImpl ?? fetch)(url, { headers: { authorization: `Bearer ${accessToken}` } });
+  private authorizedFetch(url: string, accessToken: string, signal: AbortSignal): Promise<Response> {
+    return (this.options.fetchImpl ?? fetch)(url, { headers: { authorization: `Bearer ${accessToken}` }, signal });
+  }
+
+  private fetchWithSignal(signal: AbortSignal): typeof fetch {
+    return (input, init) => (this.options.fetchImpl ?? fetch)(input, { ...init, signal });
   }
 
   private isOwnedRoot(rootPath: string): boolean {

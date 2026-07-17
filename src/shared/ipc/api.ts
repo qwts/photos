@@ -156,6 +156,7 @@ export interface OverlookApi {
     readonly pickFolder: () => Promise<Res<typeof channels.importPickFolder>>;
     readonly scanFiles: (request: Req<typeof channels.importScanFiles>) => Promise<Res<typeof channels.importScanFiles>>;
     readonly pickGoogleDrive: () => Promise<Res<typeof channels.importGoogleDrivePick>>;
+    readonly cancelGoogleDrivePick: () => Promise<Res<typeof channels.importGoogleDriveCancelPick>>;
     readonly runGoogleDrive: (request: Req<typeof channels.importGoogleDriveRun>) => Promise<Res<typeof channels.importGoogleDriveRun>>;
     readonly discardGoogleDrive: (
       request: Req<typeof channels.importGoogleDriveDiscard>,
