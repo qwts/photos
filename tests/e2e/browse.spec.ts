@@ -78,7 +78,9 @@ test('search + chips filter the library live; impossible filter shows the empty 
     await expect(grid.locator('.ovl-grid__cell')).toHaveCount(12);
 
     await page.getByRole('button', { name: 'Filters' }).click();
-    await expect(page.getByTestId('chip-row')).toContainText('SEMANTIC SEARCH — COMING SOON');
+    // The hint is stored natural-case in the catalog and uppercased by CSS
+    // (.mono-data) — the DOM text, and so this assertion, is natural-case (#403).
+    await expect(page.getByTestId('chip-row')).toContainText('Semantic search — coming soon');
     await page.getByRole('button', { name: 'RAW' }).click();
     await expect(grid.locator('.ovl-grid__cell')).toHaveCount(3);
     await page.getByRole('button', { name: 'RAW' }).click();
