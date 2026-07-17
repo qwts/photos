@@ -60,6 +60,8 @@
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "5.2.0",
+    "axe-core": "4.12.1",
+    "axe-playwright": "2.2.2",
     "c8": "11.0.0",
     "concurrently": "10.0.3",
     "electron": "42.6.1",

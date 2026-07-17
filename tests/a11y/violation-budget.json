@@ -1,0 +1,6 @@
+{
+  "$comment": "Accessibility violation budget (#398, ADR-0001). A RATCHET: entries only shrink. This file is the honest list of KNOWN axe violations on the audited surfaces — every surface not listed here has an implicit budget of ZERO, so a new violation anywhere fails the gate without anyone having to remember to add it. Runtime enforcement lives in .storybook/test-runner.ts (per-story) and tests/e2e/a11y.spec.ts (per-flow): a surface over its budget is a regression, and a surface UNDER its budget also fails, demanding the number be tightened. scripts/check-a11y-budget.mjs validates this file's shape, path existence, and that every entry names the issue that owns the fix. Delete an entry when its count reaches zero; never raise one.",
+  "tags": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
+  "stories": [],
+  "flows": []
+}
