@@ -76,7 +76,8 @@ renderer logic beyond wiring belongs in `src/shared`.
   geometry. Use
   `npm run test:e2e:visible` for native-window debugging; a lifecycle-dependent
   spec can set `OVERLOOK_E2E_WINDOW=visible` in its launch environment.
-  Packaged builds ignore the harness flag.
+  The performance lane always uses a visible native window so its frame and
+  scroll budgets remain representative. Packaged builds ignore the harness flag.
 - On CI (ubuntu) Electron needs OS libraries (`npx playwright install-deps`)
   and a display server — the E2E step runs under `xvfb-run`. No browser
   download: Electron carries its own Chromium.
