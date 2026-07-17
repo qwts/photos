@@ -34,8 +34,8 @@ import type { OffloadService } from './backup/offload.js';
 import type { EphemeralOriginalService } from './backup/ephemeral-originals.js';
 import { createOriginalCustodyRuntime } from './backup/original-custody-runtime.js';
 import { ProviderRuntime } from './backup/provider-runtime.js';
-import { RestoreRuntime } from './backup/restore-runtime.js';
-import { activationOperationsForHarness } from './backup/restore-fault.js';
+import type { RestoreRuntime } from './backup/restore-runtime.js';
+import { createRestoreRuntime } from './backup/restore-runtime-factory.js';
 import { recoverInterruptedActivation, restorePaths } from './backup/restore-staging.js';
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
@@ -45,14 +45,18 @@ import { StartupMaintenance } from './library/startup-maintenance.js';
 import { SyncLedger } from './backup/sync-ledger.js';
 import { createExportRuntime, type DrainableExportFacade } from './export/export-runtime.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
+import { pickExportDestination } from './export/export-destination.js';
 import { registerIpcHandlers } from './ipc.js';
 import { getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { LibraryRegistryRuntime } from './library/library-registry-runtime.js';
+import { acquireLibraryLock } from './library/library-lock.js';
+import { AppLockHost } from './crypto/app-lock-host.js';
+import { registerQuitTeardown, registerSingleInstance } from './app-bootstrap.js';
 import { ProtectedRuntime } from './library/protected-runtime.js';
 import { registerAppServices } from './register-app-services.js';
-import { seedLibrary, seedSynthetic } from './library/seed.js';
+import { runDevSeeds } from './library/dev-seed.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
@@ -67,6 +71,7 @@ const userDataOverride = configureAppProfile(app, process.env['OVERLOOK_USER_DAT
 
 const externalOpen = createExternalOpenRuntime({ isolatedHarnessProfile: userDataOverride !== undefined && userDataOverride !== '' });
 
+registerSingleInstance();
 registerEarlyRuntime();
 
 // Lazy bootstrap: no keychain or database access before the renderer's first library call.
@@ -75,25 +80,18 @@ let libraryService: LibraryService | undefined;
 const registryRuntime = new LibraryRegistryRuntime({ userDataDir: () => app.getPath('userData') });
 const libraryDataDir = (): string => registryRuntime.dataDir();
 
+// Per-library advisory lock (ADR-0017 §5, #385): acquired at open, released last in teardown.
+const instanceId = ulid();
+let releaseLibraryLock: (() => void) | undefined;
+
 function broadcast(send: (win: BrowserWindow) => void): void {
   for (const win of BrowserWindow.getAllWindows()) {
     send(win);
   }
 }
 
-const emitExportProgress = createEmitter(events.exportProgress, (name, payload) => {
-  broadcast((win) => win.webContents.send(name, payload));
-});
-const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => {
-  broadcast((win) => win.webContents.send(name, payload));
-});
-
-async function pickExportDestination(): Promise<string | null> {
-  const fixture = harnessEnv('OVERLOOK_EXPORT_DESTINATION');
-  if (fixture !== undefined && fixture !== '') return fixture;
-  const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] });
-  return result.canceled ? null : (result.filePaths[0] ?? null);
-}
+const emitExportProgress = createEmitter(events.exportProgress, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
+const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
 
 interface LibraryParts {
   readonly db: ReturnType<typeof openLibraryDatabase>;
@@ -108,6 +106,7 @@ let libraryParts: LibraryParts | undefined, releasedMaster: Buffer | undefined;
 function getLibraryService(): LibraryService {
   if (libraryService === undefined) {
     const dataDir = registryRuntime.healActiveId().path;
+    releaseLibraryLock ??= acquireLibraryLock(dataDir, instanceId);
     const keyStore =
       releasedMaster === undefined
         ? KeyStore.open({ safeStorage: pickSafeStorage(), dataDir })
@@ -153,7 +152,7 @@ function getLibraryService(): LibraryService {
         }
       },
       progress: (done, total) => emitExportProgress({ done, total }),
-      pickDestination: pickExportDestination,
+      pickDestination: () => pickExportDestination(harnessEnv),
       failure: () => console.error('[overlook] protected export failed'),
       repairFailure: () => console.error('[overlook] protected migration repair failed'),
       workflowProgress: (progress) => broadcast((win) => win.webContents.send(events.protectedWorkflowProgress.name, progress)),
@@ -675,7 +674,7 @@ function getExportFacade(): DrainableExportFacade {
         const opened = await service.open(photo.id, 'export');
         return { stream: opened.stream, release: opened.custody === 'ephemeral' ? () => service.release(photo.id, 'export') : undefined };
       },
-      pickDestination: pickExportDestination,
+      pickDestination: () => pickExportDestination(harnessEnv),
       progress: (done, total) => emitExportProgress({ done, total }),
     });
   }
@@ -705,8 +704,17 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
     ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
   ]);
   libraryParts?.protected.close();
-  libraryParts?.db.close();
-  libraryParts?.keyStore.close();
+  if (libraryParts !== undefined) {
+    try {
+      // Clean close checkpoints WAL (ADR-0017 §4): the closed directory is a
+      // complete, copy/eject-safe unit with no live -wal/-shm sidecars.
+      libraryParts.db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {
+      // Checkpoint failure never blocks close — SQLite replays on next open.
+    }
+    libraryParts.db.close();
+    libraryParts.keyStore.close();
+  }
   libraryService = undefined;
   libraryParts = undefined;
   importRuntime = undefined;
@@ -720,67 +728,60 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   consistencyChecker = undefined;
   exportFacade = undefined;
   if (drainRestore) restoreRuntime = undefined;
+  releaseLibraryLock?.();
+  releaseLibraryLock = undefined;
 }
 
 const closeLibraryForRestore = (): Promise<void> => closeLibrary(false);
 const closeLibraryForLock = (): Promise<void> => closeLibrary(true);
 
-let appLockController: ReturnType<typeof createAppLockRuntime> | undefined;
+let appLockHost: AppLockHost | undefined;
 
-function getAppLockController(): ReturnType<typeof createAppLockRuntime> {
-  if (appLockController === undefined) {
-    const dataDir = libraryDataDir();
-    appLockController = createAppLockRuntime({
-      dataDir,
-      safeStorage: pickSafeStorage(),
-      ...(harnessEnv('OVERLOOK_APP_LOCK_TEST_ANCHOR') === '1'
-        ? { anchorStore: new TestFileCredentialAnchorStore(path.join(app.getPath('userData'), 'app-lock-test-anchor.json')) }
-        : {}),
-      openAuthorized: (masterKey) => {
-        if (masterKey === undefined) return;
-        const authorized = Buffer.from(masterKey);
-        releasedMaster = authorized;
-        try {
-          getLibraryService();
-        } finally {
-          authorized.fill(0);
-          releasedMaster = undefined;
-        }
-      },
-      closeAuthorized: closeLibraryForLock,
-      failClosed: relaunchLocked,
-    });
-  }
-  return appLockController;
+// Each controller is dataDir-bound; the host lets bound-once consumers (IPC,
+// lifecycle, external-open) follow a library switch (#385, ADR-0017 §4).
+function buildAppLockController(): ReturnType<typeof createAppLockRuntime> {
+  return createAppLockRuntime({
+    dataDir: libraryDataDir(),
+    safeStorage: pickSafeStorage(),
+    ...(harnessEnv('OVERLOOK_APP_LOCK_TEST_ANCHOR') === '1'
+      ? { anchorStore: new TestFileCredentialAnchorStore(path.join(app.getPath('userData'), 'app-lock-test-anchor.json')) }
+      : {}),
+    openAuthorized: (masterKey) => {
+      if (masterKey === undefined) return;
+      const authorized = Buffer.from(masterKey);
+      releasedMaster = authorized;
+      try {
+        getLibraryService();
+      } finally {
+        authorized.fill(0);
+        releasedMaster = undefined;
+      }
+    },
+    closeAuthorized: closeLibraryForLock,
+    failClosed: relaunchLocked,
+  });
+}
+
+function getAppLockController(): AppLockHost {
+  appLockHost ??= new AppLockHost(buildAppLockController());
+  return appLockHost;
 }
 
 let restoreRuntime: RestoreRuntime | undefined;
 
 function getRestoreRuntime(): RestoreRuntime {
-  if (restoreRuntime === undefined) {
-    const emitProgress = createEmitter(events.restoreProgress, (name, payload) => {
+  restoreRuntime ??= createRestoreRuntime({
+    targetDir: libraryDataDir(),
+    safeStorage: pickSafeStorage,
+    sources: (providerId) => ensureRestoreProviderRegistry().restoreSources(providerId),
+    sessionId: ulid,
+    progress: createEmitter(events.restoreProgress, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
-    });
-    restoreRuntime = new RestoreRuntime({
-      targetDir: libraryDataDir(),
-      workerUrl: new URL('./thumbnail-worker.js', import.meta.url),
-      safeStorage: pickSafeStorage,
-      sources: (providerId) => ensureRestoreProviderRegistry().restoreSources(providerId),
-      sessionId: ulid,
-      progress: emitProgress,
-      beforeActivate: closeLibraryForRestore,
-      activationOperations: activationOperationsForHarness(harnessEnv('OVERLOOK_RESTORE_FAULT')),
-      workStarted: () => changeProviderWork(1),
-      workFinished: () => changeProviderWork(-1),
-      activated: () => {
-        if (harnessEnv('OVERLOOK_RESTORE_NO_RELAUNCH') === '1') return;
-        setTimeout(() => {
-          app.relaunch();
-          app.exit(0);
-        }, 250);
-      },
-    });
-  }
+    }),
+    beforeActivate: closeLibraryForRestore,
+    harnessEnv,
+    workChanged: changeProviderWork,
+  });
   return restoreRuntime;
 }
 
@@ -806,13 +807,13 @@ void externalOpen.whenReady().then(async () => {
       return libraryParts.keyStore.masterKeyBytes();
     },
     libraryId: () => getProviderRuntime().libraryId(),
-    dataDir: libraryDataDir(),
+    dataDir: () => libraryDataDir(),
     pickRecovery: () => pickRecoveryKeyPath(harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
     send: (name, payload) => broadcast((win) => win.webContents.send(name, payload)),
     settings: () => getSettingsStore().get(),
   });
   registerAppServices({
-    dataDir: libraryDataDir(),
+    dataDir: () => libraryDataDir(),
     harnessEnv,
     requireContentAccess: () => lock.requireContentAccess(),
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
@@ -853,25 +854,21 @@ void externalOpen.whenReady().then(async () => {
       workChanged: changeProviderWork,
     },
   });
-  const contentAvailable = lock.snapshot().state === 'unconfigured-unlocked' || lock.snapshot().state === 'unlocked';
-  const seedCount = Number(harnessEnv('OVERLOOK_SEED') ?? '0');
-  if (contentAvailable && Number.isInteger(seedCount) && seedCount > 0) {
-    getLibraryService();
-    if (libraryParts !== undefined) {
-      await libraryParts.blobStore.init();
-      await seedLibrary(libraryParts.db, libraryParts.blobStore, libraryParts.keyStore.currentKey(), seedCount);
-    }
-  }
-  // Metadata-only rows sharing one blob — the 200K grid perf baseline (#74).
-  // Like seedLibrary, a non-empty library is left untouched (re-runs on the
-  // same profile must not duplicate content hashes).
-  const syntheticCount = Number(harnessEnv('OVERLOOK_SEED_SYNTHETIC') ?? '0');
-  if (contentAvailable && Number.isInteger(syntheticCount) && syntheticCount > 0) {
-    const service = getLibraryService();
-    if (libraryParts !== undefined && service.stats().photos === 0) {
-      seedSynthetic(libraryParts.db, libraryParts.keyStore.currentKey().id, 'synthetic', syntheticCount);
-    }
-  }
+  await runDevSeeds({
+    contentAvailable: lock.snapshot().state === 'unconfigured-unlocked' || lock.snapshot().state === 'unlocked',
+    harnessEnv,
+    open: () => {
+      const service = getLibraryService();
+      if (libraryParts === undefined) return undefined;
+      const parts = libraryParts;
+      return {
+        db: parts.db,
+        blobStore: parts.blobStore,
+        currentKey: () => parts.keyStore.currentKey(),
+        photos: () => service.stats().photos,
+      };
+    },
+  });
   externalOpen.finishBootstrap();
 });
 
@@ -879,6 +876,12 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+registerQuitTeardown({
+  isLibraryOpen: () => libraryService !== undefined,
+  lockState: () => appLockHost?.snapshot().state,
+  close: closeLibraryForLock,
 });
 
 app.on('will-quit', () => {

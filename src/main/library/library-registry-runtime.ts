@@ -103,6 +103,12 @@ export class LibraryRegistryRuntime {
       this.virtualDefault = undefined;
       return this.active;
     }
+    // A registered directory that vanished (unplugged volume, moved path)
+    // must fail loud (#385): the id-mint below would otherwise mkdir and
+    // silently provision a fresh empty library where the real one lived.
+    if (!existsSync(entry.path)) {
+      throw new LibraryRegistryError(`library directory is missing: ${entry.path} — reconnect the volume or locate/remove the library`);
+    }
     const directoryId = readOrMintLibraryId(entry.path);
     if (directoryId !== entry.id) {
       this.active = this.getRegistry().updateId(entry.id, directoryId);

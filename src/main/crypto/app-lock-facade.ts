@@ -1,11 +1,11 @@
-import type { AppLockController } from './app-lock-controller.js';
+import type { AppLockControllerLike } from './app-lock-host.js';
 import { recoverAppLock } from './app-lock-recovery.js';
 
 export interface AppLockFacadeOptions {
-  readonly controller: AppLockController;
+  readonly controller: AppLockControllerLike;
   readonly currentMaster: () => Buffer;
   readonly libraryId: () => string;
-  readonly dataDir: string;
+  readonly dataDir: () => string;
   readonly pickRecovery: () => Promise<string | null>;
 }
 
@@ -33,7 +33,7 @@ export function createAppLockFacade(options: AppLockFacadeOptions) {
     recover: (path: string, recoveryPassword: string, nextPassword: string) =>
       recoverAppLock({
         controller: options.controller,
-        dataDir: options.dataDir,
+        dataDir: options.dataDir(),
         libraryId: options.libraryId(),
         path,
         recoveryPassword,

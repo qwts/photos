@@ -41,7 +41,7 @@ import type { ThumbService } from './thumbs/thumb-service.js';
 import { getDiagnosticsService } from './diagnostics/diagnostics-runtime.js';
 
 export interface AppServicesOptions {
-  readonly dataDir: string;
+  readonly dataDir: () => string;
   readonly harnessEnv: (name: string) => string | undefined;
   readonly requireContentAccess: () => void;
   readonly allowKeyImport: () => boolean;
@@ -103,7 +103,7 @@ export function registerAppServices(options: AppServicesOptions): void {
     createRecoveryKeyFacade({
       keyStore: options.getKeyStore,
       safeStorage: options.safeStorage,
-      dataDir: () => options.dataDir,
+      dataDir: options.dataDir,
       allowImport: options.allowKeyImport,
       pickExportDestination: () => pickKeyExport(options),
       pickImportSource: () => pickRecoveryKeyPath(options.harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
@@ -112,7 +112,7 @@ export function registerAppServices(options: AppServicesOptions): void {
   registerRestoreHandlers(() =>
     createRestoreFacade({
       coordinator: () => options.getRestore().coordinator,
-      fresh: () => !existsSync(path.join(options.dataDir, 'library.db')),
+      fresh: () => !existsSync(path.join(options.dataDir(), 'library.db')),
       pickKey: () => pickRecoveryKeyPath(options.harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
       busy: options.providerBusy,
     }),

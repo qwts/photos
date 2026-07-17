@@ -1,7 +1,7 @@
 import { app, BrowserWindow, powerMonitor } from 'electron';
 
 import type { AppSettings } from '../../shared/settings/settings.js';
-import type { AppLockController } from './app-lock-controller.js';
+import type { AppLockControllerLike } from './app-lock-host.js';
 import { registerHiddenWindowLock, type HiddenWindowLockSource } from './hidden-window-lock.js';
 import { idleLimitSeconds } from './app-lock-policy.js';
 import { registerLastWindowLock } from './last-window-lock.js';
@@ -9,7 +9,7 @@ import { registerLastWindowLock } from './last-window-lock.js';
 const POLL_MS = 15_000;
 
 export interface AppLockLifecycleOptions {
-  readonly controller: AppLockController;
+  readonly controller: AppLockControllerLike;
   readonly settings: () => Pick<AppSettings, 'appLockIdle' | 'lockWhenHidden'>;
 }
 
