@@ -12,8 +12,24 @@ export interface LightboxTransform extends LightboxPoint {
   readonly zoom: number;
 }
 
+export interface LightboxOrientation {
+  readonly quarterTurns: 0 | 1 | 2 | 3;
+  readonly flipped: boolean;
+}
+
+export const DEFAULT_ORIENTATION: LightboxOrientation = { quarterTurns: 0, flipped: false };
+
 export const ZOOM_MIN = 0.25;
 export const ZOOM_MAX = 8;
+
+export function rotateOrientation(orientation: LightboxOrientation, delta: -1 | 1): LightboxOrientation {
+  const quarterTurns = (orientation.quarterTurns + delta + 4) % 4;
+  return { ...orientation, quarterTurns: quarterTurns as LightboxOrientation['quarterTurns'] };
+}
+
+export function orientedSize(size: LightboxSize, orientation: LightboxOrientation): LightboxSize {
+  return orientation.quarterTurns % 2 === 0 ? size : { width: size.height, height: size.width };
+}
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
