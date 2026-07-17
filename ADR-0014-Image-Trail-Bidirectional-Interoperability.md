@@ -171,3 +171,7 @@ surface through shared status/error vocabulary instead of format branches.
 - Cross-product acceptance tests must cover valid, invalid, corrupt, replay,
   unsupported-version, round-trip, interruption, duplicate, conflict, and
   deletion cases for every supported transport.
+- The canonical checksum includes the executable cross-repository evidence map.
+  Normal CI validates automated references; epic closure additionally requires
+  every owner-run entry in the [Interop Closeout Evidence](Interop-Closeout-Evidence)
+  runbook to be verified with a timestamped GitHub result.

@@ -28,3 +28,7 @@ Automated evidence:
 - `tests/interop/transport.test.ts`
 - `tests/backup/pcloud-provider.test.ts`
 - `tests/backup/google-drive-provider.test.ts`
+
+Released-provider evidence and recovery steps are recorded through
+[Interop Closeout Evidence](Interop-Closeout-Evidence). Mocked provider results
+cannot mark those owner-run checks verified.
