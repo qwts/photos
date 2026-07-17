@@ -86,6 +86,9 @@ jobs:
             # a valid signature and a Gatekeeper pass (notarization is checked
             # online) are hard requirements of the signed path (#128).
             app=$(find release -maxdepth 2 -name '*.app' | head -1)
+            if [ -n "$MAC_PROVISIONING_PROFILE_B64" ]; then
+              node scripts/verify-macos-provisioned-app.mjs "$app"
+            fi
             codesign --verify --deep --strict --verbose=2 "$app"
             spctl --assess --type execute --verbose=2 "$app"
             archive=$(find release -maxdepth 1 -name '*-mac.zip' | head -1)

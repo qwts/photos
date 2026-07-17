@@ -88,9 +88,9 @@ describe('macOS release signing safety (#357)', () => {
     ]) {
       assert.match(provisionedVerifier, new RegExp(contract.replace(/[().]/gu, '\\$&'), 'u'));
     }
-    assert.match(provisionedVerifier, /derq/u);
+    assert.match(provisionedVerifier, /codesign/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
-    for (const binary of ['derq', 'ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
+    for (const binary of ['ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
   });
 });
 

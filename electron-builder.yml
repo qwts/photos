@@ -34,6 +34,8 @@ asarUnpack:
 # (#236). Committed so CI needs no icon tooling.
 mac:
   icon: build/icon.icns
+  extendInfo:
+    NSFaceIDUsageDescription: Unlock Overlook with Touch ID.
   target:
     - dmg
     - zip
