@@ -59,7 +59,11 @@ const meta: Meta<typeof ProtectedAlbumCeremony> = {
 export default meta;
 type Story = StoryObj<typeof ProtectedAlbumCeremony>;
 
-const enterStrongPassword = async (body: ReturnType<typeof within>): Promise<void> => {
+interface PasswordCanvas {
+  readonly getByLabelText: (text: string) => HTMLElement;
+}
+
+const enterStrongPassword = async (body: PasswordCanvas): Promise<void> => {
   await userEvent.type(body.getByLabelText('New protected album password'), 'Correct Horse Battery Staple 42!');
   await userEvent.type(body.getByLabelText('Confirm protected album password'), 'Correct Horse Battery Staple 42!');
 };

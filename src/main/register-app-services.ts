@@ -76,7 +76,6 @@ export function registerAppServices(options: AppServicesOptions): void {
   registerLibraryHandlers(options.getLibrary, options.onDeleted);
   registerAlbumHandlers(options.getLibrary, ulid);
   registerProtectedAlbumHandlers(
-    () => options.getProtected().albums,
     () => options.getProtected().library,
     () => options.getProtected().exports(),
     () => options.getProtected().workflow,

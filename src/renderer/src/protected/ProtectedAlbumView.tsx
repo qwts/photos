@@ -27,15 +27,20 @@ export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedA
   const [summary, setSummary] = useState<ProtectedAlbumSummary | null>(null);
   const [photos, setPhotos] = useState<readonly ProtectedPhotoRecord[]>([]);
   const [cursor, setCursor] = useState<ProtectedPageCursor | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
   const relockedRef = useRef(false);
   const requestRef = useRef(0);
+  const scheduledRelockRef = useRef<{ readonly albumId: string; cancelled: boolean } | null>(null);
+  const requestKey = `${albumId}\0${query}\0${generation}`;
+  const loading = loadedKey !== requestKey || loadingMore;
 
   const unavailable = useCallback((): void => {
     if (relockedRef.current) return;
     relockedRef.current = true;
+    requestRef.current += 1;
     setPhotos([]);
     setSummary(null);
     setFocusedId(null);
@@ -43,17 +48,36 @@ export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedA
   }, [onRelocked]);
 
   useEffect(() => {
+    const scheduled = scheduledRelockRef.current;
+    if (scheduled?.albumId === albumId) {
+      scheduled.cancelled = true;
+      scheduledRelockRef.current = null;
+    }
     relockedRef.current = false;
     return () => {
-      if (!relockedRef.current) void window.overlook.protectedAlbums.relock({ albumId });
+      if (relockedRef.current) return;
+      const pending = { albumId, cancelled: false };
+      scheduledRelockRef.current = pending;
+      queueMicrotask(() => {
+        if (!pending.cancelled) void window.overlook.protectedAlbums.relock({ albumId });
+      });
     };
   }, [albumId]);
 
-  useEffect(() => window.overlook.protectedAlbums.onChanged(() => setGeneration((value) => value + 1)), []);
+  useEffect(
+    () =>
+      window.overlook.protectedAlbums.onChanged(() => {
+        requestRef.current += 1;
+        setPhotos([]);
+        setSummary(null);
+        setFocusedId(null);
+        setGeneration((value) => value + 1);
+      }),
+    [],
+  );
 
   useEffect(() => {
     const request = ++requestRef.current;
-    setLoading(true);
     void Promise.all([
       window.overlook.protectedAlbums.summary({ albumId }),
       window.overlook.protectedAlbums.page({ albumId, limit: PAGE_SIZE, query }),
@@ -63,29 +87,32 @@ export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedA
         setSummary(nextSummary);
         setPhotos(page.photos);
         setCursor(page.nextCursor);
+        setLoadedKey(requestKey);
       })
-      .catch(unavailable)
-      .finally(() => {
-        if (request === requestRef.current) setLoading(false);
-      });
-  }, [albumId, generation, query, unavailable]);
+      .catch(unavailable);
+  }, [albumId, query, requestKey, unavailable]);
 
   const loadMore = useCallback((): void => {
     if (cursor === null || loading || relockedRef.current) return;
-    setLoading(true);
+    const request = ++requestRef.current;
+    setLoadingMore(true);
     void window.overlook.protectedAlbums
       .page({ albumId, limit: PAGE_SIZE, query, cursor })
       .then((page) => {
+        if (request !== requestRef.current || relockedRef.current) return;
         setPhotos((current) => [...current, ...page.photos]);
         setCursor(page.nextCursor);
       })
       .catch(unavailable)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (request === requestRef.current) setLoadingMore(false);
+      });
   }, [albumId, cursor, loading, query, unavailable]);
 
   const relock = (): void => {
     if (relockedRef.current) return;
     relockedRef.current = true;
+    requestRef.current += 1;
     setPhotos([]);
     setSummary(null);
     setFocusedId(null);

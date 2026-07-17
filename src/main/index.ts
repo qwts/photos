@@ -109,8 +109,7 @@ interface LibraryParts {
   readonly protected: ProtectedRuntime;
 }
 
-let libraryParts: LibraryParts | undefined;
-let releasedMaster: Buffer | undefined;
+let libraryParts: LibraryParts | undefined, releasedMaster: Buffer | undefined;
 
 function getLibraryService(): LibraryService {
   if (libraryService === undefined) {
@@ -128,8 +127,6 @@ function getLibraryService(): LibraryService {
     }
     const db = openLibraryDatabase({ path: path.join(dataDir, 'library.db'), dbKey });
     const store = new BlobStore({ dataDir });
-    // Reads fail clean before init, but WRITES race the directory creation
-    // on a fresh profile — importers await this promise (PR #183 review).
     const blobStoreReady = store.init();
     // photos.key_id references keys(id): the current key's row must exist
     // before the FIRST real import on a fresh profile (#90 caught this —
