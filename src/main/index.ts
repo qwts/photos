@@ -13,7 +13,7 @@ import { drainWithCancellationFence } from './crypto/library-shutdown.js';
 import { TestFileCredentialAnchorStore } from './crypto/test-credential-anchor.js';
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
 import { openLibraryDatabase } from './db/database.js';
-import { PhotosRepository } from './db/photos-repository.js';
+import { PhotosRepository, verifySearchIndexAsync } from './db/photos-repository.js';
 import { run } from './db/sql.js';
 import type { FullService } from './fullres/full-service.js';
 import { createFullRuntime } from './fullres/full-runtime.js';
@@ -399,8 +399,7 @@ const startupMaintenance = new StartupMaintenance({
   purge: () => getPurgeService().purgeExpired(),
   repair: () => consistencyChecker?.repair(),
   rawRepair: () => getRawRepairService().repair(),
-  verifySearchIndex: () =>
-    libraryParts === undefined ? undefined : Promise.resolve(new PhotosRepository(libraryParts.db).verifySearchIndex()),
+  verifySearchIndex: () => libraryParts && verifySearchIndexAsync(libraryParts.db),
 });
 
 function cancelScheduledLibraryWork(): void {

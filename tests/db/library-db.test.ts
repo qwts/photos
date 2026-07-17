@@ -516,6 +516,33 @@ describe('PhotosRepository', () => {
     db.close();
   });
 
+  test('page(query) keyset-pages a tied-rank group without duplicates or gaps (#390)', () => {
+    // Identical searchable text on every row forces an exact bm25 tie
+    // across the whole set — FTS5 only guarantees `rank` order, so within
+    // a tie it emits rows in its own internal order, not p.id order. A
+    // cursor that breaks ties by p.id (instead of resolving back to the
+    // matching photo's rowid) can duplicate or skip rows once a tied group
+    // spans a page boundary.
+    const { db, repo } = openSeeded();
+    const ids: string[] = [];
+    for (let i = 0; i < 60; i += 1) {
+      const photo = samplePhoto({ place: 'Kyoto', camera: 'FUJIFILM X-T5' });
+      ids.push(photo.id);
+      repo.insert(photo);
+    }
+    const seen: string[] = [];
+    let cursor = undefined;
+    for (let i = 0; i < 30; i += 1) {
+      const page = repo.page({ source: 'all', limit: 2, query: 'kyoto', cursor });
+      seen.push(...page.photos.map((photo) => photo.id));
+      cursor = page.nextCursor ?? undefined;
+    }
+    assert.equal(seen.length, 60, `expected 60 rows with no duplicates/gaps, got ${String(seen.length)}`);
+    assert.equal(new Set(seen).size, 60);
+    assert.deepEqual(new Set(seen), new Set(ids));
+    db.close();
+  });
+
   test('search index integrity check is a no-op when healthy; corruption triggers rebuild (#390)', () => {
     const { db, repo } = openSeeded();
     const kyoto = samplePhoto({ place: 'Kyoto' });
