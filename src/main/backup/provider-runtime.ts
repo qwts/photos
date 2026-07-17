@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { SafeStorageLike } from '../crypto/keystore.js';
-import { ulid } from '../import/ulid.js';
+import { readOrMintLibraryId } from '../library/library-id.js';
 import { bundledGoogleDriveClientId } from '../build-config.js';
 import { createActiveProvider } from './active-provider.js';
 import { GoogleDriveAuthClient } from './google-drive/auth-client.js';
@@ -220,27 +219,12 @@ export class ProviderRuntime {
     return { ok: true, reason: null };
   }
 
-  /** The library's remote identity (ADR-0007): a ULID minted lazily on
-   * first need and persisted next to the library — restores keep uploading
-   * into the same /Overlook/<id>/ home. */
+  /** The library's remote identity (ADR-0007) — the same ULID as the local
+   * library identity (ADR-0017 §2), read from <dataDir>/library-id. Since
+   * #384 the registry mints it eagerly; the mint fallback here covers
+   * pre-registry directories opened directly. */
   libraryId(): string {
-    const idPath = join(this.options.dataDir(), 'library-id');
-    if (existsSync(idPath)) {
-      const stored = readFileSync(idPath, 'utf8').trim();
-      // Only a well-formed ULID names a remote home (PR #260 review): a
-      // truncated/corrupted record would poison every future remote path
-      // (even ''), so it is replaced — it never named a valid home.
-      if (/^[0-9A-HJKMNP-TV-Z]{26}$/u.test(stored)) {
-        return stored;
-      }
-    }
-    const id = ulid();
-    mkdirSync(this.options.dataDir(), { recursive: true });
-    // Atomic like every other library record — a crash mid-write must not
-    // leave a half-written id behind.
-    writeFileSync(`${idPath}.tmp`, id);
-    renameSync(`${idPath}.tmp`, idPath);
-    return id;
+    return readOrMintLibraryId(this.options.dataDir());
   }
 
   /** Who Connect targets while disconnected: packaged builds are
