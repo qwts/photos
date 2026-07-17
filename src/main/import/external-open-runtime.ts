@@ -18,11 +18,17 @@ export interface ExternalOpenAuthorizationSource {
   readonly subscribe: (listener: (state: { readonly state: string }) => void) => unknown;
 }
 
+export interface ExternalOpenRuntimeOptions {
+  /** Unpackaged harness profiles are already isolated by userData and must be
+   * allowed to run concurrently across Playwright workers. */
+  readonly isolatedHarnessProfile?: boolean;
+}
+
 /** Installs pre-ready OS document handlers before Electron can dispatch macOS
  * open-file events. Every path then enters one coalesced renderer queue. */
-export function createExternalOpenRuntime(): ExternalOpenRuntime {
+export function createExternalOpenRuntime(options: ExternalOpenRuntimeOptions = {}): ExternalOpenRuntime {
   const initialOpenPaths = commandLineOpenPaths(process.argv, app.isPackaged, process.cwd());
-  const primaryInstance = app.requestSingleInstanceLock();
+  const primaryInstance = options.isolatedHarnessProfile === true || app.requestSingleInstanceLock();
   if (!primaryInstance) app.quit();
 
   const emit = createEmitter(events.importExternalPaths, (name, payload) => {

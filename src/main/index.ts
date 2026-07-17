@@ -68,7 +68,7 @@ function harnessEnv(name: string): string | undefined {
 const userDataOverride = harnessEnv('OVERLOOK_USER_DATA');
 if (userDataOverride !== undefined && userDataOverride !== '') app.setPath('userData', userDataOverride);
 
-const externalOpen = createExternalOpenRuntime();
+const externalOpen = createExternalOpenRuntime({ isolatedHarnessProfile: userDataOverride !== undefined && userDataOverride !== '' });
 
 registerSchemePrivileges();
 
