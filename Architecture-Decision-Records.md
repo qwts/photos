@@ -27,7 +27,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0017](ADR-0017-Multi-Library-Registry-Keying-And-Lifecycle)     | Multi-Library Registry & Lifecycle | Accepted |
 | [ADR-0018](ADR-0018-Semantic-Search-And-Language-Model-Architecture) | Semantic Search & LLM Architecture | Accepted |
 | [ADR-0019](ADR-0019-User-Theme-Contract)                             | User Theme Contract                | Accepted |
-| [ADR-0020](ADR-0020-Internationalization-Architecture)               | i18n Architecture                  | Proposed |
+| [ADR-0020](ADR-0020-Internationalization-Architecture)               | i18n Architecture                  | Accepted |
 
 ## Template
 

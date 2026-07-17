@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed 2026-07-17 on issue [#402](https://github.com/qwts/photos/issues/402), awaiting owner sign-off. This ADR extends [ADR-0001](ADR-0001-Automation-Check-Governance) (the ratchet in §6 is governed by it) and works within [ADR-0003](ADR-0003-Desktop-Stack) (process layering); it rewrites nothing.
+Accepted 2026-07-17 on issue [#402](https://github.com/qwts/photos/issues/402) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands). This ADR extends [ADR-0001](ADR-0001-Automation-Check-Governance) (the ratchet in §6 is governed by it) and works within [ADR-0003](ADR-0003-Desktop-Stack) (process layering); it rewrites nothing.
 
 Section map for the epic's children: §1, §2, §6 govern [#403](https://github.com/qwts/photos/issues/403) (catalog runtime, extraction, pseudo-locale gate); §3, §4 govern [#404](https://github.com/qwts/photos/issues/404) (locale-aware formatting); §2, §3, §5 govern [#405](https://github.com/qwts/photos/issues/405) (language setting, live switching, RTL). §7 governs the epic's translation workflow.
 
