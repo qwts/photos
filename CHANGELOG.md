@@ -1,5 +1,11 @@
 # photos
 
+## 0.26.1
+
+### Patch Changes
+
+- bd9e602: Restore the lightbox orientation toolbar with view-only rotate, flip, and reset controls.
+
 ## 0.26.0
 
 ### Minor Changes
