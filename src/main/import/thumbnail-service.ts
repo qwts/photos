@@ -41,16 +41,33 @@ export class ThumbnailService {
    * crash), which the import engine surfaces as retryable.
    */
   async generateFor(request: ThumbnailRequest): Promise<ThumbnailOutcome> {
+    return this.generateAndStore(request, false);
+  }
+
+  /** Repair path: new encrypted derivatives atomically replace missing or
+   * corrupt legacy envelopes only after decode succeeds. */
+  async regenerateFor(request: ThumbnailRequest): Promise<ThumbnailOutcome> {
+    return this.generateAndStore(request, true);
+  }
+
+  private async generateAndStore(request: ThumbnailRequest, replace: boolean): Promise<ThumbnailOutcome> {
     const derivatives = await this.pool.generate(request.bytes, request.signal, request.fileKind);
     if (derivatives === null) {
       return { generated: false, width: null, height: null };
     }
-    await this.store(request, derivatives);
+    await this.store(request, derivatives, replace);
     return { generated: true, width: derivatives.width, height: derivatives.height };
   }
 
-  private async store(request: ThumbnailRequest, derivatives: ThumbnailDerivatives): Promise<void> {
-    await this.blobStore.putThumb(Readable.from([derivatives.thumb]), request.key, request.photoId, request.contentHash, 'thumb');
-    await this.blobStore.putThumb(Readable.from([derivatives.mid]), request.key, request.photoId, request.contentHash, 'mid');
+  private async store(request: ThumbnailRequest, derivatives: ThumbnailDerivatives, replace: boolean): Promise<void> {
+    const put = async (bytes: Buffer, size: 'thumb' | 'mid'): Promise<void> => {
+      if (replace) {
+        await this.blobStore.replaceThumb(Readable.from([bytes]), request.key, request.photoId, request.contentHash, size);
+      } else {
+        await this.blobStore.putThumb(Readable.from([bytes]), request.key, request.photoId, request.contentHash, size);
+      }
+    };
+    await put(derivatives.thumb, 'thumb');
+    await put(derivatives.mid, 'mid');
   }
 }

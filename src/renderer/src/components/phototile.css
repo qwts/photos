@@ -33,6 +33,23 @@
   transition: transform var(--duration-fast) var(--ease-out);
 }
 
+.ovl-tile__img[data-unavailable='true'] {
+  visibility: hidden;
+}
+
+.ovl-tile__unavailable {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  pointer-events: none;
+}
+
 .ovl-tile--selected .ovl-tile__img {
   transform: scale(0.92);
   border-radius: 2px;

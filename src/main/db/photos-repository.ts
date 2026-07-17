@@ -4,6 +4,7 @@ import { markDirty } from '../backup/sync-ledger.js';
 import type { BackupIntegrityItem } from '../backup/integrity-scrubber.js';
 import type { BackupManifestPhotoV2, BackupManifestSnapshot, RestorableBackupManifest } from '../backup/backup-manifest.js';
 import type { WrappedKeyRecord } from '../crypto/keystore.js';
+import type { ExtractedMetadata } from '../import/exif.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
 import type {
@@ -228,6 +229,65 @@ export class PhotosRepository {
       markDirty(this.db, photoId);
       return true;
     })();
+  }
+
+  /** Live, locally readable RAW rows eligible for background preview repair.
+   * Offloaded originals are never downloaded implicitly by maintenance. */
+  rawRepairCandidates(): readonly PhotoRecord[] {
+    return queryAll<PhotoRow>(
+      this.db,
+      `${SELECT}
+       WHERE p.deleted_at IS NULL AND p.file_kind = 'raw'
+         AND COALESCE(l.status, 'local') <> 'offloaded'
+       ORDER BY p.imported_at, p.id`,
+    ).map(toRecord);
+  }
+
+  /** Fills only unknown RAW metadata. Trusted existing values are immutable;
+   * a real change dirties the manifest so cloud metadata converges. */
+  repairRawMetadata(photoId: string, metadata: ExtractedMetadata): boolean {
+    const current = this.get(photoId);
+    if (current === undefined || current.fileKind !== 'raw') return false;
+    const next = {
+      width: current.width <= 0 ? (metadata.width ?? current.width) : current.width,
+      height: current.height <= 0 ? (metadata.height ?? current.height) : current.height,
+      camera: current.camera ?? metadata.camera,
+      lens: current.lens ?? metadata.lens,
+      iso: current.iso ?? metadata.iso,
+      aperture: current.aperture ?? metadata.aperture,
+      shutter: current.shutter ?? metadata.shutter,
+      focalLength: current.focalLength ?? metadata.focalLength,
+      takenAt: current.takenAt ?? metadata.takenAt,
+      gpsLat: current.gpsLat ?? metadata.gpsLat,
+      gpsLon: current.gpsLon ?? metadata.gpsLon,
+    };
+    if (
+      next.width === current.width &&
+      next.height === current.height &&
+      next.camera === current.camera &&
+      next.lens === current.lens &&
+      next.iso === current.iso &&
+      next.aperture === current.aperture &&
+      next.shutter === current.shutter &&
+      next.focalLength === current.focalLength &&
+      next.takenAt === current.takenAt &&
+      next.gpsLat === current.gpsLat &&
+      next.gpsLon === current.gpsLon
+    ) {
+      return false;
+    }
+    runNamed(
+      this.db,
+      `UPDATE photos SET
+         width = @width, height = @height, camera = @camera, lens = @lens,
+         iso = @iso, aperture = @aperture, shutter = @shutter,
+         focal_length = @focalLength, taken_at = @takenAt,
+         gps_lat = @gpsLat, gps_lon = @gpsLon
+       WHERE id = @id AND file_kind = 'raw'`,
+      { id: photoId, ...next },
+    );
+    markDirty(this.db, photoId);
+    return true;
   }
 
   /** Soft delete (#120): rows move to Recently deleted, restorable — no

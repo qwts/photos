@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
-import { link, mkdir, open, readdir, rm, stat } from 'node:fs/promises';
+import { link, mkdir, open, readdir, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -159,11 +159,19 @@ export class BlobStore {
     return this.put(plaintext, key, photoId, () => this.thumbPath(originalHash, size));
   }
 
+  /** Atomically replaces a derivative envelope after a repair decoded the
+   * original again. Originals always retain no-replace custody semantics. */
+  async replaceThumb(plaintext: Readable, key: EnvelopeKey, photoId: string, originalHash: string, size: ThumbSize): Promise<BlobRef> {
+    assertHash(originalHash);
+    return this.put(plaintext, key, photoId, () => this.thumbPath(originalHash, size), true);
+  }
+
   private async put(
     plaintext: Readable,
     key: EnvelopeKey,
     photoId: string,
     destination: (contentHash: string) => string,
+    replace = false,
   ): Promise<BlobRef> {
     const stagePath = join(this.tmpDir, `stage-${randomBytes(8).toString('hex')}`);
     const hasher = createHash('sha256');
@@ -186,6 +194,11 @@ export class BlobStore {
       const contentHash = hasher.digest('hex');
       const finalPath = destination(contentHash);
       await mkdir(dirname(finalPath), { recursive: true });
+      if (replace) {
+        await rename(stagePath, finalPath);
+        await fsyncDir(dirname(finalPath));
+        return { contentHash, keyId: key.id, bytes: plainBytes };
+      }
       // Atomic no-replace publish: link() fails with EEXIST instead of
       // clobbering. A collision means these bytes are already stored under
       // an envelope whose AAD binds the ORIGINAL photo id — replacing it

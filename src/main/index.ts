@@ -1,4 +1,3 @@
-import { readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
@@ -18,13 +17,11 @@ import { PhotosRepository } from './db/photos-repository.js';
 import { run } from './db/sql.js';
 import type { FullService } from './fullres/full-service.js';
 import { createFullRuntime } from './fullres/full-runtime.js';
-import { extractMetadata } from './import/exif.js';
-import { ImportEngine } from './import/import-engine.js';
-import { ImportJournal } from './import/import-journal.js';
-import { ImportService } from './import/import-service.js';
-import { ThumbnailPool } from './import/thumbnail-pool.js';
-import { ThumbnailService } from './import/thumbnail-service.js';
 import { createExternalOpenRuntime } from './import/external-open-runtime.js';
+import { createImportRuntime, type ImportRuntime } from './import/import-runtime.js';
+import type { ImportService } from './import/import-service.js';
+import { createRawRepairRuntime } from './import/raw-repair-runtime.js';
+import type { RawRepairService } from './import/raw-repair-service.js';
 import { ulid } from './import/ulid.js';
 import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
@@ -167,7 +164,6 @@ function getLibraryService(): LibraryService {
       keyStore,
       protected: protectedRuntime,
     };
-    startupMaintenance.schedule();
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -185,13 +181,15 @@ function getLibraryService(): LibraryService {
         }
       },
     });
+    startupMaintenance.schedule();
   }
   return libraryService;
 }
 
-let importService: ImportService | undefined, thumbnailPool: ThumbnailPool | undefined;
+let importRuntime: ImportRuntime | undefined;
+let rawRepairService: RawRepairService | undefined;
 function getImportService(): ImportService {
-  if (importService === undefined) {
+  if (importRuntime === undefined) {
     getLibraryService();
     const parts = libraryParts;
     if (parts === undefined) {
@@ -213,51 +211,16 @@ function getImportService(): ImportService {
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    thumbnailPool = new ThumbnailPool({ workerUrl: new URL('./thumbnail-worker.js', import.meta.url) });
-    const thumbs = new ThumbnailService(thumbnailPool, parts.blobStore);
-    const journal = new ImportJournal(path.join(app.getPath('userData'), 'library', 'import-journal.json'));
-    const engine = new ImportEngine({
-      readFile: async (filePath) => readFile(filePath),
-      deleteFile: async (filePath) => unlink(filePath),
-      readManifest: async () => journal.read(),
-      writeManifest: async (manifest) => journal.write(manifest),
-      repo: {
-        hasContentHash: (hash) => repo.hasContentHash(hash),
-        get: (id) => repo.get(id),
-        insert: (photo) => repo.insert(photo),
-        repairDimensions: (id, width, height) => repo.repairDimensions(id, width, height),
-      },
-      blobs: {
-        putOriginal: async (plaintext, key, photoId) => {
-          await parts.blobStoreReady;
-          return parts.blobStore.putOriginal(plaintext, key, photoId);
-        },
-        verifyOriginal: async (contentHash, resolveKey, photoId) => parts.blobStore.verifyOriginal(contentHash, resolveKey, photoId),
-      },
-      generateThumbs: async (request) => {
-        await parts.blobStoreReady;
-        return thumbs.generateFor(request);
-      },
-      extractMetadata,
+    importRuntime = createImportRuntime({
+      dataDir: path.join(app.getPath('userData'), 'library'),
+      workerUrl: new URL('./thumbnail-worker.js', import.meta.url),
+      repo,
+      blobs: parts.blobStore,
+      blobsReady: parts.blobStoreReady,
       currentKey: () => parts.keyStore.currentKey(),
       resolveKey: parts.keyStore.resolver(),
-      newId: ulid,
-      now: () => new Date().toISOString(),
       events: {
-        copyProgress: (done, total) => {
-          emitCopyProgress({ done, total });
-        },
-        thumbProgress: (done, total) => {
-          emitThumbProgress({ done, total });
-        },
-      },
-    });
-    importService = new ImportService(
-      repo,
-      {
-        scanProgress: (path, progress) => {
-          emitScanProgress({ path, ...progress });
-        },
+        scanProgress: (scanPath, progress) => emitScanProgress({ path: scanPath, ...progress }),
         copyProgress: (done, total) => {
           emitCopyProgress({ done, total });
         },
@@ -269,26 +232,44 @@ function getImportService(): ImportService {
           emitPending({ count: repo.stats().pending });
         },
       },
-      engine,
-      () => harnessEnv('OVERLOOK_IMPORT_SOURCE'),
-    );
-    // Crash-safety (#87): a journaled batch from an interrupted run
-    // completes before any new import starts. Recovered photos get the same
-    // auto-backup guarantee as IPC imports (#111) — the crash already cost
-    // the user once.
-    void importService
-      .resume()
-      .then((summary) => {
-        if (summary !== null && summary.imported > 0) {
-          getBackupEngine();
-          autoBackupTrigger?.();
-        }
-      })
-      .catch((error: unknown) => {
-        console.error('[overlook] import resume failed', error);
-      });
+      fixtureSource: () => harnessEnv('OVERLOOK_IMPORT_SOURCE'),
+      resumed: () => {
+        getBackupEngine();
+        autoBackupTrigger?.();
+      },
+    });
   }
-  return importService;
+  return importRuntime.service;
+}
+
+function getRawRepairService(): RawRepairService {
+  if (rawRepairService !== undefined) return rawRepairService;
+  getImportService();
+  const parts = libraryParts;
+  const runtime = importRuntime;
+  if (parts === undefined || runtime === undefined) throw new Error('library bootstrap failed; RAW repair unavailable');
+  const repo = new PhotosRepository(parts.db);
+  const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
+    broadcast((win) => win.webContents.send(name, payload));
+  });
+  rawRepairService = createRawRepairRuntime({
+    repo,
+    blobs: parts.blobStore,
+    blobsReady: parts.blobStoreReady,
+    thumbnails: runtime.thumbnails,
+    currentKey: () => parts.keyStore.currentKey(),
+    resolveKey: parts.keyStore.resolver(),
+    changed: (photoIds) => {
+      for (const photoId of photoIds) {
+        thumbService?.invalidate(photoId);
+        fullService?.invalidate(photoId);
+      }
+      emitLibraryChanged({ photoIds: [...photoIds] });
+      emitPending({ count: repo.stats().pending });
+      scheduleAutoBackup();
+    },
+  });
+  return rawRepairService;
 }
 
 let thumbService: ThumbService | undefined;
@@ -417,6 +398,7 @@ let consistencyChecker: ConsistencyChecker | undefined;
 const startupMaintenance = new StartupMaintenance({
   purge: () => getPurgeService().purgeExpired(),
   repair: () => consistencyChecker?.repair(),
+  rawRepair: () => getRawRepairService().repair(),
 });
 
 function cancelScheduledLibraryWork(): void {
@@ -699,13 +681,14 @@ function getExportFacade(): DrainableExportFacade {
 async function closeLibrary(drainRestore: boolean): Promise<void> {
   autoBackupTrigger = undefined;
   manifestSyncTrigger = undefined;
-  importService?.close();
+  importRuntime?.service.close();
   exportFacade?.close();
   libraryParts?.protected.cancel();
   purgeRuntime?.close();
+  rawRepairService?.close();
   for (const controller of activeBackupControllers) controller.abort();
   await drainWithCancellationFence(cancelScheduledLibraryWork, [
-    importService?.drain() ?? Promise.resolve(),
+    importRuntime?.service.drain() ?? Promise.resolve(),
     exportFacade?.drain() ?? Promise.resolve(),
     libraryParts?.protected.drain() ?? Promise.resolve(),
     purgeRuntime?.drain() ?? Promise.resolve(),
@@ -714,7 +697,7 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
     drainRestore ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
     drainRestore ? providerIdle() : Promise.resolve(),
     Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),
-    thumbnailPool?.close() ?? Promise.resolve(),
+    importRuntime?.pool.close() ?? Promise.resolve(),
     ...(drainRestore ? [session.defaultSession.clearCache(), reloadContentWindowsForLock()] : []),
   ]);
   libraryParts?.protected.close();
@@ -722,8 +705,8 @@ async function closeLibrary(drainRestore: boolean): Promise<void> {
   libraryParts?.keyStore.close();
   libraryService = undefined;
   libraryParts = undefined;
-  importService = undefined;
-  thumbnailPool = undefined;
+  importRuntime = undefined;
+  rawRepairService = undefined;
   thumbService = undefined;
   fullService = undefined;
   backupEngine = undefined;
@@ -887,5 +870,5 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
   externalOpen.close();
   restoreRuntime?.dispose();
-  void thumbnailPool?.close();
+  void importRuntime?.pool.close();
 });
