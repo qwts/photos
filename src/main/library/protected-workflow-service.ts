@@ -52,6 +52,12 @@ export class ProtectedWorkflowService {
     return true;
   }
 
+  relock(albumId: string): boolean {
+    const relocked = this.options.albums.relock(albumId);
+    if (relocked) this.options.changed();
+    return relocked;
+  }
+
   async changePassword(albumId: string, currentPassword: string, nextPassword: string): Promise<boolean> {
     const changed = await this.options.albums.changePassword(albumId, currentPassword, nextPassword);
     if (changed) this.options.changed();
@@ -93,6 +99,7 @@ export class ProtectedWorkflowService {
     if (pendingRemoval !== undefined) {
       return this.resumeRemoval(albumId, unlocked.metadata, pendingRemoval.migrationId);
     }
+    this.options.changed();
     return { ok: true, outcome: 'opened' };
   }
 

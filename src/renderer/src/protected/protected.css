@@ -1,0 +1,204 @@
+.ovl-protected-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ovl-protected-settings {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-1);
+}
+
+.ovl-protected-settings__head,
+.ovl-protected-settings__row,
+.ovl-protected-settings__identity,
+.ovl-protected-settings__actions,
+.ovl-protected-file {
+  display: flex;
+  align-items: center;
+}
+
+.ovl-protected-settings__head,
+.ovl-protected-settings__row,
+.ovl-protected-file {
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ovl-protected-settings__group {
+  margin-top: var(--space-2);
+  color: var(--text-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.ovl-protected-settings__row {
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+}
+
+.ovl-protected-settings__identity {
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.ovl-protected-settings__name,
+.ovl-protected-file__name {
+  overflow: hidden;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-protected-settings__meta,
+.ovl-protected-settings__empty,
+.ovl-protected-progress > .mono-data {
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.ovl-protected-settings__actions {
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.ovl-protected-file {
+  padding: var(--space-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+}
+
+.ovl-protected-progress {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+}
+
+.ovl-protected-route {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--bg-base);
+}
+
+.ovl-protected-route__grid {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ovl-protected-route__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ovl-protected-route__header h1 {
+  overflow: hidden;
+  margin: 2px 0;
+  color: var(--text-body);
+  font: var(--type-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-protected-route__eyebrow,
+.ovl-protected-route__count {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-faint);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.ovl-protected-route__eyebrow {
+  color: var(--accent-amber);
+}
+
+.ovl-protected-lightbox {
+  position: fixed;
+  z-index: 90;
+  inset: var(--titlebar-h) 0 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgb(4 6 8 / 98%);
+}
+
+.ovl-protected-lightbox > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ovl-protected-lightbox__top,
+.ovl-protected-lightbox__nav {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+}
+
+.ovl-protected-lightbox__top {
+  top: 0;
+  right: 0;
+  left: 0;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  background: linear-gradient(rgb(4 6 8 / 88%), transparent);
+}
+
+.ovl-protected-lightbox__title {
+  flex: 1;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-protected-lightbox__nav {
+  right: var(--space-4);
+  left: var(--space-4);
+  justify-content: space-between;
+}
+
+@media (max-width: 620px) {
+  .ovl-protected-route__header {
+    align-items: flex-start;
+    padding: var(--space-3);
+  }
+
+  .ovl-protected-route__header h1 {
+    max-width: 50vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-protected-route *,
+  .ovl-protected-lightbox * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

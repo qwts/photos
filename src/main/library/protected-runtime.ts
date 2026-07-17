@@ -130,6 +130,7 @@ export class ProtectedRuntime {
     this.workflow.cancel();
     this.exportFacade?.close();
     this.albums.relockAll();
+    this.options.workflowChanged();
   }
 
   async drain(): Promise<void> {

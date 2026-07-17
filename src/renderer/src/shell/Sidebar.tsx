@@ -41,7 +41,7 @@ interface SideRowProps {
   readonly label: string;
   readonly count: number | null;
   readonly active?: boolean;
-  readonly onClick?: (() => void) | undefined;
+  readonly onClick?: ((origin: HTMLButtonElement) => void) | undefined;
   readonly collapsed?: boolean;
   readonly buttonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onOpenActions?: ((position: { readonly x: number; readonly y: number }, origin: HTMLButtonElement) => void) | undefined;
@@ -66,7 +66,7 @@ function SideRow({
       ref={buttonRef}
       type="button"
       className={`ovl-siderow${active ? ' ovl-siderow--active' : ''}${collapsed ? ' ovl-siderow--collapsed' : ''}`}
-      onClick={onClick}
+      onClick={onClick === undefined ? undefined : (event) => onClick(event.currentTarget)}
       disabled={onClick === undefined}
       // Collapsed rows are icon-only; the hint is their accessible name.
       aria-label={collapsed ? hint : undefined}
@@ -114,13 +114,21 @@ export interface SidebarProps {
   readonly stats: LibraryStats | null;
   readonly albums: readonly AlbumSummary[];
   readonly onTransferAlbum?: ((album: AlbumSummary) => void) | undefined;
+  readonly protectedAlbums?: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly locked: boolean;
+    readonly name?: string | undefined;
+    readonly count?: number | undefined;
+  }[];
+  readonly onProtectedOpen?: ((albumId: string, origin: HTMLButtonElement) => void) | undefined;
 }
 
 // The 216px navigation rail (#80) per the design's Sidebar.jsx. Album
 // creation and management are keyboard-accessible here; the backup card
 // shows the encrypted badge, the settings gear (opens the M09 dialog), a
 // live aggregate bar while a backup runs (#108), and the mono storage line.
-export function Sidebar({ counts, stats, albums, onTransferAlbum }: SidebarProps): ReactElement {
+export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbums = [], onProtectedOpen }: SidebarProps): ReactElement {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const albumDrop = useAlbumPhotoDrop(albums);
@@ -288,6 +296,25 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum }: SidebarProps
           )}
         </div>
       ))}
+      {protectedAlbums.length === 0 ? null : collapsed ? (
+        <div className="ovl-sidebar__divider" role="presentation" />
+      ) : (
+        <div className="ovl-sidebar__heading mono-data">Protected</div>
+      )}
+      {protectedAlbums.map((album) => {
+        const label = album.locked ? album.label : (album.name ?? album.label);
+        return (
+          <SideRow
+            key={album.id}
+            icon="lock"
+            label={label}
+            count={album.locked ? null : (album.count ?? null)}
+            active={state.protectedAlbum === album.id}
+            collapsed={collapsed}
+            onClick={onProtectedOpen === undefined ? undefined : (origin) => onProtectedOpen(album.id, origin)}
+          />
+        );
+      })}
       {albumDrop.choice === null ? null : (
         <AlbumDropDialog
           count={albumDrop.choice.payload.photoIds.length}

@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import { SettingsDialog } from './SettingsDialog';
 import { defaultSettings, mergeSettings, type AppSettings } from '../../../shared/settings/settings.js';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
+import { AppStateProvider } from '../state/app-state-context';
 
 // #112–#114 exit criteria: the 640px two-pane frame (Storage & Backup opens
 // by default, nav switches panes, keyboard-operable, Esc closes), the
@@ -201,9 +202,16 @@ function installStub(): void {
     restore: restoreApi,
     appLock: appLockApi,
     library: {
+      albums: () => Promise.resolve({ albums: [{ id: 'family', name: 'Family', count: 4 }] }),
       stats: () => Promise.resolve({ photos: 1542, bytes: 48_000_000_000, pending: 0, lastBackupAt: null, offloadedBytes: 12_600_000_000 }),
+      onChanged: () => () => undefined,
+      onPendingCountChanged: () => () => undefined,
       onStorageChanged: () => () => undefined,
     } as unknown as OverlookApi['library'],
+    protectedAlbums: {
+      list: () => Promise.resolve({ albums: [] }),
+      onChanged: () => () => undefined,
+    } as unknown as OverlookApi['protectedAlbums'],
   };
 }
 
@@ -214,7 +222,11 @@ const meta: Meta<typeof SettingsDialog> = {
   decorators: [
     (Story) => {
       installStub();
-      return <Story />;
+      return (
+        <AppStateProvider>
+          <Story />
+        </AppStateProvider>
+      );
     },
   ],
 };

@@ -1,0 +1,163 @@
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+
+import type { ProtectedAlbumSummary, ProtectedPageCursor, ProtectedPhotoRecord } from '../../../shared/library/protected-types.js';
+import { protectedThumbUrl } from '../../../shared/library/thumb-url.js';
+import { formatCount } from '../../../shared/library/format.js';
+import { Button } from '../components/Button';
+import { Icon } from '../components/Icon';
+import { PhotoTile } from '../components/PhotoTile';
+import { VirtualGrid } from '../grid/VirtualGrid';
+import { useAppState } from '../state/app-state-context';
+import { ProtectedLightbox } from './ProtectedLightbox';
+
+import './protected.css';
+
+const PAGE_SIZE = 100;
+
+export interface ProtectedAlbumViewProps {
+  readonly albumId: string;
+  readonly onRelocked: () => void;
+  /** Storybook supplies real bundled photographs; production uses the
+   * authorization-gated protected media protocols. */
+  readonly mediaSrc?: ((photo: ProtectedPhotoRecord, kind: 'thumb' | 'full') => string) | undefined;
+}
+
+export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedAlbumViewProps): ReactElement {
+  const { query, zoom } = useAppState();
+  const [summary, setSummary] = useState<ProtectedAlbumSummary | null>(null);
+  const [photos, setPhotos] = useState<readonly ProtectedPhotoRecord[]>([]);
+  const [cursor, setCursor] = useState<ProtectedPageCursor | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [generation, setGeneration] = useState(0);
+  const relockedRef = useRef(false);
+  const requestRef = useRef(0);
+
+  const unavailable = useCallback((): void => {
+    if (relockedRef.current) return;
+    relockedRef.current = true;
+    setPhotos([]);
+    setSummary(null);
+    setFocusedId(null);
+    onRelocked();
+  }, [onRelocked]);
+
+  useEffect(() => {
+    relockedRef.current = false;
+    return () => {
+      if (!relockedRef.current) void window.overlook.protectedAlbums.relock({ albumId });
+    };
+  }, [albumId]);
+
+  useEffect(() => window.overlook.protectedAlbums.onChanged(() => setGeneration((value) => value + 1)), []);
+
+  useEffect(() => {
+    const request = ++requestRef.current;
+    setLoading(true);
+    void Promise.all([
+      window.overlook.protectedAlbums.summary({ albumId }),
+      window.overlook.protectedAlbums.page({ albumId, limit: PAGE_SIZE, query }),
+    ])
+      .then(([nextSummary, page]) => {
+        if (request !== requestRef.current || relockedRef.current) return;
+        setSummary(nextSummary);
+        setPhotos(page.photos);
+        setCursor(page.nextCursor);
+      })
+      .catch(unavailable)
+      .finally(() => {
+        if (request === requestRef.current) setLoading(false);
+      });
+  }, [albumId, generation, query, unavailable]);
+
+  const loadMore = useCallback((): void => {
+    if (cursor === null || loading || relockedRef.current) return;
+    setLoading(true);
+    void window.overlook.protectedAlbums
+      .page({ albumId, limit: PAGE_SIZE, query, cursor })
+      .then((page) => {
+        setPhotos((current) => [...current, ...page.photos]);
+        setCursor(page.nextCursor);
+      })
+      .catch(unavailable)
+      .finally(() => setLoading(false));
+  }, [albumId, cursor, loading, query, unavailable]);
+
+  const relock = (): void => {
+    if (relockedRef.current) return;
+    relockedRef.current = true;
+    setPhotos([]);
+    setSummary(null);
+    setFocusedId(null);
+    void window.overlook.protectedAlbums.relock({ albumId }).finally(onRelocked);
+  };
+
+  const focusedIndex = photos.findIndex((photo) => photo.id === focusedId);
+  const focused = focusedIndex === -1 ? null : (photos[focusedIndex] ?? null);
+  const step = (delta: -1 | 1): void => {
+    if (photos.length === 0 || focusedIndex === -1) return;
+    setFocusedId(photos[(focusedIndex + delta + photos.length) % photos.length]?.id ?? null);
+  };
+
+  return (
+    <section className="ovl-protected-route" aria-label={summary?.name ?? 'Protected album'}>
+      <header className="ovl-protected-route__header">
+        <div>
+          <div className="ovl-protected-route__eyebrow mono-data">
+            <Icon name="lock" size={13} /> Session unlocked
+          </div>
+          <h1>{summary?.name ?? 'Protected album'}</h1>
+          <div className="ovl-protected-route__count mono-data" aria-live="polite">
+            {summary === null ? 'Opening securely…' : `${formatCount(summary.count)} ${summary.count === 1 ? 'photo' : 'photos'}`}
+          </div>
+        </div>
+        <Button variant="secondary" icon="lock" onClick={relock}>
+          Relock
+        </Button>
+      </header>
+      <div className="ovl-protected-route__grid">
+        {summary !== null && photos.length === 0 && !loading ? (
+          <div className="ovl-empty" data-testid="protected-empty-state">
+            <Icon name="image-off" size={28} color="var(--text-faint)" />
+            <div className="ovl-empty__title">Nothing matches inside this album</div>
+            <div className="ovl-empty__hint">Clear search to see its authorized photos.</div>
+          </div>
+        ) : (
+          <VirtualGrid
+            photos={photos}
+            total={cursor === null ? photos.length : photos.length + 1}
+            zoom={zoom}
+            onNeedMore={loadMore}
+            renderTile={(photo) => (
+              <PhotoTile
+                src={mediaSrc?.(photo, 'thumb') ?? protectedThumbUrl(albumId, photo.id)}
+                alt={photo.fileName}
+                favorite={photo.favorite}
+                showStatus={false}
+                onClick={() => setFocusedId(photo.id)}
+              />
+            )}
+          />
+        )}
+      </div>
+      {focused === null ? null : (
+        <ProtectedLightbox
+          albumId={albumId}
+          photo={focused}
+          {...(mediaSrc === undefined ? {} : { imageSrc: mediaSrc(focused, 'full') })}
+          onClose={() => setFocusedId(null)}
+          onPrevious={() => step(-1)}
+          onNext={() => step(1)}
+          onToggleFavorite={() => {
+            void window.overlook.protectedAlbums
+              .toggleFavorite({ albumId, photoId: focused.id })
+              .then(({ favorite }) => {
+                setPhotos((current) => current.map((photo) => (photo.id === focused.id ? { ...photo, favorite } : photo)));
+              })
+              .catch(unavailable);
+          }}
+        />
+      )}
+    </section>
+  );
+}

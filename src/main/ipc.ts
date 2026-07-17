@@ -237,7 +237,7 @@ export function registerProtectedAlbumHandlers(
     })(request),
   );
   ipcMain.handle(channels.protectedAlbumRelock.name, (_event, request: unknown) =>
-    wrapHandler(channels.protectedAlbumRelock, ({ albumId }) => ({ relocked: getAlbums().relock(albumId) }))(request),
+    wrapHandler(channels.protectedAlbumRelock, ({ albumId }) => ({ relocked: getWorkflow().relock(albumId) }))(request),
   );
   ipcMain.handle(channels.protectedAlbumSummary.name, (_event, request: unknown) =>
     wrapHandler(channels.protectedAlbumSummary, ({ albumId }) => getLibrary().summary(albumId))(request),
