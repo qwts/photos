@@ -21,6 +21,9 @@ export interface AppState {
   readonly sortOrder: SortOrder;
   /** Active album filter (#117) — an album acts as a source; null = none. */
   readonly album: string | null;
+  /** Independent protected-domain route. Ordinary photo records are cleared
+   * before this is set and never represent protected content. */
+  readonly protectedAlbum: string | null;
   readonly selection: ReadonlySet<string>;
   readonly lightboxId: string | null;
   readonly inspectorOpen: boolean;
@@ -52,6 +55,7 @@ export const initialAppState: AppState = {
   chips: {},
   sortOrder: 'date',
   album: null,
+  protectedAlbum: null,
   selection: new Set<string>(),
   lightboxId: null,
   inspectorOpen: false,
@@ -78,6 +82,7 @@ export type AppAction =
   | { type: 'chip/toggled'; chip: keyof ChipFilters }
   | { type: 'sortOrder/set'; order: SortOrder }
   | { type: 'album/set'; albumId: string | null }
+  | { type: 'protectedAlbum/set'; albumId: string | null }
   | { type: 'selection/toggled'; photoId: string }
   | { type: 'selection/all'; photoIds: readonly string[] }
   | { type: 'selection/cleared' }
@@ -128,7 +133,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'source/set':
       // Selection is NOT cleared here: the next photos/loaded intersects it
       // with the new visible set (still-visible items survive, #78).
-      return { ...state, source: action.source, album: null };
+      return { ...state, source: action.source, album: null, protectedAlbum: null };
     case 'chip/toggled': {
       const next = { ...state.chips, [action.chip]: state.chips[action.chip] !== true };
       return { ...state, chips: next };
@@ -136,7 +141,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'album/set':
       // An album behaves like a source (design §Sidebar): selecting one
       // resets the source to 'all'; picking any source clears it below.
-      return { ...state, album: action.albumId, source: 'all' };
+      return { ...state, album: action.albumId, protectedAlbum: null, source: 'all' };
+    case 'protectedAlbum/set':
+      return {
+        ...state,
+        protectedAlbum: action.albumId,
+        album: null,
+        source: 'all',
+        photos: [],
+        selection: new Set<string>(),
+        lightboxId: null,
+        inspectorOpen: false,
+      };
     case 'sortOrder/set':
       // Fed by settings:changed pushes (#113) — the query hook refetches
       // and the next photos/loaded intersects the selection as usual.

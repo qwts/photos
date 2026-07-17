@@ -90,6 +90,25 @@ describe('app state reducer', () => {
     );
   });
 
+  test('protected routes cannot retain ordinary photos, selection, lightbox, or inspector state (#329)', () => {
+    const ordinary = { id: 'ordinary-photo' } as AppState['photos'][number];
+    const loaded = apply(
+      initialAppState,
+      { type: 'photos/loaded', photos: [ordinary], append: false },
+      { type: 'selection/all', photoIds: [ordinary.id] },
+      { type: 'lightbox/opened', photoId: ordinary.id },
+      { type: 'inspector/toggled' },
+    );
+    const protectedRoute = apply(loaded, { type: 'protectedAlbum/set', albumId: 'opaque-protected-id' });
+    assert.equal(protectedRoute.protectedAlbum, 'opaque-protected-id');
+    assert.deepEqual(protectedRoute.photos, []);
+    assert.equal(protectedRoute.selection.size, 0);
+    assert.equal(protectedRoute.lightboxId, null);
+    assert.equal(protectedRoute.inspectorOpen, false);
+    assert.equal(apply(protectedRoute, { type: 'source/set', source: 'favorites' }).protectedAlbum, null);
+    assert.equal(apply(protectedRoute, { type: 'album/set', albumId: 'ordinary-album' }).protectedAlbum, null);
+  });
+
   test('1,500 backup status patches preserve the loaded gallery, selection, and lightbox (#295)', () => {
     const photos = Array.from(
       { length: 1_500 },

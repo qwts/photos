@@ -13,6 +13,9 @@
 
 .ovl-dialog {
   max-width: 90%;
+  max-height: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
   background: var(--gray-1);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-3);
@@ -36,6 +39,8 @@
 }
 
 .ovl-dialog__body {
+  min-height: 0;
+  overflow: auto;
   padding: var(--space-5) var(--space-6);
   font-size: var(--text-md);
   line-height: var(--leading-normal);

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ReactElement, ReactNode } from 'react';
 
 import './grid.css';
-import type { PhotoRecord } from '../../../shared/library/types.js';
 import {
   anchorIndex,
   computeLayout,
@@ -23,8 +22,8 @@ const PREFETCH_ROWS = 6;
 /** Scroll idle window after which the frame monitor detaches. */
 const SCROLL_IDLE_MS = 200;
 
-export interface VirtualGridProps {
-  readonly photos: readonly PhotoRecord[];
+export interface VirtualGridProps<Photo extends { readonly id: string }> {
+  readonly photos: readonly Photo[];
   /** Total photos in the active source — sizes the scroll plane. */
   readonly total: number;
   readonly zoom: number;
@@ -33,13 +32,20 @@ export interface VirtualGridProps {
   /** Ask the data layer for the next cursor page (idempotent under spam). */
   readonly onNeedMore: () => void;
   /** Tile renderer — #74 ships a placeholder; #76 swaps in PhotoTile. */
-  readonly renderTile?: ((photo: PhotoRecord, size: number) => ReactNode) | undefined;
+  readonly renderTile?: ((photo: Photo, size: number) => ReactNode) | undefined;
 }
 
 // Windowed rendering engine (#74): absolute-positioned tiles over an exact
 // scroll plane from grid-layout math. Only the visible window (+overscan)
 // mounts; scroll and resize drive state through rAF-throttled handlers.
-export function VirtualGrid({ photos, total, zoom, mode = 'grid', onNeedMore, renderTile }: VirtualGridProps): ReactElement {
+export function VirtualGrid<Photo extends { readonly id: string }>({
+  photos,
+  total,
+  zoom,
+  mode = 'grid',
+  onNeedMore,
+  renderTile,
+}: VirtualGridProps<Photo>): ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);

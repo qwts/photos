@@ -206,6 +206,25 @@ export const OffloadedHiddenWhenEmpty: Story = {
   },
 };
 
+export const LockedProtectedAlbumLeaksNothing: Story = {
+  args: {
+    protectedAlbums: [{ id: 'opaque-protected-id', label: 'Protected album', locked: true, name: 'Family', count: 842 }],
+    onProtectedOpen: fn(),
+  },
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('button', { name: 'Protected album' })).toBeVisible();
+    await expect(canvas.queryByText('Family')).not.toBeInTheDocument();
+    await expect(canvas.queryByText('842')).not.toBeInTheDocument();
+  },
+};
+
 export const AlbumManagement: Story = {
   loaders: [
     () => {

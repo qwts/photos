@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DragEvent, ReactElement } from 'react';
 
 import './shell.css';
@@ -25,6 +25,8 @@ import { useOffloadWorkflow } from '../offload/use-offload-workflow';
 import { Toolbar } from './Toolbar';
 import { InteropWorkflowDialog } from '../interop/InteropWorkflowDialog';
 import { blockedInteropWorkflow, type InteropEntryContext } from '../interop/visible-workflow.js';
+import { ProtectedAlbumUnlockDialog } from '../protected/ProtectedAlbumUnlockDialog';
+import { ProtectedAlbumView } from '../protected/ProtectedAlbumView';
 
 // 4s per the design's ToastHost (#89 exit criteria).
 const TOAST_DISMISS_MS = 4000;
@@ -49,6 +51,34 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   const openInterop = (context: InteropEntryContext, records: readonly string[] | number): void => {
     setInteropEntry({ context, total: typeof records === 'number' ? records : records.length });
   };
+  const [protectedAlbums, setProtectedAlbums] = useState<
+    readonly {
+      readonly id: string;
+      readonly label: string;
+      readonly locked: boolean;
+      readonly name?: string | undefined;
+      readonly count?: number | undefined;
+    }[]
+  >([]);
+  const [unlockAlbumId, setUnlockAlbumId] = useState<string | null>(null);
+  const unlockOriginRef = useRef<HTMLButtonElement | null>(null);
+
+  const refreshProtected = useCallback((): void => {
+    void window.overlook.protectedAlbums.list().then(async ({ albums: opaque }) => {
+      const visible = await Promise.all(
+        opaque.map(async (album) => {
+          if (album.locked) return album;
+          try {
+            const summary = await window.overlook.protectedAlbums.summary({ albumId: album.id });
+            return { ...album, name: summary.name, count: summary.count };
+          } catch {
+            return { ...album, locked: true };
+          }
+        }),
+      );
+      setProtectedAlbums(visible);
+    });
+  }, []);
 
   useEffect(() => {
     const refreshStats = (): void => {
@@ -73,6 +103,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
       });
     };
     refresh();
+    refreshProtected();
     // Counts/stats live-update on library mutations (#80 exit criteria) —
     // targeted pushes, never refetch-the-world from the renderer's loops.
     // Per-item pending pushes already update AppStateProvider. Refreshing all
@@ -81,12 +112,17 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
     const offChanged = window.overlook.library.onChanged(refresh);
     const offStorageChanged = window.overlook.library.onStorageChanged(refresh);
     const offCompleted = window.overlook.backup.onCompleted(refresh);
+    const offProtectedChanged = window.overlook.protectedAlbums.onChanged(() => {
+      refresh();
+      refreshProtected();
+    });
     return () => {
       offChanged();
       offStorageChanged();
       offCompleted();
+      offProtectedChanged();
     };
-  }, [dispatch]);
+  }, [dispatch, refreshProtected]);
 
   // Settings truth (#113): seed the reducer's sortOrder from the store and
   // follow changed pushes — a sort change in the dialog re-orders the grid
@@ -322,6 +358,35 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
           }}
         />
       ) : null}
+      {unlockAlbumId === null ? null : (
+        <ProtectedAlbumUnlockDialog
+          key={unlockAlbumId}
+          albumId={unlockAlbumId}
+          onClose={() => {
+            setUnlockAlbumId(null);
+            const origin = unlockOriginRef.current;
+            unlockOriginRef.current = null;
+            requestAnimationFrame(() => origin?.isConnected === true && origin.focus());
+          }}
+          onDone={(outcome) => {
+            const albumId = unlockAlbumId;
+            setUnlockAlbumId(null);
+            unlockOriginRef.current = null;
+            refreshProtected();
+            if (outcome === 'opened') {
+              dispatch({ type: 'protectedAlbum/set', albumId });
+              return;
+            }
+            dispatch({
+              type: 'toast/shown',
+              toast: {
+                title: outcome === 'protection-completed' ? 'Protection completed — unlock again to open' : 'Protection removed safely',
+                tone: 'green',
+              },
+            });
+          }}
+        />
+      )}
       {(() => {
         // Lightbox (#92): overlay above the shell, driven by reducer state.
         // Arrows and keys (#93) share the reducer's lightbox/stepped
@@ -378,16 +443,43 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         );
       })()}
       <div className="ovl-shell__body">
-        <Sidebar counts={counts} stats={stats} albums={albums} onTransferAlbum={(album) => openInterop('album', album.count)} />
+        <Sidebar
+          counts={counts}
+          stats={stats}
+          albums={albums}
+          onTransferAlbum={(album) => openInterop('album', album.count)}
+          protectedAlbums={protectedAlbums}
+          onProtectedOpen={(albumId, origin) => {
+            const album = protectedAlbums.find((candidate) => candidate.id === albumId);
+            if (album?.locked === false) {
+              dispatch({ type: 'protectedAlbum/set', albumId });
+              return;
+            }
+            unlockOriginRef.current = origin;
+            setUnlockAlbumId(albumId);
+          }}
+        />
         <main className="ovl-shell__content" data-testid="content-region">
-          <LibraryGridView
-            knownTotal={counts === null ? null : counts[state.source]}
-            activeAlbum={albums.find((album) => album.id === state.album) ?? null}
-            onOffload={offload.open}
-            onTransfer={openInterop}
-          />
+          {state.protectedAlbum === null ? (
+            <LibraryGridView
+              knownTotal={counts === null ? null : counts[state.source]}
+              activeAlbum={albums.find((album) => album.id === state.album) ?? null}
+              onOffload={offload.open}
+              onTransfer={openInterop}
+            />
+          ) : (
+            <ProtectedAlbumView
+              key={state.protectedAlbum}
+              albumId={state.protectedAlbum}
+              onRelocked={() => {
+                dispatch({ type: 'protectedAlbum/set', albumId: null });
+                refreshProtected();
+                dispatch({ type: 'toast/shown', toast: { title: 'Protected album relocked', tone: 'neutral' } });
+              }}
+            />
+          )}
         </main>
-        {state.inspectorOpen ? (
+        {state.inspectorOpen && state.protectedAlbum === null ? (
           <aside className="ovl-shell__inspector" aria-label="Inspector">
             <Inspector
               providerLabel={state.providerLabel}

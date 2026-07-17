@@ -61,21 +61,23 @@ export function PhotoTile({
     >
       <img src={src} alt={alt} loading="lazy" draggable={false} className="ovl-tile__img" />
       <div className="ovl-tile__hover-overlay" />
-      <button
-        type="button"
-        aria-label={selected ? 'Deselect' : 'Select'}
-        aria-pressed={selected}
-        className={`ovl-tile__select${selected ? ' ovl-tile__select--selected' : ''}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggleSelect?.();
-        }}
-        onKeyDown={(event) => {
-          event.stopPropagation();
-        }}
-      >
-        {selected ? <Icon name="check" size={12} strokeWidth={3} /> : null}
-      </button>
+      {onToggleSelect === undefined ? null : (
+        <button
+          type="button"
+          aria-label={selected ? 'Deselect' : 'Select'}
+          aria-pressed={selected}
+          className={`ovl-tile__select${selected ? ' ovl-tile__select--selected' : ''}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleSelect();
+          }}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          {selected ? <Icon name="check" size={12} strokeWidth={3} /> : null}
+        </button>
+      )}
       {favorite ? (
         <span className="ovl-tile__star">
           <Icon name="star" size={13} strokeWidth={2} />
