@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
+import type { FormEvent, ReactElement } from 'react';
 
 import './library-switcher.css';
 import { formatRelativeTime } from '../../../shared/library/format.js';
@@ -156,16 +156,24 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
       });
   };
 
-  // ↑/↓ move focus between rows (roving focus keeps Enter = native activate).
-  const onListKeyDown = (event: ReactKeyboardEvent): void => {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    event.preventDefault();
-    const rows = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('.ovl-libswitch__rowbtn') ?? []);
-    if (rows.length === 0) return;
-    const at = rows.findIndex((row) => row === document.activeElement);
-    const next = event.key === 'ArrowDown' ? Math.min(rows.length - 1, at + 1) : Math.max(0, at === -1 ? 0 : at - 1);
-    rows[next]?.focus();
-  };
+  // ↑/↓ move focus between rows from anywhere in the modal (roving focus
+  // keeps Enter = native activate). Document-level because the Dialog panel
+  // holds focus on open — a handler on our subtree would never hear it.
+  const inList = phase === 'list';
+  useEffect(() => {
+    if (!inList) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      event.preventDefault();
+      const rows = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('.ovl-libswitch__rowbtn') ?? []);
+      if (rows.length === 0) return;
+      const at = rows.findIndex((row) => row === document.activeElement);
+      const next = event.key === 'ArrowDown' ? Math.min(rows.length - 1, at + 1) : Math.max(0, at === -1 ? 0 : at - 1);
+      rows[next]?.focus();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [inList]);
 
   // Esc backs out of layered phases before it closes the switcher.
   const close = (): void => {
@@ -311,7 +319,7 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
           </div>
         )}
         <div className="ovl-libswitch__count mono-data">{libs === null ? 'Loading…' : `${String(libs.length)} registered`}</div>
-        <ul className="ovl-libswitch__list" ref={listRef} onKeyDown={onListKeyDown} data-testid="library-list">
+        <ul className="ovl-libswitch__list" ref={listRef} data-testid="library-list">
           {(libs ?? []).map((lib) => {
             const blocked = lib.missing || lib.lockedBy !== null;
             return (

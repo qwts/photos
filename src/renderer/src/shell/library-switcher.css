@@ -3,7 +3,7 @@
    Tokens only; machine data (paths, hosts, timestamps) renders mono-data. */
 
 .ovl-libswitch__count {
-  color: var(--text-faint);
+  color: var(--text-muted);
   margin-bottom: var(--space-3);
 }
 
@@ -33,13 +33,19 @@
   background: var(--accent-iris-dim);
 }
 
+/* The tinted row lightens the translucent badge below 4.5:1 — go solid. */
+.ovl-libswitch__row--open .ovl-badge--cyan {
+  background: var(--accent-iris);
+  color: var(--text-on-accent);
+}
+
 .ovl-libswitch__row--blocked .ovl-libswitch__rowbtn {
   cursor: default;
 }
 
 .ovl-libswitch__row--blocked .ovl-libswitch__name,
 .ovl-libswitch__row--blocked .ovl-libswitch__path {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .ovl-libswitch__rowbtn {
@@ -64,8 +70,7 @@
 }
 
 .ovl-libswitch__rowbtn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  box-shadow: var(--focus-ring);
 }
 
 .ovl-libswitch__rowmain {
@@ -84,7 +89,7 @@
 }
 
 .ovl-libswitch__path {
-  color: var(--text-faint);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -98,7 +103,7 @@
 
 .ovl-libswitch__when {
   flex: none;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .ovl-libswitch__footer {
@@ -110,7 +115,7 @@
 
 .ovl-libswitch__keys {
   margin-left: auto;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 /* Refusal banner (amber, inline — never a toast). */
@@ -190,7 +195,7 @@
 }
 
 .ovl-libswitch__progress-note {
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 /* Remove confirm — reassurance-forward, deliberately NOT destructive red. */
@@ -213,7 +218,7 @@
 
 .ovl-libswitch__remove-path {
   margin-top: var(--space-3);
-  color: var(--text-faint);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -239,8 +244,7 @@
 }
 
 .ovl-libswitch__input:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -1px;
+  box-shadow: var(--focus-ring);
 }
 
 .ovl-libswitch__location {
@@ -251,7 +255,7 @@
 }
 
 .ovl-libswitch__location-path {
-  color: var(--text-faint);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -293,5 +297,5 @@
 }
 
 .ovl-library-trigger:focus-visible {
-  outline: 2px solid var(--focus-ring);
+  box-shadow: var(--focus-ring);
 }
