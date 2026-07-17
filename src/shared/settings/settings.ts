@@ -91,35 +91,6 @@ export const defaultLibrarySettings: LibrarySettings = {
   providerId: defaultSettings.providerId,
 };
 
-// Per-key recovery: a readable file with one bad value loses only that key
-// to its default, never the whole file (#111 exit criteria). Non-object
-// input (corrupt JSON parsed to a string, null, …) falls back wholesale.
-const recoverySchema = z
-  .object({
-    sortOrder: settingsSchema.shape.sortOrder.catch(defaultSettings.sortOrder),
-    appearance: settingsSchema.shape.appearance.catch(defaultSettings.appearance),
-    thumbnailsOnImport: settingsSchema.shape.thumbnailsOnImport.catch(true),
-    autoBackupOnImport: settingsSchema.shape.autoBackupOnImport.catch(defaultSettings.autoBackupOnImport),
-    reOffloadAfterViewing: settingsSchema.shape.reOffloadAfterViewing.catch(defaultSettings.reOffloadAfterViewing),
-    importMode: settingsSchema.shape.importMode.catch(defaultSettings.importMode),
-    wifiOnly: settingsSchema.shape.wifiOnly.catch(defaultSettings.wifiOnly),
-    bandwidthLimit: settingsSchema.shape.bandwidthLimit.catch(defaultSettings.bandwidthLimit),
-    shareDiagnostics: settingsSchema.shape.shareDiagnostics.catch(defaultSettings.shareDiagnostics),
-    diagnosticsConsentVersion: settingsSchema.shape.diagnosticsConsentVersion.catch(0),
-    appLockIdle: settingsSchema.shape.appLockIdle.catch(defaultSettings.appLockIdle),
-    lockWhenHidden: settingsSchema.shape.lockWhenHidden.catch(defaultSettings.lockWhenHidden),
-    providerId: settingsSchema.shape.providerId.catch(defaultSettings.providerId),
-  })
-  .catch(defaultSettings);
-
-export function recoverSettings(raw: unknown): AppSettings {
-  const recovered = recoverySchema.parse(raw);
-  if (!recovered.shareDiagnostics || recovered.diagnosticsConsentVersion !== CURRENT_DIAGNOSTICS_CONSENT_VERSION) {
-    return { ...recovered, shareDiagnostics: false, diagnosticsConsentVersion: 0 };
-  }
-  return recovered;
-}
-
 const profileRecoverySchema = z
   .object({
     appearance: settingsSchema.shape.appearance.catch(defaultProfileSettings.appearance),
