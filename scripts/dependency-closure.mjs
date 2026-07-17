@@ -86,18 +86,22 @@ function packageNameFromLockKey(key) {
 }
 
 function recordFor(key, entry) {
-  // Platform-gated binaries (an `os`/`cpu` constraint) are only installed on
-  // the matching platform, so their license text can't be read deterministically
-  // — carry the SPDX id from the lockfile and skip the text. Everything else is
-  // installed on every platform, so its text is embedded identically.
-  const platformSpecific = Array.isArray(entry.os) || Array.isArray(entry.cpu);
+  // Only NON-optional packages are guaranteed installed on every platform, so
+  // only their license text can be embedded deterministically. Optional
+  // packages — the per-platform prebuilt binaries (`@img/sharp-*`,
+  // `@img/sharp-libvips-*`) and conditional extras like `@img/sharp-wasm32` /
+  // `@emnapi/runtime` — are installed on some runners and not others, so
+  // reading their text would make the committed notices depend on where they
+  // were generated. For those, carry the SPDX id from the lockfile (which lists
+  // every variant) and note the text ships with the build that bundles them.
+  const conditional = entry.optional === true || Array.isArray(entry.os) || Array.isArray(entry.cpu);
   const dir = path.join(ROOT, key);
   return {
     name: packageNameFromLockKey(key),
     version: entry.version ?? '0.0.0',
     license: normalizeLicense(entry),
-    platformSpecific,
-    licenseText: platformSpecific ? null : readLicenseText(dir),
+    conditional,
+    licenseText: conditional ? null : readLicenseText(dir),
     path: key,
   };
 }

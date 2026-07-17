@@ -38,8 +38,8 @@ export function renderNotices(closure) {
       const heading = `## ${pkg.name} ${pkg.version}\n\nLicense: ${pkg.license}`;
       const body = pkg.licenseText
         ? `\n\n\`\`\`\n${pkg.licenseText}\n\`\`\``
-        : pkg.platformSpecific
-          ? '\n\n_Platform-specific prebuilt binary; its full license text ships alongside the binary in the build for its target platform._'
+        : pkg.conditional
+          ? '\n\n_Optional/platform-specific package; its full license text ships alongside the binary in the build variant that bundles it._'
           : '\n\n_No license text file was found in the published package._';
       return `${heading}${body}`;
     })
