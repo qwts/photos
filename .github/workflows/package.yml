@@ -51,6 +51,10 @@ jobs:
         env:
           # Public installed-app OAuth identifier embedded at build time.
           OVERLOOK_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
+          # Generated Desktop credential required by this issued client. Like
+          # the client ID it is extractable installed-app metadata, but it is
+          # kept out of source and injected only into the main-process bundle.
+          OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           MAC_PROVISIONING_PROFILE_B64: ${{ secrets.MAC_PROVISIONING_PROFILE }}

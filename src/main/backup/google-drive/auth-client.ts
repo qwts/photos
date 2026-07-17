@@ -20,6 +20,7 @@ export class GoogleDriveAuthClient {
   constructor(
     private readonly options: {
       readonly clientId: () => string | null;
+      readonly clientSecret?: (() => string | null) | undefined;
       readonly tokenStore: GoogleDriveTokenStore;
       readonly fetchImpl?: typeof fetch;
       readonly now?: () => number;
@@ -67,11 +68,14 @@ export class GoogleDriveAuthClient {
       throw new ProviderError('Google Drive is not connected', 'auth');
     }
     let response: Response;
+    const body = new URLSearchParams({ client_id: clientId, refresh_token: record.refreshToken, grant_type: 'refresh_token' });
+    const clientSecret = this.options.clientSecret?.()?.trim() ?? '';
+    if (clientSecret !== '') body.set('client_secret', clientSecret);
     try {
       response = await (this.options.fetchImpl ?? fetch)(TOKEN_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ client_id: clientId, refresh_token: record.refreshToken, grant_type: 'refresh_token' }),
+        body,
       });
     } catch (error) {
       const detail = error instanceof Error ? error.message : 'network failure';

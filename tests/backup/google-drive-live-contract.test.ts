@@ -39,12 +39,14 @@ function ephemeralSafeStorage(): SafeStorageLike {
 
 test('LIVE Google Drive provider and fresh-profile disaster-recovery contracts (#277)', { skip: !LIVE, timeout: 10 * 60_000 }, async () => {
   const clientId = process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_ID']?.trim() ?? '';
+  const clientSecret = process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET']?.trim() || null;
   assert.match(clientId, /^[A-Za-z0-9._-]+\.apps\.googleusercontent\.com$/u, 'set OVERLOOK_GOOGLE_DRIVE_CLIENT_ID');
   const authDir = mkdtempSync(join(tmpdir(), 'overlook-google-live-'));
   const tokenStore = new GoogleDriveTokenStore({ safeStorage: ephemeralSafeStorage(), dataDir: authDir });
-  const auth = new GoogleDriveAuthClient({ clientId: () => clientId, tokenStore });
+  const auth = new GoogleDriveAuthClient({ clientId: () => clientId, clientSecret: () => clientSecret, tokenStore });
   const connect = createGoogleDriveConnect({
     clientId: () => clientId,
+    clientSecret: () => clientSecret,
     tokenStore,
     authClient: auth,
     openExternal: (url) => {
