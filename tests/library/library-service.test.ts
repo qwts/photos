@@ -83,11 +83,17 @@ function rendererClient(service: LibraryService): {
   toggleFavorite: ReturnType<
     typeof createInvoker<typeof channels.libraryToggleFavorite.request, typeof channels.libraryToggleFavorite.response>
   >;
+  repairDimensions: ReturnType<
+    typeof createInvoker<typeof channels.libraryRepairDimensions.request, typeof channels.libraryRepairDimensions.response>
+  >;
   stats: ReturnType<typeof createInvoker<typeof channels.libraryStats.request, typeof channels.libraryStats.response>>;
 } {
   const handlers: Record<string, (request: unknown) => Promise<unknown>> = {
     [channels.libraryPage.name]: wrapHandler(channels.libraryPage, (req) => service.page(req)),
     [channels.libraryToggleFavorite.name]: wrapHandler(channels.libraryToggleFavorite, ({ id }) => service.toggleFavorite(id)),
+    [channels.libraryRepairDimensions.name]: wrapHandler(channels.libraryRepairDimensions, ({ id, width, height }) =>
+      service.repairDimensions(id, width, height),
+    ),
     [channels.libraryStats.name]: wrapHandler(channels.libraryStats, () => service.stats()),
   };
   const transport = (name: string, request: unknown): Promise<unknown> => {
@@ -100,6 +106,7 @@ function rendererClient(service: LibraryService): {
   return {
     page: createInvoker(channels.libraryPage, transport),
     toggleFavorite: createInvoker(channels.libraryToggleFavorite, transport),
+    repairDimensions: createInvoker(channels.libraryRepairDimensions, transport),
     stats: createInvoker(channels.libraryStats, transport),
   };
 }
@@ -166,6 +173,27 @@ describe('library IPC contract', () => {
     assert.equal(result.pendingCount, before + 1);
     assert.deepEqual(events.changed.at(-1), ['01J8LIB004']);
     assert.equal(events.pending.at(-1), before + 1);
+  });
+
+  test('legacy dimensions repair once through validated IPC and emits a targeted refresh (#367)', async () => {
+    const { service, db, events } = seededService();
+    const client = rendererClient(service);
+    run(db, `UPDATE photos SET width = 0, height = 0 WHERE id = '01J8LIB004'`);
+    const before = service.pendingCount();
+
+    assert.deepEqual(await client.repairDimensions({ id: '01J8LIB004', width: 1919, height: 1279 }), {
+      repaired: true,
+      pendingCount: before + 1,
+    });
+    assert.deepEqual({ width: service.get('01J8LIB004')?.width, height: service.get('01J8LIB004')?.height }, { width: 1919, height: 1279 });
+    assert.deepEqual(events.changed.at(-1), ['01J8LIB004']);
+    assert.equal(events.pending.at(-1), before + 1);
+
+    assert.deepEqual(await client.repairDimensions({ id: '01J8LIB004', width: 1, height: 1 }), {
+      repaired: false,
+      pendingCount: before + 1,
+    });
+    await assert.rejects(client.repairDimensions({ id: '01J8LIB004', width: 0, height: 1279 }));
   });
 
   test('albums lists names with live membership counts (#80)', () => {

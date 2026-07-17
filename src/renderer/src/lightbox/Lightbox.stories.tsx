@@ -75,6 +75,7 @@ const meta: Meta<typeof Lightbox> = {
     onToggleInspector: fn(),
     onExport: fn(),
     onOffload: fn(),
+    onRepairDimensions: fn(),
     onDelete: fn(),
   },
   decorators: [
@@ -144,6 +145,33 @@ export const PortraitFillZoomAndReset: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Fit image (0)' }));
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+  },
+};
+
+export const LegacyUnknownDimensionsRepairOnDecode: Story = {
+  args: {
+    photo: { ...PHOTO, width: 0, height: 0, fileName: 'LEGACY-ZERO.JPG' },
+    imageSrc: portraitPhoto,
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    await waitFor(() => expect(viewport).toHaveAttribute('data-image-width', '960'));
+    await expect(viewport).toHaveAttribute('data-image-height', '1280');
+    await expect(canvas.getByRole('img', { name: 'LEGACY-ZERO.JPG' })).toBeVisible();
+    await expect(args.onRepairDimensions).toHaveBeenCalledWith(960, 1280);
+  },
+};
+
+export const UndecodablePreviewIsExplicit: Story = {
+  args: {
+    photo: { ...PHOTO, width: 0, height: 0, fileName: 'CORRUPT.JPG' },
+    imageSrc: 'data:image/jpeg;base64,AAAA',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByText('PREVIEW UNAVAILABLE')).toBeVisible());
+    await expect(canvas.getByTestId('lightbox-viewport')).toHaveAttribute('data-unavailable', 'true');
   },
 };
 

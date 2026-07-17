@@ -31,6 +31,13 @@
   will-change: transform;
 }
 
+.ovl-lightbox__unavailable {
+  position: absolute;
+  color: var(--accent-red);
+  font: var(--type-meta);
+  letter-spacing: 0.04em;
+}
+
 .ovl-lightbox__gesture-hint {
   position: absolute;
   bottom: 106px;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactElement, WheelEvent as ReactWheelEvent } from 'react';
+import type { ReactElement, SyntheticEvent, WheelEvent as ReactWheelEvent } from 'react';
 
 import { fullUrl } from '../../../shared/library/full-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -18,6 +18,7 @@ interface LightboxViewportProps {
   readonly imageSrc?: string | undefined;
   readonly chromeClass: string;
   readonly onActivity: () => void;
+  readonly onDimensionsResolved: (width: number, height: number) => void;
 }
 
 function shouldShowHint(): boolean {
@@ -42,13 +43,22 @@ function wheelPixels(value: number, mode: number, viewportAxis: number): number 
   return value;
 }
 
-export function LightboxViewport({ photo, suppressRehydrate, imageSrc, chromeClass, onActivity }: LightboxViewportProps): ReactElement {
+export function LightboxViewport({
+  photo,
+  suppressRehydrate,
+  imageSrc,
+  chromeClass,
+  onActivity,
+  onDimensionsResolved,
+}: LightboxViewportProps): ReactElement {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<LightboxSize>({ width: 0, height: 0 });
   const [transform, setTransform] = useState<LightboxTransform>(FIT);
   const [mode, setMode] = useState<'fit' | 'fill' | 'custom'>('fit');
   const [showHint, setShowHint] = useState(shouldShowHint);
-  const image = useMemo(() => ({ width: photo.width, height: photo.height }), [photo.height, photo.width]);
+  const [decoded, setDecoded] = useState<LightboxSize | null>(null);
+  const [decodeFailed, setDecodeFailed] = useState(false);
+  const image = useMemo(() => decoded ?? { width: photo.width, height: photo.height }, [decoded, photo.height, photo.width]);
   const fitted = fitSize(image, viewport);
 
   useEffect(() => {
@@ -147,6 +157,17 @@ export function LightboxViewport({ photo, suppressRehydrate, imageSrc, chromeCla
     onActivity();
   };
 
+  const onImageLoad = (event: SyntheticEvent<HTMLImageElement>): void => {
+    const width = event.currentTarget.naturalWidth;
+    const height = event.currentTarget.naturalHeight;
+    if (width <= 0 || height <= 0) return;
+    setDecodeFailed(false);
+    if (photo.width <= 0 || photo.height <= 0) {
+      setDecoded({ width, height });
+      onDimensionsResolved(width, height);
+    }
+  };
+
   return (
     <div
       ref={viewportRef}
@@ -156,6 +177,9 @@ export function LightboxViewport({ photo, suppressRehydrate, imageSrc, chromeCla
       data-zoom={transform.zoom.toFixed(3)}
       data-pan-x={transform.x.toFixed(1)}
       data-pan-y={transform.y.toFixed(1)}
+      data-image-width={image.width}
+      data-image-height={image.height}
+      data-unavailable={decodeFailed ? 'true' : 'false'}
     >
       <img
         key={`${photo.id}-${suppressRehydrate ? 'synced' : photo.syncState}`}
@@ -169,9 +193,16 @@ export function LightboxViewport({ photo, suppressRehydrate, imageSrc, chromeCla
           height: fitted.height,
           transform: `translate3d(${String(transform.x)}px, ${String(transform.y)}px, 0) scale(${String(transform.zoom)})`,
         }}
+        onLoad={onImageLoad}
+        onError={() => setDecodeFailed(true)}
         onDoubleClick={toggleFill}
         onWheel={onWheel}
       />
+      {decodeFailed ? (
+        <div className="ovl-lightbox__unavailable mono-data" role="status">
+          PREVIEW UNAVAILABLE
+        </div>
+      ) : null}
       {showHint ? (
         <div className="ovl-lightbox__gesture-hint mono-data" role="status">
           DOUBLE-CLICK TO FILL · OPTION + SCROLL TO ZOOM · SCROLL TO PAN

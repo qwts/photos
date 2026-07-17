@@ -71,6 +71,7 @@ const overlook: OverlookApi = {
   library: Object.freeze({
     page: createInvoker(channels.libraryPage, invokeTransport),
     get: createInvoker(channels.libraryGet, invokeTransport),
+    repairDimensions: createInvoker(channels.libraryRepairDimensions, invokeTransport),
     toggleFavorite: createInvoker(channels.libraryToggleFavorite, invokeTransport),
     counts: createInvoker(channels.libraryCounts, invokeTransport),
     stats: async () => libraryStats({}),

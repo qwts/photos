@@ -226,6 +226,15 @@ export const channels = {
     z.object({ photos: z.array(photoRecordSchema).readonly(), nextCursor: pageCursorSchema.nullable() }),
   ),
   libraryGet: defineChannel('library:get', z.object({ id: z.string() }), z.object({ photo: photoRecordSchema.nullable() })),
+  libraryRepairDimensions: defineChannel(
+    'library:repair-dimensions',
+    z.object({
+      id: z.string().min(1),
+      width: z.number().int().positive().max(1_000_000),
+      height: z.number().int().positive().max(1_000_000),
+    }),
+    z.object({ repaired: z.boolean(), pendingCount: z.number().int().nonnegative() }),
+  ),
   libraryToggleFavorite: defineChannel(
     'library:toggle-favorite',
     z.object({ id: z.string() }),

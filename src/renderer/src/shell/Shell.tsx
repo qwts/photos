@@ -432,6 +432,11 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
                 toast: { title: `RESTORE FAILED — STILL IN ${state.providerLabel.toUpperCase()}`, tone: 'red', action: 'retry-backup' },
               });
             }}
+            onRepairDimensions={(width, height) => {
+              void window.overlook.library.repairDimensions({ id: current.id, width, height }).then(({ pendingCount }) => {
+                dispatch({ type: 'pendingCount/set', count: pendingCount });
+              });
+            }}
             onDelete={() => {
               // Soft delete (#120): the change push drops the row from the
               // visible set, which closes the lightbox in the reducer.

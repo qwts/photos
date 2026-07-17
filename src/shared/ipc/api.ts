@@ -33,6 +33,9 @@ export interface OverlookApi {
   readonly library: {
     readonly page: (request: Req<typeof channels.libraryPage>) => Promise<Res<typeof channels.libraryPage>>;
     readonly get: (request: Req<typeof channels.libraryGet>) => Promise<Res<typeof channels.libraryGet>>;
+    readonly repairDimensions: (
+      request: Req<typeof channels.libraryRepairDimensions>,
+    ) => Promise<Res<typeof channels.libraryRepairDimensions>>;
     readonly toggleFavorite: (request: Req<typeof channels.libraryToggleFavorite>) => Promise<Res<typeof channels.libraryToggleFavorite>>;
     readonly counts: (request: Req<typeof channels.libraryCounts>) => Promise<Res<typeof channels.libraryCounts>>;
     readonly stats: () => Promise<Res<typeof channels.libraryStats>>;
