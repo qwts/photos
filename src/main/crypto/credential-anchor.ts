@@ -4,7 +4,11 @@ import { spawnSync } from 'node:child_process';
 
 import { z } from 'zod';
 
-import { OVERLOOK_APP_LOCK_ANCHOR_SERVICE, OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE } from '../../shared/app-identity.js';
+import {
+  OVERLOOK_APP_LOCK_ANCHOR_MIGRATION_SERVICE,
+  OVERLOOK_APP_LOCK_ANCHOR_SERVICE,
+  OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE,
+} from '../../shared/app-identity.js';
 import type { CredentialAnchor, CredentialAnchorStore } from './app-lock-credentials.js';
 
 const WINDOWS_SCRIPT = String.raw`
@@ -107,6 +111,9 @@ if ($operation -eq 'read') {
 `;
 
 const WINDOWS_NOT_FOUND = '__OVERLOOK_CREDENTIAL_NOT_FOUND__';
+const MIGRATION_MARKER = JSON.stringify({ version: 1, legacyService: OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE });
+
+type StoredValue = { readonly state: 'found'; readonly value: string } | { readonly state: 'missing' } | { readonly state: 'error' };
 
 const anchorSchema = z
   .object({
@@ -168,66 +175,99 @@ export class OsCredentialAnchorStore implements CredentialAnchorStore {
 
   read(): CredentialAnchor | null {
     const current = this.readService(OVERLOOK_APP_LOCK_ANCHOR_SERVICE);
-    if (current.found) return current.anchor;
+    if (current.found) {
+      if (current.anchor === null || !this.ensureMigrationMarker()) return null;
+      return current.anchor;
+    }
+    if (this.migrationMarkerState() !== 'missing') return null;
     const legacy = this.readService(OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE);
     if (!legacy.found || legacy.anchor === null) return null;
     try {
       this.write(legacy.anchor);
     } catch {
-      // The legacy anchor remains authoritative and is never deleted during
-      // migration. A later read retries the copy to the canonical service.
+      // The legacy record remains recoverable, but it is not authoritative
+      // until the bounded canonical migration commits in full.
+      return null;
     }
     return legacy.anchor;
   }
 
   private readService(service: string): { readonly found: boolean; readonly anchor: CredentialAnchor | null } {
+    const result = this.readStoredValue(service);
+    if (result.state === 'missing') return { found: false, anchor: null };
+    if (result.state === 'error') return { found: true, anchor: null };
+    return { found: true, anchor: parseAnchor(result.value) };
+  }
+
+  private readStoredValue(service: string): StoredValue {
     if (this.platform === 'darwin') {
       const result = this.run('/usr/bin/security', ['find-generic-password', '-a', this.account, '-s', service, '-w'], {
         encoding: 'utf8',
       });
-      return result.status === 0 ? { found: true, anchor: parseAnchor(result.stdout.trim()) } : { found: false, anchor: null };
+      if (result.status === 0) return { state: 'found', value: result.stdout.trim() };
+      return result.status === 44 ? { state: 'missing' } : { state: 'error' };
     }
     if (this.platform === 'linux') {
       const result = this.run('secret-tool', ['lookup', 'service', service, 'account', this.account], { encoding: 'utf8' });
-      return result.status === 0 ? { found: true, anchor: parseAnchor(result.stdout.trim()) } : { found: false, anchor: null };
+      if (result.status === 0) return { state: 'found', value: result.stdout.trim() };
+      return result.status === 1 && result.error === undefined && result.stderr.trim() === '' ? { state: 'missing' } : { state: 'error' };
     }
     if (this.platform === 'win32') {
       const result = this.windows('read', service);
-      if (result.status !== 0) return { found: true, anchor: null };
+      if (result.status !== 0) return { state: 'error' };
       const value = result.stdout.trim();
-      return value === WINDOWS_NOT_FOUND ? { found: false, anchor: null } : { found: true, anchor: parseAnchor(value) };
+      return value === WINDOWS_NOT_FOUND ? { state: 'missing' } : { state: 'found', value };
     }
-    return { found: false, anchor: null };
+    return { state: 'error' };
+  }
+
+  private migrationMarkerState(): 'present' | 'missing' | 'error' {
+    const result = this.readStoredValue(OVERLOOK_APP_LOCK_ANCHOR_MIGRATION_SERVICE);
+    if (result.state !== 'found') return result.state;
+    return result.value === MIGRATION_MARKER ? 'present' : 'error';
+  }
+
+  private ensureMigrationMarker(): boolean {
+    const state = this.migrationMarkerState();
+    if (state === 'present') return true;
+    if (state === 'error') return false;
+    try {
+      this.writeStoredValue(OVERLOOK_APP_LOCK_ANCHOR_MIGRATION_SERVICE, MIGRATION_MARKER, 'Overlook app-lock anchor migration');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   write(anchor: CredentialAnchor): void {
     const value = JSON.stringify(anchorSchema.parse(anchor));
+    this.writeStoredValue(OVERLOOK_APP_LOCK_ANCHOR_SERVICE, value, 'Overlook app-lock anchor');
+    this.writeStoredValue(OVERLOOK_APP_LOCK_ANCHOR_MIGRATION_SERVICE, MIGRATION_MARKER, 'Overlook app-lock anchor migration');
+  }
+
+  private writeStoredValue(service: string, value: string, label: string): void {
     const result =
       this.platform === 'darwin'
-        ? this.run(
-            '/usr/bin/security',
-            ['add-generic-password', '-U', '-a', this.account, '-s', OVERLOOK_APP_LOCK_ANCHOR_SERVICE, '-w', value],
-            {
-              encoding: 'utf8',
-            },
-          )
+        ? this.run('/usr/bin/security', ['add-generic-password', '-U', '-a', this.account, '-s', service, '-w', value], {
+            encoding: 'utf8',
+          })
         : this.platform === 'linux'
-          ? this.run(
-              'secret-tool',
-              ['store', '--label=Overlook app-lock anchor', 'service', OVERLOOK_APP_LOCK_ANCHOR_SERVICE, 'account', this.account],
-              {
-                encoding: 'utf8',
-                input: value,
-              },
-            )
+          ? this.run('secret-tool', ['store', `--label=${label}`, 'service', service, 'account', this.account], {
+              encoding: 'utf8',
+              input: value,
+            })
           : this.platform === 'win32'
-            ? this.windows('write', OVERLOOK_APP_LOCK_ANCHOR_SERVICE, value)
+            ? this.windows('write', service, value)
             : { status: 1 };
     if (result.status !== 0) throw new Error('OS credential store refused the app-lock anchor');
   }
 
   clear(): void {
-    for (const service of [OVERLOOK_APP_LOCK_ANCHOR_SERVICE, OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE]) {
+    for (const service of [
+      OVERLOOK_APP_LOCK_ANCHOR_SERVICE,
+      OVERLOOK_APP_LOCK_ANCHOR_MIGRATION_SERVICE,
+      OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE,
+    ]) {
       if (this.platform === 'darwin') {
         this.run('/usr/bin/security', ['delete-generic-password', '-a', this.account, '-s', service], { stdio: 'ignore' });
       } else if (this.platform === 'linux') {
