@@ -14,13 +14,14 @@ disk/log/IPC sink.
 ## Verdict
 
 **All three seams are sound and well-tested. Zero fix-before-release findings.**
-One hardening fix landed with this review (F1); three non-blocking follow-ups are
-tracked. The ADR-0004 crypto guarantee is upheld across every reachable sink.
+One hardening fix landed with this review (F1); two protocol follow-ups have since
+landed, and one crypto follow-up remains. The ADR-0004 crypto guarantee is upheld
+across every reachable sink.
 
 | Seam | Verdict | Fix-before-release | Follow-ups |
 | --- | --- | --- | --- |
 | Crypto (envelope + keystore) | Sound | none | [#229](https://github.com/qwts/photos/issues/229) |
-| IPC registry + protocols | Sound | none | [#230](https://github.com/qwts/photos/issues/230), [#231](https://github.com/qwts/photos/issues/231) |
+| IPC registry + protocols | Sound | none | #230 and #231 resolved |
 | Plaintext at rest | No leaks | none | F1 (fixed here) |
 
 ## 1. Crypto — envelope & keystore
@@ -77,10 +78,12 @@ Files: `src/main/ipc.ts`, `src/shared/ipc/registry.ts`, `src/shared/ipc/channels
   read entry point — a `../`, absolute, or non-hex value can never form a path.
   Defense in depth: the URL photoId is fed as AAD, so a hash/id mismatch also fails
   the AEAD tag.
-- **Privilege scope — sound.** thumb: `standard, stream, supportFetchAPI`; full:
-  `+ corsEnabled`. No `bypassCSP`, `allowServiceWorkers`, or `secure`. `corsEnabled`
-  on full is justified by the fetch-based lightbox; full-res sets `Cache-Control:
-  no-store` so Chromium never disk-caches plaintext.
+- **Privilege scope — sound.** thumb: `standard, stream`; full: `standard, stream,
+  supportFetchAPI, corsEnabled`. No `bypassCSP`, `allowServiceWorkers`, or `secure`.
+  Fetch and CORS on full are justified by the fetch-based lightbox and neighbor
+  prefetch; full-res sets `Cache-Control: no-store` so Chromium never disk-caches
+  plaintext. The exact privilege contract is regression-tested
+  ([#231](https://github.com/qwts/photos/issues/231), PR #434).
 - **Preload surface — sound.** A single frozen `overlook` object of
   `createInvoker`/`createSubscriber` closures; `ipcRenderer` is captured privately
   and never exposed. `nodeIntegration: false`, `contextIsolation: true`,
@@ -92,10 +95,11 @@ Files: `src/main/ipc.ts`, `src/shared/ipc/registry.ts`, `src/shared/ipc/channels
   detail is reported only in main; even a failing reporter cannot replace the
   opaque response. Seeded secret/path tests cover the boundary
   ([#230](https://github.com/qwts/photos/issues/230), PR #433).
-- **Follow-up ([#231](https://github.com/qwts/photos/issues/231)) — least-privilege
-  polish.** Drop unused `supportFetchAPI` from the thumb scheme; optionally gate the
-  thumb loader on `deletedAt`/`syncState` for parity with full-res. Neither is a
-  boundary crossing under the threat model.
+- **Least-privilege follow-up resolved
+  ([#231](https://github.com/qwts/photos/issues/231)).** Unused renderer-fetch support
+  was removed from the thumb scheme. Deleted and offloaded records intentionally
+  remain eligible: Trash previews and offloaded-photo browsing require thumbnails.
+  Lock/protected-album admission still enforces the actual confidentiality boundary.
 
 ## 3. Plaintext at rest
 
@@ -132,7 +136,6 @@ Full sweep of main + shared for any durable/observable plaintext sink.
 
 - [#229](https://github.com/qwts/photos/issues/229) — enforce a per-key blob budget
   or widen the nonce fixed field before large libraries.
-- [#231](https://github.com/qwts/photos/issues/231) — protocol least-privilege polish.
 
 ## Method
 
