@@ -1,0 +1,79 @@
+import type { AppSettings } from '../../shared/settings/settings.js';
+import { ZodError } from 'zod';
+import type { DiagnosticsQueue } from './diagnostics-queue.js';
+import { type QueuedDiagnostic } from './diagnostics-queue.js';
+import type { DiagnosticEvent } from './event-contract.js';
+
+export type DiagnosticOccurrence = Pick<DiagnosticEvent, 'kind'> & Partial<Pick<DiagnosticEvent, 'reason' | 'exitCode'>>;
+
+export type DiagnosticsFailureCode = 'invalid-event' | 'custody-unavailable';
+
+export interface DiagnosticsServiceOptions {
+  readonly queue: DiagnosticsQueue;
+  readonly settings: () => Pick<AppSettings, 'shareDiagnostics'>;
+  readonly eventId: () => string;
+  readonly now: () => Date;
+  readonly appVersion: string;
+  readonly platform: string;
+  readonly arch: string;
+  readonly failure?: (code: DiagnosticsFailureCode) => void;
+}
+
+/** Owns the consent boundary. Capture sites provide only a closed process-health
+ * vocabulary; this service constructs the complete event and never accepts an
+ * Error, message, stack, path, renderer URL, WebContents, or arbitrary context. */
+export class DiagnosticsService {
+  private readonly options: DiagnosticsServiceOptions;
+
+  constructor(options: DiagnosticsServiceOptions) {
+    this.options = options;
+  }
+
+  record(occurrence: DiagnosticOccurrence): boolean {
+    const consented = this.options.settings().shareDiagnostics;
+    if (!consented) {
+      this.options.queue.purge();
+      return false;
+    }
+    try {
+      return this.options.queue.enqueue(true, {
+        schemaVersion: 1,
+        eventId: this.options.eventId(),
+        capturedAt: this.options.now().toISOString(),
+        appVersion: this.options.appVersion,
+        platform: this.options.platform,
+        arch: this.options.arch,
+        ...occurrence,
+      });
+    } catch (error) {
+      this.options.failure?.(error instanceof ZodError ? 'invalid-event' : 'custody-unavailable');
+      return false;
+    }
+  }
+
+  reconcileConsent(): number {
+    try {
+      return this.options.queue.list(this.options.settings().shareDiagnostics).length;
+    } catch {
+      this.options.failure?.('custody-unavailable');
+      return 0;
+    }
+  }
+
+  list(): readonly QueuedDiagnostic[] {
+    try {
+      return this.options.queue.list(this.options.settings().shareDiagnostics);
+    } catch {
+      this.options.failure?.('custody-unavailable');
+      return [];
+    }
+  }
+
+  remove(eventId: string): void {
+    this.options.queue.remove(eventId);
+  }
+
+  purge(): void {
+    this.options.queue.purge();
+  }
+}

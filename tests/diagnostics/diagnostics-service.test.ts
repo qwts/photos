@@ -1,0 +1,94 @@
+import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, test } from 'node:test';
+
+import type { SafeStorageLike } from '../../src/main/crypto/keystore.js';
+import { DiagnosticsQueue } from '../../src/main/diagnostics/diagnostics-queue.js';
+import { DiagnosticsService, type DiagnosticsFailureCode } from '../../src/main/diagnostics/diagnostics-service.js';
+
+const NOW = new Date('2026-07-17T10:00:00.000Z');
+const EVENT_ID = '98f581d6-ef9a-45e2-ae19-8b90099aef2e';
+
+function cipher(): SafeStorageLike {
+  return {
+    isEncryptionAvailable: () => true,
+    encryptString: (plain) => Buffer.from(Buffer.from(plain).map((byte) => byte ^ 0xa7)),
+    decryptString: (sealed) => Buffer.from(sealed.map((byte) => byte ^ 0xa7)).toString('utf8'),
+  };
+}
+
+function world(consent: { value: boolean }, overrides: Partial<ConstructorParameters<typeof DiagnosticsService>[0]> = {}) {
+  const dataDir = mkdtempSync(join(tmpdir(), 'overlook-diagnostics-service-'));
+  const failures: DiagnosticsFailureCode[] = [];
+  const service = new DiagnosticsService({
+    queue: new DiagnosticsQueue({ dataDir, safeStorage: cipher(), now: () => NOW.getTime() }),
+    settings: () => ({ shareDiagnostics: consent.value }),
+    eventId: () => EVENT_ID,
+    now: () => NOW,
+    appVersion: '0.27.0',
+    platform: 'darwin',
+    arch: 'arm64',
+    failure: (code) => failures.push(code),
+    ...overrides,
+  });
+  return { dataDir, failures, service };
+}
+
+describe('diagnostics consent and capture service (#286)', () => {
+  test('opt-out creates no event identity, timestamp, encryption, or disk custody', () => {
+    const consent = { value: false };
+    let touched = false;
+    const { dataDir, service } = world(consent, {
+      eventId: () => {
+        touched = true;
+        return EVENT_ID;
+      },
+      now: () => {
+        touched = true;
+        return NOW;
+      },
+    });
+
+    assert.equal(service.record({ kind: 'renderer-process-gone', reason: 'crashed', exitCode: 5 }), false);
+    assert.equal(touched, false);
+    assert.equal(existsSync(dataDir), false);
+  });
+
+  test('opt-in records only closed process-health fields and exposes exact payload', () => {
+    const consent = { value: true };
+    const { service } = world(consent);
+    assert.equal(service.record({ kind: 'renderer-process-gone', reason: 'crashed', exitCode: 5 }), true);
+    const [queued] = service.list();
+    assert.deepEqual(queued?.event, {
+      schemaVersion: 1,
+      eventId: EVENT_ID,
+      capturedAt: NOW.toISOString(),
+      appVersion: '0.27.0',
+      platform: 'darwin',
+      arch: 'arm64',
+      kind: 'renderer-process-gone',
+      reason: 'crashed',
+      exitCode: 5,
+    });
+  });
+
+  test('opting out purges the queue immediately during settings reconciliation', () => {
+    const consent = { value: true };
+    const { dataDir, service } = world(consent);
+    service.record({ kind: 'main-process-runtime-error' });
+    assert.equal(service.reconcileConsent(), 1);
+    consent.value = false;
+    assert.equal(service.reconcileConsent(), 0);
+    assert.equal(existsSync(dataDir), false);
+  });
+
+  test('unknown Electron reason and unavailable custody fail closed with code-only reporting', () => {
+    const consent = { value: true };
+    const { failures, service } = world(consent, { platform: '/Users/private/Pictures' });
+    assert.equal(service.record({ kind: 'renderer-process-gone', reason: 'crashed' }), false);
+    assert.deepEqual(failures, ['invalid-event']);
+    assert.deepEqual(service.list(), []);
+  });
+});
