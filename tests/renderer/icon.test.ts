@@ -59,6 +59,8 @@ const VOCABULARY = [
   'arrow-left',
   'chevron-left',
   'chevron-right',
+  // Library-switcher trigger glyph (#386).
+  'chevrons-up-down',
   // Orientation-toolbar glyphs from the current lightbox handoff (#369).
   'flip-horizontal-2',
   'rotate-ccw',
