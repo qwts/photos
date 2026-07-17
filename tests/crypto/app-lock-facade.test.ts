@@ -45,7 +45,7 @@ describe('app-lock facade (#311)', () => {
       controller,
       currentMaster: () => masterKey,
       libraryId: () => 'library-a',
-      dataDir: '/unused',
+      dataDir: () => '/unused',
       pickRecovery: () => Promise.resolve('/recovery.key'),
     });
 
@@ -66,7 +66,7 @@ describe('app-lock facade (#311)', () => {
       controller,
       currentMaster: () => Buffer.alloc(32),
       libraryId: () => 'library-a',
-      dataDir: '/unused',
+      dataDir: () => '/unused',
       pickRecovery: () => Promise.resolve(null),
     });
 

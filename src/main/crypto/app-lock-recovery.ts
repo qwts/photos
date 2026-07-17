@@ -1,4 +1,4 @@
-import type { AppLockController } from './app-lock-controller.js';
+import type { AppLockControllerLike } from './app-lock-host.js';
 import { readRecoveryKeyFile } from './recovery-key-facade.js';
 import { openRecoveryKey, RecoveryError } from './recovery.js';
 import { readKeysFile, unwrapStoredKey } from './keystore.js';
@@ -8,7 +8,7 @@ export type AppLockRecoveryResult =
   | { readonly recovered: false; readonly reason: 'invalid' | 'wrong-password' | 'mismatch' };
 
 export interface RecoverAppLockOptions {
-  readonly controller: AppLockController;
+  readonly controller: AppLockControllerLike;
   readonly dataDir: string;
   readonly libraryId: string;
   readonly path: string;
