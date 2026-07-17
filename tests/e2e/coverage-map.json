@@ -136,6 +136,10 @@
         {
           "type": "unit-dom",
           "path": "tests/thumbs/thumb-service.test.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/components/PhotoTile.stories.tsx"
         }
       ]
     },
@@ -149,7 +153,7 @@
         },
         {
           "type": "manual",
-          "reason": "The 200K profile takes ~17s to seed; the recorded baseline lives in the wiki Testing-Strategy \u00a7Perf baselines and re-runs via npm run seed:perf when the engine changes. CI keeps the 2,000-row variant."
+          "reason": "The visible native-window 200K harness is intentionally outside per-PR CI; invoke npm run test:perf when the engine changes. It retains three trials per zoom in test-results/perf-report.json and gates the median drop rate plus maximum worst frame. CI keeps the 2,000-row variant."
         }
       ]
     },
