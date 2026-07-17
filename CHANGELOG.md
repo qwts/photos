@@ -1,5 +1,11 @@
 # photos
 
+## 0.24.1
+
+### Patch Changes
+
+- 407a707: Add an executable cross-product interoperability acceptance and release-evidence gate.
+
 ## 0.24.0
 
 ### Minor Changes
