@@ -5,9 +5,10 @@ import process from 'node:process';
 import { getStoryContext } from '@storybook/test-runner';
 import type { TestRunnerConfig } from '@storybook/test-runner';
 import { injectAxe, getViolations } from 'axe-playwright';
+import type { Result } from 'axe-core';
 
 import { evaluateSurface } from '../tests/a11y/budget';
-import type { ViolationBudget } from '../tests/a11y/budget';
+import type { RuleCounts, ViolationBudget } from '../tests/a11y/budget';
 
 // The a11y gate for the story lane (#398). Every story in test:stories:ci is audited by
 // axe against the WCAG 2.2 AA tag set and checked against tests/a11y/violation-budget.json.
@@ -29,6 +30,18 @@ const budget = JSON.parse(readFileSync(budgetPath, 'utf8')) as ViolationBudget;
 // which is exactly what an early version of this did, reporting a confident zero.
 const reportPath = process.env['OVERLOOK_A11Y_REPORT'];
 if (reportPath !== undefined) mkdirSync(dirname(reportPath), { recursive: true });
+
+// Every story this lane actually audits, appended for the orphan check that runs after the
+// suite (scripts/check-a11y-budget.mjs --visited). Same per-worker constraint as the report,
+// hence a file rather than a module-level Set. See OVERLOOK_A11Y_VISITED in test:stories:ci.
+const visitedPath = process.env['OVERLOOK_A11Y_VISITED'];
+if (visitedPath !== undefined) mkdirSync(dirname(visitedPath), { recursive: true });
+
+export function countByRule(violations: readonly Result[]): RuleCounts {
+  const counts: Record<string, number> = {};
+  for (const violation of violations) counts[violation.id] = (counts[violation.id] ?? 0) + 1;
+  return counts;
+}
 
 const config: TestRunnerConfig = {
   async preVisit(page) {
@@ -54,19 +67,15 @@ const config: TestRunnerConfig = {
     // axe's full default rule set instead of the WCAG 2.2 AA tags the budget declares.
     const violations = await getViolations(page, '#storybook-root', { runOnly: { type: 'tag', values: [...budget.tags] } });
 
+    if (visitedPath !== undefined) appendFileSync(visitedPath, `${context.id}\n`);
+
     if (reportPath !== undefined) {
-      const record = {
-        id: context.id,
-        title: storyContext.title,
-        name: storyContext.name,
-        count: violations.length,
-        violations,
-      };
+      const record = { id: context.id, title: storyContext.title, name: storyContext.name, rules: countByRule(violations), violations };
       appendFileSync(reportPath, `${JSON.stringify(record)}\n`);
       return;
     }
 
-    const verdict = evaluateSurface({ id: context.id, observed: violations.length, entries: budget.stories });
+    const verdict = evaluateSurface({ id: context.id, observed: countByRule(violations), entries: budget.stories });
     if (!verdict.ok) {
       const detail = violations.map((violation) => `  - [${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help}`).join('\n');
       throw new Error(`${verdict.reason}\n${detail}`);

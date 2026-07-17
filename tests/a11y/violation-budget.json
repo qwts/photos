@@ -1,491 +1,594 @@
 {
-  "$comment": "Accessibility violation budget (#398, ADR-0001). A RATCHET: entries only shrink. This file is the honest list of KNOWN axe violations on the audited surfaces \u2014 every surface not listed here has an implicit budget of ZERO, so a new violation anywhere fails the gate without anyone having to remember to add it. Runtime enforcement lives in .storybook/test-runner.ts (per-story) and tests/e2e/a11y.spec.ts (per-flow): a surface over its budget is a regression, and a surface UNDER its budget also fails, demanding the number be tightened. scripts/check-a11y-budget.mjs validates this file's shape, path existence, and that every entry names the issue that owns the fix. Delete an entry when its count reaches zero; never raise one.",
+  "$comment": "Accessibility violation budget (#398, ADR-0001). A RATCHET: entries only shrink. This file is the honest list of KNOWN axe violations on the audited surfaces \u2014 every surface not listed here has an implicit budget of ZERO, so a new violation anywhere fails the gate without anyone having to remember to add it. Counts are keyed by axe RULE ID, never totalled: a bare total would let a surface swap one rule for another at the same count and stay 'within budget', hiding a fresh regression behind existing debt. Runtime enforcement lives in .storybook/test-runner.ts (per story) and tests/e2e/a11y.spec.ts (per flow): a surface over its budget on any rule is a regression, and a surface UNDER budget also fails, demanding the number be tightened. Both lanes also record which ids they audited so scripts/check-a11y-budget.mjs --visited can fail orphaned entries. That script validates shape, path existence, and that every entry names the issue that owns the fix. Drop a rule when it reaches zero; delete the entry when its last rule goes; never raise one.",
   "tags": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
   "stories": [
     {
       "id": "app-exportdialog--options",
       "story": "src/renderer/src/export/ExportDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-exportdialog--phases-on-engine-events",
       "story": "src/renderer/src/export/ExportDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-importdialog--dropped-files",
       "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-importdialog--folder-flow",
       "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-importdialog--move-warning",
       "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-importdialog--no-card-empty-state",
       "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-importdialog--sd-options",
       "story": "src/renderer/src/import/ImportDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-inspector--empty",
       "story": "src/renderer/src/inspector/Inspector.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-inspector--metadata-lite",
       "story": "src/renderer/src/inspector/Inspector.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-inspector--raf-favorite",
       "story": "src/renderer/src/inspector/Inspector.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-inspector--unknown-dimensions",
       "story": "src/renderer/src/inspector/Inspector.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-keydialog--backup-gating",
       "story": "src/renderer/src/settings/KeyDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-keydialog--import-flow",
       "story": "src/renderer/src/settings/KeyDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-keydialog--import-wrong-password",
       "story": "src/renderer/src/settings/KeyDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-lockscreen--password-failure-and-throttle",
       "story": "src/renderer/src/lock/LockScreen.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-lockscreen--recovery-required",
       "story": "src/renderer/src/lock/LockScreen.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-lockscreen--touch-id-cancellation-keeps-password-fallback",
       "story": "src/renderer/src/lock/LockScreen.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-protectedalbumceremony--migration-progress-and-safe-cancel",
       "story": "src/renderer/src/protected/ProtectedAlbumCeremony.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-protectedalbumceremony--recovery-file-and-new-credential",
       "story": "src/renderer/src/protected/ProtectedAlbumCeremony.stories.tsx",
-      "violations": 1,
-      "issues": [400],
-      "note": "1\u00d7 aria-prohibited-attr"
+      "rules": {
+        "aria-prohibited-attr": 1
+      },
+      "issues": [400]
     },
     {
       "id": "app-protectedalbumview--manual-relock-clears-route",
       "story": "src/renderer/src/protected/ProtectedAlbumView.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-protectedalbumview--session-unlocked-with-real-photos",
       "story": "src/renderer/src/protected/ProtectedAlbumView.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--disconnect-hides-backup-controls",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 3,
-      "issues": [409, 410],
-      "note": "1\u00d7 aria-progressbar-name, 1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "aria-progressbar-name": 1,
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--general-section",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 2,
-      "issues": [409, 410],
-      "note": "1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--google-drive-selection",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 3,
-      "issues": [409, 410],
-      "note": "1\u00d7 aria-progressbar-name, 1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "aria-progressbar-name": 1,
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--keyboard-operable",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 2,
-      "issues": [409, 410],
-      "note": "1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--nav-switches-panes",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 2,
-      "issues": [409, 410],
-      "note": "1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--privacy-section",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 2,
-      "issues": [409, 410],
-      "note": "1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--provider-selection-and-unknown-quota",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 2,
-      "issues": [409, 410],
-      "note": "1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--restore-discovery-and-warnings",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 3,
-      "issues": [409, 410],
-      "note": "1\u00d7 aria-progressbar-name, 1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "aria-progressbar-name": 1,
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-settingsdialog--storage-opens-by-default",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
-      "violations": 3,
-      "issues": [409, 410],
-      "note": "1\u00d7 aria-progressbar-name, 1\u00d7 button-name, 1\u00d7 color-contrast"
+      "rules": {
+        "aria-progressbar-name": 1,
+        "button-name": 1,
+        "color-contrast": 1
+      },
+      "issues": [409, 410]
     },
     {
       "id": "app-sidebar--album-drop-states",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 2,
-      "issues": [409, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "target-size": 1
+      },
+      "issues": [409, 415]
     },
     {
       "id": "app-sidebar--album-management",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 2,
-      "issues": [409, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "target-size": 1
+      },
+      "issues": [409, 415]
     },
     {
       "id": "app-sidebar--collapse-and-expand",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 2,
-      "issues": [409, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "target-size": 1
+      },
+      "issues": [409, 415]
     },
     {
       "id": "app-sidebar--disconnected",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 2,
-      "issues": [409, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "target-size": 1
+      },
+      "issues": [409, 415]
     },
     {
       "id": "app-sidebar--expanded",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 2,
-      "issues": [409, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "target-size": 1
+      },
+      "issues": [409, 415]
     },
     {
       "id": "app-sidebar--locked-protected-album-leaks-nothing",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 2,
-      "issues": [409, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "target-size": 1
+      },
+      "issues": [409, 415]
     },
     {
       "id": "app-sidebar--offloaded-hidden-when-empty",
       "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "violations": 2,
-      "issues": [409, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "target-size": 1
+      },
+      "issues": [409, 415]
     },
     {
       "id": "core-badge--all-tones",
       "story": "src/renderer/src/components/Badge.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "core-button--all-variants",
       "story": "src/renderer/src/components/Button.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "core-icon--full-vocabulary",
       "story": "src/renderer/src/components/Icon.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "feedback-primitives--metadata",
       "story": "src/renderer/src/components/feedback.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "feedback-primitives--progress",
       "story": "src/renderer/src/components/feedback.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "feedback-primitives--statuses",
       "story": "src/renderer/src/components/feedback.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "forms-toolbar--segmented-controls",
       "story": "src/renderer/src/components/forms.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "foundations-tokens--specimen",
       "story": "src/renderer/src/TokenSpecimen.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "grid-listrow--click-targets-are-independent",
       "story": "src/renderer/src/grid/ListRow.stories.tsx",
-      "violations": 2,
-      "issues": [409, 412],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive"
+      "rules": {
+        "color-contrast": 1,
+        "nested-interactive": 1
+      },
+      "issues": [409, 412]
     },
     {
       "id": "grid-listrow--state-matrix",
       "story": "src/renderer/src/grid/ListRow.stories.tsx",
-      "violations": 3,
-      "issues": [409, 412, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "nested-interactive": 1,
+        "target-size": 1
+      },
+      "issues": [409, 412, 415]
     },
     {
       "id": "grid-selectionpill--album-picker-flow",
       "story": "src/renderer/src/grid/SelectionPill.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "grid-selectionpill--single-selection",
       "story": "src/renderer/src/grid/SelectionPill.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "grid-selectionpill--thousands-separator-and-clear",
       "story": "src/renderer/src/grid/SelectionPill.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "grid-selectionpill--trash-restore-mode",
       "story": "src/renderer/src/grid/SelectionPill.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "grid-virtualgrid--tile-click-vs-select-circle",
       "story": "src/renderer/src/grid/VirtualGrid.stories.tsx",
-      "violations": 2,
-      "issues": [412, 415],
-      "note": "1\u00d7 nested-interactive, 1\u00d7 target-size"
+      "rules": {
+        "nested-interactive": 1,
+        "target-size": 1
+      },
+      "issues": [412, 415]
     },
     {
       "id": "interop-transfer-and-sync--authentication-expired",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--awaiting-acknowledgement",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--completed",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--conflict-review",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--narrow",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--partial-failure",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--paused",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--provider-disconnected",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--review",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "interop-transfer-and-sync--transferring",
       "story": "src/renderer/src/interop/InteropWorkflowDialog.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     },
     {
       "id": "media-phototile--click-targets-are-independent",
       "story": "src/renderer/src/components/PhotoTile.stories.tsx",
-      "violations": 2,
-      "issues": [412, 415],
-      "note": "1\u00d7 nested-interactive, 1\u00d7 target-size"
+      "rules": {
+        "nested-interactive": 1,
+        "target-size": 1
+      },
+      "issues": [412, 415]
     },
     {
       "id": "overlays-toast--tones",
       "story": "src/renderer/src/components/Toast.stories.tsx",
-      "violations": 1,
-      "issues": [409],
-      "note": "1\u00d7 color-contrast"
+      "rules": {
+        "color-contrast": 1
+      },
+      "issues": [409]
     }
   ],
   "flows": [
     {
       "id": "shell-grid",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 3,
-      "issues": [409, 412, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "nested-interactive": 1,
+        "target-size": 1
+      },
+      "issues": [409, 412, 415]
     },
     {
       "id": "shell-inspector",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 3,
-      "issues": [409, 412, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "nested-interactive": 1,
+        "target-size": 1
+      },
+      "issues": [409, 412, 415]
     },
     {
       "id": "shell-lightbox",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 1,
-      "issues": [412],
-      "note": "1\u00d7 nested-interactive"
+      "rules": {
+        "nested-interactive": 1
+      },
+      "issues": [412]
     },
     {
       "id": "shell-selection",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 3,
-      "issues": [409, 412, 415],
-      "note": "1\u00d7 color-contrast, 1\u00d7 nested-interactive, 1\u00d7 target-size"
+      "rules": {
+        "color-contrast": 1,
+        "nested-interactive": 1,
+        "target-size": 1
+      },
+      "issues": [409, 412, 415]
     },
     {
       "id": "shell-settings-dialog",
       "spec": "tests/e2e/a11y.spec.ts",
-      "violations": 4,
-      "issues": [409, 410, 412],
-      "note": "1\u00d7 aria-progressbar-name, 1\u00d7 button-name, 1\u00d7 color-contrast, 1\u00d7 nested-interactive"
+      "rules": {
+        "aria-progressbar-name": 1,
+        "button-name": 1,
+        "color-contrast": 1,
+        "nested-interactive": 1
+      },
+      "issues": [409, 410, 412]
     }
   ]
 }
