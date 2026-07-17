@@ -12,11 +12,13 @@ import {
   fitSize,
   orientedSize,
   panBy,
+  resizeTransform,
   rotateOrientation,
   zoomAround,
   type LightboxOrientation,
   type LightboxSize,
   type LightboxTransform,
+  type LightboxZoomMode,
 } from './geometry.js';
 
 const FIT: LightboxTransform = { zoom: 1, x: 0, y: 0 };
@@ -67,7 +69,7 @@ export function LightboxViewport({
   const [viewport, setViewport] = useState<LightboxSize>({ width: 0, height: 0 });
   const [transform, setTransform] = useState<LightboxTransform>(FIT);
   const [orientation, setOrientation] = useState<LightboxOrientation>(DEFAULT_ORIENTATION);
-  const [mode, setMode] = useState<'fit' | 'fill' | 'custom'>('fit');
+  const [mode, setMode] = useState<LightboxZoomMode>('fit');
   const [showHint, setShowHint] = useState(shouldShowHint);
   const [decoded, setDecoded] = useState<LightboxSize | null>(null);
   const [decodeFailed, setDecodeFailed] = useState(false);
@@ -84,13 +86,13 @@ export function LightboxViewport({
       if (entry === undefined) return;
       const next = { width: entry.contentRect.width, height: entry.contentRect.height };
       setViewport(next);
-      setTransform((current) => clampTransform(current, fitSize(orientedImage, next), next));
+      setTransform((current) => resizeTransform(current, mode, orientedImage, next));
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
     };
-  }, [orientedImage]);
+  }, [mode, orientedImage]);
 
   useEffect(() => {
     if (!showHint) return;

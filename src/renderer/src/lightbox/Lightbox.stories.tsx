@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import landscapePhoto from '../../../../tests/fixtures/photos/summer-landscape.jpg';
 import portraitPhoto from '../../../../tests/fixtures/photos/street-city.jpg';
@@ -82,8 +82,9 @@ const meta: Meta<typeof Lightbox> = {
     (Story, context) => {
       installBackupStub((context.parameters['ephemeralStage'] as EphemeralStage | null | undefined) ?? null);
       const width = (context.parameters['lightboxWidth'] as number | undefined) ?? 960;
+      const height = (context.parameters['lightboxHeight'] as number | undefined) ?? 640;
       return (
-        <div style={{ position: 'relative', width: `min(${String(width)}px, 100vw)`, height: '640px', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', width: `min(${String(width)}px, 100vw)`, height: `${String(height)}px`, overflow: 'hidden' }}>
           <Story />
         </div>
       );
@@ -146,6 +147,28 @@ export const PortraitFillZoomAndReset: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Fit image (0)' }));
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+  },
+};
+
+export const LandscapeFillCoversWidescreenAndPans: Story = {
+  parameters: { lightboxHeight: 540 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const image = canvas.getByRole('img', { name: 'IMG_4028.JPG' });
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 1280));
+    await userEvent.dblClick(image);
+    await expect(viewport).toHaveAttribute('data-mode', 'fill');
+    await waitFor(async () => {
+      const viewportBounds = viewport.getBoundingClientRect();
+      const imageBounds = image.getBoundingClientRect();
+      await expect(imageBounds.width).toBeGreaterThanOrEqual(viewportBounds.width - 1);
+      await expect(imageBounds.height).toBeGreaterThanOrEqual(viewportBounds.height - 1);
+    });
+    await fireEvent.wheel(image, { deltaY: 5000 });
+    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
+    await fireEvent.wheel(image, { deltaY: -10000 });
+    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeGreaterThan(0));
   },
 };
 

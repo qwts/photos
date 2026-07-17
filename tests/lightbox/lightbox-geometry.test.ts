@@ -5,12 +5,12 @@ import {
   DEFAULT_ORIENTATION,
   ZOOM_MAX,
   ZOOM_MIN,
-  clampTransform,
   fillZoom,
   fitSize,
   orientedSize,
-  rotateOrientation,
   panBy,
+  resizeTransform,
+  rotateOrientation,
   zoomAround,
 } from '../../src/renderer/src/lightbox/geometry.js';
 
@@ -28,10 +28,14 @@ describe('lightbox transform geometry (#307)', () => {
     assert.equal(portrait.height, 400);
   });
 
-  test('fill is orientation-aware and a deterministic no-op when already filled', () => {
-    assertClose(fillZoom({ width: 600, height: 400 }, { width: 400, height: 400 }), 1.5);
-    assertClose(fillZoom({ width: 400, height: 600 }, { width: 400, height: 400 }), 1.5);
-    assert.equal(fillZoom({ width: 6000, height: 4000 }, { width: 1200, height: 800 }), 1);
+  test('fill covers both viewport axes across the aspect-ratio matrix (#371)', () => {
+    const widescreen = { width: 1600, height: 900 };
+    assertClose(fillZoom({ width: 700, height: 525 }, widescreen), 1600 / 700);
+    assertClose(fillZoom({ width: 525, height: 700 }, widescreen), 1600 / 525);
+    assertClose(fillZoom({ width: 2100, height: 700 }, widescreen), 1.6875);
+    assert.equal(fillZoom({ width: 1600, height: 900 }, widescreen), 1);
+    assert.equal(fillZoom({ width: 320, height: 180 }, widescreen), 5);
+    assert.equal(fillZoom({ width: 0, height: 0 }, widescreen), 1);
   });
 
   test('pan clamps both axes without exposing space beyond an edge', () => {
@@ -55,11 +59,16 @@ describe('lightbox transform geometry (#307)', () => {
     assert.equal(zoomAround({ zoom: 1, x: 0, y: 0 }, 0, { x: 200, y: 200 }, fitted, viewport).zoom, ZOOM_MIN);
   });
 
-  test('resize reclamps the current transform', () => {
-    assert.deepEqual(clampTransform({ zoom: 2, x: 500, y: 500 }, { width: 300, height: 200 }, { width: 400, height: 300 }), {
+  test('resize reclamps custom transforms and recomputes active Fill', () => {
+    assert.deepEqual(resizeTransform({ zoom: 2, x: 500, y: 500 }, 'custom', { width: 300, height: 200 }, { width: 400, height: 300 }), {
       zoom: 2,
       x: 100,
       y: 50,
+    });
+    assert.deepEqual(resizeTransform({ zoom: 1, x: 90, y: -999 }, 'fill', { width: 700, height: 525 }, { width: 1600, height: 900 }), {
+      zoom: 1600 / 700,
+      x: 0,
+      y: -150,
     });
   });
 
