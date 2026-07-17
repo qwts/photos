@@ -34,6 +34,12 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, o
   }, [onClose]);
 
   return (
+    // Same composite-widget exception as Segmented: a `menu` container is not focusable;
+    // its menuitems are. This one is complete — initial focus (above), Escape, and
+    // ArrowUp/ArrowDown/Home/End roving (below). Do not "fix" the rule by adding
+    // tabIndex to the container; that would put a stop in the Tab order that the APG
+    // menu pattern specifically excludes.
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus
     <div
       ref={menuRef}
       role="menu"

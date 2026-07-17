@@ -65,6 +65,9 @@ export function ProtectedAlbumUnlockDialog({ albumId, onClose, onDone }: Protect
             The album name, count, dates, and photos remain sealed until its independent password releases this session’s key.
           </div>
         </div>
+        {/* REAL DEBT: visible label vs PasswordField's aria-label — SC 2.5.3, audit
+            finding 17. Owned by #400. */}
+        {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
         <label>
           <div className="ovl-key__label mono-data">Album password</div>
           <PasswordField

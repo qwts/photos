@@ -50,6 +50,11 @@ export function Segmented<T extends string>({ options, value, onChange, label, d
   };
 
   return (
+    // A radiogroup is a COMPOSITE widget: per the APG the container is not focusable —
+    // its radios are, via the roving tabIndex below. jsx-a11y models every interactive
+    // role as individually focusable and so cannot express that pattern. The audit
+    // (#398) names this component the correct in-repo reference for it.
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus
     <div
       ref={groupRef}
       role="radiogroup"

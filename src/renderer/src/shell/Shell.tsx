@@ -304,6 +304,11 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   };
 
   return (
+    // OS file-drop target for import. SC 2.5.7 (Dragging Movements) is satisfied by the
+    // Toolbar's Import button, which opens the same ImportDialog without any dragging;
+    // this drop path is an accelerator, not the only route. A keydown handler on the
+    // shell root would not be a meaningful equivalent to dropping a file.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div className="ovl-shell" onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
       {dragging ? (
         <div className="ovl-shell__dropOverlay">

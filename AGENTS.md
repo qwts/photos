@@ -121,6 +121,21 @@ possible, enforced as executable checks._
   in under budget fails until the number is tightened. See the wiki
   [Testing Strategy](https://github.com/qwts/photos/wiki/Testing-Strategy)
   and [ADR-0001](https://github.com/qwts/photos/wiki/ADR-0001-Automation-Check-Governance).
+- **A11y runs in three lanes, and none of them subsumes the others.** `jsx-a11y`
+  (strict, `src/renderer`) reads the **source**, so pointer-only handlers and
+  label/control mismatches fail at authoring time; the **story** lane runs axe
+  over every story; the **E2E** lane runs axe over composed flows plus the
+  focus-obscured probe for SC 2.4.11, which has no axe rule. A story-lane pass
+  proves nothing about composition, and an axe pass proves nothing about
+  criteria axe does not implement — roughly two thirds of WCAG. The wiki
+  [Accessibility Audit](https://github.com/qwts/photos/wiki/Accessibility-Audit-2026-07)
+  records which criteria are gated and which rest on the manual pass.
+- **Never suppress an a11y rule bare.** `reportUnusedDisableDirectives` is
+  `error`, so every `eslint-disable` must carry a reason: either why the code is
+  verified correct, or the issue that owns the debt. When the fix lands the
+  directive stops matching and the build fails until it is deleted — that is the
+  ratchet, applied to exemptions. A blanket `rules: {'jsx-a11y/x': 'off'}` in a
+  PR needs the same justification as lowering a coverage floor.
 - Dependencies use **exact pins**; Dependabot is the only actor that bumps
   versions. A set of **toolchain caps** holds back majors that would break the
   build: TypeScript stays **below 6.1.0** (typescript-eslint's peer cap),
@@ -136,6 +151,13 @@ possible, enforced as executable checks._
   re-audit and re-baseline in that PR
   (`OVERLOOK_A11Y_REPORT=<path> npm run test:stories:ci`), never widen the tags
   or raise a budget to make it pass.
+- **`eslint-plugin-jsx-a11y` is overridden onto `$eslint`.** Its latest release
+  (6.10.2) caps its peer at ESLint 9 and this repo is on 10, so npm refuses the
+  install without the override. The rules were verified to actually run under
+  ESLint 10 — this is a stale peer range, not an incompatibility. Revisit when
+  upstream ships ESLint 10 support; if a bump ever breaks rule execution the
+  symptom is jsx-a11y silently reporting **nothing**, so treat a sudden drop to
+  zero findings as a failure, not a win.
 - Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only
   PRs may skip it. 0.x semantics (minor = behavior-changing, patch = fixes):
   wiki [ADR-0002 Versioning Policy](https://github.com/qwts/photos/wiki/ADR-0002-Versioning-Policy).

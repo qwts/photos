@@ -45,6 +45,14 @@ export function Tooltip({ label, side = 'top', children }: TooltipProps): ReactE
     setCoords(null);
   };
   return (
+    // A passive wrapper, not the control: the interactive element is `children`, and the
+    // mouse handlers are already mirrored by onFocus/onBlur, so the keyboard path this
+    // rule asks for exists. Giving the span a role and tabIndex would insert a second,
+    // meaningless Tab stop in front of every tooltipped button.
+    // (The tooltip's REAL defect is that `role="tooltip"` is never referenced by an
+    // aria-describedby, so it is announced to nobody — audit finding 19, owned by #400.
+    // That one is invisible to this rule.)
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <span ref={ref} className="ovl-tooltip" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
       {children}
       {coords === null ? null : (
