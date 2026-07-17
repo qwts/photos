@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 import {
   OVERLOOK_MAC_APPLICATION_ID,
@@ -9,8 +10,26 @@ import {
   OVERLOOK_PRODUCT_NAME,
   OVERLOOK_TEAM_ID,
 } from '../../src/shared/app-identity.js';
+import type {
+  ExpectedProvisioningIdentity,
+  ProvisioningCommandRunner,
+  ProvisioningProfileMetadata,
+} from '../../scripts/provisioning-profile.mjs';
 
 const root = process.cwd();
+
+interface ProvisioningProfileModule {
+  readonly readProvisioningProfile: (profilePath: string, run?: ProvisioningCommandRunner) => ProvisioningProfileMetadata;
+  readonly validateProvisioningProfile: (
+    metadata: ProvisioningProfileMetadata,
+    expected: ExpectedProvisioningIdentity,
+    now?: number,
+  ) => void;
+}
+
+function provisioningProfileModule(): Promise<ProvisioningProfileModule> {
+  return import(pathToFileURL(join(root, 'scripts/provisioning-profile.mjs')).href) as Promise<ProvisioningProfileModule>;
+}
 
 function source(path: string): string {
   return readFileSync(join(root, path), 'utf8');
@@ -47,6 +66,7 @@ describe('macOS release signing safety (#357)', () => {
     assert.match(packageJson.scripts?.['package:signed:provisioned'] ?? '', /package-signed-provisioned\.mjs/u);
     assert.match(packager, /OVERLOOK_MAC_PROVISIONING_PROFILE/u);
     assert.match(packager, /provisioningProfile/u);
+    assert.match(packager, /--validate-only/u);
   });
 
   test('the package workflow validates that the packaged app can start', () => {
@@ -56,5 +76,62 @@ describe('macOS release signing safety (#357)', () => {
     assert.match(workflow, /\*-mac\.zip/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
     for (const binary of ['ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
+  });
+});
+
+describe('provisioning profile validation (#360)', () => {
+  test('extracts only JSON-safe fields from the decoded CMS payload', async () => {
+    const { readProvisioningProfile, validateProvisioningProfile } = await provisioningProfileModule();
+    const plist = Buffer.from('<plist><dict><key>DeveloperCertificates</key><array><data>binary</data></array></dict></plist>');
+    const calls: Array<{ readonly file: string; readonly args: readonly string[] }> = [];
+    const run: ProvisioningCommandRunner = (file, args) => {
+      calls.push({ file, args });
+      if (file === 'security') return plist;
+      const key = args[1];
+      if (key === 'Entitlements') {
+        return JSON.stringify({
+          'com.apple.application-identifier': OVERLOOK_MAC_APPLICATION_ID,
+          'com.apple.developer.team-identifier': OVERLOOK_TEAM_ID,
+        });
+      }
+      if (key === 'TeamIdentifier') return JSON.stringify([OVERLOOK_TEAM_ID]);
+      if (key === 'ExpirationDate') return '2044-07-12T01:24:19Z';
+      throw new Error(`unexpected extraction key ${String(key)}`);
+    };
+
+    const metadata = readProvisioningProfile('/tmp/overlook.provisionprofile', run);
+    validateProvisioningProfile(metadata, { applicationId: OVERLOOK_MAC_APPLICATION_ID, teamId: OVERLOOK_TEAM_ID }, 0);
+    assert.deepEqual(
+      calls.map(({ file, args }) => [file, ...args.slice(0, 4)]),
+      [
+        ['security', 'cms', '-D', '-i', '/tmp/overlook.provisionprofile'],
+        ['plutil', '-extract', 'Entitlements', 'json', '-o'],
+        ['plutil', '-extract', 'TeamIdentifier', 'json', '-o'],
+        ['plutil', '-extract', 'ExpirationDate', 'raw', '-o'],
+      ],
+    );
+    assert.ok(calls.filter(({ file }) => file === 'plutil').every(({ args }) => args[0] === '-extract'));
+  });
+
+  test('fails closed for wrong identity and expiry', async () => {
+    const { validateProvisioningProfile } = await provisioningProfileModule();
+    const valid = {
+      entitlements: {
+        'com.apple.application-identifier': OVERLOOK_MAC_APPLICATION_ID,
+        'com.apple.developer.team-identifier': OVERLOOK_TEAM_ID,
+      },
+      teams: [OVERLOOK_TEAM_ID],
+      expiresAt: Date.parse('2044-07-12T01:24:19Z'),
+    };
+    const expected = { applicationId: OVERLOOK_MAC_APPLICATION_ID, teamId: OVERLOOK_TEAM_ID };
+    assert.throws(
+      () => validateProvisioningProfile({ ...valid, entitlements: {} }, expected, 0),
+      /does not authorize application identifier/u,
+    );
+    assert.throws(() => validateProvisioningProfile({ ...valid, teams: [] }, expected, 0), /TeamIdentifier/u);
+    assert.throws(
+      () => validateProvisioningProfile({ ...valid, expiresAt: Date.parse('2020-01-01T00:00:00Z') }, expected, Date.now()),
+      /expired/u,
+    );
   });
 });
