@@ -27,6 +27,9 @@ const ERROR_HELP: Record<string, string> = {
   unsupported: 'Update Overlook before restoring this newer backup.',
   'destructive-authorization': 'Confirm replacement before restoring over this library.',
   cancelled: 'Restore paused. Verified staged work remains available to resume.',
+  'not-a-library': 'Choose the Overlook library folder that contains library.db.',
+  'already-registered': 'Choose the registered library from the library switcher.',
+  'local-open': 'The local library was not changed. Choose its folder and try again.',
   io: 'The restore could not continue. Your active library remains unchanged.',
 };
 
@@ -98,6 +101,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
   const [providerId, setProviderId] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [openingLocal, setOpeningLocal] = useState(false);
   const [keyPath, setKeyPath] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [step, setStep] = useState<Step>('setup');
@@ -166,6 +170,37 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
       }
       setStep('complete');
     });
+  };
+
+  const openExisting = (): void => {
+    if (openingLocal) return;
+    setOpeningLocal(true);
+    setError(null);
+    void window.overlook.libraries
+      .add({ path: null })
+      .then((outcome) => {
+        if (!outcome.ok) {
+          setOpeningLocal(false);
+          if (outcome.reason !== 'cancelled') {
+            setError({
+              reason: outcome.reason,
+              message:
+                outcome.reason === 'not-a-library' ? "That folder isn't an Overlook library." : 'That library is already registered.',
+            });
+          }
+          return;
+        }
+        // A fresh profile has no open library. With the retained directory
+        // now its only registry entry, leaving onboarding lets the ordinary
+        // lazy bootstrap open that entry without a destructive restore or a
+        // live-switch teardown (#479).
+        setOpeningLocal(false);
+        onStartNew?.();
+      })
+      .catch(() => {
+        setOpeningLocal(false);
+        setError({ reason: 'local-open', message: 'The existing local library could not be opened.' });
+      });
   };
 
   return (
@@ -241,9 +276,14 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
           </label>
           <div className="ovl-restore__actions">
             {context === 'onboarding' ? (
-              <Button variant="ghost" onClick={onStartNew}>
-                Start a new library
-              </Button>
+              <>
+                <Button variant="secondary" icon="folder-open" disabled={openingLocal} onClick={openExisting}>
+                  {openingLocal ? 'Opening local library…' : 'Open existing library…'}
+                </Button>
+                <Button variant="ghost" onClick={onStartNew}>
+                  Start a new library
+                </Button>
+              </>
             ) : null}
             <Button variant="primary" disabled={!connected || keyPath === null || password === ''} onClick={discover}>
               Discover backups
