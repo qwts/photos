@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { Dialog } from '../components/Dialog';
+import { Button } from '../components/Button';
 import { Icon, type IconName } from '../components/Icon';
 import { GeneralPane } from './GeneralPane';
 import { KeyDialog, type KeyDialogMode } from './KeyDialog';
@@ -117,9 +118,9 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
                 reused.
               </p>
               <p className="mono-data">NOT PAIRED · PROVIDER NOT CONNECTED</p>
-              <button type="button" onClick={onTransfer}>
+              <Button className="ovl-settings__transferAction" variant="primary" icon="refresh-cw" onClick={onTransfer}>
                 Open Transfer &amp; Sync
-              </button>
+              </Button>
             </section>
           ) : (
             <PrivacyPane

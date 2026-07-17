@@ -44,6 +44,11 @@
   min-width: 0;
 }
 
+.ovl-settings__transferAction {
+  max-width: 100%;
+  white-space: normal;
+}
+
 .ovl-settings__fields {
   display: flex;
   flex-direction: column;

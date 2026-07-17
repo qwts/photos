@@ -530,6 +530,20 @@
       ]
     },
     {
+      "id": "m09-settings-transfer-action",
+      "wiki": "Acceptance-Test-Image-Trail-Transfer-And-Sync-UI",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/interop-ui.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        }
+      ]
+    },
+    {
       "id": "m09-settings-general",
       "wiki": "User-Story-M09-Settings-preferences",
       "coverage": [
