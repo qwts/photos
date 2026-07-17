@@ -580,6 +580,16 @@
       ]
     },
     {
+      "id": "m09-settings-provider-status-loading",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        }
+      ]
+    },
+    {
       "id": "m09-settings-privacy",
       "wiki": "User-Story-M09-Settings-preferences",
       "coverage": [
