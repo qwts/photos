@@ -44,7 +44,8 @@ export function Dialog({ open, title, icon, width = 420, onClose, footer, childr
 
   useEffect(() => {
     if (open) {
-      panelRef.current?.focus();
+      const panel = panelRef.current;
+      if (panel !== null && !panel.contains(document.activeElement)) panel.focus();
     }
   }, [open]);
 

@@ -36,6 +36,7 @@ export interface ProtectedWorkflowServiceOptions {
   readonly currentLibraryKey: () => EnvelopeKey;
   readonly progress: (progress: ProtectedWorkflowProgress) => void;
   readonly changed: () => void;
+  readonly ordinaryChanged: (photoIds: readonly string[]) => void;
   readonly createId?: (() => string) | undefined;
 }
 
@@ -136,7 +137,7 @@ export class ProtectedWorkflowService {
         libraryResolver: this.options.resolveLibraryKey(),
       });
       migrationCompleted = true;
-      this.finishProtection(albumId, source.id);
+      this.finishProtection(albumId, source.id, source.photoIds);
       return { ok: true, albumId };
     } catch {
       await this.options.migrations.repairStartup();
@@ -148,7 +149,7 @@ export class ProtectedWorkflowService {
             targetAlbumKey: albumKey,
             libraryResolver: this.options.resolveLibraryKey(),
           });
-          this.finishProtection(albumId, source.id);
+          this.finishProtection(albumId, source.id, source.photoIds);
           return { ok: true, albumId };
         } catch {
           this.options.changed();
@@ -195,7 +196,7 @@ export class ProtectedWorkflowService {
       await this.advanceUntilCommitted(migrationId, 'unprotect', photoIds.length, authority);
       committed = true;
       await this.advanceAll(migrationId, 'unprotect', photoIds.length, authority);
-      this.finishRemoval(albumId);
+      this.finishRemoval(albumId, photoIds);
       return { ok: true, albumId };
     } catch {
       if (!committed) await this.options.migrations.repairStartup();
@@ -218,7 +219,11 @@ export class ProtectedWorkflowService {
         targetAlbumKey: albumKey,
         libraryResolver: this.options.resolveLibraryKey(),
       });
-      this.finishProtection(albumId, metadata.ordinaryAlbum?.id);
+      this.finishProtection(
+        albumId,
+        metadata.ordinaryAlbum?.id,
+        metadata.members.map((member) => member.photoId),
+      );
       return { ok: true, outcome: 'protection-completed' };
     } catch {
       return { ok: false, reason: 'failed' };
@@ -243,7 +248,10 @@ export class ProtectedWorkflowService {
         targetLibraryKey: this.options.currentLibraryKey(),
         ordinaryAlbum: { ...restoration, name: metadata.name },
       });
-      this.finishRemoval(albumId);
+      this.finishRemoval(
+        albumId,
+        metadata.members.map((member) => member.photoId),
+      );
       return { ok: true, outcome: 'removal-completed' };
     } catch {
       return { ok: false, reason: 'failed' };
@@ -253,7 +261,7 @@ export class ProtectedWorkflowService {
     }
   }
 
-  private finishProtection(albumId: string, ordinaryAlbumId: string | undefined): void {
+  private finishProtection(albumId: string, ordinaryAlbumId: string | undefined, photoIds: readonly string[]): void {
     const state = this.options.albumRecords.get(albumId)?.migrationState;
     if (state === 'staged' && !this.options.albumRecords.transition(albumId, 'staged', 'active')) {
       throw new Error('protected album activation failed');
@@ -261,10 +269,11 @@ export class ProtectedWorkflowService {
     if (state !== 'staged' && state !== 'active') throw new Error('protected album activation failed');
     if (ordinaryAlbumId !== undefined) this.options.photos.deleteAlbum(ordinaryAlbumId);
     this.options.albums.relock(albumId);
+    this.options.ordinaryChanged(photoIds);
     this.options.changed();
   }
 
-  private finishRemoval(albumId: string): void {
+  private finishRemoval(albumId: string, photoIds: readonly string[]): void {
     const state = this.options.albumRecords.get(albumId)?.migrationState;
     if (state === 'active' && !this.options.albumRecords.transition(albumId, 'active', 'retiring')) {
       throw new Error('protected album retirement failed');
@@ -273,6 +282,7 @@ export class ProtectedWorkflowService {
     if (this.options.albumRecords.get(albumId) !== undefined && !this.options.albumRecords.deleteRetiring(albumId)) {
       throw new Error('protected album retirement did not finish');
     }
+    this.options.ordinaryChanged(photoIds);
     this.options.changed();
   }
 

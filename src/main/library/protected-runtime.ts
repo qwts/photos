@@ -34,6 +34,7 @@ export interface ProtectedRuntimeOptions {
   readonly repairFailure: () => void;
   readonly workflowProgress: (progress: ProtectedWorkflowProgress) => void;
   readonly workflowChanged: () => void;
+  readonly ordinaryChanged: (photoIds: readonly string[]) => void;
 }
 
 /** Owns the independently authorized protected domain and every decrypted
@@ -89,6 +90,7 @@ export class ProtectedRuntime {
       currentLibraryKey: options.currentLibraryKey,
       progress: options.workflowProgress,
       changed: options.workflowChanged,
+      ordinaryChanged: options.ordinaryChanged,
     });
     void blobsReady.then(() => this.migrations.repairStartup()).catch(options.repairFailure);
   }

@@ -93,6 +93,9 @@ function broadcast(send: (win: BrowserWindow) => void): void {
 const emitExportProgress = createEmitter(events.exportProgress, (name, payload) => {
   broadcast((win) => win.webContents.send(name, payload));
 });
+const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => {
+  broadcast((win) => win.webContents.send(name, payload));
+});
 
 async function pickExportDestination(): Promise<string | null> {
   const fixture = harnessEnv('OVERLOOK_EXPORT_DESTINATION');
@@ -163,6 +166,7 @@ function getLibraryService(): LibraryService {
       repairFailure: () => console.error('[overlook] protected migration repair failed'),
       workflowProgress: (progress) => broadcast((win) => win.webContents.send(events.protectedWorkflowProgress.name, progress)),
       workflowChanged: () => broadcast((win) => win.webContents.send(events.protectedAlbumsChanged.name, {})),
+      ordinaryChanged: (photoIds) => emitLibraryChanged({ photoIds: [...photoIds] }),
     });
     libraryParts = {
       db,
@@ -172,15 +176,12 @@ function getLibraryService(): LibraryService {
       protected: protectedRuntime,
     };
     startupMaintenance.schedule();
-    const emitChanged = createEmitter(events.libraryChanged, (name, payload) => {
-      broadcast((win) => win.webContents.send(name, payload));
-    });
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
     libraryService = new LibraryService(db, {
       libraryChanged: (photoIds) => {
-        emitChanged({ photoIds: [...photoIds] });
+        emitLibraryChanged({ photoIds: [...photoIds] });
       },
       pendingCountChanged: (count) => {
         emitPending({ count });
@@ -196,8 +197,7 @@ function getLibraryService(): LibraryService {
   return libraryService;
 }
 
-let importService: ImportService | undefined;
-let thumbnailPool: ThumbnailPool | undefined;
+let importService: ImportService | undefined, thumbnailPool: ThumbnailPool | undefined;
 
 function getImportService(): ImportService {
   if (importService === undefined) {

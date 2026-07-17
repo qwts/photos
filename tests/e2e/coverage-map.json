@@ -2,6 +2,32 @@
   "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered \u2014 automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
   "entries": [
     {
+      "id": "m20-protected-album-workflows",
+      "wiki": "User-Story-M20-Protected-Albums",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/protected-albums.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/protected/ProtectedAlbumCeremony.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/protected/ProtectedAlbumView.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/library/protected-workflow-service.test.ts",
+            "tests/library/protected-library-service.test.ts",
+            "tests/crypto/protected-photo-migration-service.test.ts"
+          ]
+        }
+      ]
+    },
+    {
       "id": "m21-image-trail-transfer-sync-ui",
       "wiki": "Acceptance-Test-Image-Trail-Transfer-And-Sync-UI",
       "coverage": [
