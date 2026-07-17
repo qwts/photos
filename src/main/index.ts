@@ -5,7 +5,7 @@ import { app, BrowserWindow, dialog, session, shell } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
-import { OVERLOOK_PRODUCT_NAME } from '../shared/app-identity.js';
+import { configureAppProfile } from './app-profile.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
 import { reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
@@ -62,12 +62,8 @@ function harnessEnv(name: string): string | undefined {
   return app.isPackaged ? undefined : process.env[name];
 }
 
-// userData is derived from the stable product name, not the macOS bundle ID.
-// Pin it before the first path lookup so the identity migration reuses the
-// existing Overlook profile instead of presenting an empty library.
-app.setName(OVERLOOK_PRODUCT_NAME);
-const userDataOverride = harnessEnv('OVERLOOK_USER_DATA');
-if (userDataOverride !== undefined && userDataOverride !== '') app.setPath('userData', userDataOverride);
+// Configure the stable profile identity before the first userData lookup.
+const userDataOverride = configureAppProfile(app, process.env.OVERLOOK_USER_DATA);
 
 const externalOpen = createExternalOpenRuntime({ isolatedHarnessProfile: userDataOverride !== undefined && userDataOverride !== '' });
 
