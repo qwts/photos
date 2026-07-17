@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
-import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import realPhoto from '../../../../design/handoff/assets/thumbs/t01.png';
 import { PhotoTile } from './PhotoTile';
@@ -82,6 +82,14 @@ export const PreviewUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await waitFor(() => expect(canvas.getByRole('status')).toHaveTextContent('PREVIEW UNAVAILABLE'));
-    await expect(canvasElement.querySelector('img')).toHaveAttribute('data-unavailable', 'true');
+    const image = canvasElement.querySelector('img');
+    await expect(image).toHaveAttribute('data-unavailable', 'true');
+
+    // A later successful decode clears the direct DOM flag without a React
+    // rerender; virtual-grid scroll performance depends on this state-free
+    // failure path when many unavailable records enter the viewport.
+    if (image !== null) await fireEvent.load(image);
+    await expect(image).toHaveAttribute('data-unavailable', 'false');
+    await expect(canvas.queryByRole('status')).not.toBeInTheDocument();
   },
 };

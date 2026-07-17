@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { DragEvent, ReactElement } from 'react';
 
 import './phototile.css';
@@ -37,8 +36,6 @@ export function PhotoTile({
   onDragStart,
   onDragEnd,
 }: PhotoTileProps): ReactElement {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const previewUnavailable = failedSrc === src;
   const classes = ['ovl-tile', selected ? 'ovl-tile--selected' : undefined, status === 'offloaded' ? 'ovl-tile--offloaded' : undefined]
     .filter(Boolean)
     .join(' ');
@@ -68,15 +65,17 @@ export function PhotoTile({
         loading="lazy"
         draggable={false}
         className="ovl-tile__img"
-        data-unavailable={previewUnavailable ? 'true' : 'false'}
-        onLoad={() => setFailedSrc((failed) => (failed === src ? null : failed))}
-        onError={() => setFailedSrc(src)}
+        data-unavailable="false"
+        onLoad={(event) => {
+          event.currentTarget.dataset['unavailable'] = 'false';
+        }}
+        onError={(event) => {
+          event.currentTarget.dataset['unavailable'] = 'true';
+        }}
       />
-      {previewUnavailable ? (
-        <div className="ovl-tile__unavailable mono-data" role="status">
-          PREVIEW UNAVAILABLE
-        </div>
-      ) : null}
+      <div className="ovl-tile__unavailable mono-data" role="status">
+        PREVIEW UNAVAILABLE
+      </div>
       <div className="ovl-tile__hover-overlay" />
       {onToggleSelect === undefined ? null : (
         <button
