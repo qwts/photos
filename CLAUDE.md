@@ -41,4 +41,7 @@ npm run test:stories:ci # additionally, for renderer/story-relevant changes
 
 The `/check` command wraps this and reports each gate explicitly. Floors
 (c8 lines 90 / branches 80, type-coverage 99.8, 800-line file budget) are
-ratchets — only ever raise them.
+ratchets — only ever raise them. The a11y violation budget
+(`tests/a11y/violation-budget.json`, #398) is the same policy inverted: its
+counts only ever **shrink**, and coming in under budget fails until the entry
+is tightened or deleted. Unlisted surfaces are budgeted at zero.

@@ -40,10 +40,11 @@ async function launchSeeded(slug: string, seed: string): Promise<{ app: Electron
 }
 
 async function assertWithinBudget(page: Page, id: string): Promise<void> {
-  const violations = await getViolations(page, undefined, {
-    detailedReport: false,
-    axeOptions: { runOnly: { type: 'tag', values: [...budget.tags] } },
-  });
+  // getViolations takes axe's RunOptions DIRECTLY as its third argument — not the
+  // {axeOptions} wrapper that checkA11y takes. Passing the wrapper type-checks as a
+  // loose object but is silently ignored at runtime, which audits against axe's full
+  // default rule set (best-practice rules included) instead of the WCAG 2.2 AA tags.
+  const violations = await getViolations(page, undefined, { runOnly: { type: 'tag', values: [...budget.tags] } });
   const verdict = evaluateSurface({ id, observed: violations.length, entries: budget.flows });
   const detail = violations.map((violation) => `  - [${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help}`).join('\n');
   expect(verdict.ok, `${verdict.reason ?? ''}\n${detail}`).toBe(true);

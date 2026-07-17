@@ -94,6 +94,9 @@
     },
     "type-coverage": {
       "typescript": "$typescript"
+    },
+    "axe-playwright": {
+      "axe-core": "$axe-core"
     }
   },
   "lint-staged": {
