@@ -82,6 +82,6 @@ export const PreviewUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await waitFor(() => expect(canvas.getByRole('status')).toHaveTextContent('PREVIEW UNAVAILABLE'));
-    await expect(canvas.getByRole('img')).toHaveAttribute('data-unavailable', 'true');
+    await expect(canvasElement.querySelector('img')).toHaveAttribute('data-unavailable', 'true');
   },
 };
