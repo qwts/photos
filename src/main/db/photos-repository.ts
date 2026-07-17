@@ -211,6 +211,25 @@ export class PhotosRepository {
     return row === undefined ? undefined : toRecord(row);
   }
 
+  /** Repairs legacy unknown dimensions without overwriting trusted metadata. */
+  repairDimensions(photoId: string, width: number, height: number): boolean {
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+      throw new RangeError('photo dimensions must be positive safe integers');
+    }
+    return this.db.transaction(() => {
+      const repaired = queryGet<{ id: string }>(
+        this.db,
+        `UPDATE photos SET width = @width, height = @height
+         WHERE id = @id AND (width <= 0 OR height <= 0)
+         RETURNING id`,
+        { id: photoId, width, height },
+      );
+      if (repaired === undefined) return false;
+      markDirty(this.db, photoId);
+      return true;
+    })();
+  }
+
   /** Soft delete (#120): rows move to Recently deleted, restorable — no
    * blob, ledger, or membership changes (purge is #121's ceremony).
    * Deleted rows leave pendingCount via the JOIN there. */

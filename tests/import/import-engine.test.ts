@@ -66,6 +66,12 @@ function harness(overrides?: Partial<ImportEngineDeps>) {
         rows.set(photo.id, photo);
         hashes.add(photo.contentHash);
       },
+      repairDimensions: (id, width, height) => {
+        const photo = rows.get(id);
+        if (photo === undefined || (photo.width > 0 && photo.height > 0)) return false;
+        rows.set(id, { ...photo, width, height });
+        return true;
+      },
     },
     blobs: {
       putOriginal: async (plaintext, _key, _photoId) => {
@@ -150,6 +156,16 @@ describe('import engine (#87)', () => {
     assert.deepEqual({ imported: summary.imported, duplicates: summary.duplicates }, { imported: 0, duplicates: 1 });
     assert.equal(world.blobs.size, 0);
     assert.equal(world.insertCalls(), 0);
+  });
+
+  test('decoder dimensions repair a metadata-lite JPEG before import completes (#367)', async () => {
+    const world = harness({
+      generateThumbs: () => Promise.resolve({ generated: true, width: 960, height: 1280 }),
+    });
+    const summary = await world.engine().importFiles([addSource(world, 'stripped.jpg', other)], 'copy', '/card');
+    assert.equal(summary.imported, 1);
+    const row = [...world.rows.values()][0];
+    assert.deepEqual({ width: row?.width, height: row?.height }, { width: 960, height: 1280 });
   });
 
   test('EXIT CRITERIA (Move): source deleted only after ITS blob verifies; a failed verify retains it', async () => {
