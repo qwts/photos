@@ -14,8 +14,8 @@ import { ProtectedAlbumSettings } from '../protected/ProtectedAlbumSettings';
 // Privacy section (#115): honest, factual, mostly locked-on. Face grouping
 // ships DISABLED — the mock shows it locked-on, but the feature is deferred
 // by design and we don't fake it (conflict recorded on the epic). The
-// diagnostics switch persists the preference; no reporting pipeline exists
-// yet, and the copy says so.
+// diagnostics switch gates the encrypted local process-health queue; network
+// transmission remains disabled pending the operator policy.
 
 export interface PrivacyPaneProps {
   readonly settings: AppSettings;
