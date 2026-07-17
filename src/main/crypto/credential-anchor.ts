@@ -91,7 +91,12 @@ public static class OverlookCredentialAnchor {
 $operation = $env:OVERLOOK_ANCHOR_OPERATION
 $target = $env:OVERLOOK_ANCHOR_TARGET
 if ($operation -eq 'read') {
-  [OverlookCredentialAnchor]::Read($target)
+  $value = [OverlookCredentialAnchor]::Read($target)
+  if ($null -eq $value) {
+    [Console]::Out.Write('__OVERLOOK_CREDENTIAL_NOT_FOUND__')
+  } else {
+    [Console]::Out.Write($value)
+  }
 } elseif ($operation -eq 'write') {
   [OverlookCredentialAnchor]::Write($target, $env:OVERLOOK_ANCHOR_VALUE)
 } elseif ($operation -eq 'clear') {
@@ -100,6 +105,8 @@ if ($operation -eq 'read') {
   throw 'Unknown credential-anchor operation'
 }
 `;
+
+const WINDOWS_NOT_FOUND = '__OVERLOOK_CREDENTIAL_NOT_FOUND__';
 
 const anchorSchema = z
   .object({
@@ -186,7 +193,9 @@ export class OsCredentialAnchorStore implements CredentialAnchorStore {
     }
     if (this.platform === 'win32') {
       const result = this.windows('read', service);
-      return result.status === 0 ? { found: true, anchor: parseAnchor(result.stdout.trim()) } : { found: false, anchor: null };
+      if (result.status !== 0) return { found: true, anchor: null };
+      const value = result.stdout.trim();
+      return value === WINDOWS_NOT_FOUND ? { found: false, anchor: null } : { found: true, anchor: parseAnchor(value) };
     }
     return { found: false, anchor: null };
   }
