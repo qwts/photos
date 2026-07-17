@@ -56,6 +56,7 @@ describe('macOS release signing safety (#357)', () => {
 
   test('restricted Touch ID identity is isolated behind the provisioned package command', () => {
     const packageJson = JSON.parse(source('package.json')) as { readonly scripts?: Record<string, string> };
+    const builder = source('electron-builder.yml');
     const provisioned = source('build/entitlements.mac.provisioned.plist');
     const packager = source('scripts/package-signed-provisioned.mjs');
     for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.zts1.overlook']) {
@@ -67,15 +68,29 @@ describe('macOS release signing safety (#357)', () => {
     assert.match(packager, /OVERLOOK_MAC_PROVISIONING_PROFILE/u);
     assert.match(packager, /provisioningProfile/u);
     assert.match(packager, /--validate-only/u);
+    assert.match(builder, /NSFaceIDUsageDescription/u);
+    assert.match(builder, /Unlock Overlook with Touch ID/u);
   });
 
-  test('the package workflow validates that the packaged app can start', () => {
+  test('the package workflow validates provisioned identity and packaged launch', () => {
     const workflow = source('.github/workflows/package.yml');
     const knip = source('knip.json');
+    const provisionedVerifier = source('scripts/verify-macos-provisioned-app.mjs');
+    assert.match(workflow, /verify-macos-provisioned-app\.mjs/u);
     assert.match(workflow, /verify-macos-app-launch\.mjs/u);
     assert.match(workflow, /\*-mac\.zip/u);
+    for (const contract of [
+      'embedded.provisionprofile',
+      'NSFaceIDUsageDescription',
+      'com.apple.application-identifier',
+      'com.apple.developer.team-identifier',
+      'Overlook Helper (Renderer)',
+    ]) {
+      assert.match(provisionedVerifier, new RegExp(contract.replace(/[().]/gu, '\\$&'), 'u'));
+    }
+    assert.match(provisionedVerifier, /derq/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
-    for (const binary of ['ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
+    for (const binary of ['derq', 'ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
   });
 });
 
