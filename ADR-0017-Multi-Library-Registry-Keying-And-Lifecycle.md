@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed 2026-07-16 on issue [#383](https://github.com/qwts/photos/issues/383) — open for owner review; downstream children of [#378](https://github.com/qwts/photos/issues/378) may implement against the sections below while the review window is open, and any section may be amended by owner veto before its implementing code lands. This ADR extends [ADR-0004](ADR-0004-Encryption-And-Key-Management), [ADR-0005](ADR-0005-Library-Data-Model), [ADR-0007](ADR-0007-Backup-Format-And-Offload), [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching), and [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums); it rewrites none of them.
+Accepted 2026-07-16 on issue [#383](https://github.com/qwts/photos/issues/383) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands). This ADR extends [ADR-0004](ADR-0004-Encryption-And-Key-Management), [ADR-0005](ADR-0005-Library-Data-Model), [ADR-0007](ADR-0007-Backup-Format-And-Offload), [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching), and [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums); it rewrites none of them.
 
 Section map for the epic's children: §1–§3, §7 govern [#384](https://github.com/qwts/photos/issues/384) (registry + keys), §4–§5 govern [#385](https://github.com/qwts/photos/issues/385) (lifecycle), §1, §5 and the identity rules in §2 govern [#386](https://github.com/qwts/photos/issues/386) (switcher UI), §2 and §6 govern [#387](https://github.com/qwts/photos/issues/387) (per-library scoping).
 
