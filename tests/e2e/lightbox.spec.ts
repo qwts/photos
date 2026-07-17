@@ -163,6 +163,7 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
     await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-x')))).toBeGreaterThan(0);
     await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-y')))).toBeGreaterThan(0);
 
+    await page.keyboard.press('0');
     await page.keyboard.press('+');
     await expect(viewport).toHaveAttribute('data-zoom', '1.250');
     await page.keyboard.press('0');
