@@ -91,6 +91,12 @@ export const PreviewUnavailable: Story = {
     if (image !== null) await fireEvent.load(image);
     await expect(image).toHaveAttribute('data-unavailable', 'false');
     await expect(canvas.queryByRole('status')).not.toBeInTheDocument();
+
+    // Leave this named story in its unavailable state so the final visual and
+    // accessibility snapshot still exercise the failure UI.
+    if (image !== null) await fireEvent.error(image);
+    await expect(image).toHaveAttribute('data-unavailable', 'true');
+    await expect(canvas.getByRole('status')).toHaveTextContent('PREVIEW UNAVAILABLE');
   },
 };
 
