@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed 2026-07-17 on issue [#389](https://github.com/qwts/photos/issues/389) — open for owner review; downstream children of [#379](https://github.com/qwts/photos/issues/379) may implement against the sections below while the review window is open, and any section may be amended by owner veto before its implementing code lands. This ADR extends [ADR-0004](ADR-0004-Encryption-And-Key-Management), [ADR-0005](ADR-0005-Library-Data-Model), [ADR-0006](ADR-0006-Media-Processing), [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching), [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums), and [ADR-0017](ADR-0017-Multi-Library-Registry-Keying-And-Lifecycle); it rewrites none of them.
+Accepted 2026-07-17 on issue [#389](https://github.com/qwts/photos/issues/389) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands). This ADR extends [ADR-0004](ADR-0004-Encryption-And-Key-Management), [ADR-0005](ADR-0005-Library-Data-Model), [ADR-0006](ADR-0006-Media-Processing), [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching), [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums), and [ADR-0017](ADR-0017-Multi-Library-Registry-Keying-And-Lifecycle); it rewrites none of them.
 
 Section map for the epic's children: §1 ratifies the already-landed [#390](https://github.com/qwts/photos/issues/390); §2–§5 govern [#391](https://github.com/qwts/photos/issues/391) (embedding pipeline + encrypted vector index); §5–§6 govern [#392](https://github.com/qwts/photos/issues/392) (semantic query path + UX); §7 governs [#393](https://github.com/qwts/photos/issues/393) (opt-in LLM assistant); §8 states the privacy invariants that bind all of them.
 

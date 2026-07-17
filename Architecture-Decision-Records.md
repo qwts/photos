@@ -25,7 +25,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0015](ADR-0015-Deterministic-Reviewed-Sync-Journals)            | Deterministic Sync Journals  | Accepted |
 | [ADR-0016](ADR-0016-Isolated-Encrypted-Interop-Transports)           | Isolated Interop Transports  | Accepted |
 | [ADR-0017](ADR-0017-Multi-Library-Registry-Keying-And-Lifecycle)     | Multi-Library Registry & Lifecycle | Accepted |
-| [ADR-0018](ADR-0018-Semantic-Search-And-Language-Model-Architecture) | Semantic Search & LLM Architecture | Proposed |
+| [ADR-0018](ADR-0018-Semantic-Search-And-Language-Model-Architecture) | Semantic Search & LLM Architecture | Accepted |
 
 ## Template
 
