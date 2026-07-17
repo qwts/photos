@@ -38,6 +38,7 @@ const protectedAlbumExportPickDestination = createInvoker(channels.protectedAlbu
 const protectedAlbumExportCancel = createInvoker(channels.protectedAlbumExportCancel, invokeTransport);
 const importListSources = createInvoker(channels.importListSources, invokeTransport);
 const importPickFolder = createInvoker(channels.importPickFolder, invokeTransport);
+const importExternalReady = createInvoker(channels.importExternalReady, invokeTransport);
 const keysStatus = createInvoker(channels.keysStatus, invokeTransport);
 const keysPickFile = createInvoker(channels.keysPickFile, invokeTransport);
 const restoreProfileStatus = createInvoker(channels.restoreProfileStatus, invokeTransport);
@@ -162,6 +163,10 @@ const overlook: OverlookApi = {
     scanSource: createInvoker(channels.importScanSource, invokeTransport),
     pickFolder: async () => importPickFolder({}),
     scanFiles: createInvoker(channels.importScanFiles, invokeTransport),
+    externalReady: async () => {
+      await importExternalReady({});
+    },
+    onExternalPaths: createSubscriber(events.importExternalPaths, subscribeTransport),
     // The documented sandbox pattern for drag-and-drop paths: the renderer
     // hands the File across the bridge and webUtils resolves it here (#237).
     pathForFile: (file: File) => webUtils.getPathForFile(file),

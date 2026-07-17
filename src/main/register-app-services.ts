@@ -55,6 +55,7 @@ export interface AppServicesOptions {
   readonly providerBusy: () => boolean;
   readonly onDeleted: () => void;
   readonly onImported: () => void;
+  readonly onImportRendererReady: () => void;
   readonly broadcast: (name: string, payload: unknown) => void;
 }
 
@@ -84,7 +85,7 @@ export function registerAppServices(options: AppServicesOptions): void {
   );
   registerThumbProtocol(options.getThumbs, options.requireContentAccess, () => options.getProtected().media());
   registerFullProtocol(options.getFull, options.requireContentAccess, () => options.getProtected().media());
-  registerImportHandlers(options.getImport, () => pickImportFolder(options), options.onImported);
+  registerImportHandlers(options.getImport, () => pickImportFolder(options), options.onImported, options.onImportRendererReady);
   registerExportHandlers(options.getExport);
   registerKeysHandlers(() =>
     createRecoveryKeyFacade({

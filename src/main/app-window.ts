@@ -6,7 +6,7 @@ import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/renderer-lock-reload.js';
 
-export function createWindow(): void {
+export function createWindow(): BrowserWindow {
   const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
   if (devIcon !== undefined && process.platform === 'darwin') app.dock?.setIcon(devIcon);
   const win = new BrowserWindow({
@@ -30,6 +30,7 @@ export function createWindow(): void {
   const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
   if (devServerUrl !== undefined) void win.loadURL(devServerUrl);
   else void win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'));
+  return win;
 }
 
 export function relaunchLocked(): void {
