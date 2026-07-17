@@ -63,7 +63,7 @@ function harnessEnv(name: string): string | undefined {
 }
 
 // Configure the stable profile identity before the first userData lookup.
-const userDataOverride = configureAppProfile(app, process.env.OVERLOOK_USER_DATA);
+const userDataOverride = configureAppProfile(app, process.env['OVERLOOK_USER_DATA']);
 
 const externalOpen = createExternalOpenRuntime({ isolatedHarnessProfile: userDataOverride !== undefined && userDataOverride !== '' });
 
