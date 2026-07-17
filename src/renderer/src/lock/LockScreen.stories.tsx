@@ -15,7 +15,7 @@ function installStub(result: Awaited<ReturnType<OverlookApi['appLock']['unlock']
       remove: () => Promise.reject(new Error('not used')),
       pickRecovery: () => Promise.resolve({ path: '/Users/ansel/Desktop/overlook-recovery.key' }),
       recover: () => Promise.resolve({ recovered: true, reason: null }),
-      touchIdStatus: () => Promise.resolve({ available: true, reason: null, enabled: true }),
+      touchIdStatus: () => Promise.resolve({ available: true, reason: null, enabled: true, reenrollmentRequired: false }),
       touchIdEnable: () => Promise.resolve({ enabled: true, reason: null }),
       touchIdDisable: () => Promise.resolve({ disabled: true }),
       touchIdUnlock: () => Promise.resolve({ ok: false, reason: 'cancelled' }),

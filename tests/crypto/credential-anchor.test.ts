@@ -21,10 +21,15 @@ describe('OS credential anchor platform contract (#311)', () => {
 
   test('Windows uses Credential Manager through a non-interactive PowerShell adapter', () => {
     const anchor = { libraryId: 'library-a', generation: 2, recordHash: 'a'.repeat(64) };
-    const operations: { operation: string | undefined; value: string | undefined; command: string }[] = [];
+    const operations: { operation: string | undefined; target: string | undefined; value: string | undefined; command: string }[] = [];
     const spawn = ((command: string, _args: readonly string[], options?: { readonly env?: NodeJS.ProcessEnv }) => {
       const operation = options?.env?.['OVERLOOK_ANCHOR_OPERATION'];
-      operations.push({ operation, value: options?.env?.['OVERLOOK_ANCHOR_VALUE'], command });
+      operations.push({
+        operation,
+        target: options?.env?.['OVERLOOK_ANCHOR_TARGET'],
+        value: options?.env?.['OVERLOOK_ANCHOR_VALUE'],
+        command,
+      });
       const stdout = operation === 'read' ? `${JSON.stringify(anchor)}\n` : '';
       return { pid: 1, output: [null, stdout, ''], stdout, stderr: '', status: 0, signal: null };
     }) as unknown as typeof spawnSync;
@@ -37,8 +42,47 @@ describe('OS credential anchor platform contract (#311)', () => {
     assert.ok(operations.every(({ command }) => command === 'powershell.exe'));
     assert.deepEqual(
       operations.slice(1).map(({ operation }) => operation),
-      ['read', 'write', 'clear'],
+      ['read', 'write', 'clear', 'clear'],
     );
     assert.equal(operations[2]?.value, JSON.stringify(anchor));
+    assert.match(operations[1]?.target ?? '', /^com\.zts1\.overlook\.app-lock-anchor:/u);
+    assert.match(operations[4]?.target ?? '', /^com\.qwts\.overlook\.app-lock-anchor:/u);
+  });
+
+  test('legacy service is copied to the canonical service without deleting legacy custody', () => {
+    const anchor = { libraryId: 'library-a', generation: 3, recordHash: 'b'.repeat(64) };
+    const services: string[] = [];
+    const spawn = ((_command: string, args: readonly string[]) => {
+      const serviceIndex = args.indexOf('-s');
+      const service = serviceIndex >= 0 ? args[serviceIndex + 1] : undefined;
+      if (service !== undefined) services.push(service);
+      const operation = args[0];
+      const foundLegacy = operation === 'find-generic-password' && service === 'com.qwts.overlook.app-lock-anchor';
+      const stdout = foundLegacy ? `${JSON.stringify(anchor)}\n` : '';
+      const status = foundLegacy || operation === 'add-generic-password' ? 0 : 44;
+      return { pid: 1, output: [null, stdout, ''], stdout, stderr: '', status, signal: null };
+    }) as unknown as typeof spawnSync;
+    const store = new OsCredentialAnchorStore({ dataDir: '/profile/library', platform: 'darwin', spawn });
+
+    assert.deepEqual(store.read(), anchor);
+    assert.deepEqual(services, [
+      'com.zts1.overlook.app-lock-anchor',
+      'com.qwts.overlook.app-lock-anchor',
+      'com.zts1.overlook.app-lock-anchor',
+    ]);
+  });
+
+  test('a corrupt canonical anchor fails closed instead of rolling back to legacy', () => {
+    const services: string[] = [];
+    const spawn = ((_command: string, args: readonly string[]) => {
+      const serviceIndex = args.indexOf('-s');
+      const service = serviceIndex >= 0 ? args[serviceIndex + 1] : undefined;
+      if (service !== undefined) services.push(service);
+      return { pid: 1, output: [null, 'corrupt', ''], stdout: 'corrupt', stderr: '', status: 0, signal: null };
+    }) as unknown as typeof spawnSync;
+    const store = new OsCredentialAnchorStore({ dataDir: '/profile/library', platform: 'darwin', spawn });
+
+    assert.equal(store.read(), null);
+    assert.deepEqual(services, ['com.zts1.overlook.app-lock-anchor']);
   });
 });

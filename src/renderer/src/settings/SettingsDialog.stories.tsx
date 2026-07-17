@@ -185,7 +185,7 @@ function installStub(): void {
     remove: () => Promise.resolve({ removed: true }),
     pickRecovery: () => Promise.resolve({ path: null }),
     recover: () => Promise.resolve({ recovered: false, reason: 'invalid' }),
-    touchIdStatus: () => Promise.resolve({ available: false, reason: 'unsigned-build', enabled: false }),
+    touchIdStatus: () => Promise.resolve({ available: false, reason: 'unsigned-build', enabled: false, reenrollmentRequired: false }),
     touchIdEnable: () => Promise.resolve({ enabled: false, reason: 'unsigned-build' }),
     touchIdDisable: () => Promise.resolve({ disabled: true }),
     touchIdUnlock: () => Promise.resolve({ ok: false, reason: 'not-enabled' }),

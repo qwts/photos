@@ -82,7 +82,7 @@ describe('Touch ID unlock-key custody (#310)', () => {
     const w = world();
     assert.deepEqual(await w.service.enable('wrong'), { ok: false, reason: 'wrong-password' });
     assert.deepEqual(await w.service.enable('correct password'), { ok: true });
-    assert.deepEqual(await w.service.status(), { available: true, reason: null, enabled: true });
+    assert.deepEqual(await w.service.status(), { available: true, reason: null, enabled: true, reenrollmentRequired: false });
 
     const marker = readFileSync(join(w.dataDir, 'touch-id.json'));
     assert.equal(marker.includes(U), false);
@@ -155,7 +155,7 @@ describe('Touch ID credential lifecycle (#310)', () => {
     await w.service.enable('correct password');
     w.removeCredentials();
     await w.service.credentialsChanged();
-    assert.deepEqual(await w.service.status(), { available: true, reason: null, enabled: false });
+    assert.deepEqual(await w.service.status(), { available: true, reason: null, enabled: false, reenrollmentRequired: false });
     assert.equal(w.adapter.items.size, 0);
     assert.deepEqual(await w.service.enable('correct password'), { ok: false, reason: 'recovery-required' });
   });
@@ -188,7 +188,12 @@ describe('Touch ID availability and failure handling (#310)', () => {
     const w = world();
     w.adapter.availabilityState = { available: false, reason: 'unsigned-build' };
     assert.deepEqual(await w.service.enable('correct password'), { ok: false, reason: 'unsigned-build' });
-    assert.deepEqual(await w.service.status(), { available: false, reason: 'unsigned-build', enabled: false });
+    assert.deepEqual(await w.service.status(), {
+      available: false,
+      reason: 'unsigned-build',
+      enabled: false,
+      reenrollmentRequired: false,
+    });
     assert.equal(w.adapter.items.size, 0);
   });
 
@@ -226,7 +231,7 @@ describe('Touch ID availability and failure handling (#310)', () => {
     const w = world();
     const markerPath = join(w.dataDir, 'touch-id.json');
     writeFileSync(markerPath, '{"version":999,"account":"secret"}');
-    assert.deepEqual(await w.service.status(), { available: true, reason: null, enabled: false });
+    assert.deepEqual(await w.service.status(), { available: true, reason: null, enabled: false, reenrollmentRequired: false });
     assert.equal(existsSync(markerPath), false);
 
     await w.service.enable('correct password');
@@ -235,5 +240,41 @@ describe('Touch ID availability and failure handling (#310)', () => {
       w.adapter.onAvailability = null;
     };
     assert.deepEqual(await w.service.unlockMaster(), { ok: false, reason: 'not-enabled' });
+  });
+
+  test('legacy identity marker requires password re-enrollment without claiming Touch ID is enabled', async () => {
+    const w = world();
+    const legacy = anchor();
+    const markerPath = join(w.dataDir, 'touch-id.json');
+    writeFileSync(
+      markerPath,
+      JSON.stringify({
+        version: 1,
+        account: `v1:${legacy.recordHash}`,
+        libraryId: legacy.libraryId,
+        generation: legacy.generation,
+        recordHash: legacy.recordHash,
+      }),
+    );
+
+    assert.deepEqual(await w.service.status(), {
+      available: true,
+      reason: null,
+      enabled: false,
+      reenrollmentRequired: true,
+    });
+    assert.deepEqual(await w.service.unlockMaster(), { ok: false, reason: 'not-enabled' });
+    assert.equal(existsSync(markerPath), true, 'the re-enrollment notice persists until the user acts');
+
+    assert.deepEqual(await w.service.enable('correct password'), { ok: true });
+    assert.deepEqual(await w.service.status(), {
+      available: true,
+      reason: null,
+      enabled: true,
+      reenrollmentRequired: false,
+    });
+    const upgradedMarker: unknown = JSON.parse(readFileSync(markerPath, 'utf8'));
+    assert.ok(upgradedMarker !== null && typeof upgradedMarker === 'object' && 'bundleId' in upgradedMarker);
+    assert.equal(upgradedMarker.bundleId, 'com.zts1.overlook');
   });
 });

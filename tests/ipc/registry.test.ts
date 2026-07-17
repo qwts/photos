@@ -40,9 +40,10 @@ describe('channel registry', () => {
         available: true,
         reason: null,
         enabled: true,
+        reenrollmentRequired: false,
         nativeDetail: 'LAError -42',
       }),
-      { available: true, reason: null, enabled: true },
+      { available: true, reason: null, enabled: true, reenrollmentRequired: false },
     );
     assert.deepEqual(
       channels.appLockTouchIdUnlock.response.parse({

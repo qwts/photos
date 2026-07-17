@@ -58,7 +58,10 @@ export class AppLockController {
   }
 
   touchIdStatus(): Promise<TouchIdStatus> {
-    return this.options.touchId?.status() ?? Promise.resolve({ available: false, reason: 'unsupported-platform', enabled: false });
+    return (
+      this.options.touchId?.status() ??
+      Promise.resolve({ available: false, reason: 'unsupported-platform', enabled: false, reenrollmentRequired: false })
+    );
   }
 
   initialize(): Promise<void> {
@@ -240,6 +243,7 @@ export class AppLockController {
       available: false as const,
       reason: 'native-unavailable' as const,
       enabled: false,
+      reenrollmentRequired: false,
     }));
     for (const listener of this.touchIdListeners) {
       try {

@@ -3,10 +3,11 @@ import { dirname, join } from 'node:path';
 
 import { z } from 'zod';
 
+import { OVERLOOK_MAC_BUNDLE_ID } from '../../shared/app-identity.js';
 import type { AppLockCredentialStore, CredentialAnchor, MasterReleaseResult, UnlockKeyResult } from './app-lock-credentials.js';
 
 const MARKER_FILE = 'touch-id.json';
-const MARKER_VERSION = 1;
+const MARKER_VERSION = 2;
 
 export type TouchIdUnavailableReason =
   'unsupported-platform' | 'unsigned-build' | 'native-unavailable' | 'not-enrolled' | 'locked-out' | 'unavailable';
@@ -20,6 +21,7 @@ export interface TouchIdAvailability {
 
 export interface TouchIdStatus extends TouchIdAvailability {
   readonly enabled: boolean;
+  readonly reenrollmentRequired: boolean;
 }
 
 export class TouchIdAdapterError extends Error {
@@ -48,21 +50,36 @@ export type TouchIdUnlockResult =
 
 type CredentialSource = Pick<AppLockCredentialStore, 'anchor' | 'releaseUnlockKey' | 'unlockWithKey'>;
 
-const markerSchema = z
+const markerFields = {
+  account: z.string().regex(/^v1:[a-f0-9]{64}$/u),
+  libraryId: z.string().min(1).max(256),
+  generation: z.number().int().positive(),
+  recordHash: z.string().regex(/^[a-f0-9]{64}$/u),
+};
+
+const legacyMarkerSchema = z
   .object({
-    version: z.literal(MARKER_VERSION),
-    account: z.string().regex(/^v1:[a-f0-9]{64}$/u),
-    libraryId: z.string().min(1).max(256),
-    generation: z.number().int().positive(),
-    recordHash: z.string().regex(/^[a-f0-9]{64}$/u),
+    version: z.literal(1),
+    ...markerFields,
   })
   .strict();
 
-type TouchIdMarker = z.output<typeof markerSchema>;
+const currentMarkerSchema = z
+  .object({
+    version: z.literal(MARKER_VERSION),
+    bundleId: z.literal(OVERLOOK_MAC_BUNDLE_ID),
+    ...markerFields,
+  })
+  .strict();
+
+const markerSchema = z.union([legacyMarkerSchema, currentMarkerSchema]);
+type TouchIdMarker = z.output<typeof currentMarkerSchema>;
+type StoredTouchIdMarker = z.output<typeof markerSchema>;
 
 function markerFor(anchor: CredentialAnchor): TouchIdMarker {
   return {
     version: MARKER_VERSION,
+    bundleId: OVERLOOK_MAC_BUNDLE_ID,
     account: `v1:${anchor.recordHash}`,
     libraryId: anchor.libraryId,
     generation: anchor.generation,
@@ -70,7 +87,7 @@ function markerFor(anchor: CredentialAnchor): TouchIdMarker {
   };
 }
 
-function matches(marker: TouchIdMarker, anchor: CredentialAnchor | null): boolean {
+function matches(marker: StoredTouchIdMarker, anchor: CredentialAnchor | null): boolean {
   return (
     anchor !== null &&
     marker.libraryId === anchor.libraryId &&
@@ -123,7 +140,11 @@ export class TouchIdService {
     }
     const current = this.readMarker();
     const availability = this.adapter.availability();
-    return { ...availability, enabled: current !== null && matches(current, anchor) };
+    return {
+      ...availability,
+      enabled: current?.version === MARKER_VERSION && matches(current, anchor),
+      reenrollmentRequired: current?.version === 1 && matches(current, anchor),
+    };
   }
 
   async enable(password: string): Promise<TouchIdEnableResult> {
@@ -138,7 +159,7 @@ export class TouchIdService {
       if (!sameAnchor(anchor, currentAnchor)) return { ok: false, reason: 'recovery-required' };
       const marker = markerFor(anchor);
       const previous = this.readMarker();
-      if (previous !== null && previous.account !== marker.account) await this.revoke(previous);
+      if (previous !== null && (previous.version === 1 || previous.account !== marker.account)) await this.revoke(previous);
       await this.adapter.store(marker.account, released.unlockKey);
       this.writeMarker(marker);
       return { ok: true };
@@ -155,6 +176,10 @@ export class TouchIdService {
   async disable(): Promise<boolean> {
     const marker = this.readMarker();
     if (marker === null) return true;
+    if (marker.version === 1) {
+      this.removeMarker();
+      return true;
+    }
     try {
       await this.adapter.clear(marker.account);
       this.removeMarker();
@@ -193,7 +218,7 @@ export class TouchIdService {
     if (marker !== null && !matches(marker, this.credentials.anchor())) await this.revoke(marker);
   }
 
-  private readMarker(): TouchIdMarker | null {
+  private readMarker(): StoredTouchIdMarker | null {
     if (!existsSync(this.markerPath)) return null;
     try {
       return markerSchema.parse(JSON.parse(readFileSync(this.markerPath, 'utf8')) as unknown);
@@ -214,8 +239,8 @@ export class TouchIdService {
     if (existsSync(this.markerPath)) unlinkSync(this.markerPath);
   }
 
-  private async revoke(marker: TouchIdMarker): Promise<void> {
-    await this.bestEffortClear(marker.account);
+  private async revoke(marker: StoredTouchIdMarker): Promise<void> {
+    if (marker.version === MARKER_VERSION) await this.bestEffortClear(marker.account);
     this.removeMarker();
   }
 

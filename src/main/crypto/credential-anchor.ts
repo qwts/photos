@@ -4,9 +4,9 @@ import { spawnSync } from 'node:child_process';
 
 import { z } from 'zod';
 
+import { OVERLOOK_APP_LOCK_ANCHOR_SERVICE, OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE } from '../../shared/app-identity.js';
 import type { CredentialAnchor, CredentialAnchorStore } from './app-lock-credentials.js';
 
-const SERVICE = 'com.qwts.overlook.app-lock-anchor';
 const WINDOWS_SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
@@ -160,52 +160,76 @@ export class OsCredentialAnchorStore implements CredentialAnchorStore {
   }
 
   read(): CredentialAnchor | null {
+    const current = this.readService(OVERLOOK_APP_LOCK_ANCHOR_SERVICE);
+    if (current.found) return current.anchor;
+    const legacy = this.readService(OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE);
+    if (!legacy.found || legacy.anchor === null) return null;
+    try {
+      this.write(legacy.anchor);
+    } catch {
+      // The legacy anchor remains authoritative and is never deleted during
+      // migration. A later read retries the copy to the canonical service.
+    }
+    return legacy.anchor;
+  }
+
+  private readService(service: string): { readonly found: boolean; readonly anchor: CredentialAnchor | null } {
     if (this.platform === 'darwin') {
-      const result = this.run('/usr/bin/security', ['find-generic-password', '-a', this.account, '-s', SERVICE, '-w'], {
+      const result = this.run('/usr/bin/security', ['find-generic-password', '-a', this.account, '-s', service, '-w'], {
         encoding: 'utf8',
       });
-      return result.status === 0 ? parseAnchor(result.stdout.trim()) : null;
+      return result.status === 0 ? { found: true, anchor: parseAnchor(result.stdout.trim()) } : { found: false, anchor: null };
     }
     if (this.platform === 'linux') {
-      const result = this.run('secret-tool', ['lookup', 'service', SERVICE, 'account', this.account], { encoding: 'utf8' });
-      return result.status === 0 ? parseAnchor(result.stdout.trim()) : null;
+      const result = this.run('secret-tool', ['lookup', 'service', service, 'account', this.account], { encoding: 'utf8' });
+      return result.status === 0 ? { found: true, anchor: parseAnchor(result.stdout.trim()) } : { found: false, anchor: null };
     }
     if (this.platform === 'win32') {
-      const result = this.windows('read');
-      return result.status === 0 ? parseAnchor(result.stdout.trim()) : null;
+      const result = this.windows('read', service);
+      return result.status === 0 ? { found: true, anchor: parseAnchor(result.stdout.trim()) } : { found: false, anchor: null };
     }
-    return null;
+    return { found: false, anchor: null };
   }
 
   write(anchor: CredentialAnchor): void {
     const value = JSON.stringify(anchorSchema.parse(anchor));
     const result =
       this.platform === 'darwin'
-        ? this.run('/usr/bin/security', ['add-generic-password', '-U', '-a', this.account, '-s', SERVICE, '-w', value], {
-            encoding: 'utf8',
-          })
-        : this.platform === 'linux'
-          ? this.run('secret-tool', ['store', '--label=Overlook app-lock anchor', 'service', SERVICE, 'account', this.account], {
+        ? this.run(
+            '/usr/bin/security',
+            ['add-generic-password', '-U', '-a', this.account, '-s', OVERLOOK_APP_LOCK_ANCHOR_SERVICE, '-w', value],
+            {
               encoding: 'utf8',
-              input: value,
-            })
+            },
+          )
+        : this.platform === 'linux'
+          ? this.run(
+              'secret-tool',
+              ['store', '--label=Overlook app-lock anchor', 'service', OVERLOOK_APP_LOCK_ANCHOR_SERVICE, 'account', this.account],
+              {
+                encoding: 'utf8',
+                input: value,
+              },
+            )
           : this.platform === 'win32'
-            ? this.windows('write', value)
+            ? this.windows('write', OVERLOOK_APP_LOCK_ANCHOR_SERVICE, value)
             : { status: 1 };
     if (result.status !== 0) throw new Error('OS credential store refused the app-lock anchor');
   }
 
   clear(): void {
-    if (this.platform === 'darwin') {
-      this.run('/usr/bin/security', ['delete-generic-password', '-a', this.account, '-s', SERVICE], { stdio: 'ignore' });
-    } else if (this.platform === 'linux') {
-      this.run('secret-tool', ['clear', 'service', SERVICE, 'account', this.account], { stdio: 'ignore' });
-    } else if (this.platform === 'win32') {
-      this.windows('clear');
+    for (const service of [OVERLOOK_APP_LOCK_ANCHOR_SERVICE, OVERLOOK_LEGACY_APP_LOCK_ANCHOR_SERVICE]) {
+      if (this.platform === 'darwin') {
+        this.run('/usr/bin/security', ['delete-generic-password', '-a', this.account, '-s', service], { stdio: 'ignore' });
+      } else if (this.platform === 'linux') {
+        this.run('secret-tool', ['clear', 'service', service, 'account', this.account], { stdio: 'ignore' });
+      } else if (this.platform === 'win32') {
+        this.windows('clear', service);
+      }
     }
   }
 
-  private windows(operation: 'read' | 'write' | 'clear', value = '') {
+  private windows(operation: 'read' | 'write' | 'clear', service: string, value = '') {
     return this.run(
       'powershell.exe',
       ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', WINDOWS_SCRIPT],
@@ -214,7 +238,7 @@ export class OsCredentialAnchorStore implements CredentialAnchorStore {
         env: {
           ...process.env,
           OVERLOOK_ANCHOR_OPERATION: operation,
-          OVERLOOK_ANCHOR_TARGET: `${SERVICE}:${this.account}`,
+          OVERLOOK_ANCHOR_TARGET: `${service}:${this.account}`,
           OVERLOOK_ANCHOR_VALUE: value,
         },
       },
