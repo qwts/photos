@@ -12,7 +12,7 @@ const diagnosticEventSchema = z
     reason: z.enum(['clean-exit', 'abnormal-exit', 'killed', 'crashed', 'oom', 'launch-failed', 'integrity-failure']).optional(),
     exitCode: z.number().int().optional(),
   })
-  .passthrough();
+  .strict();
 
 export function serializeDiagnosticEvent(input: unknown): string {
   return JSON.stringify(diagnosticEventSchema.parse(input));
