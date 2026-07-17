@@ -1,5 +1,23 @@
 # photos
 
+## 0.32.0
+
+### Minor Changes
+
+- c27e84f: Import user-selected photos from Google Drive through the secure system-browser Picker and the existing encrypted import pipeline.
+
+### Patch Changes
+
+- 7310905: Production release hardening and licensing compliance.
+
+  - Minify main/preload/renderer bundles, emit no source maps, and enable Electron
+    production fuses (runAsNode off, cookie encryption, NODE_OPTIONS/`--inspect`
+    ignored, onlyLoadAppFromAsar + embedded asar integrity validation).
+  - Add the `license` field, generate and ship `THIRD-PARTY-NOTICES.md` for the
+    shipped dependency closure, and bundle it plus `LICENSE` into the packaged app.
+  - Add a `lint:licenses` policy gate (SPDX allowlist + reviewed exceptions),
+    notices-freshness check, and a CycloneDX SBOM release artifact.
+
 ## 0.31.2
 
 ### Patch Changes
