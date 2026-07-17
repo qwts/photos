@@ -10,12 +10,13 @@ import type { AppSettings } from '../../../shared/settings/settings.js';
 import type { KeyDialogMode } from './KeyDialog';
 import type { AppPasswordMode } from './AppPasswordDialog';
 import { ProtectedAlbumSettings } from '../protected/ProtectedAlbumSettings';
+import { DiagnosticsControls } from './DiagnosticsControls';
 
 // Privacy section (#115): honest, factual, mostly locked-on. Face grouping
 // ships DISABLED — the mock shows it locked-on, but the feature is deferred
 // by design and we don't fake it (conflict recorded on the epic). The
-// diagnostics switch persists the preference; no reporting pipeline exists
-// yet, and the copy says so.
+// diagnostics stay local-only pending the backend/data-controller decision;
+// the controls expose the exact encrypted queue for review and deletion.
 
 export interface PrivacyPaneProps {
   readonly settings: AppSettings;
@@ -156,12 +157,16 @@ export function PrivacyPane({
         label="Share diagnostics"
         hint="Anonymous crash reports only — never photo content or metadata. Reporting stays local-only for now."
       >
-        <Switch
-          checked={settings.shareDiagnostics}
-          onChange={(shareDiagnostics) => {
-            onPatch({ shareDiagnostics });
-          }}
-        />
+        <div className="ovl-settings__diagnosticsControl">
+          <Switch
+            label="Share diagnostics"
+            checked={settings.shareDiagnostics}
+            onChange={(shareDiagnostics) => {
+              onPatch({ shareDiagnostics });
+            }}
+          />
+          <DiagnosticsControls enabled={settings.shareDiagnostics} />
+        </div>
       </Field>
     </div>
   );

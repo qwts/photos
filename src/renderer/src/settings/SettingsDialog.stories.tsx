@@ -195,12 +195,37 @@ function installStub(): void {
     },
     onTouchIdChanged: () => () => undefined,
   };
+  let diagnosticReports: Awaited<ReturnType<OverlookApi['diagnostics']['list']>>['reports'] = [
+    {
+      eventId: '98f581d6-ef9a-45e2-ae19-8b90099aef2e',
+      capturedAt: '2026-07-17T10:00:00.000Z',
+      kind: 'renderer-process-gone',
+      payload:
+        '{"schemaVersion":1,"eventId":"98f581d6-ef9a-45e2-ae19-8b90099aef2e","capturedAt":"2026-07-17T10:00:00.000Z","appVersion":"0.27.0","platform":"darwin","arch":"arm64","kind":"renderer-process-gone","reason":"crashed","exitCode":5}',
+      encryptedBytes: 384,
+    },
+  ];
+  const diagnosticsApi: OverlookApi['diagnostics'] = {
+    list: () => Promise.resolve({ reports: diagnosticReports }),
+    delete: ({ eventId }) => {
+      const deleted = diagnosticReports.some((report) => report.eventId === eventId);
+      diagnosticReports = diagnosticReports.filter((report) => report.eventId !== eventId);
+      return Promise.resolve({ deleted });
+    },
+    purge: () => {
+      const deleted = diagnosticReports.length;
+      diagnosticReports = [];
+      return Promise.resolve({ deleted });
+    },
+    export: () => Promise.resolve({ exported: true, count: diagnosticReports.length }),
+  };
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = {
     settings: settingsApi,
     backup: backupApi,
     keys: keysApi,
     restore: restoreApi,
     appLock: appLockApi,
+    diagnostics: diagnosticsApi,
     library: {
       albums: () => Promise.resolve({ albums: [{ id: 'family', name: 'Family', count: 4 }] }),
       stats: () => Promise.resolve({ photos: 1542, bytes: 48_000_000_000, pending: 0, lastBackupAt: null, offloadedBytes: 12_600_000_000 }),
@@ -397,6 +422,16 @@ export const PrivacySection: Story = {
     ).toBeVisible();
     await userEvent.click(diagnostics);
     await waitFor(() => expect(diagnostics).toBeChecked());
+    await waitFor(() => expect(body.getByText('1 pending local report')).toBeVisible());
+    await userEvent.click(body.getByRole('button', { name: 'Review reports…' }));
+    await expect(body.getByRole('dialog', { name: 'Review diagnostics' })).toBeVisible();
+    await expect(body.getByText(/"kind":"renderer-process-gone"/u)).toBeVisible();
+    await expect(body.getByText('Nothing is sent.', { exact: false })).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Export JSONL…' }));
+    await expect(body.getByText('1 report exported.')).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Delete' }));
+    await expect(body.getByText('No reports are waiting locally.')).toBeVisible();
+    await userEvent.click(body.getByRole('button', { name: 'Done' }));
   },
 };
 
