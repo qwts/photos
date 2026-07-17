@@ -45,20 +45,23 @@ export function OffloadedStorage({ connection, selectedPhotoIds }: OffloadedStor
   const offloadedBytes = stats?.offloadedBytes ?? 0;
   const busy = restoring !== null;
   const connected = connection === 'connected';
+  const showActions = connected || connection === 'disconnected';
   return (
     <Field
       label="Offloaded originals"
       hint={`${formatBytes(offloadedBytes)} stored only in your verified cloud backup. Thumbnails remain on this Mac.`}
     >
       <div className="ovl-settings__restoreOriginals" aria-live="polite">
-        <div className="ovl-settings__restoreActions">
-          <Button size="sm" disabled={!connected || selectedPhotoIds.length === 0 || busy} onClick={() => restore('selected')}>
-            {restoring === 'selected' ? 'Restoring…' : `Restore selected (${formatCount(selectedPhotoIds.length)})`}
-          </Button>
-          <Button size="sm" disabled={!connected || offloadedBytes === 0 || busy} onClick={() => restore('all')}>
-            {restoring === 'all' ? 'Restoring…' : 'Restore all'}
-          </Button>
-        </div>
+        {showActions ? (
+          <div className="ovl-settings__restoreActions">
+            <Button size="sm" disabled={!connected || selectedPhotoIds.length === 0 || busy} onClick={() => restore('selected')}>
+              {restoring === 'selected' ? 'Restoring…' : `Restore selected (${formatCount(selectedPhotoIds.length)})`}
+            </Button>
+            <Button size="sm" disabled={!connected || offloadedBytes === 0 || busy} onClick={() => restore('all')}>
+              {restoring === 'all' ? 'Restoring…' : 'Restore all'}
+            </Button>
+          </div>
+        ) : null}
         {offloadedBytes > 0 && connection === 'loading' ? (
           <div className="ovl-settings__restoreState">Checking backup provider before restoring…</div>
         ) : offloadedBytes > 0 && connection === 'error' ? (
