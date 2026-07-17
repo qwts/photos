@@ -76,11 +76,15 @@ const PINNABLE_LOCALES = new Set<string>([...SHIPPED_LOCALES, ...PSEUDO_LOCALES]
  * The active runtime locale from process inputs (ADR §2). An OVERLOOK_LOCALE pin
  * wins in unpackaged builds only (test determinism, dev pseudo-locales);
  * otherwise the OS locale negotiates against the shipped catalogs, falling back
- * to `en`. Pure so it is unit-tested without Electron; main's resolver is a thin
- * wrapper that reads `app`.
+ * to `en`. A pin is accepted when its fallback chain reaches a pinnable locale,
+ * and the REQUESTED tag is returned — `en-US` pins the en-US region for `Intl`
+ * while messages fall back to the `en` catalog — so harness assertions on
+ * formatted output are machine-independent (PR #473 review). Pure so it is
+ * unit-tested without Electron; main's resolver is a thin wrapper that reads
+ * `app`.
  */
 export function resolveRuntimeLocale(input: { pinned?: string | undefined; packaged: boolean; osLocale: string }): string {
-  if (!input.packaged && input.pinned !== undefined && PINNABLE_LOCALES.has(input.pinned)) {
+  if (!input.packaged && input.pinned !== undefined && fallbackChain(input.pinned).some((tag) => PINNABLE_LOCALES.has(tag))) {
     return input.pinned;
   }
   return resolveLocale([input.osLocale]);

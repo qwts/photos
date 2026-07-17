@@ -86,4 +86,12 @@ describe('locale model: resolveRuntimeLocale (OVERLOOK_LOCALE pin)', () => {
     assert.equal(resolveRuntimeLocale({ pinned: 'zz-ZZ', packaged: false, osLocale: 'en-GB' }), 'en');
     assert.equal(resolveRuntimeLocale({ pinned: undefined, packaged: false, osLocale: 'ja-JP' }), SOURCE_LOCALE);
   });
+
+  test('a regional variant of a pinnable locale is honoured verbatim (PR #473)', () => {
+    // en-US must pin the region for deterministic Intl output; messages fall
+    // back to the en catalog in the loader.
+    assert.equal(resolveRuntimeLocale({ pinned: 'en-US', packaged: false, osLocale: 'de-DE' }), 'en-US');
+    // A regional variant of a NON-shipped language still falls through.
+    assert.equal(resolveRuntimeLocale({ pinned: 'de-DE', packaged: false, osLocale: 'ja-JP' }), SOURCE_LOCALE);
+  });
 });
