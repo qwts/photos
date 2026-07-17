@@ -181,18 +181,26 @@ WCAG 2.2 AA is the bar (epic #381). Three gates, two of which need a browser:
 
 | Gate | Where | What it catches |
 | --- | --- | --- |
-| `npm run check:a11y-budget` | `npm run ci` + the CI `ci` job | Budget shape, path existence, unowned debt, a raised number. No browser, so it fails fast. |
+| `npm run check:a11y-budget` | `npm run ci` + the CI `ci` job | Budget shape, path existence, unowned debt, a raised number. No browser, so it fails fast. Also runs as `--visited` after the story lane for the orphan check. |
 | axe per story | `test:stories:ci` (existing chromium runner, +0 lanes) | Component-level violations across all 107 stories, scoped to `#storybook-root`. |
 | axe per composed flow | `test:e2e` (`tests/e2e/a11y.spec.ts`) | What isolated stories structurally cannot show: landmark uniqueness, focus order across regions, an overlay leaving the shell in the a11y tree. |
 
 **The budget** (`tests/a11y/violation-budget.json`) is the honest list of KNOWN
 violations, keyed by story id / flow id, each naming the issue that owns the fix.
 
+- **Counts are keyed by axe rule id, never totalled.** A bare total is not a
+  ratchet: a surface budgeted `1× color-contrast` could be "fixed" into
+  `1× button-name` and still sum to 1, hiding a fresh regression behind existing
+  debt. Verdicts compare rule-by-rule (PR #408 review).
 - **Unlisted surfaces are budgeted at ZERO** — a new violation anywhere fails
   without anyone remembering to add an entry.
 - **Under budget also fails.** An unrecorded improvement leaves a stale number that
   silently permits regression back up to it. The failure message names the value to
-  set; a fixed surface has its entry **deleted**, not zeroed.
+  set; drop a rule at zero, and delete the entry when its last rule goes.
+- **Orphaned entries fail.** Both lanes record which ids they audited
+  (`--visited` after `test:stories:ci`; a closure test in `a11y.spec.ts`), because
+  path existence cannot catch a renamed story export — the file survives, so the
+  static check passes while the runtime lane stops evaluating that id.
 - Fix the violation or shrink the entry. **Never raise one, and never narrow the
   `tags`** — the tag set is pinned in the budget and re-checked by the validator.
 

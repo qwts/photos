@@ -178,6 +178,8 @@ page, not the library** — "select all" is a lie at scale (3.2.4-adjacent, wort
 - axe-core 4.12.1, pinned exact and overridden into `axe-playwright`'s floating
   `^4.10.1`: its rule set *defines* every count here, so it must not drift silently.
   A bump is expected to move numbers — re-audit in that PR.
+- The budget records counts **per axe rule**, so the tables above are not just totals:
+  a surface cannot swap one rule for another and stay within budget.
 - Story lane scopes to `#storybook-root`, so Storybook's own chrome never enters the budget.
 - E2E flows: `shell-grid`, `shell-lightbox`, `shell-inspector`, `shell-settings-dialog`,
   `shell-selection`, on the deterministic seeded profile.
