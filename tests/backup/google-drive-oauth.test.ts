@@ -99,8 +99,7 @@ describe('Google Drive OAuth helpers (#277)', () => {
             new Response(JSON.stringify({ error: 'invalid_request', error_description: 'client_secret is missing.' }), { status: 400 }),
           ),
       }),
-      (error: unknown) =>
-        error instanceof GoogleDriveOAuthError && /invalid_request: client_secret is missing\./u.test(error.message),
+      (error: unknown) => error instanceof GoogleDriveOAuthError && /invalid_request: client_secret is missing\./u.test(error.message),
     );
     await assert.rejects(
       exchangeGoogleDriveCode({
