@@ -35,6 +35,7 @@ export default defineConfig({
   main: {
     define: {
       __OVERLOOK_GOOGLE_DRIVE_CLIENT_ID__: JSON.stringify(process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_ID'] ?? ''),
+      __OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET__: JSON.stringify(process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET'] ?? ''),
     },
     build: {
       rollupOptions: {

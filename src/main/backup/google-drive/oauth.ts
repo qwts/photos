@@ -10,7 +10,8 @@ export class GoogleDriveOAuthError extends Error {
 
 export function redactGoogleCredentials(message: string): string {
   return message
-    .replace(/(access_token|refresh_token|code|code_verifier)=([^&#\s]+)/giu, '$1=redacted')
+    .replace(/(access_token|refresh_token|client_secret|code|code_verifier)=([^&#\s]+)/giu, '$1=redacted')
+    .replace(/("(?:access_token|refresh_token|client_secret|code|code_verifier)"\s*:\s*")[^"]+/giu, '$1redacted')
     .replace(/Bearer\s+[^\s]+/giu, 'Bearer redacted');
 }
 
@@ -66,24 +67,28 @@ export function googleOAuthFailureReason(data: { readonly error?: unknown; reado
 
 export async function exchangeGoogleDriveCode(options: {
   readonly clientId: string;
+  readonly clientSecret?: string | null;
   readonly code: string;
   readonly verifier: string;
   readonly redirectUri: string;
   readonly fetchImpl?: typeof fetch;
 }): Promise<{ refreshToken: string; accessToken: string; expiresIn: number }> {
   const fetchImpl = options.fetchImpl ?? fetch;
+  const body = new URLSearchParams({
+    client_id: options.clientId,
+    code: options.code,
+    code_verifier: options.verifier,
+    grant_type: 'authorization_code',
+    redirect_uri: options.redirectUri,
+  });
+  const clientSecret = options.clientSecret?.trim() ?? '';
+  if (clientSecret !== '') body.set('client_secret', clientSecret);
   let response: Response;
   try {
     response = await fetchImpl(TOKEN_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: options.clientId,
-        code: options.code,
-        code_verifier: options.verifier,
-        grant_type: 'authorization_code',
-        redirect_uri: options.redirectUri,
-      }),
+      body,
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'network failure';

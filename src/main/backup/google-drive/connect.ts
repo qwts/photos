@@ -9,6 +9,7 @@ export type GoogleDriveConnectResult = { ok: boolean; reason: string | null };
 
 export function createGoogleDriveConnect(options: {
   readonly clientId: () => string | null;
+  readonly clientSecret?: (() => string | null) | undefined;
   readonly tokenStore: GoogleDriveTokenStore;
   readonly authClient: GoogleDriveAuthClient;
   readonly openExternal: (url: string) => Promise<void>;
@@ -40,6 +41,7 @@ export function createGoogleDriveConnect(options: {
       const code = await capture.result;
       const tokens = await exchangeGoogleDriveCode({
         clientId,
+        clientSecret: options.clientSecret?.() ?? null,
         code,
         verifier: pkce.verifier,
         redirectUri,

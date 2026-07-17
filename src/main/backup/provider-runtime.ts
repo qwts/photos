@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import type { SafeStorageLike } from '../crypto/keystore.js';
 import { readOrMintLibraryId } from '../library/library-id.js';
-import { bundledGoogleDriveClientId } from '../build-config.js';
+import { bundledGoogleDriveClientId, bundledGoogleDriveClientSecret } from '../build-config.js';
 import { createActiveProvider } from './active-provider.js';
 import { GoogleDriveAuthClient } from './google-drive/auth-client.js';
 import { createGoogleDriveConnect } from './google-drive/connect.js';
@@ -37,6 +37,7 @@ export interface ProviderRuntimeOptions {
   readonly isPackaged: boolean;
   readonly harnessEnv: (name: string) => string | undefined;
   readonly googleDriveClientId?: (() => string | null) | undefined;
+  readonly googleDriveClientSecret?: (() => string | null) | undefined;
   readonly fetchImpl?: typeof fetch | undefined;
 }
 
@@ -88,6 +89,7 @@ export class ProviderRuntime {
   private googleAuth(): GoogleDriveAuthClient {
     this.googleAuthInstance ??= new GoogleDriveAuthClient({
       clientId: () => this.googleClientId(),
+      clientSecret: () => this.googleClientSecret(),
       tokenStore: this.googleTokenStore(),
       ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
     });
@@ -105,6 +107,11 @@ export class ProviderRuntime {
     return value.endsWith('.apps.googleusercontent.com') ? value : null;
   }
 
+  private googleClientSecret(): string | null {
+    const value = (this.options.googleDriveClientSecret?.() ?? bundledGoogleDriveClientSecret())?.trim() ?? '';
+    return value === '' ? null : value;
+  }
+
   private connectPCloud(): Promise<PCloudConnectResult> {
     this.connectFlow ??= createPCloudConnect({
       tokenStore: this.tokenStore(),
@@ -119,6 +126,7 @@ export class ProviderRuntime {
   private connectGoogleDrive(): Promise<PCloudConnectResult> {
     this.googleConnectFlow ??= createGoogleDriveConnect({
       clientId: () => this.googleClientId(),
+      clientSecret: () => this.googleClientSecret(),
       tokenStore: this.googleTokenStore(),
       authClient: this.googleAuth(),
       openExternal: this.options.openExternal,
