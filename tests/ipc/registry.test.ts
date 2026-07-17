@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { channels, events } from '../../src/shared/ipc/channels.js';
-import { createEmitter, createInvoker, createSubscriber, wrapHandler } from '../../src/shared/ipc/registry.js';
+import { createEmitter, createInvoker, createSubscriber, IpcRemoteError, wrapHandler } from '../../src/shared/ipc/registry.js';
 
 describe('channel registry', () => {
   test('channel and event names are unique', () => {
@@ -132,6 +132,24 @@ describe('createInvoker', () => {
     const invoke = createInvoker(channels.ping, () => Promise.resolve({ wrong: true }));
     await assert.rejects(invoke({ message: 'hello' }));
   });
+
+  test('turns a main-process failure envelope into an opaque renderer error', async () => {
+    const invoke = createInvoker(channels.ping, () =>
+      Promise.resolve({
+        __overlookIpcFailure: true,
+        error: { code: 'IPC_HANDLER_FAILED' },
+        detail: 'SECRET /Users/example/private-library',
+      }),
+    );
+
+    await assert.rejects(invoke({ message: 'hello' }), (error: unknown) => {
+      assert.ok(error instanceof IpcRemoteError);
+      assert.equal(error.code, 'IPC_HANDLER_FAILED');
+      assert.equal(error.message, 'IPC_HANDLER_FAILED');
+      assert.doesNotMatch(JSON.stringify(error), /SECRET|private-library/u);
+      return true;
+    });
+  });
 });
 
 describe('wrapHandler', () => {
@@ -155,6 +173,25 @@ describe('wrapHandler', () => {
     // type-coverage:ignore-next-line
     const handler = wrapHandler(channels.ping, () => ({ echoed: 7 }) as unknown as { echoed: string });
     await assert.rejects(handler({ message: 'hi' }));
+  });
+
+  test('reports handler detail main-side but returns only an opaque failure code', async () => {
+    const secret = 'SECRET /Users/example/private-library';
+    const thrown = new Error(secret);
+    const reports: unknown[] = [];
+    const handler = wrapHandler(
+      channels.ping,
+      () => {
+        throw thrown;
+      },
+      { reportError: (report) => reports.push(report) },
+    );
+
+    const response = await handler({ message: 'hi' });
+
+    assert.deepEqual(response, { __overlookIpcFailure: true, error: { code: 'IPC_HANDLER_FAILED' } });
+    assert.deepEqual(reports, [{ channelName: 'demo:ping', code: 'IPC_HANDLER_FAILED', error: thrown }]);
+    assert.doesNotMatch(JSON.stringify(response), /SECRET|private-library/u);
   });
 });
 
