@@ -7,7 +7,8 @@
 ## TL;DR
 
 - **Local "before done" gate:** `npm run ci` = lint suite + `format:check` +
-  `test:cov` + `build` — the same non-browser gates CI runs.
+  `test:cov` (unit + renderer DOM) + `build` — the same non-browser gates CI
+  runs.
 - **CI runs everything** on every PR to `main` and every push to `main`,
   including the coverage floor and the Playwright E2E lane (path-filtered).
 - **Floors ratchet upward only:** c8 lines 90 / branches 80 (`.c8rc.json`),
@@ -21,10 +22,10 @@
 
 | #   | Lane          | Command                                | Scope                                                        | Status                              |
 | --- | ------------- | -------------------------------------- | ------------------------------------------------------------ | ----------------------------------- |
-| 1   | Static        | `npm run lint` (pins → new-file size → eslint → cycles → dead code → type coverage), `typecheck`, `format:check` | Pins, size budgets, correctness (incl. react-hooks + @eslint-react for the renderer and the process-boundary import matrix), ts+tsx cycles, dead code, types (all four TS projects), style (ts/tsx/html included) | Active |
-| 2   | Unit          | `npm test` — compile then `node --test` on `.test-dist/tests/**/*.test.js` | Pure logic, no DOM                                           | Active                              |
-| 3   | Coverage      | `npm run test:cov` — c8 floors in `.c8rc.json` (**lines 90 / branches 80**) | Ratchet over the unit lane                                   | Active                              |
-| 4   | DOM           | `test:dom` (happy-dom registrator, `tests/dom/`)             | Rendering/controllers against a real DOM                     | **Documented, not built** — add with the first UI code |
+| 1   | Static        | `npm run lint` (pins → new-file size → eslint → cycles → dead code → type coverage), `typecheck`, `format:check` | Pins, size budgets, correctness (incl. react-hooks + @eslint-react for the renderer and the process-boundary import matrix), ts+tsx cycles, dead code, all configured TypeScript projects, style (ts/tsx/html included) | Active |
+| 2   | Unit          | `npm run test:compile && npm run test:unit:run` — compiled `.test-dist/tests/**/*.test.js` | Pure logic, no DOM                                           | Active                              |
+| 3   | Coverage      | `npm run test:cov` — c8 floors in `.c8rc.json` (**lines 90 / branches 80**) | Ratchet over the unit and renderer DOM lanes                  | Active                              |
+| 4   | DOM           | `npm run test:dom` — renderer-scoped compile, happy-dom registrator, CSS hook, then `node --test` | Rendering/controllers against a DOM implementation (`tests/dom/`) | Active (#135) |
 | 5   | Story         | `npm run test:stories:ci` — static Storybook build + test-runner (`play` assertions, chromium) | Component-level UI behavior on the real token canvas        | Active (#56 — token + Icon stories are the first content) |
 | 6a  | E2E smoke     | `npm run test:e2e` — Playwright `_electron` launches the built app (`tests/e2e/smoke.spec.ts`) | The real Electron app launches, renders the React root, exposes only the typed bridge, IPC round-trips | Active (#52 — replaced the http-server fixture, which stayed green regardless of app health) |
 | 6b  | Acceptance    | Playwright specs per canonical flow + a coverage-map ledger  | End-to-end user flows                                        | **Deferred** until user-facing surfaces exist |
@@ -53,13 +54,24 @@ react-hooks + `@eslint-react` on the renderer, `no-restricted-imports`
 enforcing the process-boundary matrix (CLAUDE.md §Architecture), madge over
 `ts,tsx`, knip via its electron-vite plugin, per-project `type-coverage`.
 
-**Unit-lane c8 scope:** `src/shared/` (all pure logic) is floored; `src/main`,
-`src/preload`, and the placeholder renderer component are excluded from the
-unit-lane floor — they are Electron process wiring the unit lane cannot
-execute, exercised instead by the E2E lane (Playwright-Electron from #52).
-Floor values are unchanged (ratchet intact). Renderer components join the
-floors via the DOM lane when the first real UI lands (M02); until then any
-renderer logic beyond wiring belongs in `src/shared`.
+**c8 scope:** `src/main/` and `src/shared/` remain floored by the unit lane.
+Renderer components join the same global floor when they receive DOM-lane
+coverage; `.c8rc.json` lists the admitted renderer files explicitly so adding
+an untested surface cannot silently lower the project floor. `src/preload/`
+and unlisted renderer process wiring are exercised by Playwright-Electron
+instead. Floor values are unchanged (ratchet intact).
+
+### Renderer DOM lane (#135)
+
+- `tests/dom/tsconfig.json` extends the renderer project (`Bundler`, DOM libs,
+  `vite/client`) and emits tests plus imported renderer modules to
+  `.test-dist-dom/`.
+- `tests/dom/register.ts` runs through `node --import`, installs happy-dom, and
+  registers the CSS-module hook before test discovery. Tests import the actual
+  renderer components; they do not replace CSS or the component with a test
+  double.
+- `npm run test:dom` is the focused compile-and-run command. `npm test` and
+  `npm run test:cov` compile and run both the Node unit lane and this DOM lane.
 
 ### Playwright-Electron caveats (#52)
 
@@ -90,6 +102,7 @@ renderer logic beyond wiring belongs in `src/shared`.
 
 ```sh
 npm run ci        # lint suite, format:check, test:cov, build
+npm run test:dom  # focused renderer DOM compile + tests
 npm run test:e2e  # additionally, for E2E-relevant changes
 npm run test:e2e:visible -- tests/e2e/example.spec.ts  # brief visible debug run
 ```
@@ -101,7 +114,7 @@ The pre-commit hook (husky + lint-staged) auto-fixes staged files
 
 On every PR to `main` and push to `main` (post-merge signal):
 
-1. `lint` (full chain) → `format:check` → `test:cov` (with
+1. `lint` (full chain) → `format:check` → `test:cov` (unit + renderer DOM, with
    `node-test-github-reporter` annotations) → coverage summary + lcov artifact →
    `build` → Storybook interaction tests (`test:stories:ci`, chromium)
 2. **E2E job** (parallel, own runner): path-filtered by `dorny/paths-filter` —
@@ -246,7 +259,7 @@ roughly a third of WCAG issues, so a green gate is not a claim of accessibility.
 ## Policy: coverage travels with the change
 
 1. **Prefer the cheapest lane that proves the behavior.** Unit for logic; DOM
-   for rendering (once built); stories for component interaction (once built);
+   for rendering; stories for component interaction;
    Playwright only for true end-to-end flows.
 2. **Regression fixes ship with a failing-then-passing test** at the lane that
    would have caught the bug.
@@ -289,8 +302,9 @@ on the epic when it passes.
 
 ```sh
 npm run ci              # full local gate (mirrors CI's non-browser jobs)
-npm run test            # typecheck + compile + unit tests
+npm run test            # typecheck + compile + unit and renderer DOM tests
 npm run test:cov        # same under c8 with the coverage floor
+npm run test:dom        # focused renderer DOM compile + tests
 npm run coverage:summary# render totals vs. floor
 npm run test:e2e        # Playwright (builds app via global-setup)
 npm run test:e2e:ui     # Playwright UI mode
