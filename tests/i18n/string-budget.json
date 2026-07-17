@@ -1,0 +1,225 @@
+{
+  "$comment": "Hardcoded user-facing string ratchet (#403, ADR-0020 §6). Per-file counts of remaining unextracted JSX literals, detected by eslint-plugin-formatjs/no-literal-string-in-jsx and enforced by scripts/check-i18n-budget.mjs. SHRINK-ONLY: a count may only drop; a file under its listed count fails until tightened; an unlisted file is budgeted at ZERO. Migrate strings to the catalog to lower a count; delete the entry at 0. Seeded at the pre-migration inventory.",
+  "files": [
+    {
+      "file": "src/renderer/src/components/Chip.tsx",
+      "count": 1,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/components/PasswordField.tsx",
+      "count": 2,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/components/PhotoTile.tsx",
+      "count": 4,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/components/SearchField.tsx",
+      "count": 1,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/components/TitleBar.tsx",
+      "count": 3,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/export/ExportDialog.tsx",
+      "count": 17,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/grid/AlbumPicker.tsx",
+      "count": 3,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/grid/LibraryGridView.tsx",
+      "count": 2,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/grid/ListRow.tsx",
+      "count": 6,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/grid/PhotoContextMenu.tsx",
+      "count": 3,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/grid/PurgeConfirm.tsx",
+      "count": 4,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/grid/SelectionPill.tsx",
+      "count": 14,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/import/ImportDialog.tsx",
+      "count": 38,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/inspector/Inspector.tsx",
+      "count": 4,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/interop/InteropWorkflowDialog.tsx",
+      "count": 20,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/lightbox/Lightbox.tsx",
+      "count": 7,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/lightbox/LightboxViewport.tsx",
+      "count": 6,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/lock/LockScreen.tsx",
+      "count": 11,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/lock/RecoveryUnlock.tsx",
+      "count": 4,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/offload/OffloadDialog.tsx",
+      "count": 12,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/protected/ProtectedAlbumCeremony.tsx",
+      "count": 19,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/protected/ProtectedAlbumSettings.tsx",
+      "count": 16,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/protected/ProtectedAlbumUnlockDialog.tsx",
+      "count": 5,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/protected/ProtectedAlbumView.tsx",
+      "count": 8,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/protected/ProtectedLightbox.tsx",
+      "count": 2,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/restore/RestoreOnboarding.tsx",
+      "count": 1,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/restore/RestoreWorkflow.tsx",
+      "count": 40,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/settings/AppPasswordDialog.tsx",
+      "count": 10,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/settings/DiagnosticsControls.tsx",
+      "count": 10,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/settings/KeyDialog.tsx",
+      "count": 26,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/settings/OffloadedStorage.tsx",
+      "count": 5,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/settings/PrivacyPane.tsx",
+      "count": 11,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/settings/SettingsDialog.tsx",
+      "count": 6,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/settings/StoragePane.tsx",
+      "count": 21,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/AlbumActionMenu.tsx",
+      "count": 4,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/AlbumDialogs.tsx",
+      "count": 11,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/AlbumDropDialog.tsx",
+      "count": 11,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/LibrarySwitcher.tsx",
+      "count": 30,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/Shell.tsx",
+      "count": 5,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/Sidebar.tsx",
+      "count": 18,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/StatusBar.tsx",
+      "count": 7,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/ToastAction.tsx",
+      "count": 3,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/shell/Toolbar.tsx",
+      "count": 4,
+      "issues": [403]
+    },
+    {
+      "file": "src/renderer/src/TokenSpecimen.tsx",
+      "count": 6,
+      "issues": [403]
+    }
+  ]
+}

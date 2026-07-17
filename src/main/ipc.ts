@@ -3,6 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { z } from 'zod';
 
 import { channels } from '../shared/ipc/channels.js';
+import { resolveActiveLocale } from './i18n/locale-resolver.js';
 import { wrapHandler as createValidatedHandler } from '../shared/ipc/registry.js';
 import type { HandlerErrorReport } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
@@ -626,6 +627,9 @@ export function registerIpcHandlers(): void {
 
   const getPlatform = validateHandler(channels.getPlatform, () => ({ platform: process.platform }));
   ipcMain.handle(channels.getPlatform.name, (_event, request: unknown) => getPlatform(request));
+
+  const getLocale = validateHandler(channels.getLocale, () => ({ locale: resolveActiveLocale() }));
+  ipcMain.handle(channels.getLocale.name, (_event, request: unknown) => getLocale(request));
 
   // Window controls need the calling window, so validation wraps a handler
   // built per invocation.

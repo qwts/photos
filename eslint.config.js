@@ -1,5 +1,6 @@
 import eslintReact from '@eslint-react/eslint-plugin';
 import js from '@eslint/js';
+import formatjs from 'eslint-plugin-formatjs';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
@@ -99,6 +100,25 @@ export default tseslint.config(
       // and what the audit files as an S1 BUG where it is missing (finding 1, Lightbox).
       // Leaving it on would gate against the fix.
       'jsx-a11y/no-autofocus': 'off',
+    },
+  },
+  {
+    // Message hygiene for the i18n catalog (#403, ADR-0020 §1). These fire only
+    // on react-intl's message APIs (`<FormattedMessage>`, `defineMessages`,
+    // `intl.formatMessage`), so they are silent until a surface is migrated and
+    // then guarantee every message is extractable: an explicit id and a
+    // defaultMessage, no auto-hashed ids. The complementary "no NEW hardcoded
+    // literal" ratchet is a per-file budget in scripts/check-i18n-budget.mjs
+    // (it reuses this plugin's literal detector), because ESLint has no native
+    // per-file shrink-only count.
+    files: ['src/renderer/**/*.tsx', 'src/renderer/**/*.ts'],
+    plugins: { formatjs },
+    rules: {
+      // Require an explicit id on every message (no auto-hashed ids — the ADR
+      // wants readable, namespaced ids like `settings.title`) and a literal
+      // defaultMessage so extraction is deterministic.
+      'formatjs/enforce-id': 'error',
+      'formatjs/enforce-default-message': ['error', 'literal'],
     },
   },
   // Process-boundary layering (#49), the full matrix from CLAUDE.md

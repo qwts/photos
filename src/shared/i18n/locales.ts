@@ -18,9 +18,6 @@ export const SHIPPED_LOCALES = ['en'] as const;
  * with no translator. Pinnable via OVERLOOK_LOCALE. */
 export const PSEUDO_LOCALES = ['en-XA', 'en-XB'] as const;
 
-export type ShippedLocale = (typeof SHIPPED_LOCALES)[number];
-export type PseudoLocale = (typeof PSEUDO_LOCALES)[number];
-
 /** Base languages that render right-to-left (ADR §5). Matched on the primary
  * subtag, so regional variants (`ar-EG`, `ur-PK`) are covered. */
 const RTL_BASE_LANGUAGES = new Set(['ar', 'he', 'fa', 'ur']);
