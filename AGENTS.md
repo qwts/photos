@@ -63,6 +63,12 @@ this file in the same PR as the change — never after the fact.
 - **Commit frequently.** Small, coherent commits at each meaningful slice of
   work; push regularly so CI and the draft PR stay current. No end-of-session
   mega-commits.
+- **Draft CI is the fast lane only.** On draft PRs CI runs the deterministic
+  gates (lint, format, acceptance/a11y budgets, unit+coverage, build) and skips
+  the browser lanes (Storybook interaction tests, Electron E2E). The full suite
+  runs when the PR opens ready or leaves draft — so the local `test:e2e` /
+  `test:stories:ci` runs required before `gh pr ready` are not a formality:
+  the ready flip is the first time CI verifies them.
 - **Use the status footer only during an active validation/build run or while
   pairing with the user on manual testing.** Omit it from routine turns. When it
   applies, report these three lines:
@@ -114,6 +120,13 @@ possible, enforced as executable checks._
   renderer/story-relevant changes also run `npm run test:stories:ci` (Storybook
   interaction tests — CI runs them in the core job). Do not report a build you
   did not run.
+- **Never push a fix for a red check without running that same check locally
+  first.** CI is a verifier, not a test runner. A deterministic gate (lint,
+  format, unit, coverage, build) that fails in CI means the push skipped local
+  validation — run the failing gate locally until green, then push once.
+  Iterating in CI burns a full runner cycle per guess and notifies the owner
+  on every failure. (E2E under Xvfb is the one lane that can legitimately
+  disagree with a local pass; say so on the PR when claiming that.)
 - The macOS package job also loads the native HEIC decoder from the packaged
   app and decodes the checked-in iPhone fixture. Keep
   `scripts/verify-macos-heic-preview.mjs` and its readiness marker current when

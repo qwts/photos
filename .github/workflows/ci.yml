@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - main
+    # Default types plus ready_for_review: draft PRs skip the browser lanes (Storybook
+    # interaction tests, Electron E2E) below, so the draft→ready flip must itself trigger
+    # a run — that run supplies the full-suite verdict on the head SHA the ruleset checks.
+    types: [opened, synchronize, reopened, ready_for_review]
   # Post-merge signal: merges may land via admin bypass, so run the same gates on main itself.
   push:
     branches:
@@ -155,10 +159,18 @@ jobs:
       # Storybook interaction tests (#56): static build served over http,
       # test-runner drives it with Playwright chromium. Kept in this job (not
       # the Electron E2E job) — it needs a browser, not a display server.
+      #
+      # Draft PRs skip this lane (and E2E below): the working agreement has agents
+      # pushing work-in-progress slices every few minutes, and burning a Storybook
+      # build + Playwright run per slice buys a draft nothing. The deterministic
+      # gates above still run on every push; the ready_for_review trigger guarantees
+      # the full suite runs before the PR can merge. Non-PR events always run.
       - name: Install Playwright browsers (interaction tests)
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
         run: npx playwright install --with-deps chromium
 
       - name: Storybook interaction tests
+        if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
         run: npm run test:stories:ci
 
   # E2E is its own job so it runs in parallel with the lint/unit/build gates above, and so
@@ -168,7 +180,11 @@ jobs:
   e2e:
     name: E2E
     needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.e2e == 'true' }}
+    # Drafts skip E2E even when the path filter matches: work-in-progress pushes land
+    # every few minutes and the Electron lane is the long pole. The ready_for_review
+    # trigger re-runs the whole workflow on the head SHA when the PR leaves draft, so
+    # nothing merges on a draft skip. Non-PR events (push, dispatch) are unaffected.
+    if: ${{ (github.event_name == 'push' || needs.changes.outputs.e2e == 'true') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -226,9 +242,11 @@ jobs:
           changes='${{ needs.changes.result }}'
           e2e='${{ needs.e2e.result }}'
           echo "Detect changes: $changes | E2E job: $e2e"
-          # A skip is only trustworthy when change detection itself succeeded and decided E2E
-          # wasn't needed. If the changes job failed or was cancelled, the E2E skip is an
-          # artifact of that failure, not an intentional opt-out — fail so it can't slip through.
+          # A skip is only trustworthy when change detection itself succeeded and either the
+          # filter decided E2E wasn't needed or the PR is a draft (drafts cannot merge, and the
+          # ready_for_review trigger re-runs the suite on the head SHA before merge is possible).
+          # If the changes job failed or was cancelled, the E2E skip is an artifact of that
+          # failure, not an intentional opt-out — fail so it can't slip through.
           if [ "$changes" != 'success' ]; then
             echo "Change detection did not succeed ($changes); refusing to accept an E2E skip." >&2
             exit 1
