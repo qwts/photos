@@ -55,6 +55,7 @@ describe('recoverable manifest snapshot (#289)', () => {
     repo.insert(photo('P3', 'c'));
     repo.createAlbum('A1', 'Trip');
     repo.addToAlbum('A1', ['P1', 'P2', 'P3']);
+    repo.setPreviewFailure('P1', 'decode-failed');
 
     ledger.setStatus('P2', 'syncing');
     ledger.markBackedUp('P2', '2026-07-14T22:00:00.000Z');
@@ -86,6 +87,7 @@ describe('recoverable manifest snapshot (#289)', () => {
       },
     ]);
     assert.deepEqual(manifest.totals, { photos: 2, bytes: 84, albums: 1 });
+    assert.equal('previewFailure' in manifest.photos[0]!, false, 'local derivative state never enters disaster-recovery metadata');
   });
 
   test('an empty library produces a valid self-describing manifest', () => {
