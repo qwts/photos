@@ -6,6 +6,7 @@ storybook-static/
 coverage/
 .test-dist/
 .test-dist-dom/
+.guard/
 native/touch-id/build/
 native/touch-id/prebuilds/
 playwright-report/

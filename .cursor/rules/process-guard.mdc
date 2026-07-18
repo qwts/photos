@@ -1,0 +1,22 @@
+---
+description: Process-tree memory guard for test commands
+alwaysApply: true
+---
+
+# Process-tree guard (required for all test commands)
+
+- Run tests only through the guarded npm scripts: `npm test`, `npm run test:dom`,
+  `npm run test:cov`, `npm run test:stories`, `npm run test:stories:ci`,
+  `npm run test:e2e`, `npm run test:perf`. They wrap `scripts/run-guarded.mjs`,
+  which enforces an aggregate RSS ceiling across the whole descendant tree, a
+  per-process Node heap cap, a wall-clock timeout, and one test run at a time
+  per worktree.
+- Never invoke `electron --test`, `node --test`, anything in `.test-dist/` or
+  `.test-dist-dom/`, `playwright test`, `test-storybook`, or `c8` directly, and
+  never call `:run`/`:inner` npm scripts. `.cursor/hooks.json` blocks these
+  mechanically; this rule explains why.
+- If the guard reports "another guarded run is active", poll or terminate that
+  run first. Do not launch a replacement or retry in parallel.
+- If a guarded run fails with `rss-limit` or `timeout`, read `.guard/last-run.json`
+  and report it; do not simply rerun with a higher limit.
+- Details and tuning knobs: `docs/agent-process-guard.md`.

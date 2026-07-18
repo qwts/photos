@@ -14,7 +14,11 @@ jobs:
   perf:
     name: 200K perf harness
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Outer backstop only — the harness itself runs under scripts/run-guarded.mjs
+    # (aggregate-RSS ceiling + a 2700s/45min wall-clock timeout, generous pending a
+    # real measured peak — see docs/agent-process-guard.md). Raised from the prior
+    # 30 to leave headroom around that guard timeout for setup/Electron-install/upload.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -39,6 +43,14 @@ jobs:
 
       - name: Run the perf harness (Electron under Xvfb)
         run: xvfb-run --auto-servernum -- npm run test:perf
+
+      # Peak-RSS/duration record from the process-tree guard (scripts/run-guarded.mjs).
+      # The perf lane's ceilings are provisional (docs/agent-process-guard.md) — this
+      # is the data source for ratcheting them from a measured peak. Runs even on
+      # failure: an rss-limit/timeout kill is exactly when the record matters.
+      - name: Guard diagnostics
+        if: ${{ !cancelled() }}
+        run: cat .guard/last-run.json || true
 
       - name: Upload perf report
         if: ${{ !cancelled() }}
