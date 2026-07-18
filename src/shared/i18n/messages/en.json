@@ -152,6 +152,9 @@
   "sidebar.source.recent": {
     "defaultMessage": "Recent imports"
   },
+  "toast.announcement": {
+    "defaultMessage": "{title} — {detail}"
+  },
   "toast.dismiss": {
     "defaultMessage": "Dismiss notification"
   },
