@@ -13,6 +13,11 @@ export default defineConfig({
   // exactOptionalPropertyTypes forbids an explicit `workers: undefined`, so spread
   // the CI-only override instead of image-trail's ternary.
   ...(isCi ? { workers: 3 } : {}),
+  // CI retries absorb the environment-flake class (Xvfb timing, runner contention) so a
+  // single hiccup can't fail the required E2E gate; a pass-on-retry is reported as
+  // "flaky", never silently green, so real instability stays visible in the report.
+  // Local runs keep 0 — a failure on a dev machine should stop and be investigated.
+  retries: isCi ? 2 : 0,
   timeout: 30_000,
   expect: {
     timeout: 5_000,
