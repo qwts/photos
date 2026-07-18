@@ -134,86 +134,73 @@
       "id": "app-settingsdialog--disconnect-hides-backup-controls",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "aria-progressbar-name": 1,
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--general-section",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--google-drive-selection",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "aria-progressbar-name": 1,
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--keyboard-operable",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--nav-switches-panes",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--privacy-section",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--provider-selection-and-unknown-quota",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--restore-discovery-and-warnings",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "aria-progressbar-name": 1,
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-settingsdialog--storage-opens-by-default",
       "story": "src/renderer/src/settings/SettingsDialog.stories.tsx",
       "rules": {
-        "aria-progressbar-name": 1,
-        "button-name": 1,
         "color-contrast": 1
       },
-      "issues": [409, 410]
+      "issues": [409]
     },
     {
       "id": "app-sidebar--album-drop-states",
@@ -543,12 +530,10 @@
       "id": "shell-settings-dialog",
       "spec": "tests/e2e/a11y.spec.ts",
       "rules": {
-        "aria-progressbar-name": 1,
-        "button-name": 1,
         "color-contrast": 1,
         "nested-interactive": 1
       },
-      "issues": [409, 410, 412]
+      "issues": [409, 412]
     }
   ]
 }
