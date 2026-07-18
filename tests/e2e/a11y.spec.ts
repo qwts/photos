@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
@@ -52,9 +52,27 @@ declare const document: {
 declare function getComputedStyle(element: ProbeElement): { readonly position: string };
 
 // Flows this run actually audited. playwright.config.ts sets fullyParallel: false, so the
-// tests in this file run serially in one worker — the closure test at the bottom therefore
-// sees every id the ones above recorded.
+// tests in this file run serially — but not necessarily in one PROCESS: a test failure
+// restarts the worker (and CI retries make that routine), wiping module state recorded
+// before the failure. The set is therefore mirrored to a file under test-results/ (cleared
+// by Playwright at run start) and the closure test at the bottom reads the union, so a
+// flaky-then-green test cannot silently downgrade closure enforcement to a skip.
 const visitedFlows = new Set<string>();
+const visitedFlowsFile = join(process.cwd(), 'test-results', 'a11y-visited-flows.txt');
+
+function recordVisitedFlow(id: string): void {
+  visitedFlows.add(id);
+  mkdirSync(dirname(visitedFlowsFile), { recursive: true });
+  appendFileSync(visitedFlowsFile, `${id}\n`);
+}
+
+function allVisitedFlows(): ReadonlySet<string> {
+  const union = new Set(visitedFlows);
+  if (existsSync(visitedFlowsFile)) {
+    for (const id of readFileSync(visitedFlowsFile, 'utf8').split('\n')) if (id) union.add(id);
+  }
+  return union;
+}
 
 async function launchSeeded(slug: string, seed: string): Promise<{ app: ElectronApplication; page: Page }> {
   const userData = mkdtempSync(join(tmpdir(), `overlook-e2e-a11y-${slug}-`));
@@ -83,7 +101,7 @@ function countByRule(violations: readonly { id: string }[]): RuleCounts {
 }
 
 async function assertWithinBudget(page: Page, id: string): Promise<void> {
-  visitedFlows.add(id);
+  recordVisitedFlow(id);
   // getViolations takes axe's RunOptions DIRECTLY as its third argument — not the
   // {axeOptions} wrapper that checkA11y takes. Passing the wrapper type-checks as a
   // loose object but is silently ignored at runtime, which audits against axe's full
@@ -227,7 +245,8 @@ test('a11y: no focused control is entirely hidden behind the app chrome (SC 2.4.
 // nothing evaluates — the row's `spec` file still exists, so the static check cannot see
 // it either (PR #408 review). Skipped under --grep, where a partial run is expected.
 test('a11y: every budgeted flow was actually audited', () => {
-  test.skip(visitedFlows.size < 5, 'partial run (--grep); closure only holds for the full file');
-  const orphans = findOrphanedEntries({ entries: budget.flows, visited: visitedFlows });
+  const visited = allVisitedFlows();
+  test.skip(visited.size < 5, 'partial run (--grep); closure only holds for the full file');
+  const orphans = findOrphanedEntries({ entries: budget.flows, visited });
   expect(orphans, `Budgeted flows that no test audits: ${orphans.join(', ')}. Delete the entry or restore the flow.`).toEqual([]);
 });
