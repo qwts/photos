@@ -94,8 +94,8 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(card).toContainText('Not connected');
     await expect(page.getByRole('radio', { name: 'Google Drive' })).toBeDisabled();
     await expect(page.getByText('Google Drive: Google Drive OAuth is not configured in this build.')).toBeVisible();
-    await expect(page.getByText('Back up new imports automatically')).toBeHidden();
-    await expect(page.getByText('Wi-Fi only')).toBeHidden();
+    await expect(page.getByRole('switch', { name: 'Back up new imports automatically' })).toBeHidden();
+    await expect(page.getByRole('switch', { name: 'Wi-Fi only' })).toBeHidden();
     await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeHidden();
     await expect(page.getByRole('radio', { name: 'Copy' })).toBeEnabled();
     const provider = await page.evaluate<{ settings: { providerId: string | null } }>(`window.overlook.settings.get()`);
@@ -115,7 +115,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(page.getByTestId('settings-dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Connect Local mock' }).click();
     await expect(card).toContainText('Connected');
-    await expect(page.getByText('Back up new imports automatically')).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
     // Reconnect restores the shell surfaces live, no restart.
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Back up' })).toBeVisible();

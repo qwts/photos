@@ -301,7 +301,7 @@ export const StorageOpensByDefault: Story = {
     // The real pane (#114): connected card with live quota + enabled knobs.
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
-    await expect(body.getByText('Back up new imports automatically')).toBeVisible();
+    await expect(body.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
     await expect(body.getByText('12.6 GB stored only in your verified cloud backup. Thumbnails remain on this Mac.')).toBeVisible();
     await expect(body.queryByText('Checking backup provider before restoring…')).not.toBeInTheDocument();
     await expect(body.getByRole('button', { name: 'Restore selected (2)' })).toBeEnabled();
@@ -322,8 +322,8 @@ export const DisconnectHidesBackupControls: Story = {
     // Copy/Move (no provider needed), and the locked Encrypt switch remain.
     await waitFor(() => expect(body.getByText('Not connected')).toBeVisible());
     await expect(body.getByText('Link a provider to store encrypted originals off-device.')).toBeVisible();
-    await expect(body.queryByText('Back up new imports automatically')).not.toBeInTheDocument();
-    await expect(body.queryByText('Wi-Fi only')).not.toBeInTheDocument();
+    await expect(body.queryByRole('switch', { name: 'Back up new imports automatically' })).not.toBeInTheDocument();
+    await expect(body.queryByRole('switch', { name: 'Wi-Fi only' })).not.toBeInTheDocument();
     await expect(body.queryByRole('slider', { name: 'Upload bandwidth limit' })).not.toBeInTheDocument();
     await expect(body.getByRole('button', { name: 'Restore selected (2)' })).toBeDisabled();
     await expect(body.getByRole('button', { name: 'Restore all' })).toBeDisabled();
@@ -340,7 +340,7 @@ export const DisconnectHidesBackupControls: Story = {
     await userEvent.click(body.getByRole('button', { name: 'Connect Local mock' }));
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
-    await expect(body.getByText('Back up new imports automatically')).toBeVisible();
+    await expect(body.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
   },
 };
 
