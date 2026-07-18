@@ -32,10 +32,15 @@ const messages = defineMessages({
 
 const ANNOUNCEMENT_DWELL_MS = 1000;
 
-type AnnouncementAction = { readonly type: 'enqueue'; readonly text: string } | { readonly type: 'next' };
+interface Announcement {
+  readonly id: number;
+  readonly text: string;
+}
 
-function announcementReducer(queue: readonly string[], action: AnnouncementAction): readonly string[] {
-  return action.type === 'enqueue' ? [...queue, action.text] : queue.slice(1);
+type AnnouncementAction = { readonly type: 'enqueue'; readonly announcement: Announcement } | { readonly type: 'next' };
+
+function announcementReducer(queue: readonly Announcement[], action: AnnouncementAction): readonly Announcement[] {
+  return action.type === 'enqueue' ? [...queue, action.announcement] : queue.slice(1);
 }
 
 export interface ToastProps {
@@ -188,19 +193,26 @@ export function ToastHost({ toasts, onDismiss, className, autoDismissMs = 4000 }
       ? latest?.title
       : intl.formatMessage(messages.announcement, { title: latest.title, detail: latest.detail });
   const [announcementQueue, dispatchAnnouncement] = useReducer(announcementReducer, []);
+  const announcementIdRef = useRef(0);
   useEffect(() => {
-    if (announcement !== undefined) dispatchAnnouncement({ type: 'enqueue', text: announcement });
+    if (announcement !== undefined) {
+      announcementIdRef.current += 1;
+      dispatchAnnouncement({
+        type: 'enqueue',
+        announcement: { id: announcementIdRef.current, text: announcement },
+      });
+    }
   }, [announcement, latest]);
   const activeAnnouncement = announcementQueue[0];
   useEffect(() => {
     if (activeAnnouncement === undefined) return;
     const timer = setTimeout(() => dispatchAnnouncement({ type: 'next' }), ANNOUNCEMENT_DWELL_MS);
     return () => clearTimeout(timer);
-  }, [activeAnnouncement]);
+  }, [activeAnnouncement?.id]);
   return (
     <div className={['ovl-toast-host', className].filter(Boolean).join(' ')}>
       <div className="ovl-toast-host__announcer" role="status" aria-live="polite" aria-atomic="true">
-        {activeAnnouncement}
+        {activeAnnouncement?.text}
       </div>
       {toasts.map((toast) => (
         <ToastTimer key={toast.id} toast={toast} onDismiss={onDismiss} autoDismissMs={autoDismissMs} />
