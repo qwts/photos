@@ -59,6 +59,8 @@ export const en: Readonly<Record<string, string>> = {
   "sidebar.source.favorites": "Favorites",
   "sidebar.source.offloaded": "Offloaded",
   "sidebar.source.recent": "Recent imports",
+  "toast.dismiss": "Dismiss notification",
+  "toast.notification": "Notification",
   "toolbar.backup": "Back up",
   "toolbar.backup.now": "Back up now",
   "toolbar.filter.favorites": "Favorites",
