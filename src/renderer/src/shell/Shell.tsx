@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DragEvent, ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 import './shell.css';
 import { formatCount, formatRelativeTime } from '../../../shared/library/format.js';
@@ -27,6 +27,7 @@ import { InteropWorkflowDialog } from '../interop/InteropWorkflowDialog';
 import { blockedInteropWorkflow, type InteropEntryContext } from '../interop/visible-workflow.js';
 import { ProtectedAlbumUnlockDialog } from '../protected/ProtectedAlbumUnlockDialog';
 import { ProtectedAlbumView } from '../protected/ProtectedAlbumView';
+import { createBoundedExternalDropReporter, installExternalFileDropBoundary } from './external-file-drop';
 
 // 4s per the design's ToastHost (#89 exit criteria).
 const TOAST_DISMISS_MS = 4000;
@@ -49,6 +50,31 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   // Dropped source; `dragging` shows the full-window overlay.
   const [dropped, setDropped] = useState<readonly string[] | null>(null);
   const [dragging, setDragging] = useState(false);
+  const rejectExternalDrop = useCallback((): void => {
+    setDropped(null);
+    dispatch({ type: 'dialog/set', dialog: 'import', open: false });
+    dispatch({ type: 'toast/shown', toast: { title: 'Nothing to import — drop photo files', tone: 'amber' } });
+  }, [dispatch]);
+
+  useEffect(() => {
+    const boundary = installExternalFileDropBoundary(window, {
+      pathForFile: window.overlook.import.pathForFile,
+      onDraggingChange: setDragging,
+      onPaths: (paths) => {
+        setDropped((current) => mergeDropPaths(current, paths));
+        dispatch({ type: 'dialog/set', dialog: 'import', open: true });
+      },
+      onUnsupported: rejectExternalDrop,
+      report: createBoundedExternalDropReporter(),
+    });
+    const offFocus = window.overlook.onFocusChanged(({ focused }) => {
+      if (!focused) boundary.reset('window-focus-lost');
+    });
+    return () => {
+      offFocus();
+      boundary.dispose();
+    };
+  }, [dispatch, rejectExternalDrop]);
 
   useEffect(() => {
     const unsubscribe = window.overlook.import.onExternalPaths(({ paths }) => {
@@ -256,60 +282,11 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
     };
   }, [toast, dispatch]);
 
-  // Window drag-and-drop (#237): a depth counter keeps the overlay stable
-  // across child enter/leave churn (the mock's own approach). Only drags
-  // carrying files count; the drop filters through the same media allowlist
-  // the scanner uses — non-photo drops get the design's toast.
-  const dragDepth = useRef(0);
-  const hasFiles = (event: DragEvent): boolean => Array.from(event.dataTransfer.types).includes('Files');
-  const onDragEnter = (event: DragEvent): void => {
-    if (!hasFiles(event)) {
-      return;
-    }
-    event.preventDefault();
-    dragDepth.current += 1;
-    setDragging(true);
-  };
-  const onDragOver = (event: DragEvent): void => {
-    if (hasFiles(event)) {
-      event.preventDefault();
-    }
-  };
-  const onDragLeave = (event: DragEvent): void => {
-    if (!hasFiles(event)) {
-      return;
-    }
-    dragDepth.current -= 1;
-    if (dragDepth.current <= 0) {
-      dragDepth.current = 0;
-      setDragging(false);
-    }
-  };
-  const onDrop = (event: DragEvent): void => {
-    if (!hasFiles(event)) {
-      return;
-    }
-    event.preventDefault();
-    dragDepth.current = 0;
-    setDragging(false);
-    const paths = Array.from(event.dataTransfer.files)
-      .map((file) => window.overlook.import.pathForFile(file))
-      .filter((path) => path !== '');
-    if (paths.length === 0) {
-      dispatch({ type: 'toast/shown', toast: { title: 'Nothing to import — drop photo files', tone: 'amber' } });
-      return;
-    }
-    setDropped((current) => mergeDropPaths(current, paths));
-    dispatch({ type: 'dialog/set', dialog: 'import', open: true });
-  };
-
   return (
-    // OS file-drop target for import. SC 2.5.7 (Dragging Movements) is satisfied by the
-    // Toolbar's Import button, which opens the same ImportDialog without any dragging;
-    // this drop path is an accelerator, not the only route. A keydown handler on the
-    // shell root would not be a meaningful equivalent to dropping a file.
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div className="ovl-shell" onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+    // OS file drops are owned by the capture-boundary effect above, including
+    // portals outside this subtree. The toolbar Import button remains the
+    // non-drag equivalent required by SC 2.5.7.
+    <div className="ovl-shell">
       {dragging ? (
         <div className="ovl-shell__dropOverlay">
           <div className="ovl-shell__dropCard">
@@ -368,6 +345,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
             // "Show in library" jumps to Recent imports (#88).
             dispatch({ type: 'source/set', source: 'recent' });
           }}
+          onRejectedDrop={rejectExternalDrop}
           onComplete={(imported) => {
             // Green completion toast with exact counts + Show action (#89).
             dispatch({

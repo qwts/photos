@@ -192,6 +192,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'inspector/toggled':
       return { ...state, inspectorOpen: !state.inspectorOpen };
     case 'dialog/set':
+      if (action.open) {
+        return {
+          ...state,
+          importOpen: action.dialog === 'import',
+          exportOpen: action.dialog === 'export',
+          settingsOpen: action.dialog === 'settings',
+          librariesOpen: action.dialog === 'libraries',
+        };
+      }
       return {
         ...state,
         importOpen: action.dialog === 'import' ? action.open : state.importOpen,
