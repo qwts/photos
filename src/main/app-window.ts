@@ -15,6 +15,7 @@ export function createWindow(): BrowserWindow {
     packaged: app.isPackaged,
     harness: process.env['OVERLOOK_E2E'],
     mode: process.env['OVERLOOK_E2E_WINDOW'],
+    noFocus: process.env['OVERLOOK_NO_FOCUS'],
   });
   const win = new BrowserWindow({
     ...(devIcon !== undefined && process.platform !== 'darwin' ? { icon: devIcon } : {}),
@@ -33,6 +34,7 @@ export function createWindow(): BrowserWindow {
       backgroundThrottling: windowBehavior.backgroundThrottling,
     },
   });
+  if (windowBehavior.showInactiveWhenReady) win.once('ready-to-show', () => win.showInactive());
   const emitFocusChanged = createEmitter(events.focusChanged, (name, payload) => win.webContents.send(name, payload));
   installWindowNavigationPolicy(win.webContents);
   win.on('focus', () => emitFocusChanged({ focused: true }));

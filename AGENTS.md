@@ -227,3 +227,9 @@ possible, enforced as executable checks._
   `git commit --no-verify` is for emergencies.
 - The `/check` command (`.claude/commands/check.md`) wraps the full gate run.
 - Invoke tools through `PATH` (or `npx`); never hardcode machine-specific paths.
+- **Desktop focus:** agent-driven app launches must not steal the user's focus.
+  Export `OVERLOOK_NO_FOCUS=1` for `npm run dev` / `seed:dev` / `seed:perf` or
+  any ad-hoc launch — the window opens via `showInactive()` and the app never
+  activates. E2E hides windows on local macOS already; the perf lane sets
+  `OVERLOOK_NO_FOCUS=1` itself (override with `OVERLOOK_NO_FOCUS=0` when a
+  human wants a focused window).

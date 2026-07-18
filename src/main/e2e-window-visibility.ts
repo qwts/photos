@@ -2,11 +2,13 @@ export interface InitialWindowVisibilityInput {
   readonly packaged: boolean;
   readonly harness: string | undefined;
   readonly mode: string | undefined;
+  readonly noFocus: string | undefined;
 }
 
 export interface InitialWindowBehavior {
   readonly show: boolean;
   readonly backgroundThrottling: boolean;
+  readonly showInactiveWhenReady: boolean;
 }
 
 /** Hide local macOS E2E windows without changing Linux/Xvfb rendering behavior. */
@@ -20,8 +22,13 @@ export function shouldShowInitialWindow({ packaged, harness, mode }: InitialWind
   return packaged || harness !== '1' || mode !== 'hidden';
 }
 
-/** Hidden Chromium windows must keep rendering and running timers like visible windows. */
+/** Hidden Chromium windows must keep rendering and running timers like visible windows.
+ * OVERLOOK_NO_FOCUS=1 keeps a visible window from activating the app: it opens via
+ * showInactive() after ready-to-show, so perf lanes and agent-driven launches render
+ * a real on-screen window without stealing the user's desktop focus. */
 export function initialWindowBehavior(input: InitialWindowVisibilityInput): InitialWindowBehavior {
-  const show = shouldShowInitialWindow(input);
-  return { show, backgroundThrottling: show };
+  const visible = shouldShowInitialWindow(input);
+  const showInactiveWhenReady = visible && input.noFocus === '1';
+  const show = visible && !showInactiveWhenReady;
+  return { show, backgroundThrottling: show, showInactiveWhenReady };
 }
