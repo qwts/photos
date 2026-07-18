@@ -144,7 +144,7 @@ disciplined and makes reimplementation mechanical:
   and total chunks, so truncation and reordering fail the tag check.
 - **Key wrap** (`keystore.ts`) — `base64(nonce ‖ tag ‖ ciphertext)`, AES-256-GCM,
   AAD = key id. Wrapped keys live in versioned JSON at `keys.json`.
-- **Recovery key** (`recovery.ts`) — a fixed 77-byte file: `"OVRK"` ‖ version ‖
+- **Recovery key** (`recovery.ts`) — a fixed 81-byte file: `"OVRK"` ‖ version ‖
   salt ‖ nonce ‖ ciphertext ‖ tag, header as AAD.
   ([ADR-0008](ADR-0008-Recovery-Key-Format))
 - **App-lock record** (`app-lock-credentials.ts`) — `"OVLK"` ‖ UTF-8 JSON naming
@@ -313,10 +313,31 @@ get. The options are:
    the library-management model. That is a separate product with its own ADR,
    not a port of this one.
 
-Caveat: the authoritative source is **archived** Apple documentation, and much
-of the secondary writing about it is stale. Re-confirm against current tvOS
-documentation before acting — but plan on the constraint holding, because
-multiple independent 2024–2026 sources still describe the same limits.
+**The constraint was re-verified against a current, non-archived source**, which
+is the point most secondary writing gets wrong. The enforcement mechanism is
+live and documented on `UserDefaults.sizeLimitExceededNotification`:
+
+> In tvOS, the system posts this notification as a warning when the size of your
+> app's defaults database reaches **512 kilobytes**. If your app continues to
+> write to the defaults database, the system **terminates your app** when the
+> database reaches or exceeds **1 megabyte**. The system doesn't post size
+> exceeded notifications for other platforms.
+
+(The archived guide's "500 KB" and this "512 KB" are the same number rounded
+differently — cite 512 KB.) There is also affirmative evidence Apple is
+*maintaining* the posture rather than relaxing it: when iOS 18 raised on-demand
+resource ceilings from 20 GB to 70 GB and per-pack limits from 512 MB to 8 GB,
+**tvOS was deliberately excluded and stayed at 20 GB / 512 MB**.
+
+Stated precisely, so an ADR does not overclaim: the **512 KB / 1 MB enforcement
+and the tvOS-specific storage ceilings are current and documented**. The broader
+"all other data must be purgeable, store it in iCloud" guidance appears **only**
+in the 2017 archived guide and Apple has not restated it. That is a weaker claim
+than "Apple currently forbids local storage on tvOS" — but the mechanism alone
+is sufficient to rule out a local encrypted library.
+
+Note the hidden cost in option 2: a thin client implies a **server-side library
+API that this product does not otherwise need**. That is not a small addition.
 
 ## Finding 8 — no single framework covers the six targets
 
@@ -440,39 +461,105 @@ changed.
 
 Both apply to every framework choice equally; they are properties of the product.
 
-- **Encryption export compliance.** Client-side AES-256 over user data is *not*
-  covered by the usual exemptions (authentication, signatures, DRM, or merely
-  using HTTPS). `ITSAppUsesNonExemptEncryption` must be `true`, with an annual
-  BIS self-classification report and an ERN under the standard mass-market
-  self-classification path. Not a blocker — a paperwork obligation that must be
-  owned before submission. Not legal advice; get it reviewed.
-- **iOS backup exclusion is a genuine rejection risk for a photo app.** Under
-  guideline 2.5.x and Apple's data storage guidelines, only user-generated
-  content belongs in `Documents/` (which is backed up to iCloud); regenerable
-  data must be excluded via `isExcludedFromBackupKey`. Overlook's originals and
-  database qualify as user data, but **`thumbs/` and `cache/` are regenerable and
-  must be excluded** — apps have been rejected for backing up gigabytes of
-  derived thumbnails. Note the corollary: `Library/Caches` is purgeable, so the
-  thumbnail cache must be regenerable on demand. Worth checking whether the
-  current desktop code already assumes derivatives are always present.
-- Android's analogue is lighter but real: the Play **Photo and Video Permissions**
-  policy pushes apps toward the system Photo Picker and requires justification
-  for broad `READ_MEDIA_IMAGES`, and Android 15 caps `dataSync` foreground
-  services at roughly six hours a day.
+- **Encryption export compliance — smaller than feared, but with a recurring
+  obligation.** `ITSAppUsesNonExemptEncryption` must be `YES`; AES is a published
+  standard, so **no CCATS is required** (that is the proprietary-algorithm path).
+  Self-classify **ECCN 5D992.c** under **§740.17(b)(1)**, and file a **French
+  declaration** for the FR storefront. **Correction to a common instruction: there
+  is no ERN to obtain** — the Encryption Registration Number requirement was
+  eliminated by the September 2016 BIS rule, and guides still describing one are
+  obsolete. The part most likely to be dropped after launch is the **annual
+  self-classification CSV to BIS, due February 1** each year. Give it an owner
+  and a calendar entry. Not legal advice.
+- **iOS backup exclusion — real, but not the guideline people cite.** There is
+  **no 2.5.x guideline covering iCloud backup**; the old numbered rule no longer
+  exists, and the requirement now lives in the "Before You Submit" section by
+  reference to *Optimizing your app's data for iCloud backup*. Likewise
+  **QA1719 is archived and redirects** — cite the current doc. The substance
+  holds: the encrypted database and originals are non-reproducible user data and
+  belong in `Application Support/` **backed up**, while regenerable thumbnails
+  and caches belong in `Caches/` or carry `isExcludedFromBackup`. Two traps —
+  some file operations **reset the exclusion flag, so it must be reapplied on
+  every save**, and the flag is guidance, not a guarantee. Do **not** exclude key
+  material: a restored device that cannot decrypt its restored library is a
+  data-loss bug. Corollary worth checking in the current desktop code:
+  `Library/Caches` is purgeable, so derivatives must be regenerable on demand
+  rather than assumed present.
+- **Android's real constraint is not the permission — it is a hard cap.**
+  Persisted Photo Picker URI grants are limited to **5,000 per app**, with older
+  grants dropped automatically. A whole-library manager does not fit, and that
+  cap — not the policy — is what forces the `READ_MEDIA_IMAGES` declaration path,
+  which in turn shapes onboarding, the Play listing, and review timeline. Decide
+  it early and explicitly. Play's Photo and Video Permissions policy separately
+  requires justifying why the system picker is insufficient; a gallery/photo
+  manager is the archetypal qualifying case.
+- **Android background work wants a three-way split**, and a naive single-service
+  design leaves capacity unused: **user-initiated data transfer jobs** (API 34+)
+  for uploads, which are **exempt from App Standby quotas**; **WorkManager** for
+  incremental sync; and a **`mediaProcessing`** foreground service for bulk
+  thumbnailing. The Android 15 six-hour daily cap is tracked **separately per
+  service type**, so `mediaProcessing` draws from a different budget than
+  `dataSync`. Note also the Play target-SDK deadline: **API 36+ from
+  2026-08-31**, extendable to 2026-11-01.
 
-## Finding 12 — long imports and backups do not run in the background on iOS
+## Finding 12 — iOS background execution is *better* than the folklore
 
-There is no iOS mechanism for "import and upload a 50,000-photo library while
-backgrounded". `beginBackgroundTask` grants seconds; `BGProcessingTask` runs only
-when the system chooses, typically idle and charging. The only durable path for
-the transfer leg is a **background `URLSession`**, where the system owns
-scheduling and wakes the app on completion.
+This finding was revised after a second research pass; the first version of this
+page repeated the standard "iOS cannot back up a photo library in the
+background", and that is now out of date in a way that materially helps.
 
-The product consequence: imports become foreground-driven with visible progress,
-and **interruption and resumption become first-class states rather than error
+**Apple has built this exact feature.** The **PhotoKit Background Resource
+Upload extension** — abstract: "Enable reliable cloud backup for photo library
+assets with background processing" — has the system manage uploads on the app's
+behalf, "processing them in the background even when people switch to other apps
+or lock their devices". Version situation matters for planning:
+
+- `PHBackgroundResourceUploadJobExtension` — **iOS 27.0** (clean form)
+- `PHBackgroundResourceUploadExtension` — **iOS 26.1**, already **deprecated** in 27
+
+Two are different enough to be separate implementations, so the minimum-iOS
+decision should be made deliberately rather than by default. It also requires
+**full library access** (`.readWrite` and exactly `.authorized`) — limited access
+will not do — and is unavailable in the Simulator.
+
+For user-initiated bulk work there is **`BGContinuedProcessingTask`** (iOS 26),
+whose *documented example* is literally "Creating thumbnails for a new batch of
+photo uploads". It starts in the foreground, survives backgrounding, and shows a
+cancellable Live Activity. Two constraints shape the design: progress reporting
+is mandatory and enforced ("the system prioritizes the termination of tasks that
+reflect minimal or no progress"), and if the user closes the app from the app
+switcher the task is cancelled **without any notification to the app** — so
+checkpointing must be durable, because cleanup will not always run.
+
+What still does not exist is **unattended, continuous, whole-library upload
+driven by the app's own process**. Apple's answer is the first-party extension
+point above, not a background mode; claiming `audio` or `location` to stay alive
+is the classic abuse pattern.
+
+Two corrections to widely repeated numbers, worth recording because they get
+copied into designs:
+
+- **The "~30 second" background window has no current Apple source.** The docs
+  deliberately say only "a finite amount of time" and direct callers to
+  `backgroundTimeRemaining`. The figure appears to originate in a retired guide.
+  Do not hardcode it.
+- **`BGAppRefreshTask` / `BGProcessingTask` have no documented numeric budgets.**
+  Design against the expiration handler, not a clock. What *is* documented is
+  queue depth: 1 refresh task and 10 processing tasks scheduled at a time.
+
+The product consequence is unchanged and still the important part:
+**interruption and resumption become first-class states rather than error
 paths**. The existing import state machine and the resumable journals in
-`src/main/import/` and the interop layer are real assets here — this is a case
-where the desktop design already anticipated the shape mobile forces.
+`src/main/import/` and the interop layer are real assets here — the desktop
+design already anticipated the shape mobile forces.
+
+One hazard that is *not* good news: `PHImageRequestOptions.isNetworkAccessAllowed`
+defaults to **false**, so on any device with Optimize iPhone Storage most
+originals are not local and requests **silently** return nothing useful. For
+byte-exact originals use `PHAssetResourceManager` rather than `PHImageManager`.
+There is also a developer-forum report that iCloud-optimized photos are silently
+skipped by upload jobs — unconfirmed by Apple, but if true it would gut the
+feature for precisely the users who most need backup. **Verify on device early.**
 
 ## One concrete iOS gotcha
 
@@ -516,13 +603,16 @@ almost nothing; everything after depends on a product decision.
    afternoon. Settles the largest open technical question.
 2. **Decrypt one blob envelope in Swift** against a committed fixture. Proves the
    envelope spec is complete and reimplementable.
-3. **Write the library format spec** into the wiki from source, using
-   `design/handoff/contracts/v1/` as the template — magic bytes, envelope layout,
-   key wrap, recovery file, app-lock record, on-disk tree, and the SQLCipher
-   parameters verified above. This is valuable *even if no port ever happens*:
-   the format is currently defined only by TypeScript implementation, and a
-   backup you cannot decrypt from a second implementation is a backup with a
-   single point of failure.
+3. ~~**Write the library format spec**~~ — **done**:
+   [Overlook Library Format v1](Library-Format-v1). Covers the on-disk tree,
+   both `master.key` forms, the key-wrap record, the blob envelope, content
+   addressing, the recovery file, the SQLCipher parameters verified above, and
+   the protected-album extension — plus a traps section for the inconsistencies
+   a second implementation will hit. Writing it already caught one error in an
+   earlier draft of this page (the recovery file is **81** bytes, not 77).
+   The remaining gap is **test vectors**: the spec has no golden fixtures, so a
+   second implementation cannot self-check. That is the natural follow-up and,
+   unlike the spec, it needs a PR and CI.
 4. **Move `lightbox/geometry.ts` into `src/shared/`** and generate the ~93 design
    tokens from a single source into CSS + TS. This also closes an unenforced
    duplication: `VirtualGrid.tsx:16-19` hardcodes `GRID_GAP = 4` and friends as
@@ -567,12 +657,25 @@ measured, not read.
 - [sqlcipher-android](https://github.com/sqlcipher/sqlcipher-android) — note the
   older `android-database-sqlcipher` artifact is deprecated
 - [libvips](https://github.com/libvips/libvips) — no supported mobile build
-- [App Programming Guide for tvOS](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppleTV_PG/index.html)
-  (**archived** — re-confirm) and
-  [Apple developer forum thread on tvOS storage purging](https://developer.apple.com/forums/thread/18465)
+- [`UserDefaults.sizeLimitExceededNotification`](https://developer.apple.com/documentation/foundation/userdefaults/sizelimitexceedednotification)
+  — **current** source for the tvOS 512 KB / 1 MB enforcement; plus the archived
+  [App Programming Guide for tvOS](https://developer.apple.com/library/archive/documentation/General/Conceptual/AppleTV_PG/index.html)
+  for the surrounding (unrestated) guidance
+- [tvOS on-demand-resources size limits](https://developer.apple.com/help/app-store-connect/reference/app-uploads/on-demand-resources-size-limits/)
+- [Uploading asset resources in the background](https://developer.apple.com/documentation/photokit/uploading-asset-resources-in-the-background)
+  — the PhotoKit background upload extension
+- [`BGContinuedProcessingTask`](https://developer.apple.com/documentation/backgroundtasks/bgcontinuedprocessingtask)
+  and [Performing long-running tasks on iOS and iPadOS](https://developer.apple.com/documentation/BackgroundTasks/performing-long-running-tasks-on-ios-and-ipados)
+- [`PHImageRequestOptions.isNetworkAccessAllowed`](https://developer.apple.com/documentation/photos/phimagerequestoptions/isnetworkaccessallowed)
 - [Apple: complying with encryption export regulations](https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations)
-- [Apple Technical Q&A QA1719 — backup exclusion](https://developer.apple.com/library/archive/qa/qa1719/)
-- [Background Tasks framework](https://developer.apple.com/documentation/backgroundtasks)
+  and [BIS annual self-classification](https://www.bis.gov/learn-support/encryption-controls/annual-self-classification)
+- [Optimizing your app's data for iCloud backup](https://developer.apple.com/documentation/foundation/optimizing-your-app-s-data-for-icloud-backup)
+  — supersedes the archived QA1719
+- [Android Photo Picker](https://developer.android.com/training/data-storage/shared/photopicker)
+  (5,000 persisted-grant cap) and
+  [user-initiated data transfer jobs](https://developer.android.com/develop/background-work/background-tasks/uidt)
+- [Foreground service timeouts](https://developer.android.com/develop/background-work/services/fgs/timeout)
+  and [Play target API requirements](https://developer.android.com/google/play/requirements/target-sdk)
 - [Android 15 behavior changes](https://developer.android.com/about/versions/15/behavior-changes-15)
   — `dataSync` foreground-service cap
 - [Dropbox: the (not so) hidden cost of sharing code between iOS and Android](https://dropbox.tech/mobile/the-not-so-hidden-cost-of-sharing-code-between-ios-and-android)
