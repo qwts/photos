@@ -212,7 +212,7 @@ describe('provider runtime policy (#256)', () => {
     );
     assert.equal((await r.connect('google-drive')).ok, false);
     assert.equal((await r.connect('mock')).ok, false);
-    assert.equal(r.disconnect('mock').ok, false);
+    assert.equal((await r.disconnect('mock')).ok, false);
     active = false;
     assert.equal((await r.connect('mock')).ok, true);
   });
@@ -235,7 +235,7 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(existsSync(join(dataDir, 'pcloud-auth.bin')), false, 'legacy token is removed after migration');
   });
 
-  test('provider-specific custody directories keep Google refresh tokens outside the library', () => {
+  test('provider-specific custody directories keep Google refresh tokens outside the library', async () => {
     const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-google-custody-'));
     const { runtime: r } = runtime({
       dataDir: () => join(root, 'library'),
@@ -254,7 +254,7 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(existsSync(join(root, 'provider-auth', 'google-drive', 'google-drive-auth.bin')), true);
     r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
     assert.equal(r.descriptors().find(({ id }) => id === 'google-drive')?.available, true);
-    assert.equal(r.disconnect('google-drive').ok, true);
+    assert.equal((await r.disconnect('google-drive')).ok, true);
     assert.equal(r.googleTokenStore().load(), null);
     const cleared = new GoogleDrivePathStore(driveCredentialDir);
     assert.equal(cleared.overlookFolderId(), null);
