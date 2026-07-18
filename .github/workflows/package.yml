@@ -100,6 +100,10 @@ jobs:
             unset CSC_LINK CSC_KEY_PASSWORD
             npm run package
           fi
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            app=$(find release -maxdepth 2 -name '*.app' | head -1)
+            node scripts/verify-macos-heic-preview.mjs "$app" tests/fixtures/heic/iphone-13-pro.heic
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
