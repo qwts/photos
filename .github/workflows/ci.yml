@@ -16,6 +16,12 @@ on:
   # GITHUB_TOKEN-created PRs get no pull_request runs, yet main requires the
   # "CI" and "E2E gate" checks (contexts match by name across event types).
   workflow_dispatch:
+  # The merge queue (agents run `gh pr merge --auto` once a PR is ready) builds the
+  # up-to-date merged state and requires the same "CI" and "E2E gate" contexts on it,
+  # so this workflow must run on merge_group and report both. This is what lets a PR
+  # merge without its branch ever being manually updated: staleness is validated on
+  # the queue's merged state, not the PR head.
+  merge_group:
 
 # Cancel superseded PR runs — a stacked push otherwise burns a full run per commit. Main-push
 # runs are keyed by SHA instead of ref: a shared ref group would let GitHub replace the single
@@ -42,9 +48,11 @@ jobs:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      # workflow_dispatch (the version branch) always runs E2E: paths-filter has no
-      # base for dispatch events, and the version bump touches package.json anyway.
-      e2e: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.e2e }}
+      # workflow_dispatch (the version branch) and merge_group (the queue's merged
+      # state, about to become main) always run E2E: paths-filter has no base for
+      # dispatch events, and a merge group gets main's own always-run rule — main
+      # must stay green regardless of the diff.
+      e2e: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group') && 'true' || steps.filter.outputs.e2e }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -52,7 +60,7 @@ jobs:
           fetch-depth: 0
       - name: Filter paths
         id: filter
-        if: ${{ github.event_name != 'workflow_dispatch' }}
+        if: ${{ github.event_name != 'workflow_dispatch' && github.event_name != 'merge_group' }}
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |

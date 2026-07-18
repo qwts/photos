@@ -63,6 +63,14 @@ this file in the same PR as the change — never after the fact.
 - **Commit frequently.** Small, coherent commits at each meaningful slice of
   work; push regularly so CI and the draft PR stay current. No end-of-session
   mega-commits.
+- **Queue the merge yourself.** Right after `gh pr ready`, run
+  `gh pr merge <n> --auto`. Once review threads are resolved and required checks
+  pass, the merge queue builds the up-to-date merged state, runs CI + E2E on
+  that state, and merges (rebase — linear history preserved). Because staleness
+  is validated in the queue, **never manually rebase or "update" a branch that
+  is merely behind `main`** — that chore is the queue's job now. Rebase only to
+  resolve a real conflict: a CONFLICTING PR gets no queue entry and no CI runs
+  (see Branch And GitHub Hygiene).
 - **Draft CI is the fast lane only.** On draft PRs CI runs the deterministic
   gates (lint, format, acceptance/a11y budgets, unit+coverage, build) and skips
   the browser lanes (Storybook interaction tests, Electron E2E). The full suite
