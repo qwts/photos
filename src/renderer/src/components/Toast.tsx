@@ -208,7 +208,7 @@ export function ToastHost({ toasts, onDismiss, className, autoDismissMs = 4000 }
     if (activeAnnouncement === undefined) return;
     const timer = setTimeout(() => dispatchAnnouncement({ type: 'next' }), ANNOUNCEMENT_DWELL_MS);
     return () => clearTimeout(timer);
-  }, [activeAnnouncement?.id]);
+  }, [activeAnnouncement]);
   return (
     <div className={['ovl-toast-host', className].filter(Boolean).join(' ')}>
       <div className="ovl-toast-host__announcer" role="status" aria-live="polite" aria-atomic="true">
