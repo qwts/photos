@@ -315,6 +315,7 @@ export function KeyDialog({ open, mode, onClose, onToast }: KeyDialogProps): Rea
               <button
                 type="button"
                 className="ovl-key__dropzone"
+                data-overlook-file-drop-target="recovery-key"
                 onClick={chooseFile}
                 onDragOver={(event) => {
                   event.preventDefault();
