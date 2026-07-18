@@ -154,7 +154,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
                 {status.account ?? 'THIS DEVICE'} · {formatBytes(status.usedBytes).toUpperCase()} /{' '}
                 {formatBytes(status.totalBytes).toUpperCase()} USED
               </div>
-              <ProgressBar value={status.usedBytes} max={Math.max(status.totalBytes, 1)} tone="cyan" />
+              <ProgressBar label={`${name} storage used`} value={status.usedBytes} max={Math.max(status.totalBytes, 1)} tone="cyan" />
             </>
           ) : connected ? (
             <div className="ovl-settings__providerMeta mono-data">{status?.account ?? 'THIS DEVICE'} · STORAGE USAGE NOT REPORTED</div>
@@ -225,6 +225,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
 
       <Field label="Re-offload after viewing" hint="Keep cloud-only originals temporary unless you choose Keep downloaded.">
         <Switch
+          label="Re-offload after viewing"
           checked={settings.reOffloadAfterViewing}
           onChange={(reOffloadAfterViewing) => {
             onPatch({ reOffloadAfterViewing });
@@ -236,6 +237,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         <>
           <Field label="Back up new imports automatically" hint="Encrypts and uploads originals after import.">
             <Switch
+              label="Back up new imports automatically"
               checked={settings.autoBackupOnImport}
               onChange={(autoBackupOnImport) => {
                 onPatch({ autoBackupOnImport });
@@ -244,6 +246,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           </Field>
           <Field label="Wi-Fi only" hint="Pause uploads on cellular or metered connections.">
             <Switch
+              label="Wi-Fi only"
               checked={settings.wifiOnly}
               onChange={(wifiOnly) => {
                 onPatch({ wifiOnly });
@@ -279,7 +282,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         />
       </Field>
       <Field label="Encrypt originals" hint="Client-side encryption before any upload. Cannot be disabled.">
-        <Switch checked disabled />
+        <Switch checked disabled label="Encrypt originals" />
       </Field>
     </div>
   );

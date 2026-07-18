@@ -8,7 +8,7 @@ export interface ProgressBarProps {
   readonly value: number;
   readonly max?: number;
   readonly tone?: ProgressTone;
-  readonly label?: string;
+  readonly label: string;
   /** Mono counter, e.g. "842 / 1,204". */
   readonly detail?: string;
   readonly width?: number | string;
@@ -20,12 +20,10 @@ export function ProgressBar({ value, max = 100, tone = 'cyan', label, detail, wi
   const pct = (clamped / max) * 100;
   return (
     <div className="ovl-progress" style={{ width }}>
-      {label !== undefined || detail !== undefined ? (
-        <div className="ovl-progress__head">
-          {label === undefined ? <span /> : <span className="ovl-progress__label">{label}</span>}
-          {detail === undefined ? null : <span className="ovl-progress__detail">{detail}</span>}
-        </div>
-      ) : null}
+      <div className="ovl-progress__head">
+        <span className="ovl-progress__label">{label}</span>
+        {detail === undefined ? null : <span className="ovl-progress__detail">{detail}</span>}
+      </div>
       <div
         className="ovl-progress__track"
         role="progressbar"
