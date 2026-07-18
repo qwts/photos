@@ -119,7 +119,7 @@ test('P0 #486: Finder-shaped drops over a modal stay responsive and cannot open 
     copyFileSync(FIXTURE, unsupported);
     await stageFinderFiles(page, [unsupported]);
     expect(await dispatchFinderEvent(page, 'drop', '.ovl-dialog')).toBe(true);
-    await expect(page.getByText('Nothing to import — drop photo files')).toBeVisible();
+    await expect(page.getByLabel('Notification', { exact: true }).getByText('Nothing to import — drop photo files')).toBeVisible();
     await expect(page.getByRole('dialog', { name: 'Import photos' })).toHaveCount(0);
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     expect(app.windows()).toHaveLength(1);
