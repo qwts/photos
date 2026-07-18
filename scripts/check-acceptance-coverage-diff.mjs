@@ -115,6 +115,36 @@ async function gatherInputs() {
     };
   }
 
+  if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch' && process.env.GITHUB_REPOSITORY) {
+    // Dispatched runs supply the required contexts for branches whose pull_request
+    // runs were suppressed by a GITHUB_TOKEN push (version-cut, auto-update-prs).
+    // Resolve the branch's open PR live so the no-acceptance-impact opt-out keeps
+    // working on auto-rebased heads (PR #541 review); a branch with no open PR —
+    // or an API outage — falls through to the local diff, as before.
+    const repo = process.env.GITHUB_REPOSITORY;
+    const branch = (process.env.GITHUB_REF_NAME ?? '').trim();
+    if (branch !== '') {
+      try {
+        const owner = repo.split('/')[0];
+        const prs = JSON.parse(await gh(['api', `repos/${repo}/pulls?state=open&head=${owner}:${branch}`]));
+        const pr = prs[0];
+        if (pr) {
+          // Three-dot (merge-base) diff: after an auto-rebase the PR base tip may
+          // already contain commits this branch lacks; two-dot would blame them here.
+          const changedFiles = splitList(execFileSync('git', ['diff', '--name-only', `${pr.base.sha}...HEAD`], { encoding: 'utf8' }));
+          return {
+            changedFiles,
+            body: pr.body ?? '',
+            labels: (pr.labels ?? []).map((label) => label.name),
+            context: `PR #${pr.number} (dispatched)`,
+          };
+        }
+      } catch {
+        console.warn('Could not resolve an open PR for the dispatched branch; using the local diff.');
+      }
+    }
+  }
+
   return gatherLocalDiffInputs();
 }
 
