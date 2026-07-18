@@ -47,6 +47,7 @@ jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       # workflow_dispatch (the version branch) and merge_group (the queue's merged
       # state, about to become main) always run E2E: paths-filter has no base for
@@ -82,6 +83,10 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
+    # Outer backstop only — the test step itself runs under scripts/run-guarded.mjs
+    # (aggregate-RSS ceiling + per-command timeout), so a runaway suite fails on
+    # memory long before it hits this.
+    timeout-minutes: 45
     env:
       INTEROP_IMAGE_TRAIL_ROOT: ${{ github.workspace }}/node_modules/.interop-image-trail
 
@@ -148,6 +153,13 @@ jobs:
             --test-reporter=node-test-github-reporter --test-reporter-destination=stdout
         run: npm run test:cov
 
+      # Peak-RSS/duration record from the process-tree guard (scripts/run-guarded.mjs) for the
+      # test:cov run above — the data source for ratcheting the guard ceilings. Runs even on
+      # failure: an rss-limit/timeout kill is exactly when the record matters.
+      - name: Guard diagnostics
+        if: ${{ !cancelled() }}
+        run: cat .guard/last-run.json || true
+
       # Render c8 totals vs. the floor into the run summary. Runs even when test:cov failed
       # (dropped below the floor) — that is when the numbers matter most.
       - name: Coverage summary
@@ -181,6 +193,12 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
         run: npm run test:stories:ci
 
+      # See the guard diagnostics note on the Test step above — same record, for the
+      # Storybook lane's guard.
+      - name: Guard diagnostics (Storybook)
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+        run: cat .guard/last-run.json || true
+
   # E2E is its own job so it runs in parallel with the lint/unit/build gates above, and so
   # the change filter can skip it wholesale on PRs that cannot affect it. test:e2e builds
   # the app once via the Playwright global-setup, then runs the specs across workers
@@ -194,6 +212,7 @@ jobs:
     # nothing merges on a draft skip. Non-PR events (push, dispatch) are unaffected.
     if: ${{ (github.event_name == 'push' || needs.changes.outputs.e2e == 'true') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -225,6 +244,11 @@ jobs:
       - name: Playwright E2E tests (Electron under Xvfb)
         run: xvfb-run --auto-servernum -- npm run test:e2e
 
+      # See the CI job's "Guard diagnostics" step — same record, for the e2e ceiling.
+      - name: Guard diagnostics
+        if: ${{ !cancelled() }}
+        run: cat .guard/last-run.json || true
+
       # The HTML report is a self-contained clickable app (per-test steps, and screenshots /
       # videos / time-travel traces on failure). Upload it even when the E2E step fails —
       # that is exactly when it matters. View: download, unzip, `npx playwright show-report <dir>`.
@@ -244,6 +268,7 @@ jobs:
     needs: [changes, e2e]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Verify E2E result
         run: |
@@ -278,6 +303,7 @@ jobs:
     # PR-only (the stable URL is per-PR). Skipped E2E (non-E2E PRs) has no report to publish.
     if: ${{ !cancelled() && needs.e2e.result != 'skipped' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       # actions: write lets the verify step rerun GitHub's managed "pages build and deployment"

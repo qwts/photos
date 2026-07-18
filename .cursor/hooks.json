@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "node scripts/guard-agent-command.mjs --protocol=cursor"
+      }
+    ]
+  }
+}
