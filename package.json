@@ -65,7 +65,7 @@
     "postinstall": "node scripts/ensure-electron-binary.mjs && electron-builder install-app-deps"
   },
   "devDependencies": {
-    "@changesets/cli": "2.31.0",
+    "@changesets/cli": "2.31.1",
     "@eslint-react/eslint-plugin": "5.14.5",
     "@eslint/js": "10.0.1",
     "@formatjs/cli": "6.16.14",
@@ -80,7 +80,7 @@
     "@vitejs/plugin-react": "5.2.0",
     "axe-core": "4.12.1",
     "axe-playwright": "2.2.2",
-    "c8": "11.0.0",
+    "c8": "12.0.0",
     "concurrently": "10.0.3",
     "electron": "42.6.1",
     "electron-builder": "26.15.3",
