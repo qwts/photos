@@ -15,6 +15,7 @@ import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 const WORKER_URL = new URL('../../src/main/import/thumbnail-worker.js', import.meta.url);
 const CRASH_WORKER_URL = new URL('../../../tests/fixtures/import/crash-worker.js', import.meta.url);
 const FIXTURES = join(import.meta.dirname, '../../../tests/fixtures/exif');
+const HEIC_FIXTURES = join(import.meta.dirname, '../../../tests/fixtures/heic');
 
 /** Deterministic junk — undecodable as any image format. Deliberately NOT
  * crypto randomness: CodeQL taint-tracks randomBytes into the RAF header
@@ -48,6 +49,19 @@ describe('thumbnail pipeline (#86)', () => {
     const result = await pool.generate(raf);
     assert.notEqual(result, null, 'a RAF with a preview must produce derivatives');
     assert.ok(isWebp(result?.thumb));
+  });
+
+  test('EXIT CRITERIA: native HEIC decode produces oriented WebP derivatives (#487)', { skip: process.platform !== 'darwin' }, async () => {
+    for (const [name, dimensions] of [
+      ['iphone-xr.heic', { width: 4032, height: 3024 }],
+      ['iphone-13-pro.heic', { width: 3024, height: 4032 }],
+    ] as const) {
+      const result = await pool.generate(readFileSync(join(HEIC_FIXTURES, name)), undefined, 'heic');
+      assert.ok(result !== null && !('failure' in result), `${name} must decode`);
+      assert.ok(isWebp(result.thumb));
+      assert.ok(isWebp(result.mid));
+      assert.deepEqual({ width: result.width, height: result.height }, dimensions);
+    }
   });
 
   test('EXIT CRITERIA: undecodable bytes yield the placeholder marker (null), not a failure', async () => {

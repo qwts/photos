@@ -5,6 +5,7 @@ import type { BackupIntegrityItem } from '../backup/integrity-scrubber.js';
 import type { BackupManifestPhotoV2, BackupManifestSnapshot, RestorableBackupManifest } from '../backup/backup-manifest.js';
 import type { WrappedKeyRecord } from '../crypto/keystore.js';
 import type { ExtractedMetadata } from '../import/exif.js';
+import type { PreviewFailureReason } from '../../shared/library/preview.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
 import type {
@@ -44,6 +45,7 @@ interface PhotoRow {
   favorite: number;
   key_id: number;
   deleted_at: string | null;
+  preview_failure: string | null;
   sync_state: string | null;
   sort_key: string | number;
 }
@@ -72,6 +74,7 @@ function toRecord(row: PhotoRow): PhotoRecord {
     favorite: row.favorite === 1,
     keyId: row.key_id,
     deletedAt: row.deleted_at,
+    previewFailure: row.preview_failure as PreviewFailureReason | null,
     // New rows always get a ledger row; LEFT JOIN keeps reads total anyway.
     syncState: (row.sync_state ?? 'local') as PhotoRecord['syncState'],
   };
@@ -308,23 +311,23 @@ export class PhotosRepository {
     })();
   }
 
-  /** Live, locally readable RAW rows eligible for background preview repair.
+  /** Live, locally readable RAW/HEIC rows eligible for background preview repair.
    * Offloaded originals are never downloaded implicitly by maintenance. */
-  rawRepairCandidates(): readonly PhotoRecord[] {
+  previewRepairCandidates(): readonly PhotoRecord[] {
     return queryAll<PhotoRow>(
       this.db,
       `${SELECT}
-       WHERE p.deleted_at IS NULL AND p.file_kind = 'raw'
+       WHERE p.deleted_at IS NULL AND p.file_kind IN ('raw', 'heic')
          AND COALESCE(l.status, 'local') <> 'offloaded'
        ORDER BY p.imported_at, p.id`,
     ).map(toRecord);
   }
 
-  /** Fills only unknown RAW metadata. Trusted existing values are immutable;
+  /** Fills only unknown previewable metadata. Trusted existing values are immutable;
    * a real change dirties the manifest so cloud metadata converges. */
-  repairRawMetadata(photoId: string, metadata: ExtractedMetadata): boolean {
+  repairPreviewMetadata(photoId: string, metadata: ExtractedMetadata): boolean {
     const current = this.get(photoId);
-    if (current === undefined || current.fileKind !== 'raw') return false;
+    if (current === undefined || (current.fileKind !== 'raw' && current.fileKind !== 'heic')) return false;
     const next = {
       width: current.width <= 0 ? (metadata.width ?? current.width) : current.width,
       height: current.height <= 0 ? (metadata.height ?? current.height) : current.height,
@@ -360,11 +363,23 @@ export class PhotosRepository {
          iso = @iso, aperture = @aperture, shutter = @shutter,
          focal_length = @focalLength, taken_at = @takenAt,
          gps_lat = @gpsLat, gps_lon = @gpsLon
-       WHERE id = @id AND file_kind = 'raw'`,
+       WHERE id = @id AND file_kind IN ('raw', 'heic')`,
       { id: photoId, ...next },
     );
     markDirty(this.db, photoId);
     return true;
+  }
+
+  /** Records only local derivative/display state; backup metadata stays clean. */
+  setPreviewFailure(photoId: string, failure: PreviewFailureReason | null): boolean {
+    const changed = queryGet<{ id: string }>(
+      this.db,
+      `UPDATE photos SET preview_failure = @failure
+       WHERE id = @id AND preview_failure IS NOT @failure
+       RETURNING id`,
+      { id: photoId, failure },
+    );
+    return changed !== undefined;
   }
 
   /** Soft delete (#120): rows move to Recently deleted, restorable — no

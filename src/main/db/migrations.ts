@@ -481,6 +481,20 @@ const SCHEMA_V10: Migration = {
   },
 };
 
+const SCHEMA_V11: Migration = {
+  version: 11,
+  name: 'preview-failure-status',
+  // #487: derivative/display failures are local repair state, not original
+  // metadata and not part of the recoverable backup manifest.
+  up(db) {
+    db.exec(`
+      ALTER TABLE photos ADD COLUMN preview_failure TEXT CHECK (
+        preview_failure IS NULL OR preview_failure IN ('corrupt', 'unsupported-codec', 'decode-failed')
+      );
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -492,6 +506,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V8,
   SCHEMA_V9,
   SCHEMA_V10,
+  SCHEMA_V11,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */

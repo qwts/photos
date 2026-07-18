@@ -262,7 +262,7 @@ function getRawRepairService(): RawRepairService {
   getImportService();
   const parts = libraryParts;
   const runtime = importRuntime;
-  if (parts === undefined || runtime === undefined) throw new Error('library bootstrap failed; RAW repair unavailable');
+  if (parts === undefined || runtime === undefined) throw new Error('library bootstrap failed; preview repair unavailable');
   const repo = new PhotosRepository(parts.db);
   const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
     broadcast((win) => win.webContents.send(name, payload));

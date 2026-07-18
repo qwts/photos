@@ -35,6 +35,7 @@ const PHOTO: PhotoRecord = {
   favorite: false,
   keyId: 1,
   deletedAt: null,
+  previewFailure: null,
   syncState: 'local',
 };
 

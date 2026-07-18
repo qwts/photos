@@ -92,6 +92,7 @@ describe('import engine integration (#87)', () => {
           rows.set(id, { ...photo, width, height });
           return true;
         },
+        setPreviewFailure: () => false,
       },
       blobs: store,
       generateThumbs: async (request) => new ThumbnailService(pool, store).generateFor(request),

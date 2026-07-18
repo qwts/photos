@@ -205,7 +205,7 @@ export class ProtectedLibraryService {
   exportPhoto(albumId: string, photoId: string): PhotoRecord {
     return this.opaque(() => {
       const metadata = this.requirePhoto(albumId, photoId).metadata.photo;
-      return { ...metadata, keyId: 1, syncState: 'local' };
+      return { ...metadata, keyId: 1, previewFailure: null, syncState: 'local' };
     });
   }
 
@@ -230,7 +230,7 @@ export class ProtectedLibraryService {
       };
       stream.once('close', stopRevocation);
       return {
-        photo: { ...authorized.metadata.photo, keyId: 1, syncState: 'local' },
+        photo: { ...authorized.metadata.photo, keyId: 1, previewFailure: null, syncState: 'local' },
         stream,
         release,
       };

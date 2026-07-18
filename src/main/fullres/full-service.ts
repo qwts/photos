@@ -1,4 +1,5 @@
 import { resolveRawPreview } from '../import/raw-preview.js';
+import { resolveHeicPreview } from '../import/heic-preview.js';
 import { ByteLru } from '../cache/byte-lru.js';
 import type { FileKind } from '../../shared/library/types.js';
 
@@ -40,7 +41,6 @@ const DEFAULT_CONCURRENT = 2;
 const MIME_BY_KIND: Partial<Record<FileKind, string>> = {
   jpeg: 'image/jpeg',
   png: 'image/png',
-  heic: 'image/heic',
 };
 
 export class FullService {
@@ -123,6 +123,15 @@ export class FullService {
         // Cache an owned copy so wiping the source below clears the entire
         // RAW allocation, not only the embedded-preview range.
         return { bytes: viewable.bytes, contentHash: original.contentHash, mime: 'image/jpeg', preview: true };
+      } finally {
+        original.bytes.fill(0);
+      }
+    }
+    if (original.fileKind === 'heic') {
+      try {
+        const viewable = await resolveHeicPreview(original.bytes);
+        if (viewable === null || !viewable.ok) return null;
+        return { bytes: viewable.preview.bytes, contentHash: original.contentHash, mime: 'image/jpeg', preview: false };
       } finally {
         original.bytes.fill(0);
       }

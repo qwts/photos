@@ -4,6 +4,7 @@ import type { BlobStore } from '../blobs/blob-store.js';
 import type { EnvelopeKey } from '../crypto/envelope.js';
 import type { ThumbnailDerivatives, ThumbnailPool } from './thumbnail-pool.js';
 import type { FileKind } from '../../shared/library/types.js';
+import type { PreviewFailureReason } from '../../shared/library/preview.js';
 
 // Thumbnail generation service (#86): pool output → encrypted blob store.
 // Derivatives stream through the same envelope path as originals (encrypt-
@@ -15,6 +16,7 @@ export interface ThumbnailOutcome {
   readonly generated: boolean;
   readonly width: number | null;
   readonly height: number | null;
+  readonly failure?: PreviewFailureReason | undefined;
 }
 
 export interface ThumbnailRequest {
@@ -54,6 +56,9 @@ export class ThumbnailService {
     const derivatives = await this.pool.generate(request.bytes, request.signal, request.fileKind);
     if (derivatives === null) {
       return { generated: false, width: null, height: null };
+    }
+    if ('failure' in derivatives) {
+      return { generated: false, width: null, height: null, failure: derivatives.failure };
     }
     try {
       await this.store(request, derivatives, replace);

@@ -72,10 +72,10 @@ export class StartupMaintenance {
       void this.work.track(
         rawRepair
           .then((summary) => {
-            if (summary.repaired > 0 || summary.failed > 0) console.info('[overlook] RAW preview repair:', JSON.stringify(summary));
+            if (summary.repaired > 0 || summary.failed > 0) console.info('[overlook] media preview repair:', JSON.stringify(summary));
           })
           .catch((error: unknown) => {
-            console.error('[overlook] RAW preview maintenance failed', error);
+            console.error('[overlook] media preview maintenance failed', error);
           }),
       );
     }

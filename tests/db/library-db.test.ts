@@ -108,7 +108,7 @@ describe('migrations', () => {
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     );
     db.close();
   });
@@ -224,18 +224,18 @@ describe('migrations', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 13, name: 'thirteen', up: () => order.push(13) },
       { version: 12, name: 'twelve', up: () => order.push(12) },
-      { version: 11, name: 'eleven', up: () => order.push(11) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [11, 12]);
+    assert.deepEqual(order, [12, 13]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 11,
+      version: 12,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -244,7 +244,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 10);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 11);
     db.close();
   });
 });
@@ -288,22 +288,23 @@ describe('PhotosRepository', () => {
     db.close();
   });
 
-  test('RAW repair candidates stay local and metadata repair fills only unknown values (#368)', () => {
+  test('preview repair candidates stay local and metadata repair fills only unknown values (#368, #487)', () => {
     const { db, repo } = openSeeded();
     const affected = samplePhoto({ width: 0, height: 0, camera: null, lens: null });
     const trusted = samplePhoto({ width: 700, height: 525, camera: 'Trusted camera' });
     const offloaded = samplePhoto({ width: 0, height: 0 });
     const jpeg = samplePhoto({ fileKind: 'jpeg', width: 0, height: 0 });
-    for (const photo of [affected, trusted, offloaded, jpeg]) repo.insert(photo);
+    const heic = samplePhoto({ fileKind: 'heic', width: 0, height: 0 });
+    for (const photo of [affected, trusted, offloaded, jpeg, heic]) repo.insert(photo);
     run(db, "UPDATE sync_ledger SET status = 'offloaded' WHERE photo_id = ?", offloaded.id);
     run(db, 'UPDATE sync_ledger SET dirty = 0');
 
     assert.deepEqual(
-      repo.rawRepairCandidates().map(({ id }) => id),
-      [affected.id, trusted.id],
+      repo.previewRepairCandidates().map(({ id }) => id),
+      [affected.id, trusted.id, heic.id],
     );
     assert.equal(
-      repo.repairRawMetadata(affected.id, {
+      repo.repairPreviewMetadata(affected.id, {
         width: 8256,
         height: 5504,
         camera: 'Nikon Z8',
@@ -324,11 +325,26 @@ describe('PhotosRepository', () => {
     );
     assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', affected.id)?.dirty, 1);
 
-    assert.equal(repo.repairRawMetadata(trusted.id, { ...EMPTY_METADATA, width: 1400, height: 1050, camera: 'Replacement' }), false);
+    assert.equal(repo.repairPreviewMetadata(trusted.id, { ...EMPTY_METADATA, width: 1400, height: 1050, camera: 'Replacement' }), false);
     assert.deepEqual(
       { width: repo.get(trusted.id)?.width, height: repo.get(trusted.id)?.height, camera: repo.get(trusted.id)?.camera },
       { width: 700, height: 525, camera: 'Trusted camera' },
     );
+    db.close();
+  });
+
+  test('preview failure state is local-only and clears after a successful retry (#487)', () => {
+    const { db, repo } = openSeeded();
+    const heic = samplePhoto({ fileKind: 'heic' });
+    repo.insert(heic);
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+
+    assert.equal(repo.setPreviewFailure(heic.id, 'unsupported-codec'), true);
+    assert.equal(repo.get(heic.id)?.previewFailure, 'unsupported-codec');
+    assert.equal(repo.setPreviewFailure(heic.id, 'unsupported-codec'), false);
+    assert.equal(repo.setPreviewFailure(heic.id, null), true);
+    assert.equal(repo.get(heic.id)?.previewFailure, null);
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', heic.id)?.dirty, 0);
     db.close();
   });
 
