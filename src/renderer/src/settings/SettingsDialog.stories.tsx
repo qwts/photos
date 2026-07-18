@@ -14,10 +14,12 @@ import { AppStateProvider } from '../state/app-state-context';
 // decorator installs in-memory window.overlook settings + backup stubs.
 
 interface StoryWindow extends Window {
+  disconnectCalls?: number;
   releaseInitialProviderStatus?: () => void;
+  releaseProviderDisconnect?: () => void;
 }
 
-function installStub(options?: { readonly deferInitialProviderStatus?: boolean }): void {
+function installStub(options?: { readonly deferInitialProviderStatus?: boolean; readonly deferProviderDisconnect?: boolean }): void {
   let current: AppSettings = { ...defaultSettings };
   const mockProvider = {
     id: 'mock',
@@ -87,6 +89,14 @@ function installStub(options?: { readonly deferInitialProviderStatus?: boolean }
           (globalThis as unknown as StoryWindow).releaseInitialProviderStatus = resolve;
         })
       : Promise.resolve();
+  const providerDisconnect =
+    options?.deferProviderDisconnect === true
+      ? new Promise<void>((resolve) => {
+          (globalThis as unknown as StoryWindow).releaseProviderDisconnect = resolve;
+        })
+      : Promise.resolve();
+  const storyWindow = globalThis as unknown as StoryWindow;
+  storyWindow.disconnectCalls = 0;
   let providerStatusRequests = 0;
   const backupApi: OverlookApi['backup'] = {
     run: () =>
@@ -141,9 +151,11 @@ function installStub(options?: { readonly deferInitialProviderStatus?: boolean }
       apply({ providerId });
       return Promise.resolve({ ok: true, reason: null });
     },
-    disconnect: () => {
+    disconnect: async () => {
+      storyWindow.disconnectCalls = (storyWindow.disconnectCalls ?? 0) + 1;
+      await providerDisconnect;
       apply({ providerId: null });
-      return Promise.resolve({ ok: true, reason: null });
+      return { ok: true, reason: null };
     },
   };
   const keysApi = {
@@ -312,10 +324,35 @@ export const StorageOpensByDefault: Story = {
 };
 
 export const DisconnectHidesBackupControls: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ deferProviderDisconnect: true });
+      return <Story />;
+    },
+  ],
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
+    const card = body.getByTestId('provider-card');
     await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+    const confirmation = body.getByRole('dialog', { name: 'Disconnect Local mock?' });
+    await expect(confirmation).toHaveTextContent('This removes this device’s saved Local mock authorization.');
+    await expect(confirmation).toHaveTextContent('Encrypted data already stored in Local mock is not deleted.');
+    await userEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
+    await expect(card).toHaveTextContent('Connected');
+    await expect((globalThis as unknown as StoryWindow).disconnectCalls).toBe(0);
+
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect Local mock' }));
+    const pendingButtons = body.getAllByRole('button', { name: 'Disconnecting…' });
+    await expect(pendingButtons).toHaveLength(2);
+    await expect(pendingButtons[0]).toBeDisabled();
+    await expect(pendingButtons[1]).toBeDisabled();
+    await expect(card).toHaveTextContent('Disconnecting…');
+    const storyWindow = globalThis as unknown as StoryWindow;
+    await expect(storyWindow.disconnectCalls).toBe(1);
+    if (storyWindow.releaseProviderDisconnect === undefined) throw new Error('expected deferred provider disconnect');
+    storyWindow.releaseProviderDisconnect();
 
     // Updated design (#239): the backup-specific controls HIDE instead of
     // disabling — only the connection card, re-offload policy, import
@@ -349,6 +386,7 @@ export const ProviderSelectionAndUnknownQuota: Story = {
     const body = within(canvasElement.ownerDocument.body);
     await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
     await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect Local mock' }));
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Archive Cloud' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · STORAGE USAGE NOT REPORTED')).toBeVisible());
@@ -361,6 +399,7 @@ export const GoogleDriveSelection: Story = {
     const body = within(canvasElement.ownerDocument.body);
     await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
     await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect Local mock' }));
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Google Drive' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Google Drive' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · 42 GB / 100 GB USED')).toBeVisible());
