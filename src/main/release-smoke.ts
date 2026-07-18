@@ -1,5 +1,7 @@
 import { writeSync } from 'node:fs';
 
+import { exitForHeicSmokeIfRequested } from './heic-smoke.js';
+
 export const RELEASE_SMOKE_ARGUMENT = '--overlook-release-smoke';
 export const RELEASE_SMOKE_READY_MARKER = 'overlook-release-smoke:ready';
 
@@ -16,4 +18,9 @@ export function exitForReleaseSmokeIfRequested(
   write(`${RELEASE_SMOKE_READY_MARKER}\n`);
   app.exit(0);
   return true;
+}
+
+export async function exitForSmokeIfRequested(app: ReleaseSmokeApp, argv: readonly string[] = process.argv): Promise<boolean> {
+  if (await exitForHeicSmokeIfRequested(app, { argv })) return true;
+  return exitForReleaseSmokeIfRequested(app, argv);
 }
