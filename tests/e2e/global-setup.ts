@@ -1,8 +1,11 @@
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveE2EWindowMode } from '../../src/main/e2e-window-visibility.js';
+import { tmpRegistryEnvVar } from './support/tmp-dir.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -13,5 +16,13 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 export default function globalSetup(): void {
   process.env['OVERLOOK_E2E'] = '1';
   process.env['OVERLOOK_E2E_WINDOW'] = resolveE2EWindowMode(process.platform, process.env['OVERLOOK_E2E_VISIBLE']);
+
+  // Worker processes inherit process.env as set here (same mechanism as
+  // OVERLOOK_E2E/OVERLOOK_E2E_WINDOW above), so every worker's mkE2eTmpDir calls
+  // land in one file that global-teardown.ts sweeps after the whole run finishes.
+  const registryPath = path.join(tmpdir(), `overlook-e2e-tmp-registry-${process.pid}.txt`);
+  writeFileSync(registryPath, '', 'utf8');
+  process.env[tmpRegistryEnvVar] = registryPath;
+
   execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'inherit', env: process.env });
 }
