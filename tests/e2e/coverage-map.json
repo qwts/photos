@@ -1034,6 +1034,14 @@
           "path": "tests/e2e/a11y.spec.ts"
         },
         {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/import-flow.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/components/Toast.stories.tsx"
+        },
+        {
           "type": "unit-dom",
           "paths": ["tests/tooling/a11y-budget.test.ts"]
         },
