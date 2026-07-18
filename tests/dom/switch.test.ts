@@ -39,3 +39,18 @@ test('Switch mounts in a real DOM and reports pointer activation', () => {
   });
   assert.equal(control.getAttribute('aria-checked'), 'false');
 });
+
+test('Switch supports an accessible-only name without duplicate visible text', () => {
+  const container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+
+  act(() => {
+    root?.render(createElement(Switch, { checked: true, accessibleLabel: 'Back up new imports automatically' }));
+  });
+
+  const control = document.querySelector('[role="switch"]');
+  assert.ok(control instanceof HTMLButtonElement);
+  assert.equal(control.getAttribute('aria-label'), 'Back up new imports automatically');
+  assert.equal(control.textContent, '');
+});

@@ -67,7 +67,7 @@ export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactEleme
         />
       </Field>
       <Field label={intl.formatMessage(messages.thumbnails)} hint={intl.formatMessage(messages.thumbnailsHint)}>
-        <Switch checked disabled label={intl.formatMessage(messages.thumbnails)} />
+        <Switch checked disabled accessibleLabel={intl.formatMessage(messages.thumbnails)} />
       </Field>
     </div>
   );

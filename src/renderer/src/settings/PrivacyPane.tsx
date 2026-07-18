@@ -98,7 +98,7 @@ export function PrivacyPane({
       </Field>
       <Field label="Lock when hidden" hint="Also lock when the app is hidden or minimized.">
         <Switch
-          label="Lock when hidden"
+          accessibleLabel="Lock when hidden"
           checked={settings.lockWhenHidden}
           disabled={!appLockConfigured}
           onChange={(lockWhenHidden) => onPatch({ lockWhenHidden })}
@@ -106,7 +106,7 @@ export function PrivacyPane({
       </Field>
       <Field label="Unlock with Touch ID" hint={touchIdHint(appLockConfigured, touchIdStatus)}>
         <Switch
-          label="Unlock with Touch ID"
+          accessibleLabel="Unlock with Touch ID"
           checked={touchIdStatus?.enabled ?? false}
           disabled={!appLockConfigured || touchIdBusy || touchIdStatus === null || (!touchIdStatus.available && !touchIdStatus.enabled)}
           onChange={onTouchIdChange}
@@ -152,7 +152,7 @@ export function PrivacyPane({
         </div>
       </div>
       <Field label="Face grouping" hint="Not yet available — will run entirely on-device when it ships.">
-        <Switch checked={false} disabled label="Face grouping" />
+        <Switch checked={false} disabled accessibleLabel="Face grouping" />
       </Field>
       <Field
         label="Share diagnostics"
@@ -160,7 +160,7 @@ export function PrivacyPane({
       >
         <div className="ovl-settings__diagnosticsControl">
           <Switch
-            label="Share diagnostics"
+            accessibleLabel="Share diagnostics"
             checked={settings.shareDiagnostics}
             onChange={(shareDiagnostics) => {
               onPatch({ shareDiagnostics });
