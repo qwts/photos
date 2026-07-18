@@ -51,6 +51,7 @@ export class ProviderRuntime {
   private googleConnectFlow: (() => Promise<PCloudConnectResult>) | undefined;
   private googleProviderInstance: GoogleDriveProvider | undefined;
   private registryInstance: ProviderRegistry | undefined;
+  private readonly disconnectInFlight = new Map<string, Promise<PCloudConnectResult>>();
 
   constructor(options: ProviderRuntimeOptions) {
     this.options = options;
@@ -218,21 +219,78 @@ export class ProviderRuntime {
     return { ok: true, reason: null };
   }
 
-  disconnect(providerId: string): PCloudConnectResult {
+  disconnect(providerId: string): Promise<PCloudConnectResult> {
+    const pending = this.disconnectInFlight.get(providerId);
+    if (pending !== undefined) return pending;
+    const operation = Promise.resolve()
+      .then(() => this.disconnectOnce(providerId))
+      .finally(() => {
+        if (this.disconnectInFlight.get(providerId) === operation) this.disconnectInFlight.delete(providerId);
+      });
+    this.disconnectInFlight.set(providerId, operation);
+    return operation;
+  }
+
+  private disconnectOnce(providerId: string): PCloudConnectResult {
     if (this.options.isWorkActive?.() === true) {
       return { ok: false, reason: 'Wait for the active backup or restore to finish before disconnecting.' };
     }
-    if (providerId === 'pcloud') {
-      this.tokenStore().clear();
+    if (providerId === 'pcloud') return this.disconnectPCloud();
+    try {
+      if (providerId === 'google-drive') {
+        this.googleAuth().clear();
+        this.resetGoogleDriveAccountCache();
+      }
+      if (this.activeId() === providerId) this.options.setProviderId(null);
+      if (this.options.providerId() === providerId) {
+        return { ok: false, reason: 'Could not save the disconnected state. Try again.' };
+      }
+      return { ok: true, reason: null };
+    } catch {
+      return { ok: false, reason: 'Could not remove this provider’s authorization from this device. Try again.' };
     }
-    if (providerId === 'google-drive') {
-      this.googleAuth().clear();
-      this.resetGoogleDriveAccountCache();
+  }
+
+  private disconnectPCloud(): PCloudConnectResult {
+    const store = this.tokenStore();
+    const previous = store.load();
+    try {
+      store.clear();
+    } catch {
+      return { ok: false, reason: 'Could not remove the pCloud authorization from this device. Check file access and try again.' };
     }
-    if (this.activeId() === providerId) {
-      this.options.setProviderId(null);
+    if (store.load() !== null) {
+      return { ok: false, reason: 'Could not verify that the pCloud authorization was removed. Check status and try again.' };
     }
-    return { ok: true, reason: null };
+
+    try {
+      if (this.options.providerId() === 'pcloud') this.options.setProviderId(null);
+    } catch {
+      // Verification below decides whether the write completed before the
+      // exception. Never roll a completed disconnect back on an emit failure.
+    }
+    const selectionCleared = this.options.providerId() !== 'pcloud';
+    const custodyCleared = store.load() === null;
+    if (selectionCleared && custodyCleared) return { ok: true, reason: null };
+    if (!selectionCleared) return this.rollbackPCloudCustody(previous);
+    return {
+      ok: false,
+      reason: 'Disconnect could not be verified because pCloud authorization changed during the operation. Check status and try again.',
+    };
+  }
+
+  private rollbackPCloudCustody(previous: ReturnType<PCloudTokenStore['load']>): PCloudConnectResult {
+    if (previous !== null) {
+      try {
+        this.tokenStore().save(previous);
+      } catch {
+        return {
+          ok: false,
+          reason: 'Disconnect could not be completed or rolled back. Restart Overlook, check pCloud status, and try again.',
+        };
+      }
+    }
+    return { ok: false, reason: 'Could not save the disconnected state. pCloud remains connected; try again.' };
   }
 
   /** The library's remote identity (ADR-0007) — the same ULID as the local

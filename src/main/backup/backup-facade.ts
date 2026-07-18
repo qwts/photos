@@ -47,6 +47,6 @@ export function createBackupFacade(options: BackupFacadeOptions) {
     providers: () => ({ providers: options.runtime().descriptors(), defaultProviderId: options.runtime().defaultTarget() }),
     providerStatus: (providerId: string) => options.runtime().status(providerId),
     connect: (providerId: string) => options.runtime().connect(providerId),
-    disconnect: (providerId: string) => Promise.resolve(options.runtime().disconnect(providerId)),
+    disconnect: (providerId: string) => options.runtime().disconnect(providerId),
   };
 }
