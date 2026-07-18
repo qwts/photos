@@ -83,10 +83,13 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
-    # Outer backstop only — the test step itself runs under scripts/run-guarded.mjs
-    # (aggregate-RSS ceiling + per-command timeout), so a runaway suite fails on
-    # memory long before it hits this.
-    timeout-minutes: 45
+    # This is a whole-job limit, not the sum of the guard's own budgets: the Test step
+    # (test:cov, --timeout-s 900) and the Storybook step (test:stories:ci, --timeout-s 1800)
+    # alone total 45 min of guard-permitted runtime, before counting checkout/npm ci/lint/
+    # format/build/Playwright-install. Sized with headroom above that 45 min guard sum so
+    # GitHub doesn't cancel the job outright before a guard step records .guard/last-run.json
+    # (same reasoning as the E2E job's timeout-minutes below).
+    timeout-minutes: 65
     env:
       INTEROP_IMAGE_TRAIL_ROOT: ${{ github.workspace }}/node_modules/.interop-image-trail
 
@@ -212,7 +215,13 @@ jobs:
     # nothing merges on a draft skip. Non-PR events (push, dispatch) are unaffected.
     if: ${{ (github.event_name == 'push' || needs.changes.outputs.e2e == 'true') && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # This is a whole-job limit, not the guard's own budget: npm run test:e2e runs under
+    # scripts/run-guarded.mjs with --timeout-s 1800 (30 min). Checkout/npm ci/Electron system
+    # deps run before that step and the report upload runs after it, so the job timeout must
+    # exceed the guard timeout with headroom — otherwise GitHub can cancel the job outright
+    # before the guard records .guard/last-run.json or the report uploads (as perf.yml already
+    # does for its own guarded step).
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
