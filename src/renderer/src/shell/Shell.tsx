@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DragEvent, ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 import './shell.css';
 import { formatCount, formatRelativeTime } from '../../../shared/library/format.js';
