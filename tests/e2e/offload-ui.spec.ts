@@ -79,8 +79,10 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
     await expect(settings.getByText('1 restored')).toBeVisible();
     await expect.poll(() => syncState(page)).toBe('synced');
     await page.keyboard.press('Escape');
+    const notification = page.getByRole('group', { name: 'Notification' });
+    await notification.getByRole('button', { name: 'Dismiss notification' }).click();
+    await expect(notification).toBeHidden();
     await pill.getByRole('button', { name: 'Clear selection' }).click();
-    await expect(page.getByRole('status')).toBeHidden({ timeout: 6000 });
 
     // Lightbox entry stays open through preflight, then closes after the
     // confirmed offload instead of immediately rehydrating its own photo.
