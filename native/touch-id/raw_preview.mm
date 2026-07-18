@@ -51,6 +51,23 @@ std::string FailureCode(CGImageSourceStatus status) {
   return "HEIC_DECODE_FAILED";
 }
 
+bool ReadOrientedDimensions(CGImageSourceRef source, std::uint32_t& width, std::uint32_t& height) {
+  NSDictionary* properties = CFBridgingRelease(CGImageSourceCopyPropertiesAtIndex(source, 0, nullptr));
+  NSNumber* pixelWidth = properties[(__bridge NSString*)kCGImagePropertyPixelWidth];
+  NSNumber* pixelHeight = properties[(__bridge NSString*)kCGImagePropertyPixelHeight];
+  NSNumber* orientation = properties[(__bridge NSString*)kCGImagePropertyOrientation];
+  if (pixelWidth == nil || pixelHeight == nil || pixelWidth.unsignedLongLongValue == 0 ||
+      pixelHeight.unsignedLongLongValue == 0 || pixelWidth.unsignedLongLongValue > UINT32_MAX ||
+      pixelHeight.unsignedLongLongValue > UINT32_MAX) {
+    return false;
+  }
+  width = pixelWidth.unsignedIntValue;
+  height = pixelHeight.unsignedIntValue;
+  const unsigned int orientationValue = orientation == nil ? 1U : orientation.unsignedIntValue;
+  if (orientationValue >= 5U && orientationValue <= 8U) std::swap(width, height);
+  return true;
+}
+
 class DecodeWorker final : public Napi::AsyncWorker {
  public:
   DecodeWorker(Napi::Env env, std::vector<std::uint8_t> input, std::uint32_t maxEdge)
@@ -184,6 +201,7 @@ class HeicDecodeWorker final : public Napi::AsyncWorker {
         (__bridge NSString*)kCGImageSourceThumbnailMaxPixelSize : @(maxEdge_),
         (__bridge NSString*)kCGImageSourceShouldCacheImmediately : @YES,
       };
+      const bool hasSourceDimensions = ReadOrientedDimensions(source, width_, height_);
       CGImageRef thumbnail =
           CGImageSourceCreateThumbnailAtIndex(source, 0, (__bridge CFDictionaryRef)thumbnailOptions);
       const CGImageSourceStatus decodedStatus = CGImageSourceGetStatusAtIndex(source, 0);
@@ -194,8 +212,10 @@ class HeicDecodeWorker final : public Napi::AsyncWorker {
         return;
       }
 
-      width_ = static_cast<std::uint32_t>(CGImageGetWidth(thumbnail));
-      height_ = static_cast<std::uint32_t>(CGImageGetHeight(thumbnail));
+      if (!hasSourceDimensions) {
+        width_ = static_cast<std::uint32_t>(CGImageGetWidth(thumbnail));
+        height_ = static_cast<std::uint32_t>(CGImageGetHeight(thumbnail));
+      }
 
       CFMutableDataRef jpeg = CFDataCreateMutable(kCFAllocatorDefault, 0);
       CGImageDestinationRef destination =

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
@@ -7,6 +8,7 @@ import { resolveHeicPreview } from '../../src/main/import/heic-preview.js';
 import { decodeHeicWithNative } from '../../src/main/import/heic-preview-native.js';
 
 const fixtures = join(process.cwd(), 'tests', 'fixtures', 'heic');
+const nativeRequire = createRequire(import.meta.url);
 
 describe('HEIC preview decode (#487)', () => {
   test('native failure codes remain honest and unknown failures do not masquerade as corruption', async () => {
@@ -56,4 +58,23 @@ describe('HEIC preview decode (#487)', () => {
       result.preview.bytes.fill(0);
     }
   });
+
+  test(
+    'native bridge reports full oriented dimensions when the JPEG derivative is capped',
+    { skip: process.platform !== 'darwin' },
+    async () => {
+      const bridge = nativeRequire('@overlook/touch-id/raw.cjs') as {
+        readonly decodeHeic: (
+          bytes: Buffer,
+          maxEdge: number,
+        ) => Promise<{ readonly bytes: Buffer; readonly width: number; readonly height: number }>;
+      };
+      const original = readFileSync(join(fixtures, 'iphone-13-pro.heic'));
+      const preview = await bridge.decodeHeic(original, 512);
+      assert.equal(preview.width, 3024);
+      assert.equal(preview.height, 4032);
+      preview.bytes.fill(0);
+      original.fill(0);
+    },
+  );
 });
