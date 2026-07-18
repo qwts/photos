@@ -1,5 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
@@ -8,6 +7,8 @@ import { injectAxe, getViolations } from 'axe-playwright';
 
 import { evaluateSurface, findOrphanedEntries } from '../a11y/budget.js';
 import type { RuleCounts, ViolationBudget } from '../a11y/budget.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // The composed-surface half of the a11y gate (#398). The story lane
 // (.storybook/test-runner.ts) audits every story, but it mounts each component in
@@ -75,7 +76,7 @@ function allVisitedFlows(): ReadonlySet<string> {
 }
 
 async function launchSeeded(slug: string, seed: string): Promise<{ app: ElectronApplication; page: Page }> {
-  const userData = mkdtempSync(join(tmpdir(), `overlook-e2e-a11y-${slug}-`));
+  const userData = mkE2eTmpDir(`overlook-e2e-a11y-${slug}-`);
   const app = await electron.launch({
     args: ['.'],
     env: {

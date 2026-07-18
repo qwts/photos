@@ -1,10 +1,11 @@
-import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
 import type { PhotoRecord } from '../../src/shared/library/types.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 const PASSWORD = 'correct horse battery staple';
 const PHOTO_COUNT = 4;
@@ -79,9 +80,9 @@ function highestManifestGeneration(remoteDir: string): number {
 
 test('fresh profile restores complete state; wrong password is isolated and cancellation resumes (#291)', async () => {
   test.setTimeout(60_000);
-  const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-restore-source-'));
-  const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-restore-target-'));
-  const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-restore-key-')), 'overlook-recovery.key');
+  const source = mkE2eTmpDir('overlook-e2e-restore-source-');
+  const target = mkE2eTmpDir('overlook-e2e-restore-target-');
+  const keyPath = join(mkE2eTmpDir('overlook-e2e-restore-key-'), 'overlook-recovery.key');
   const expected = await (async (): Promise<RecoverableSnapshot> => {
     const sourceApp = await launch(source, { OVERLOOK_SEED: String(PHOTO_COUNT), OVERLOOK_KEY_EXPORT_DESTINATION: keyPath });
     try {
@@ -184,9 +185,9 @@ test('fresh profile restores complete state; wrong password is isolated and canc
 });
 
 test('corrupt newest manifest falls back and reports the rejected generation (#291)', async () => {
-  const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-fallback-source-'));
-  const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-fallback-target-'));
-  const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-fallback-key-')), 'overlook-recovery.key');
+  const source = mkE2eTmpDir('overlook-e2e-fallback-source-');
+  const target = mkE2eTmpDir('overlook-e2e-fallback-target-');
+  const keyPath = join(mkE2eTmpDir('overlook-e2e-fallback-key-'), 'overlook-recovery.key');
   await backupSimpleSource(source, keyPath);
   cpSync(join(source, 'mock-remote'), join(target, 'mock-remote'), { recursive: true });
   const remote = join(target, 'mock-remote');
@@ -220,9 +221,9 @@ test('corrupt newest manifest falls back and reports the rejected generation (#2
 });
 
 test('corrupt only-generation blob fails without publishing a library (#291)', async () => {
-  const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-corrupt-source-'));
-  const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-corrupt-target-'));
-  const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-corrupt-key-')), 'overlook-recovery.key');
+  const source = mkE2eTmpDir('overlook-e2e-corrupt-source-');
+  const target = mkE2eTmpDir('overlook-e2e-corrupt-target-');
+  const keyPath = join(mkE2eTmpDir('overlook-e2e-corrupt-key-'), 'overlook-recovery.key');
   const hashes = await backupSimpleSource(source, keyPath);
   cpSync(join(source, 'mock-remote'), join(target, 'mock-remote'), { recursive: true });
   const firstHash = hashes[0];
@@ -256,9 +257,9 @@ test('corrupt only-generation blob fails without publishing a library (#291)', a
 });
 
 test('activation failure rolls the existing library back through the full restore path (#291)', async () => {
-  const source = mkdtempSync(join(tmpdir(), 'overlook-e2e-rollback-source-'));
-  const target = mkdtempSync(join(tmpdir(), 'overlook-e2e-rollback-target-'));
-  const keyPath = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-rollback-key-')), 'overlook-recovery.key');
+  const source = mkE2eTmpDir('overlook-e2e-rollback-source-');
+  const target = mkE2eTmpDir('overlook-e2e-rollback-target-');
+  const keyPath = join(mkE2eTmpDir('overlook-e2e-rollback-key-'), 'overlook-recovery.key');
   const restoredHashes = await backupSimpleSource(source, keyPath);
 
   const targetSetup = await launch(target, { OVERLOOK_SEED: '1' });

@@ -1,12 +1,10 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
 
+import { mkE2eTmpDir } from './support/tmp-dir.js';
+
 async function launchSeeded(): Promise<{ app: ElectronApplication; page: Page }> {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-interop-'));
+  const userData = mkE2eTmpDir('overlook-e2e-interop-');
   const app = await electron.launch({
     args: ['.'],
     env: {

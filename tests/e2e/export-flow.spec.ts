@@ -1,16 +1,17 @@
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #101: export proven end-to-end in CI — the whole UI path over the real
 // engine, with on-disk assertions. OVERLOOK_EXPORT_DESTINATION mocks the OS
 // folder picker (E5.10 harness family).
 
 async function launch(destination: string, extraEnv: Record<string, string> = {}) {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-export-'));
+  const userData = mkE2eTmpDir('overlook-e2e-export-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -32,7 +33,7 @@ async function launch(destination: string, extraEnv: Record<string, string> = {}
 }
 
 test('select 3 → pill Export → run → 3 byte-faithful decrypted files on disk', async () => {
-  const destination = mkdtempSync(join(tmpdir(), 'overlook-export-dest-'));
+  const destination = mkE2eTmpDir('overlook-export-dest-');
   const { app, page } = await launch(destination);
   try {
     await page.getByTestId('virtual-grid').waitFor();
@@ -67,8 +68,8 @@ test('select 3 → pill Export → run → 3 byte-faithful decrypted files on di
 });
 
 test('full circle: import a real RAF, lightbox-export as JPEG from its preview', async () => {
-  const destination = mkdtempSync(join(tmpdir(), 'overlook-export-dest-'));
-  const card = join(mkdtempSync(join(tmpdir(), 'overlook-export-card-')), 'SDCARD');
+  const destination = mkE2eTmpDir('overlook-export-dest-');
+  const card = join(mkE2eTmpDir('overlook-export-card-'), 'SDCARD');
   mkdirSync(card);
   copyFileSync(join(import.meta.dirname, '../fixtures/exif/sample.raf'), join(card, 'sample.raf'));
   const { app, page } = await launch(destination, { OVERLOOK_SEED: '0', OVERLOOK_IMPORT_SOURCE: card });
@@ -105,8 +106,8 @@ test('full circle: import a real RAF, lightbox-export as JPEG from its preview',
 
 test('HEIC import renders oriented previews and Original export remains byte-faithful (#487)', async () => {
   test.skip(process.platform !== 'darwin', 'HEIC preview decode is the macOS ImageIO contract');
-  const destination = mkdtempSync(join(tmpdir(), 'overlook-heic-export-'));
-  const card = join(mkdtempSync(join(tmpdir(), 'overlook-heic-card-')), 'SDCARD');
+  const destination = mkE2eTmpDir('overlook-heic-export-');
+  const card = join(mkE2eTmpDir('overlook-heic-card-'), 'SDCARD');
   mkdirSync(card);
   const source = join(import.meta.dirname, '../fixtures/heic/iphone-13-pro.heic');
   copyFileSync(source, join(card, 'iphone-13-pro.heic'));
@@ -143,8 +144,8 @@ test('HEIC import renders oriented previews and Original export remains byte-fai
 });
 
 test('metadata-lite JPEG imports with decoded dimensions, renders, and exports byte-identically (#367)', async () => {
-  const destination = mkdtempSync(join(tmpdir(), 'overlook-export-dest-'));
-  const card = join(mkdtempSync(join(tmpdir(), 'overlook-zero-dim-card-')), 'SDCARD');
+  const destination = mkE2eTmpDir('overlook-export-dest-');
+  const card = join(mkE2eTmpDir('overlook-zero-dim-card-'), 'SDCARD');
   mkdirSync(card);
   const source = join(import.meta.dirname, '../fixtures/exif/exif-stripped.jpg');
   copyFileSync(source, join(card, 'exif-stripped.jpg'));

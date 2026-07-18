@@ -1,8 +1,9 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #90 exit criteria: the whole import path proven in CI — fixture folder in,
 // encrypted library out. The OVERLOOK_IMPORT_SOURCE harness hook is the
@@ -13,7 +14,7 @@ const CARD_FILES = ['exif-full.jpg', 'sample.raf', 'exif-stripped.jpg'];
 const RAW_EXTENSIONS = ['raf', 'cr2', 'cr3', 'nef', 'arw', 'dng', 'orf', 'rw2'] as const;
 
 function makeCard(): string {
-  const card = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-card-')), 'SDCARD');
+  const card = join(mkE2eTmpDir('overlook-e2e-card-'), 'SDCARD');
   mkdirSync(card);
   for (const name of CARD_FILES) {
     copyFileSync(join(FIXTURES, name), join(card, name));
@@ -22,7 +23,7 @@ function makeCard(): string {
 }
 
 function makeRawMatrixCard(): string {
-  const card = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-raw-card-')), 'RAW-CARD');
+  const card = join(mkE2eTmpDir('overlook-e2e-raw-card-'), 'RAW-CARD');
   mkdirSync(card);
   const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
   for (const extension of RAW_EXTENSIONS) {
@@ -48,7 +49,7 @@ function filesContaining(dir: string, marker: Buffer): string[] {
 }
 
 async function launch(card: string) {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-import-'));
+  const userData = mkE2eTmpDir('overlook-e2e-import-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -186,7 +187,7 @@ test('RAW matrix: every accepted extension imports with a visible tile and light
 
 test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for folders', async () => {
   const folder = makeCard();
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-import-'));
+  const userData = mkE2eTmpDir('overlook-e2e-import-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -234,7 +235,7 @@ test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for 
 
 test('Google Drive import (#465): selected cloud files use the copy-only encrypted pipeline', async () => {
   const driveFiles = makeCard();
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-drive-import-'));
+  const userData = mkE2eTmpDir('overlook-e2e-drive-import-');
   const app = await electron.launch({
     args: ['.'],
     env: {

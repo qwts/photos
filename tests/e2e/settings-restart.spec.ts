@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #116 exit criteria: the settings round-trip proven through a REAL app
 // restart — values changed in run one persist to disk, and run two both
@@ -22,7 +23,7 @@ function launch(userData: string): Promise<ElectronApplication> {
 }
 
 test('settings persist across an app restart and re-render the UI', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-settings-restart-'));
+  const userData = mkE2eTmpDir('overlook-e2e-settings-restart-');
 
   // Run one: change sort, Wi-Fi, bandwidth, and disconnect the provider.
   // Same try/finally as run two — a run-one failure must not orphan the
@@ -78,7 +79,7 @@ test('settings persist across an app restart and re-render the UI', async () => 
 });
 
 test('pCloud disconnect clears real profile custody and persists across restart', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-pcloud-disconnect-'));
+  const userData = mkE2eTmpDir('overlook-e2e-pcloud-disconnect-');
   const first = await launch(userData);
   try {
     const page = await first.firstWindow();

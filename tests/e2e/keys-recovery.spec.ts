@@ -1,8 +1,9 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #240 exit criteria: the full recovery round trip across profiles — export
 // a password-encrypted key backup on device A, restore A's encrypted
@@ -26,9 +27,9 @@ async function launch(userData: string, extraEnv: Record<string, string> = {}) {
 
 test('recovery key: export on A, import on restored B, library decrypts after relaunch', async () => {
   test.setTimeout(120_000); // two scrypt derivations (~1s each) + 3 app launches
-  const userDataA = mkdtempSync(join(tmpdir(), 'overlook-e2e-keys-a-'));
-  const userDataB = mkdtempSync(join(tmpdir(), 'overlook-e2e-keys-b-'));
-  const keyFile = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-keys-file-')), 'overlook-recovery.key');
+  const userDataA = mkE2eTmpDir('overlook-e2e-keys-a-');
+  const userDataB = mkE2eTmpDir('overlook-e2e-keys-b-');
+  const keyFile = join(mkE2eTmpDir('overlook-e2e-keys-file-'), 'overlook-recovery.key');
 
   // Device A: seeded library; export the recovery key through the dialog.
   const appA = await launch(userDataA, { OVERLOOK_SEED: '2', OVERLOOK_KEY_EXPORT_DESTINATION: keyFile });

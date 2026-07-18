@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 function remoteBlobFiles(userData: string): string[] {
   const root = join(userData, 'mock-remote', 'blobs');
@@ -16,7 +17,7 @@ function remoteBlobFiles(userData: string): string[] {
 // reset, and the button LEAVING at pendingCount 0 (an idle affordance
 // misstates that there is work; it returns when a change dirties a row).
 test('backup choreography: amber → green, JUST NOW reset, button hides at 0', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup-'));
+  const userData = mkE2eTmpDir('overlook-e2e-backup-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -69,7 +70,7 @@ test('large backup preserves deep selection and an open lightbox', async () => {
   // Seeding 504 real encrypted photos is intentionally heavier than ordinary
   // E2E startup and competes with two other Electron workers in CI.
   test.setTimeout(120_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup-stability-'));
+  const userData = mkE2eTmpDir('overlook-e2e-backup-stability-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -130,7 +131,7 @@ test('large backup preserves deep selection and an open lightbox', async () => {
 // view journey — the tile dims, the card split shifts, and verified viewing
 // preserves the user's offloaded storage choice.
 test('edit re-dirties after a backup; offload → temporary lightbox stream round-trips', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup2-'));
+  const userData = mkE2eTmpDir('overlook-e2e-backup2-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -182,7 +183,7 @@ test('edit re-dirties after a backup; offload → temporary lightbox stream roun
 test('forced upload error: red retry toast + error glyph', async () => {
   // Three retry rounds with real backoffs — 30s flaked on CI under Xvfb.
   test.setTimeout(60_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-backup3-'));
+  const userData = mkE2eTmpDir('overlook-e2e-backup3-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -212,7 +213,7 @@ test('forced upload error: red retry toast + error glyph', async () => {
 });
 
 test('integrity repair and remote-only loss update in place without clearing selection', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-integrity-'));
+  const userData = mkE2eTmpDir('overlook-e2e-integrity-');
   const app = await electron.launch({
     args: ['.'],
     env: {

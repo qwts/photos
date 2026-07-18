@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 const ALBUM_PASSWORD = 'Private Album Password 42!';
 const CHANGED_PASSWORD = 'Changed Private Password 73!';
@@ -197,8 +198,8 @@ async function switchLibrary(page: Page, id: string): Promise<void> {
 
 test('protected album authorization is revoked across A → B → A library switches (#387)', async () => {
   test.setTimeout(120_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-protected-switch-'));
-  const keyFile = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-protected-switch-key-')), 'overlook-recovery.key');
+  const userData = mkE2eTmpDir('overlook-e2e-protected-switch-');
+  const keyFile = join(mkE2eTmpDir('overlook-e2e-protected-switch-key-'), 'overlook-recovery.key');
   const protectedNames = await prepareProtectedProfile(userData, keyFile);
 
   const app = await launch(userData, keyFile);
@@ -229,8 +230,8 @@ test('protected album authorization is revoked across A → B → A library swit
 
 test('protected albums: no-leak restart, session relock, credential recovery, lifecycle revocation, and removal', async () => {
   test.setTimeout(180_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-protected-'));
-  const keyFile = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-protected-key-')), 'overlook-recovery.key');
+  const userData = mkE2eTmpDir('overlook-e2e-protected-');
+  const keyFile = join(mkE2eTmpDir('overlook-e2e-protected-key-'), 'overlook-recovery.key');
   const protectedNames = await prepareProtectedProfile(userData, keyFile);
 
   const second = await launch(userData, keyFile);

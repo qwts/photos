@@ -1,15 +1,13 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #111 exit criteria: settings change events observed across the REAL IPC
 // boundary — a renderer-side set() round-trips through main's store and the
 // settings:changed push lands back in the renderer with the new snapshot.
 // (Restart persistence is #116's dedicated spec.)
 test('settings round-trip: set() persists in main and the changed event reaches the renderer', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-settings-'));
+  const userData = mkE2eTmpDir('overlook-e2e-settings-');
   const app = await electron.launch({
     args: ['.'],
     env: {

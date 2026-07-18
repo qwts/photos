@@ -1,9 +1,10 @@
-import { copyFileSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 const APP_PASSWORD = 'Correct Horse Battery Staple 42!';
 
@@ -25,7 +26,7 @@ function launch(userData: string, extra: Record<string, string> = {}): Promise<E
 
 test('ACCEPTANCE: create a library in the switcher and land in it; keyboard-only switch back shows everything again (#386)', async () => {
   test.setTimeout(90_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-switcher-ui-'));
+  const userData = mkE2eTmpDir('overlook-e2e-switcher-ui-');
 
   const app = await launch(userData, { OVERLOOK_SEED: '3' });
   try {
@@ -71,7 +72,7 @@ test('ACCEPTANCE: create a library in the switcher and land in it; keyboard-only
 
 test('remove from list is registry-only in the UI: reassurance copy, row gone, files untouched (#386)', async () => {
   test.setTimeout(60_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-switcher-rm-'));
+  const userData = mkE2eTmpDir('overlook-e2e-switcher-rm-');
 
   const app = await launch(userData, { OVERLOOK_SEED: '1' });
   try {
@@ -113,8 +114,8 @@ test('remove from list is registry-only in the UI: reassurance copy, row gone, f
 
 test('fresh-profile onboarding opens a retained local library without cloud recovery (#479)', async () => {
   test.setTimeout(60_000);
-  const originalProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-retained-library-'));
-  const freshProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-reinstall-profile-'));
+  const originalProfile = mkE2eTmpDir('overlook-e2e-retained-library-');
+  const freshProfile = mkE2eTmpDir('overlook-e2e-reinstall-profile-');
   const retainedLibrary = join(originalProfile, 'library');
 
   const original = await launch(originalProfile, { OVERLOOK_SEED: '3', OVERLOOK_APP_LOCK_TEST_ANCHOR: '1' });
@@ -147,8 +148,8 @@ test('fresh-profile onboarding opens a retained local library without cloud reco
 
 test('fresh-profile onboarding rebinds app lock before opening a retained protected library (#479)', async () => {
   test.setTimeout(90_000);
-  const originalProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-retained-locked-library-'));
-  const freshProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-reinstall-locked-profile-'));
+  const originalProfile = mkE2eTmpDir('overlook-e2e-retained-locked-library-');
+  const freshProfile = mkE2eTmpDir('overlook-e2e-reinstall-locked-profile-');
   const retainedLibrary = join(originalProfile, 'library');
 
   const original = await launch(originalProfile, {

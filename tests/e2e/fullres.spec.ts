@@ -1,8 +1,9 @@
-import { mkdtempSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #91 exit criteria: full-res originals decrypt to the lightbox memory-only
 // over overlook-full:// — rapid next/prev paging stays responsive under a
@@ -30,7 +31,7 @@ function filesContaining(dir: string, marker: Buffer): string[] {
 }
 
 test('full-res delivery: memory-only, preview-marked RAW, bounded rapid paging', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-fullres-'));
+  const userData = mkE2eTmpDir('overlook-e2e-fullres-');
   const app = await electron.launch({
     args: ['.'],
     env: {

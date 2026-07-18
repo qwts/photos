@@ -1,9 +1,10 @@
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 const FIXTURES = join(import.meta.dirname, '../fixtures/exif');
 const JFIF_COUNT = 48;
@@ -22,7 +23,7 @@ function commentSegment(comment: string): Buffer {
 }
 
 function makeJfifCard(): string {
-  const card = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-jfif-card-')), 'JFIF-CARD');
+  const card = join(mkE2eTmpDir('overlook-e2e-jfif-card-'), 'JFIF-CARD');
   mkdirSync(card);
   const baseline = readFileSync(join(FIXTURES, 'exif-stripped.jpg'));
   expect([...baseline.subarray(0, 2)]).toEqual([0xff, 0xd8]);
@@ -47,7 +48,7 @@ function makeJfifCard(): string {
 test('JFIF imports stay in full view through repeated navigation and backup updates (#419)', async () => {
   test.setTimeout(90_000);
   const card = makeJfifCard();
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-jfif-lightbox-'));
+  const userData = mkE2eTmpDir('overlook-e2e-jfif-lightbox-');
   const app = await electron.launch({
     args: ['.'],
     env: {

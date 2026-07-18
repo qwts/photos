@@ -1,8 +1,9 @@
-import { mkdtempSync, readdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron, type Page } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 const PHOTO_ID = '01J8SEEDPHOTO0000';
 
@@ -21,7 +22,7 @@ async function confirmOffload(page: Page): Promise<void> {
 
 test('manual offload entry points, responsive controls, Undo, and Settings restore round-trip', async () => {
   test.setTimeout(60_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-offload-ui-'));
+  const userData = mkE2eTmpDir('overlook-e2e-offload-ui-');
   const app = await electron.launch({
     args: ['.'],
     env: {

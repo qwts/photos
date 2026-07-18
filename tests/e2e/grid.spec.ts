@@ -1,8 +1,6 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #74 exit criteria at the E2E level: the engine windows a library far
 // larger than the viewport (synthetic metadata-only rows), pages the cursor
@@ -10,7 +8,7 @@ import { test, expect, _electron as electron } from '@playwright/test';
 // the M11 budgets. The 200K manual baseline runs via `npm run seed:perf`;
 // CI keeps a fast 2 000-row variant of the same path.
 test('virtualizes and cursor-pages a synthetic library', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-grid-'));
+  const userData = mkE2eTmpDir('overlook-e2e-grid-');
   const app = await electron.launch({
     args: ['.'],
     env: {

@@ -1,8 +1,6 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { expect, test, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 const PASSWORD = 'Correct Horse Battery Staple 42!';
 const NEXT_PASSWORD = 'Different Excellent Password 73!';
@@ -35,7 +33,7 @@ async function emitLifecycleLock(app: ElectronApplication, event: 'lock-screen' 
 
 test('app lock withholds content across configuration, bypass attempts, restart, rotation, and removal', async () => {
   test.setTimeout(60_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-app-lock-'));
+  const userData = mkE2eTmpDir('overlook-e2e-app-lock-');
   const first = await launch(userData);
   try {
     const page = await first.firstWindow();

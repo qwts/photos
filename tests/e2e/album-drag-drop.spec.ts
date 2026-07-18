@@ -1,8 +1,6 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron, type Locator, type Page } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 interface Hitbox {
   readonly x: number;
@@ -99,7 +97,7 @@ async function exerciseListAndRail(page: Page): Promise<void> {
 // membership-only operations never rehydrate an offloaded original.
 test('photo drag-and-drop: add, move, duplicate, collapsed, list, and offloaded states', async () => {
   test.setTimeout(90_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-album-drop-'));
+  const userData = mkE2eTmpDir('overlook-e2e-album-drop-');
   const app = await electron.launch({
     args: ['.'],
     env: {

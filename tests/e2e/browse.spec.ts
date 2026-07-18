@@ -1,18 +1,16 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
 
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // M04 acceptance flows (#82) against the deterministic seeded profile —
 // each flow is its own test so a regression names the broken flow, not a
 // 100-line composite. Ledger: tests/e2e/coverage-map.json.
 
 async function launchSeeded(): Promise<{ app: ElectronApplication; page: Page }> {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-browse-'));
+  const userData = mkE2eTmpDir('overlook-e2e-browse-');
   const app = await electron.launch({
     args: ['.'],
     env: {

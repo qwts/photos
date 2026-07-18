@@ -1,11 +1,9 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { expect, test, _electron as electron } from '@playwright/test';
 
+import { mkE2eTmpDir } from './support/tmp-dir.js';
+
 test('Electron window follows the centrally configured hidden or visible E2E mode', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-window-'));
+  const userData = mkE2eTmpDir('overlook-e2e-window-');
   const app = await electron.launch({
     args: ['.'],
     env: { ...process.env, OVERLOOK_USER_DATA: userData, OVERLOOK_INSECURE_KEYSTORE: '1' },

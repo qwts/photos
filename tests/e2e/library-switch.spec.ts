@@ -1,9 +1,7 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #385 / ADR-0017 §4: live switch tears down and rebuilds with no cross-
 // library bleed; a crash mid-switch relaunches into the registry-selected
@@ -53,7 +51,7 @@ async function currentLibrary(page: Page): Promise<{ id: string; open: boolean; 
 
 test('ACCEPTANCE: switch shows no stale content, and the selection survives a relaunch (#385)', async () => {
   test.setTimeout(60_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-switch-'));
+  const userData = mkE2eTmpDir('overlook-e2e-switch-');
 
   let app = await launch(userData, { OVERLOOK_SEED: '3' });
   try {
@@ -141,7 +139,7 @@ test('ACCEPTANCE: switch shows no stale content, and the selection survives a re
 
 test('ACCEPTANCE: a crash mid-switch relaunches into the registry-selected library; both libraries stay consistent (#385)', async () => {
   test.setTimeout(60_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-switch-crash-'));
+  const userData = mkE2eTmpDir('overlook-e2e-switch-crash-');
 
   const crashed = await launch(userData, { OVERLOOK_SEED: '3', OVERLOOK_SWITCH_FAULT: 'after-close' });
   const crashedPage = await crashed.firstWindow();
