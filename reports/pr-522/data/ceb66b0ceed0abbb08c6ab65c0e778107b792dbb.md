@@ -12,7 +12,7 @@
 # Error details
 
 ```
-Error: ENOENT: no such file or directory, scandir '/tmp/overlook-e2e-fallback-target-DBGJPA/mock-remote/manifest'
+Error: ENOENT: no such file or directory, scandir '/tmp/overlook-e2e-fallback-target-hv7mn7/mock-remote/manifest'
 ```
 
 # Test source
@@ -95,7 +95,7 @@ Error: ENOENT: no such file or directory, scandir '/tmp/overlook-e2e-fallback-ta
   75  | 
   76  | function highestManifestGeneration(remoteDir: string): number {
 > 77  |   return Math.max(...readdirSync(join(remoteDir, 'manifest')).map((name) => Number(/^gen-(\d+)\.ovlk$/u.exec(name)?.[1] ?? Number.NaN)));
-      |                      ^ Error: ENOENT: no such file or directory, scandir '/tmp/overlook-e2e-fallback-target-DBGJPA/mock-remote/manifest'
+      |                      ^ Error: ENOENT: no such file or directory, scandir '/tmp/overlook-e2e-fallback-target-hv7mn7/mock-remote/manifest'
   78  | }
   79  | 
   80  | test('fresh profile restores complete state; wrong password is isolated and cancellation resumes (#291)', async () => {
