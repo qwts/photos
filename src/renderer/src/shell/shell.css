@@ -94,7 +94,7 @@
 .ovl-shell__toast {
   position: absolute;
   right: var(--space-4);
-  bottom: calc(var(--statusbar-h) + var(--space-4));
+  bottom: calc(var(--statusbar-h) + var(--control-h-sm) + var(--space-8));
   z-index: 10;
 }
 

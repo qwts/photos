@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
@@ -29,6 +29,14 @@ const messages = defineMessages({
     defaultMessage: 'Notification',
   },
 });
+
+const ANNOUNCEMENT_DWELL_MS = 1000;
+
+type AnnouncementAction = { readonly type: 'enqueue'; readonly text: string } | { readonly type: 'next' };
+
+function announcementReducer(queue: readonly string[], action: AnnouncementAction): readonly string[] {
+  return action.type === 'enqueue' ? [...queue, action.text] : queue.slice(1);
+}
 
 export interface ToastProps {
   readonly tone?: ToastTone;
@@ -179,10 +187,20 @@ export function ToastHost({ toasts, onDismiss, className, autoDismissMs = 4000 }
     latest?.detail === undefined
       ? latest?.title
       : intl.formatMessage(messages.announcement, { title: latest.title, detail: latest.detail });
+  const [announcementQueue, dispatchAnnouncement] = useReducer(announcementReducer, []);
+  useEffect(() => {
+    if (announcement !== undefined) dispatchAnnouncement({ type: 'enqueue', text: announcement });
+  }, [announcement, latest]);
+  const activeAnnouncement = announcementQueue[0];
+  useEffect(() => {
+    if (activeAnnouncement === undefined) return;
+    const timer = setTimeout(() => dispatchAnnouncement({ type: 'next' }), ANNOUNCEMENT_DWELL_MS);
+    return () => clearTimeout(timer);
+  }, [activeAnnouncement]);
   return (
     <div className={['ovl-toast-host', className].filter(Boolean).join(' ')}>
       <div className="ovl-toast-host__announcer" role="status" aria-live="polite" aria-atomic="true">
-        {announcement}
+        {activeAnnouncement}
       </div>
       {toasts.map((toast) => (
         <ToastTimer key={toast.id} toast={toast} onDismiss={onDismiss} autoDismissMs={autoDismissMs} />

@@ -66,7 +66,30 @@ export const AutoDismiss: Story = {
       { timeout: 2000 },
     );
     await expect(announcer).toBeInTheDocument();
-    await expect(announcer).toBeEmptyDOMElement();
+    await expect(announcer).toHaveTextContent('Backup verified');
+    await waitFor(async () => expect(announcer).toBeEmptyDOMElement(), { timeout: 2000 });
+  },
+};
+
+function AnnouncementQueueDemo(): ReactElement {
+  const [toast, setToast] = useState<ToastItem>({ id: 'first', title: 'First notification' });
+  return (
+    <div>
+      <Button onClick={() => setToast({ id: 'second', title: 'Second notification' })}>Show second</Button>
+      <ToastHost toasts={[toast]} autoDismissMs={5000} onDismiss={() => undefined} />
+    </div>
+  );
+}
+
+export const RapidAnnouncementsStayOrdered: Story = {
+  render: () => <AnnouncementQueueDemo />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const announcer = canvas.getByRole('status');
+    await expect(announcer).toHaveTextContent('First notification');
+    await userEvent.click(canvas.getByRole('button', { name: 'Show second' }));
+    await expect(announcer).toHaveTextContent('First notification');
+    await waitFor(async () => expect(announcer).toHaveTextContent('Second notification'), { timeout: 2000 });
   },
 };
 
