@@ -115,6 +115,23 @@ upstream SQLCipher build was used to open the file. Actually opening a real
 `library.db` with `net.zetetic` SQLCipher on iOS and Android is the first
 concrete experiment any port should run, and it is cheap.
 
+Two things make this much safer than a single-source bet:
+
+- SQLite3 Multiple Ciphers **documents its `sqlcipher` scheme as compatible with
+  SQLCipher versions 1–4**, and `legacy=0` selects the v4 format.
+- **SQLite3 Multiple Ciphers ships as a plain C amalgamation** and builds for
+  every target here. So there are two independent routes to a second
+  implementation: talk to stock SQLCipher, or compile the *identical* cipher
+  implementation we already use and remove the compatibility question entirely.
+  This is not theoretical — the Flutter ecosystem has moved the other way for
+  exactly this reason: `drift` now recommends SQLite3MultipleCiphers **over**
+  SQLCipher, because it covers all native platforms including Windows and Linux.
+
+One near-miss worth recording: sqlite3mc's *default* cipher is ChaCha20-Poly1305
+(sqleet), which is **not** SQLCipher-compatible. `database.ts` sets
+`cipher='sqlcipher'` explicitly. Had it relied on the default, this section would
+be describing a whole-library migration instead.
+
 ### The other four formats are self-describing
 
 Every binary artifact carries a magic and a version byte, which is unusually
@@ -314,9 +331,28 @@ the six-platform ask cannot be satisfied by one technology choice.
 | **React Native** | iOS, iPadOS, Android, Windows (RN-Windows) | tvOS and visionOS only via **separate forks** | See below. |
 | **`react-native-tvos`** | tvOS, Android TV | — | Community fork, at 0.76.5-0, active through 2026. Not core RN. |
 | **`react-native-visionos`** | visionOS | — | Callstack fork, active through 2026. Not core RN. |
-| **Compose Multiplatform** (1.11.0, 2026-05) | Android, iOS, desktop | **tvOS, visionOS** | iOS stable since 2025-05; KMP stable since 2023-11. Kotlin core. |
-| **Capacitor** | iOS, iPadOS, Android | tvOS, visionOS | Thinnest wrapper; keeps the existing web UI. |
+| **Compose Multiplatform** (1.11.x, 2026-05) | Android, iOS, desktop (JVM) | **tvOS, visionOS** (UI) | iOS UI stable since CMP 1.8.0 (2025-05); KMP stable since 2023-11. See the tvOS/visionOS asymmetry below. |
+| **.NET MAUI** (10.0.x, .NET 10) | iOS, iPadOS, Android, Windows (WinUI 3), Mac Catalyst | **tvOS, visionOS** (UI) | Best *native* Windows story of any option. But MAUI 10 support ends 2027-05-11 — it does **not** inherit .NET 10's LTS window. |
+| **Flutter** (3.44.x, 2026-05) | iOS, iPadOS, Android, Windows, macOS, Linux | **tvOS, visionOS** | tvOS ([#47928](https://github.com/flutter/flutter/issues/47928)) open since 2019, P3, dormant since 2022; visionOS ([#128313](https://github.com/flutter/flutter/issues/128313)) open, P3, tagged "requires significant investment". Windows renderer (Impeller) is still experimental. |
+| **Capacitor** | iOS, iPadOS, Android | tvOS, visionOS | Thinnest wrapper; keeps the existing web UI. Worst fit for a large photo grid — webview memory ceiling plus async bridge. |
 | **Native per platform** | **all six** | — | SwiftUI (iOS/iPadOS/tvOS/visionOS), Compose (Android), existing Electron (Windows). Maximum reuse of the *core*, zero reuse of the UI. |
+
+**The tvOS/visionOS asymmetry is worth understanding precisely**, because two of
+these options can share *logic* even where they cannot share *UI*:
+
+- **Kotlin/Native has tvOS targets at Tier 2** (`tvosArm64`,
+  `tvosSimulatorArm64`; `tvosX64` is deprecated as of Kotlin 2.3.20), so KMP can
+  share business logic to tvOS under a hand-written SwiftUI layer. **There is no
+  Kotlin/Native visionOS target at all** — visionOS gets nothing, not even
+  shared logic.
+- **.NET has real tvOS *bindings*** (`net10.0-tvos` is a genuine TFM) while
+  **MAUI's UI layer does not target tvOS**. Note that MAUI's support-policy page
+  lists tvOS among "the SDKs MAUI encompasses", which contradicts its own
+  supported-platforms doc; the latter is authoritative for UI targets. Do not
+  let that line be cited as evidence MAUI does tvOS. visionOS has no .NET TFM.
+- **Flutter has neither, at either layer**, and — correcting a common
+  misconception — **there is no Flutter visionOS fork**. The visionOS fork that
+  exists is React Native's.
 
 Two consequences worth internalising:
 
@@ -513,8 +549,17 @@ measured, not read.
   community fork, Apple TV / Android TV
 - [react-native-visionos (Callstack)](https://github.com/callstack/react-native-visionos)
 - [React Native out-of-tree platforms](https://reactnative.dev/docs/out-of-tree-platforms)
-- [Compose Multiplatform 1.11.0](https://blog.jetbrains.com/kotlin/2026/05/compose-multiplatform-1-11-0/)
-  and [KMP supported platforms](https://kotlinlang.org/docs/multiplatform/supported-platforms.html)
+- [Compose Multiplatform 1.11.0](https://blog.jetbrains.com/kotlin/2026/05/compose-multiplatform-1-11-0/),
+  [KMP supported platforms](https://kotlinlang.org/docs/multiplatform/supported-platforms.html),
+  [Kotlin/Native target tiers](https://kotlinlang.org/docs/native-target-support.html)
+- [.NET MAUI supported platforms](https://learn.microsoft.com/en-us/dotnet/maui/supported-platforms)
+  and [MAUI support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/maui)
+  (note: these two disagree about tvOS)
+- Flutter [tvOS #47928](https://github.com/flutter/flutter/issues/47928),
+  [visionOS #128313](https://github.com/flutter/flutter/issues/128313),
+  [supported platforms](https://docs.flutter.dev/reference/supported-platforms)
+- [drift — encryption](https://drift.simonbinder.eu/Platforms/encryption/) —
+  recommends SQLite3MultipleCiphers over SQLCipher for native-platform coverage
 - [SQLite3 Multiple Ciphers — SQLCipher scheme](https://utelle.github.io/SQLite3MultipleCiphers/docs/ciphers/cipher_sqlcipher/)
   — documents compatibility with SQLCipher 1–4 and the `plaintext_header_size`
   rationale for iOS
