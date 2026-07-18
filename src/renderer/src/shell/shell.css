@@ -91,7 +91,7 @@
 }
 
 /* Toast surfacing (#79): bottom-right above the status bar. */
-.ovl-shell__toast {
+.ovl-toast-host.ovl-shell__toast {
   position: absolute;
   right: var(--space-4);
   bottom: calc(var(--statusbar-h) + var(--control-h-sm) + var(--space-8));
