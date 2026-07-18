@@ -128,6 +128,24 @@ describe('library registry (#384)', () => {
     assert.equal(runtime.list(null).length, 1);
   });
 
+  test('REGRESSION: registering an existing library does not silently replace a resolved virtual default', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-fresh-add-'));
+    const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
+    const virtual = runtime.resolveActive();
+    const existing = join(userData, 'retained-library');
+    mkdirSync(existing, { recursive: true });
+    writeFileSync(join(existing, 'library.db'), 'sqlcipher-bytes', 'utf8');
+
+    const added = runtime.addExisting(existing, null);
+    assert.equal(added.ok, true);
+    assert.equal(runtime.resolveActive().id, virtual.id, 'registration alone cannot move the active app-lock boundary');
+    if (!added.ok) return;
+
+    const selected = runtime.select(added.library.id, null);
+    assert.equal(selected.requiresRestart, false);
+    assert.equal(runtime.resolveActive().id, added.library.id, 'explicit selection repoints the runtime');
+  });
+
   function seedLegacyInstall(userData: string): void {
     mkdirSync(join(userData, 'library'), { recursive: true });
     writeFileSync(join(userData, 'library', 'library.db'), 'sqlcipher-bytes', 'utf8');

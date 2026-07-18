@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { OVERLOOK_PRODUCT_NAME } from '../shared/app-identity.js';
@@ -46,6 +46,10 @@ export function configureAppProfile(profileApp: ProfileApp, requestedUserData: s
         : hasProfileCustody(legacyPackageUserData)
           ? legacyPackageUserData
           : stableUserData;
+    // Electron requires setPath targets to exist. A first packaged launch has
+    // no custody evidence and therefore selects the not-yet-created stable
+    // profile; materialize only that selected directory before binding it.
+    mkdirSync(selected, { recursive: true });
     profileApp.setPath('userData', selected);
   }
   return userDataOverride;
