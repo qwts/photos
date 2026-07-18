@@ -82,7 +82,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           # Single source of truth: CI and local resolve Node from the same .nvmrc, so versions
           # never drift. `npm run ci` mirrors this job's gates (lint, format:check, test:cov,
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
