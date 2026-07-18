@@ -1065,6 +1065,18 @@
           "path": "src/renderer/src/components/Toast.stories.tsx"
         },
         {
+          "type": "storybook",
+          "path": "src/renderer/src/components/feedback.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/components/inputs.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
           "type": "unit-dom",
           "paths": ["tests/tooling/a11y-budget.test.ts"]
         },
