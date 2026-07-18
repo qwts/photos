@@ -5,6 +5,7 @@ const isCi = Boolean(process.env['CI']);
 export default defineConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/e2e/global-setup.ts',
+  globalTeardown: './tests/e2e/global-teardown.ts',
   // Files are the unit of parallelism: fullyParallel stays false so tests within a
   // spec run serially, but distinct spec files run concurrently across workers.
   // Each test launches its own Electron instance from the out/ bundle built once
