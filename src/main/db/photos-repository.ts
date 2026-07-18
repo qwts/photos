@@ -311,6 +311,18 @@ export class PhotosRepository {
     })();
   }
 
+  /** Derivative decode is authoritative for HEIC's applied orientation. Other
+   * formats keep the legacy fill-only repair contract. */
+  repairGeneratedDimensions(photoId: string, width: number, height: number): boolean {
+    const current = this.get(photoId);
+    if (current === undefined) return false;
+    if (current.fileKind !== 'heic') return this.repairDimensions(photoId, width, height);
+    if (current.width === width && current.height === height) return false;
+    run(this.db, 'UPDATE photos SET width = ?, height = ? WHERE id = ? AND file_kind = ?', width, height, photoId, 'heic');
+    markDirty(this.db, photoId);
+    return true;
+  }
+
   /** Live, locally readable RAW/HEIC rows eligible for background preview repair.
    * Offloaded originals are never downloaded implicitly by maintenance. */
   previewRepairCandidates(): readonly PhotoRecord[] {
@@ -329,8 +341,18 @@ export class PhotosRepository {
     const current = this.get(photoId);
     if (current === undefined || (current.fileKind !== 'raw' && current.fileKind !== 'heic')) return false;
     const next = {
-      width: current.width <= 0 ? (metadata.width ?? current.width) : current.width,
-      height: current.height <= 0 ? (metadata.height ?? current.height) : current.height,
+      width:
+        current.fileKind === 'heic'
+          ? (metadata.width ?? current.width)
+          : current.width <= 0
+            ? (metadata.width ?? current.width)
+            : current.width,
+      height:
+        current.fileKind === 'heic'
+          ? (metadata.height ?? current.height)
+          : current.height <= 0
+            ? (metadata.height ?? current.height)
+            : current.height,
       camera: current.camera ?? metadata.camera,
       lens: current.lens ?? metadata.lens,
       iso: current.iso ?? metadata.iso,

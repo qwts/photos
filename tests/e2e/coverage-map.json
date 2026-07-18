@@ -326,6 +326,29 @@
       ]
     },
     {
+      "id": "m05-heic-preview",
+      "wiki": "User-Story-M05-Import-pipeline",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/export-flow.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "paths": ["src/renderer/src/components/PhotoTile.stories.tsx", "src/renderer/src/lightbox/Lightbox.stories.tsx"]
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/import/heic-preview.test.ts",
+            "tests/import/thumbnail-pool.test.ts",
+            "tests/import/raw-repair-service.test.ts",
+            "tests/fullres/full-service.test.ts"
+          ]
+        }
+      ]
+    },
+    {
       "id": "m05-recent-imports-toast",
       "wiki": "User-Story-M05-Import-pipeline",
       "coverage": [

@@ -100,6 +100,23 @@ export const PreviewUnavailable: Story = {
   },
 };
 
+export const UnsupportedHeicCodecIsExplicit: Story = {
+  args: {
+    src: 'data:image/jpeg;base64,AA==',
+    alt: 'unsupported.heic',
+    previewFailure: 'unsupported-codec',
+  },
+  render: (args) => (
+    <div style={{ width: 160, height: 160, padding: 'var(--space-7)', boxSizing: 'content-box' }}>
+      <PhotoTile {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByRole('status')).toHaveTextContent('PREVIEW UNAVAILABLE — HEIC CODEC IS UNSUPPORTED'));
+  },
+};
+
 function ReusedTile(): ReactElement {
   const [src, setSrc] = useState('data:image/jpeg;base64,AA==');
   return (

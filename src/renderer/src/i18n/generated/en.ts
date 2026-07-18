@@ -4,6 +4,10 @@
 // Compiled id → message string for the renderer's IntlProvider.
 
 export const en: Readonly<Record<string, string>> = {
+  "preview.unavailable": "PREVIEW UNAVAILABLE",
+  "preview.unavailable.corrupt": "PREVIEW UNAVAILABLE — FILE IS CORRUPT",
+  "preview.unavailable.decodeFailed": "PREVIEW UNAVAILABLE — IMAGE DECODE FAILED",
+  "preview.unavailable.unsupportedCodec": "PREVIEW UNAVAILABLE — HEIC CODEC IS UNSUPPORTED",
   "restore.local.error.alreadyRegistered": "That library is already registered.",
   "restore.local.error.alreadyRegisteredHelp": "Choose the registered library from the library switcher.",
   "restore.local.error.notLibrary": "That folder isn't an Overlook library.",
