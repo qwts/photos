@@ -114,6 +114,10 @@ possible, enforced as executable checks._
   renderer/story-relevant changes also run `npm run test:stories:ci` (Storybook
   interaction tests — CI runs them in the core job). Do not report a build you
   did not run.
+- The macOS package job also loads the native HEIC decoder from the packaged
+  app and decodes the checked-in iPhone fixture. Keep
+  `scripts/verify-macos-heic-preview.mjs` and its readiness marker current when
+  changing the native bridge, package layout, Electron ABI, or HEIC fixtures.
 - Floors are ratchets — c8 (lines 90 / branches 80), type-coverage (99.8), the
   800-line file budget, the a11y violation budget (`tests/a11y/violation-budget.json`):
   raise them as coverage improves; never lower them to pass. The a11y budget
