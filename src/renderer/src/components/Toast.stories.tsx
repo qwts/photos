@@ -39,9 +39,10 @@ export const Tones: Story = {
 };
 
 function AutoDismissDemo(): ReactElement {
-  const [toasts, setToasts] = useState<readonly ToastItem[]>([{ id: 't1', tone: 'green', title: 'Backup verified' }]);
+  const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
   return (
     <div style={{ position: 'relative', height: 200 }}>
+      <Button onClick={() => setToasts([{ id: 't1', tone: 'green', title: 'Backup verified' }])}>Show notification</Button>
       <ToastHost
         toasts={toasts}
         autoDismissMs={400}
@@ -58,6 +59,7 @@ export const AutoDismiss: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const announcer = canvas.getByRole('status');
+    await userEvent.click(canvas.getByRole('button', { name: 'Show notification' }));
     await expect(announcer).toHaveTextContent('Backup verified');
     await waitFor(
       async () => {
