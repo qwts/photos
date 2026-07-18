@@ -1,5 +1,16 @@
 # photos
 
+## 0.32.4
+
+### Patch Changes
+
+- e6b7386: Raise faint-text and destructive-action colors to meet WCAG AA contrast across every resting app surface.
+- de4799e: Require accessible names for switches, progress bars, and checkboxes.
+- a5a3872: Prevent macOS file drops from locking input, navigating the app, or opening blank windows.
+- d854fc6: Confirm pCloud disconnects and keep credential removal reliable, observable, and persistent across restarts.
+- 1fdf50f: Keep toast actions reachable and pause timed dismissal during interaction.
+- 5d0a5dd: Decode HEIC photos into oriented thumbnails and full-resolution previews on macOS while preserving byte-faithful encrypted originals.
+
 ## 0.32.3
 
 ### Patch Changes
