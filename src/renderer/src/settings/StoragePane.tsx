@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { formatBytes } from '../../../shared/library/format.js';
 import { Badge } from '../components/Badge';
@@ -39,6 +40,30 @@ type ProviderStatusLoad =
 
 type ConnectionOperation = 'connect' | 'disconnect';
 
+const messages = defineMessages({
+  disconnectFailed: {
+    id: 'settings.storage.disconnect.failed',
+    defaultMessage: 'Disconnect failed. Check status and try again.',
+  },
+  connectFailed: { id: 'settings.storage.connect.failed', defaultMessage: 'Connection failed. Try again.' },
+  disconnecting: { id: 'settings.storage.disconnect.progress', defaultMessage: 'Disconnecting…' },
+  removingAuthorization: {
+    id: 'settings.storage.disconnect.removing',
+    defaultMessage: 'Removing this device’s saved authorization…',
+  },
+  disconnectTitle: { id: 'settings.storage.disconnect.title', defaultMessage: 'Disconnect {name}?' },
+  cancel: { id: 'settings.storage.disconnect.cancel', defaultMessage: 'Cancel' },
+  disconnectProvider: { id: 'settings.storage.disconnect.action', defaultMessage: 'Disconnect {name}' },
+  disconnectCopy: {
+    id: 'settings.storage.disconnect.copy',
+    defaultMessage: 'This removes this device’s saved {name} authorization.',
+  },
+  disconnectReassurance: {
+    id: 'settings.storage.disconnect.reassurance',
+    defaultMessage: 'Encrypted data already stored in {name} is not deleted.',
+  },
+});
+
 export interface StoragePaneProps {
   readonly settings: AppSettings;
   readonly selectedPhotoIds: readonly string[];
@@ -51,6 +76,7 @@ export interface StoragePaneProps {
 }
 
 export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: StoragePaneProps): ReactElement {
+  const intl = useIntl();
   const [statusLoad, setStatusLoad] = useState<ProviderStatusLoad | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
@@ -99,7 +125,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           refresh();
         })
         .catch(() => {
-          setConnectError(operation === 'disconnect' ? 'Disconnect failed. Check status and try again.' : 'Connection failed. Try again.');
+          setConnectError(intl.formatMessage(operation === 'disconnect' ? messages.disconnectFailed : messages.connectFailed));
           setStatusLoad({ targetId, state: 'error' });
         })
         .finally(() => {
@@ -107,7 +133,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           setConnectionOperation(null);
         });
     },
-    [refresh, targetId],
+    [intl, refresh, targetId],
   );
 
   // providerId is part of `settings`, so a connect/disconnect patch
@@ -151,7 +177,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           <div className="ovl-settings__providerHead">
             <span className="ovl-settings__providerName">{name}</span>
             {disconnecting ? (
-              <Badge tone="neutral">Disconnecting…</Badge>
+              <Badge tone="neutral">{intl.formatMessage(messages.disconnecting)}</Badge>
             ) : connection === 'loading' ? (
               <Badge tone="neutral">Checking…</Badge>
             ) : connected ? (
@@ -163,7 +189,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
             )}
           </div>
           {disconnecting ? (
-            <div className="ovl-settings__providerMeta">Removing this device’s saved authorization…</div>
+            <div className="ovl-settings__providerMeta">{intl.formatMessage(messages.removingAuthorization)}</div>
           ) : connection === 'loading' ? (
             <div className="ovl-settings__providerMeta">Checking connection…</div>
           ) : connection === 'error' ? (
@@ -209,7 +235,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           }}
         >
           {disconnecting
-            ? 'Disconnecting…'
+            ? intl.formatMessage(messages.disconnecting)
             : connecting
               ? 'Connecting…'
               : connection === 'loading'
@@ -224,25 +250,25 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
 
       <Dialog
         open={disconnectConfirmation}
-        title={`Disconnect ${name}?`}
+        title={intl.formatMessage(messages.disconnectTitle, { name })}
         icon="cloud"
         width={420}
         {...(disconnecting ? {} : { onClose: () => setDisconnectConfirmation(false) })}
         footer={
           <>
             <Button variant="ghost" disabled={disconnecting} onClick={() => setDisconnectConfirmation(false)}>
-              Cancel
+              {intl.formatMessage(messages.cancel)}
             </Button>
             <Button disabled={disconnecting} onClick={() => changeConnection('disconnect')}>
-              {disconnecting ? 'Disconnecting…' : `Disconnect ${name}`}
+              {disconnecting ? intl.formatMessage(messages.disconnecting) : intl.formatMessage(messages.disconnectProvider, { name })}
             </Button>
           </>
         }
       >
-        <p className="ovl-settings__disconnectCopy">This removes this device’s saved {name} authorization.</p>
+        <p className="ovl-settings__disconnectCopy">{intl.formatMessage(messages.disconnectCopy, { name })}</p>
         <div className="ovl-settings__disconnectReassure">
           <Icon name="shield-check" size={16} color="var(--accent-green)" />
-          <span>Encrypted data already stored in {name} is not deleted.</span>
+          <span>{intl.formatMessage(messages.disconnectReassurance, { name })}</span>
         </div>
         {connectError === null ? null : <p className="ovl-settings__disconnectError">{connectError}</p>}
       </Dialog>
