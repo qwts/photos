@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import type { ReactElement, ReactNode, RefObject } from 'react';
 
 import './overlays.css';
 import { Icon, type IconName } from './Icon';
+import { IconButton } from './IconButton';
 
 export type ToastTone = 'neutral' | 'green' | 'amber' | 'red';
 
@@ -19,19 +20,22 @@ export interface ToastProps {
   readonly title: string;
   readonly detail?: string;
   readonly action?: ReactNode;
+  readonly announce?: boolean;
+  readonly onDismiss?: () => void;
 }
 
 // feedback/Toast.jsx + aria-live (#59): role=status announces politely.
-export function Toast({ tone = 'neutral', icon, title, detail, action }: ToastProps): ReactElement {
+export function Toast({ tone = 'neutral', icon, title, detail, action, announce = true, onDismiss }: ToastProps): ReactElement {
   const t = TONES[tone];
   return (
-    <div role="status" className="ovl-toast">
+    <div role={announce ? 'status' : undefined} className="ovl-toast">
       <Icon name={icon ?? t.icon} size={16} color={t.color} />
       <div className="ovl-toast__content">
         <div className="ovl-toast__title">{title}</div>
         {detail === undefined ? null : <div className="ovl-toast__detail">{detail}</div>}
       </div>
       {action}
+      {onDismiss === undefined ? null : <IconButton icon="x" label="Dismiss notification" size="sm" onClick={onDismiss} />}
     </div>
   );
 }
@@ -43,8 +47,36 @@ export interface ToastItem extends ToastProps {
 export interface ToastHostProps {
   readonly toasts: readonly ToastItem[];
   readonly onDismiss: (id: string) => void;
+  readonly className?: string;
   /** 4s per the design; stories inject a short value to test dismissal. */
   readonly autoDismissMs?: number;
+}
+
+function useToastPauseListeners(
+  containerRef: RefObject<HTMLDivElement | null>,
+  pause: (reason: 'pointer' | 'focus') => void,
+  resume: (reason: 'pointer' | 'focus') => void,
+): void {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container === null) return;
+    const onPointerEnter = (): void => pause('pointer');
+    const onPointerLeave = (): void => resume('pointer');
+    const onFocusIn = (): void => pause('focus');
+    const onFocusOut = (event: FocusEvent): void => {
+      if (!(event.relatedTarget instanceof Node) || !container.contains(event.relatedTarget)) resume('focus');
+    };
+    container.addEventListener('pointerenter', onPointerEnter);
+    container.addEventListener('pointerleave', onPointerLeave);
+    container.addEventListener('focusin', onFocusIn);
+    container.addEventListener('focusout', onFocusOut);
+    return () => {
+      container.removeEventListener('pointerenter', onPointerEnter);
+      container.removeEventListener('pointerleave', onPointerLeave);
+      container.removeEventListener('focusin', onFocusIn);
+      container.removeEventListener('focusout', onFocusOut);
+    };
+  }, [containerRef, pause, resume]);
 }
 
 function ToastTimer({
@@ -56,28 +88,79 @@ function ToastTimer({
   readonly onDismiss: (id: string) => void;
   readonly autoDismissMs: number;
 }): ReactElement {
-  // The timer is keyed to the toast, not the callback: parents passing inline
-  // onDismiss rerender freely without resetting (and so extending) the 4s
-  // lifetime — the latest callback is read through a ref at fire time.
   const onDismissRef = useRef(onDismiss);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deadlineRef = useRef(0);
+  const remainingRef = useRef(autoDismissMs);
+  const pointerPausedRef = useRef(false);
+  const focusPausedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     onDismissRef.current = onDismiss;
   });
-  useEffect(() => {
-    const timer = setTimeout(() => {
+
+  const clearTimer = useCallback((): void => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+  const startTimer = useCallback((): void => {
+    if (toast.action !== undefined || pointerPausedRef.current || focusPausedRef.current || timerRef.current !== null) return;
+    const delay = remainingRef.current;
+    deadlineRef.current = Date.now() + delay;
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
       onDismissRef.current(toast.id);
-    }, autoDismissMs);
+    }, delay);
+  }, [toast.action, toast.id]);
+  useEffect(() => {
+    remainingRef.current = autoDismissMs;
+    pointerPausedRef.current = false;
+    focusPausedRef.current = false;
+    startTimer();
     return () => {
-      clearTimeout(timer);
+      clearTimer();
     };
-  }, [toast.id, autoDismissMs]);
-  return <Toast {...toast} />;
+  }, [toast, autoDismissMs, clearTimer, startTimer]);
+
+  const pause = useCallback(
+    (reason: 'pointer' | 'focus'): void => {
+      if (reason === 'pointer') pointerPausedRef.current = true;
+      else focusPausedRef.current = true;
+      if (timerRef.current !== null) {
+        remainingRef.current = Math.max(0, deadlineRef.current - Date.now());
+        clearTimer();
+      }
+    },
+    [clearTimer],
+  );
+  const resume = useCallback(
+    (reason: 'pointer' | 'focus'): void => {
+      if (reason === 'pointer') pointerPausedRef.current = false;
+      else focusPausedRef.current = false;
+      startTimer();
+    },
+    [startTimer],
+  );
+  useToastPauseListeners(containerRef, pause, resume);
+
+  return (
+    <div ref={containerRef} role="group" aria-label="Notification">
+      <Toast {...toast} announce={false} onDismiss={() => onDismissRef.current(toast.id)} />
+    </div>
+  );
 }
 
-// Bottom-right stack; each toast dismisses itself after autoDismissMs.
-export function ToastHost({ toasts, onDismiss, autoDismissMs = 4000 }: ToastHostProps): ReactElement {
+// Bottom-right stack; action toasts stay until acted on or dismissed. Timed
+// toasts preserve their remaining duration while hovered or focused (#411).
+export function ToastHost({ toasts, onDismiss, className, autoDismissMs = 4000 }: ToastHostProps): ReactElement {
+  const latest = toasts.at(-1);
   return (
-    <div className="ovl-toast-host">
+    <div className={['ovl-toast-host', className].filter(Boolean).join(' ')}>
+      <div className="ovl-toast-host__announcer" role="status" aria-live="polite" aria-atomic="true">
+        {latest === undefined ? null : `${latest.title}${latest.detail === undefined ? '' : ` — ${latest.detail}`}`}
+      </div>
       {toasts.map((toast) => (
         <ToastTimer key={toast.id} toast={toast} onDismiss={onDismiss} autoDismissMs={autoDismissMs} />
       ))}

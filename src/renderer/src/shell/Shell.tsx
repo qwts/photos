@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { DragEvent, ReactElement } from 'react';
 
 import './shell.css';
 import { formatCount, formatRelativeTime } from '../../../shared/library/format.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
 import { Icon } from '../components/Icon';
 import { TitleBar } from '../components/TitleBar';
-import { Toast } from '../components/Toast';
+import { ToastHost, type ToastItem } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ExportDialog } from '../export/ExportDialog';
@@ -28,9 +28,6 @@ import { blockedInteropWorkflow, type InteropEntryContext } from '../interop/vis
 import { ProtectedAlbumUnlockDialog } from '../protected/ProtectedAlbumUnlockDialog';
 import { ProtectedAlbumView } from '../protected/ProtectedAlbumView';
 import { createBoundedExternalDropReporter, installExternalFileDropBoundary } from './external-file-drop';
-
-// 4s per the design's ToastHost (#89 exit criteria).
-const TOAST_DISMISS_MS = 4000;
 
 function mergeDropPaths(current: readonly string[] | null, incoming: readonly string[]): readonly string[] {
   return [...new Set([...(current ?? []), ...incoming])];
@@ -293,19 +290,21 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
     }
   }, [lightboxId, photos]);
 
-  // Stub toasts (#79) auto-dismiss; real flows may pin their own later.
   const toast = state.toast;
-  useEffect(() => {
-    if (toast === null) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      dispatch({ type: 'toast/dismissed' });
-    }, TOAST_DISMISS_MS);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [toast, dispatch]);
+  const toastItems = useMemo<readonly ToastItem[]>(
+    () =>
+      toast === null
+        ? []
+        : [
+            {
+              id: 'shell-toast',
+              tone: toast.tone,
+              title: toast.title,
+              ...(toast.action === undefined ? {} : { action: <ToastAction toast={toast} /> }),
+            },
+          ],
+    [toast],
+  );
 
   return (
     // OS file drops are owned by the capture-boundary effect above, including
@@ -550,11 +549,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
           </aside>
         ) : null}
       </div>
-      {toast === null ? null : (
-        <div className="ovl-shell__toast">
-          <Toast tone={toast.tone} title={toast.title} action={<ToastAction toast={toast} />} />
-        </div>
-      )}
+      <ToastHost className="ovl-shell__toast" toasts={toastItems} onDismiss={() => dispatch({ type: 'toast/dismissed' })} />
       <StatusBar stats={stats} />
       {interopEntry === null ? null : (
         <InteropWorkflowDialog
