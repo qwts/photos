@@ -152,6 +152,12 @@
   "sidebar.source.recent": {
     "defaultMessage": "Recent imports"
   },
+  "toast.dismiss": {
+    "defaultMessage": "Dismiss notification"
+  },
+  "toast.notification": {
+    "defaultMessage": "Notification"
+  },
   "toolbar.backup": {
     "defaultMessage": "Back up"
   },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import './overlays.css';
 import { Icon, type IconName } from './Icon';
@@ -14,6 +15,17 @@ const TONES: Record<ToastTone, { icon: IconName; color: string }> = {
   red: { icon: 'triangle-alert', color: 'var(--accent-red)' },
 };
 
+const messages = defineMessages({
+  dismiss: {
+    id: 'toast.dismiss',
+    defaultMessage: 'Dismiss notification',
+  },
+  notification: {
+    id: 'toast.notification',
+    defaultMessage: 'Notification',
+  },
+});
+
 export interface ToastProps {
   readonly tone?: ToastTone;
   readonly icon?: IconName;
@@ -26,6 +38,7 @@ export interface ToastProps {
 
 // feedback/Toast.jsx + aria-live (#59): role=status announces politely.
 export function Toast({ tone = 'neutral', icon, title, detail, action, announce = true, onDismiss }: ToastProps): ReactElement {
+  const intl = useIntl();
   const t = TONES[tone];
   return (
     <div role={announce ? 'status' : undefined} className="ovl-toast">
@@ -35,7 +48,7 @@ export function Toast({ tone = 'neutral', icon, title, detail, action, announce 
         {detail === undefined ? null : <div className="ovl-toast__detail">{detail}</div>}
       </div>
       {action}
-      {onDismiss === undefined ? null : <IconButton icon="x" label="Dismiss notification" size="sm" onClick={onDismiss} />}
+      {onDismiss === undefined ? null : <IconButton icon="x" label={intl.formatMessage(messages.dismiss)} size="sm" onClick={onDismiss} />}
     </div>
   );
 }
@@ -88,6 +101,7 @@ function ToastTimer({
   readonly onDismiss: (id: string) => void;
   readonly autoDismissMs: number;
 }): ReactElement {
+  const intl = useIntl();
   const onDismissRef = useRef(onDismiss);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deadlineRef = useRef(0);
@@ -146,7 +160,7 @@ function ToastTimer({
   useToastPauseListeners(containerRef, pause, resume);
 
   return (
-    <div ref={containerRef} role="group" aria-label="Notification">
+    <div ref={containerRef} role="group" aria-label={intl.formatMessage(messages.notification)}>
       <Toast {...toast} announce={false} onDismiss={() => onDismissRef.current(toast.id)} />
     </div>
   );
