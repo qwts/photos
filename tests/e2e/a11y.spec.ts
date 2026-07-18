@@ -32,12 +32,16 @@ interface ProbeRect {
   readonly width: number;
   readonly height: number;
 }
+interface ProbeAnimation {
+  readonly playState: string;
+}
 interface ProbeElement {
   readonly tagName: string;
   readonly className: unknown;
   readonly offsetParent: unknown;
   focus(): void;
   contains(other: ProbeElement | null): boolean;
+  getAnimations(): readonly ProbeAnimation[];
   getBoundingClientRect(): ProbeRect;
 }
 declare const document: {
@@ -128,6 +132,19 @@ test('a11y: a modal dialog stacked over the shell', async () => {
   try {
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
+    const disconnect = page.getByRole('button', { name: 'Disconnect' });
+    await expect(disconnect).toBeVisible();
+    // The Settings toolbar click can leave the pointer where the asynchronously
+    // rendered provider action appears. Audit its settled resting state, not a
+    // 120 ms primary→secondary background transition under an accidental hover.
+    await page.locator('.ovl-dialog__title').hover();
+    await expect
+      .poll(() =>
+        disconnect.evaluate(
+          (button) => (button as unknown as ProbeElement).getAnimations().filter((animation) => animation.playState === 'running').length,
+        ),
+      )
+      .toBe(0);
     await assertWithinBudget(page, 'shell-settings-dialog');
   } finally {
     await app.close();
