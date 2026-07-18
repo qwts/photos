@@ -80,7 +80,7 @@ test('Copy import: dialog flow, encrypted at rest, grid + toast + counts', async
     await page.getByRole('button', { name: 'Show in library' }).click();
 
     // Toast fires only after the modal is gone (#89 + PR #185 review).
-    const toast = page.getByRole('status');
+    const toast = page.getByRole('group', { name: 'Notification' });
     await expect(toast).toContainText('Imported 3 photos');
     await expect(toast.getByRole('button', { name: 'Show' })).toBeVisible();
 
