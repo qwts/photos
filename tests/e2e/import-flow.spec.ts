@@ -88,8 +88,12 @@ test('Copy import: dialog flow, encrypted at rest, grid + toast + counts', async
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
     await expect(page.getByRole('button', { name: 'All Photos 3' })).toBeVisible();
 
-    // Toast auto-dismisses at 4s (#89 exit criteria).
-    await expect(toast).toBeHidden({ timeout: 6_000 });
+    // Action stays reachable past the ordinary 4s timeout, then activating it
+    // dismisses the toast (#411).
+    await page.waitForTimeout(4_200);
+    await expect(toast).toBeVisible();
+    await toast.getByRole('button', { name: 'Show' }).click();
+    await expect(toast).toBeHidden();
 
     // Beneath the UI: complete DB rows through the typed bridge...
     const rows = await page.evaluate<{ camera: string | null; id: string; syncState: string }[]>(
