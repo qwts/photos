@@ -50,7 +50,7 @@ components; their full license texts ship inside the Electron distribution at
 | `decompress-response` | 6.0.0 | MIT |
 | `deep-extend` | 0.6.0 | MIT |
 | `detect-libc` | 2.1.2 | Apache-2.0 |
-| `electron` | 42.6.1 | MIT |
+| `electron` | 42.7.0 | MIT |
 | `end-of-stream` | 1.4.5 | MIT |
 | `exifr` | 7.1.3 | MIT |
 | `expand-template` | 2.0.3 | (MIT OR WTFPL) |
@@ -819,7 +819,7 @@ Apache License
 
 ---
 
-## electron 42.6.1
+## electron 42.7.0
 
 License: MIT
 
