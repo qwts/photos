@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -74,5 +74,62 @@ test('settings persist across an app restart and re-render the UI', async () => 
     expect(blocked.skipped).toBe('disconnected');
   } finally {
     await second.close();
+  }
+});
+
+test('pCloud disconnect clears real profile custody and persists across restart', async () => {
+  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-pcloud-disconnect-'));
+  const first = await launch(userData);
+  try {
+    const page = await first.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.evaluate(`window.overlook.settings.set({ patch: { providerId: 'pcloud' } })`);
+  } finally {
+    await first.close();
+  }
+
+  const custodyDir = join(userData, 'provider-auth', 'pcloud');
+  const custodyFile = join(custodyDir, 'pcloud-auth.bin');
+  const record = JSON.stringify({
+    accessToken: 'e2e-local-only-token',
+    apiHost: 'api.pcloud.com',
+    connectedAt: '2026-07-18T00:00:00.000Z',
+  });
+  mkdirSync(custodyDir, { recursive: true });
+  writeFileSync(custodyFile, Buffer.from(Buffer.from(record, 'utf8').map((byte) => byte ^ 0x5f)));
+
+  const second = await launch(userData);
+  try {
+    const page = await second.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    const results = await page.evaluate<readonly { ok: boolean; reason: string | null }[]>(
+      `Promise.all([
+        window.overlook.backup.disconnect({ providerId: 'pcloud' }),
+        window.overlook.backup.disconnect({ providerId: 'pcloud' })
+      ])`,
+    );
+    expect(results).toEqual([
+      { ok: true, reason: null },
+      { ok: true, reason: null },
+    ]);
+    expect(existsSync(custodyFile)).toBe(false);
+    const settings = await page.evaluate<{ settings: { providerId: string | null } }>(`window.overlook.settings.get()`);
+    expect(settings.settings.providerId).toBe(null);
+  } finally {
+    await second.close();
+  }
+
+  const persisted = JSON.parse(readFileSync(join(userData, 'library', 'settings.json'), 'utf8')) as { providerId?: unknown };
+  expect(persisted.providerId).toBe(null);
+
+  const third = await launch(userData);
+  try {
+    const page = await third.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    const settings = await page.evaluate<{ settings: { providerId: string | null } }>(`window.overlook.settings.get()`);
+    expect(settings.settings.providerId).toBe(null);
+    expect(existsSync(custodyFile)).toBe(false);
+  } finally {
+    await third.close();
   }
 });
