@@ -30,6 +30,7 @@ const PHOTO: PhotoRecord = {
   favorite: true,
   keyId: 2,
   deletedAt: null,
+  previewFailure: null,
   syncState: 'synced',
 };
 

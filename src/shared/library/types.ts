@@ -2,6 +2,8 @@
 // renderer imports these for grid/list/inspector rendering; the repository
 // and (later) the IPC service speak them natively.
 
+import type { PreviewFailureReason } from './preview.js';
+
 export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'other';
 
 /** sync_ledger.status vocabulary (ADR-0005; 'error' added by #104). */
@@ -30,11 +32,13 @@ export interface PhotoRecord {
   readonly favorite: boolean;
   readonly keyId: number;
   readonly deletedAt: string | null;
+  /** Local derivative/display state; originals and backup manifests remain authoritative. */
+  readonly previewFailure: PreviewFailureReason | null;
   /** From the sync_ledger join; new rows start 'local'. */
   readonly syncState: SyncStatus;
 }
 
-export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'syncState'> & {
+export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'previewFailure' | 'syncState'> & {
   readonly favorite?: boolean;
 };
 

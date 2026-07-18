@@ -177,10 +177,11 @@ const photoRecordSchema = z.object({
   favorite: z.boolean(),
   keyId: z.number(),
   deletedAt: z.string().nullable(),
+  previewFailure: z.enum(['corrupt', 'unsupported-codec', 'decode-failed']).nullable(),
   syncState: syncStatusSchema,
 });
 
-const protectedPhotoRecordSchema = photoRecordSchema.omit({ contentHash: true, keyId: true, syncState: true });
+const protectedPhotoRecordSchema = photoRecordSchema.omit({ contentHash: true, keyId: true, previewFailure: true, syncState: true });
 const protectedPageCursorSchema = z.object({ position: z.number().int().nonnegative(), id: z.string().min(1) });
 
 export const channels = {

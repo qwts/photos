@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -142,6 +142,19 @@ describe('FullService (#91)', () => {
     assert.equal(await service.getFull('cr2'), null);
   });
 
+  test('EXIT CRITERIA: HEIC resolves to an oriented browser-viewable JPEG (#487)', { skip: process.platform !== 'darwin' }, async () => {
+    const decrypted = readFileSync(join(import.meta.dirname, '../../../tests/fixtures/heic/iphone-13-pro.heic'));
+    const service = new FullService({
+      loadOriginal: () => Promise.resolve(original(decrypted, 'heic', 'heichash')),
+    });
+    const payload = await service.getFull('heic');
+    assert.equal(payload?.mime, 'image/jpeg');
+    assert.equal(payload?.preview, false);
+    assert.equal(payload?.contentHash, 'heichash');
+    assert.equal(payload?.bytes.toString('hex', 0, 3), 'ffd8ff');
+    assert.deepEqual(decrypted, Buffer.alloc(decrypted.length), 'the decrypted HEIC owner is wiped after native decode');
+  });
+
   test('mime follows the record kind; unknown kinds are placeholders', async () => {
     const kinds: LoadedOriginal[] = [
       original(sampleJpeg(0), 'jpeg'),
@@ -155,7 +168,7 @@ describe('FullService (#91)', () => {
     assert.equal((await service.getFull('0'))?.mime, 'image/jpeg');
     assert.equal((await service.getFull('0'))?.preview, false);
     assert.equal((await service.getFull('1'))?.mime, 'image/png');
-    assert.equal((await service.getFull('2'))?.mime, 'image/heic');
+    assert.equal(await service.getFull('2'), null, 'undecodable HEIC is a placeholder');
     assert.equal(await service.getFull('3'), null);
     assert.equal(await service.getFull('4'), null, 'missing photo');
   });

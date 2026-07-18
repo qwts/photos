@@ -50,6 +50,7 @@ export function createImportRuntime(options: ImportRuntimeOptions): ImportRuntim
       get: (id) => options.repo.get(id),
       insert: (photo) => options.repo.insert(photo),
       repairDimensions: (id, width, height) => options.repo.repairDimensions(id, width, height),
+      setPreviewFailure: (id, failure) => options.repo.setPreviewFailure(id, failure),
     },
     blobs: {
       putOriginal: async (plaintext, key, photoId) => {

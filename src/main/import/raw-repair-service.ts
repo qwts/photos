@@ -13,16 +13,17 @@ export interface RawRepairServiceOptions {
   readonly candidates: () => readonly PhotoRecord[];
   readonly validThumbs: (photo: PhotoRecord) => Promise<boolean>;
   readonly loadOriginal: (photo: PhotoRecord) => Promise<Buffer | null>;
-  readonly extractMetadata: (bytes: Buffer) => Promise<ExtractedMetadata>;
+  readonly extractMetadata: (bytes: Buffer, fileKind: PhotoRecord['fileKind']) => Promise<ExtractedMetadata>;
   readonly regenerate: (photo: PhotoRecord, bytes: Buffer, signal: AbortSignal) => Promise<ThumbnailOutcome>;
   readonly repairMetadata: (photoId: string, metadata: ExtractedMetadata) => boolean;
+  readonly setPreviewFailure: (photoId: string, failure: PhotoRecord['previewFailure']) => boolean;
   readonly changed: (photoIds: readonly string[]) => void;
   readonly yieldTurn?: (() => Promise<void>) | undefined;
 }
 
 const yieldTurn = async (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
-/** One cancellable, sequential startup pass. Sequential RAW decode keeps peak
+/** One cancellable, sequential startup pass. Sequential RAW/HEIC decode keeps peak
  * plaintext bounded to one original plus the thumbnail pool's two outputs. */
 export class RawRepairService {
   private readonly controller = new AbortController();
@@ -46,7 +47,12 @@ export class RawRepairService {
       try {
         const thumbsReady = await this.options.validThumbs(photo);
         if (thumbsReady && photo.width > 0 && photo.height > 0) {
-          skipped += 1;
+          if (this.options.setPreviewFailure(photo.id, null)) {
+            repaired += 1;
+            changed.push(photo.id);
+          } else {
+            skipped += 1;
+          }
           continue;
         }
         bytes = await this.options.loadOriginal(photo);
@@ -54,7 +60,7 @@ export class RawRepairService {
           skipped += 1;
           continue;
         }
-        const metadata = await this.options.extractMetadata(bytes);
+        const metadata = await this.options.extractMetadata(bytes, photo.fileKind);
         if (this.controller.signal.aborted) break;
         let outcome: ThumbnailOutcome | null = null;
         if (!thumbsReady) {
@@ -67,14 +73,19 @@ export class RawRepairService {
           height: metadata.height ?? outcome?.height ?? null,
         });
         const repairedThumbs = !thumbsReady && outcome?.generated === true;
+        const failure =
+          photo.fileKind === 'heic' && !thumbsReady && outcome?.generated !== true ? (outcome?.failure ?? 'decode-failed') : null;
+        const failureChanged = this.options.setPreviewFailure(photo.id, failure);
         if (repairedMetadata || repairedThumbs) {
           repaired += 1;
+        }
+        if (repairedMetadata || repairedThumbs || failureChanged) {
           changed.push(photo.id);
         }
         if (!thumbsReady && outcome?.generated !== true) failed += 1;
       } catch (error) {
         failed += 1;
-        console.error(`[overlook] RAW preview repair failed for ${photo.id}`, error);
+        console.error(`[overlook] preview repair failed for ${photo.id}`, error);
       } finally {
         bytes?.fill(0);
       }

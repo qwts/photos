@@ -49,6 +49,7 @@ function fullRow(
     favorite: false,
     keyId: 1,
     deletedAt: null,
+    previewFailure: null,
     syncState: 'local',
   };
 }

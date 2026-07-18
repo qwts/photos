@@ -38,6 +38,7 @@ function photo(index: number, syncState: SyncStatus, favorite = false): PhotoRec
     favorite,
     keyId: 1,
     deletedAt: null,
+    previewFailure: null,
     syncState,
   };
 }

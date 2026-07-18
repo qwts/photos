@@ -1,9 +1,11 @@
 import { Worker } from 'node:worker_threads';
 
 import { embeddedJpegFromRaf } from './raf-preview.js';
+import { resolveHeicPreview } from './heic-preview.js';
 import { resolveRawPreview } from './raw-preview.js';
 import type { ThumbJobRequest, ThumbJobResponse } from './thumbnail-worker.js';
 import type { FileKind } from '../../shared/library/types.js';
+import type { PreviewFailureReason } from '../../shared/library/preview.js';
 
 // Bounded worker pool (#86): sharp runs off the main thread per ADR-0006.
 // Each worker carries permanent message/exit listeners and at most one
@@ -18,6 +20,12 @@ export interface ThumbnailDerivatives {
   readonly width: number | null;
   readonly height: number | null;
 }
+
+export interface ThumbnailFailure {
+  readonly failure: PreviewFailureReason;
+}
+
+export type ThumbnailPoolResult = ThumbnailDerivatives | ThumbnailFailure | null;
 
 interface Job {
   readonly bytes: Buffer;
@@ -62,16 +70,23 @@ export class ThumbnailPool {
    * containers resolve a validated embedded or native preview first; no usable
    * preview is a placeholder, never a failed import.
    */
-  async generate(bytes: Buffer, signal?: AbortSignal, fileKind?: FileKind): Promise<ThumbnailDerivatives | null> {
+  generate(bytes: Buffer, signal?: AbortSignal, fileKind?: Exclude<FileKind, 'heic'>): Promise<ThumbnailDerivatives | null>;
+  generate(bytes: Buffer, signal: AbortSignal | undefined, fileKind: 'heic'): Promise<ThumbnailPoolResult>;
+  generate(bytes: Buffer, signal: AbortSignal | undefined, fileKind: FileKind | undefined): Promise<ThumbnailPoolResult>;
+  async generate(bytes: Buffer, signal?: AbortSignal, fileKind?: FileKind): Promise<ThumbnailPoolResult> {
     if (this.closed) {
       throw new Error('thumbnail pool is closed');
     }
     if (signal?.aborted === true) {
       return null;
     }
-    const raw = fileKind === 'raw' || embeddedJpegFromRaf(bytes) !== null;
-    const preview = raw ? await resolveRawPreview(bytes, { signal }) : null;
-    if (raw && preview === null) return null;
+    const heic = fileKind === 'heic' ? await resolveHeicPreview(bytes, { signal }) : null;
+    if (fileKind === 'heic' && heic === null) return null;
+    if (heic !== null && !heic.ok) return { failure: heic.reason };
+    const raw = fileKind !== 'heic' && (fileKind === 'raw' || embeddedJpegFromRaf(bytes) !== null);
+    const rawPreview = raw ? await resolveRawPreview(bytes, { signal }) : null;
+    if (raw && rawPreview === null) return null;
+    const preview = heic?.ok === true ? heic.preview : rawPreview;
     const target = preview?.bytes ?? bytes;
     return new Promise<ThumbnailDerivatives | null>((resolve, reject) => {
       this.queue.push({ bytes: target, wipe: preview !== null, signal, resolve, reject });

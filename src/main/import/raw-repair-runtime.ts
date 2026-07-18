@@ -19,7 +19,7 @@ export interface RawRepairRuntimeOptions {
 
 export function createRawRepairRuntime(options: RawRepairRuntimeOptions): RawRepairService {
   return new RawRepairService({
-    candidates: () => options.repo.rawRepairCandidates(),
+    candidates: () => options.repo.previewRepairCandidates(),
     validThumbs: async (photo) => options.blobs.verifyThumbs(photo.contentHash, options.resolveKey, photo.id),
     loadOriginal: async (photo) => {
       await options.blobsReady;
@@ -30,17 +30,18 @@ export function createRawRepairRuntime(options: RawRepairRuntimeOptions): RawRep
         throw error;
       }
     },
-    extractMetadata: async (bytes) => extractMetadata(bytes, 'raw'),
+    extractMetadata: async (bytes, fileKind) => extractMetadata(bytes, fileKind),
     regenerate: async (photo, bytes, signal) =>
       options.thumbnails.regenerateFor({
         photoId: photo.id,
         bytes,
         contentHash: photo.contentHash,
         key: options.currentKey(),
-        fileKind: 'raw',
+        fileKind: photo.fileKind,
         signal,
       }),
-    repairMetadata: (photoId, metadata) => options.repo.repairRawMetadata(photoId, metadata),
+    repairMetadata: (photoId, metadata) => options.repo.repairPreviewMetadata(photoId, metadata),
+    setPreviewFailure: (photoId, failure) => options.repo.setPreviewFailure(photoId, failure),
     changed: options.changed,
   });
 }

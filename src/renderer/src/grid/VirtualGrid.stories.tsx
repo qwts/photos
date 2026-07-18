@@ -43,6 +43,7 @@ function photo(index: number): PhotoRecord {
     favorite: index % 9 === 0,
     keyId: 1,
     deletedAt: null,
+    previewFailure: null,
     syncState: 'synced',
   };
 }

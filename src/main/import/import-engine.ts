@@ -69,6 +69,7 @@ export interface ImportEngineDeps {
     readonly get: (id: string) => PhotoRecord | undefined;
     readonly insert: (photo: PhotoInsert) => void;
     readonly repairDimensions: (id: string, width: number, height: number) => boolean;
+    readonly setPreviewFailure: (id: string, failure: PhotoRecord['previewFailure']) => boolean;
   };
   readonly blobs: {
     readonly putOriginal: (
@@ -243,6 +244,9 @@ export class ImportEngine {
         });
         if (outcome.width !== null && outcome.height !== null) {
           this.deps.repo.repairDimensions(file.photoId ?? '', outcome.width, outcome.height);
+        }
+        if (file.kind === 'heic') {
+          this.deps.repo.setPreviewFailure(file.photoId ?? '', outcome.generated ? null : (outcome.failure ?? 'decode-failed'));
         }
         file.stage = 'thumbed';
         await persist();
