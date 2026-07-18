@@ -1,5 +1,11 @@
 # photos
 
+## 0.32.5
+
+### Patch Changes
+
+- 516f490: Keep shell notifications positioned clear of the status and control bars.
+
 ## 0.32.4
 
 ### Patch Changes
