@@ -1084,19 +1084,14 @@
         },
         {
           "type": "storybook",
-          "path": "src/renderer/src/components/Toast.stories.tsx"
-        },
-        {
-          "type": "storybook",
-          "path": "src/renderer/src/components/feedback.stories.tsx"
-        },
-        {
-          "type": "storybook",
-          "path": "src/renderer/src/components/inputs.stories.tsx"
-        },
-        {
-          "type": "storybook",
-          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+          "paths": [
+            "src/renderer/src/TokenSpecimen.stories.tsx",
+            "src/renderer/src/components/Button.stories.tsx",
+            "src/renderer/src/components/Toast.stories.tsx",
+            "src/renderer/src/components/feedback.stories.tsx",
+            "src/renderer/src/components/inputs.stories.tsx",
+            "src/renderer/src/settings/SettingsDialog.stories.tsx"
+          ]
         },
         {
           "type": "unit-dom",
