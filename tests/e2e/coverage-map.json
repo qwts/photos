@@ -882,6 +882,20 @@
       ]
     },
     {
+      "id": "m15-macos-window-file-drop-safety",
+      "wiki": "User-Story-M15-Import-sources",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/external-open.spec.ts"
+        },
+        {
+          "type": "manual",
+          "reason": "Native Finder pointer ownership, drag cancellation outside Chromium, and packaged NEF drops require a signed or unsigned macOS package; E2E covers capture-boundary routing, modal child churn, focus loss, mixed RAW/JPEG/HEIC paths, unsupported files, repeated drops, and window/navigation denial."
+        }
+      ]
+    },
+    {
       "id": "m15-google-drive-selected-file-import",
       "wiki": "User-Story-M15-Import-sources",
       "coverage": [
