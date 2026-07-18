@@ -1,0 +1,22 @@
+{
+  "license": "CC0-1.0",
+  "source": "https://github.com/thorsted/digicam_corpus",
+  "fixtures": [
+    {
+      "file": "iphone-13-pro.heic",
+      "sourcePath": "Apple/iPhone 13 Pro/IMG_8565.HEIC",
+      "sha256": "9f30b5e006f875143566998909c95fd33f6f7963bcd9d15ca3e615c31d1ab462",
+      "device": "Apple iPhone 13 Pro",
+      "dimensions": "4032x3024",
+      "orientation": "Rotate 90 CW"
+    },
+    {
+      "file": "iphone-xr.heic",
+      "sourcePath": "Apple/iPhone XR/IMG_3578.HEIC",
+      "sha256": "ff8c34fb8e5b953e9aabfad47890368b8b7ffbc1a8edf3f1e6952b6f643e1a35",
+      "device": "Apple iPhone XR",
+      "dimensions": "4032x3024",
+      "orientation": "Horizontal"
+    }
+  ]
+}
