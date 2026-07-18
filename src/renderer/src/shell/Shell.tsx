@@ -36,6 +36,8 @@ function mergeDropPaths(current: readonly string[] | null, incoming: readonly st
   return [...new Set([...(current ?? []), ...incoming])];
 }
 
+type RestorableDialog = 'export' | 'settings' | 'libraries';
+
 // Composition shell (#73): fixed chrome per README §1. The toolbar, grid,
 // sidebar internals, and status bar semantics land with #74–#81 — this keeps
 // their regions real (token dims, live counts) so each issue fills in place.
@@ -50,9 +52,36 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   // Dropped source; `dragging` shows the full-window overlay.
   const [dropped, setDropped] = useState<readonly string[] | null>(null);
   const [dragging, setDragging] = useState(false);
+  const dialogStateRef = useRef(state);
+  useEffect(() => {
+    dialogStateRef.current = state;
+  }, [state]);
+  const displacedDialogRef = useRef<RestorableDialog | null>(null);
+  const openDroppedPaths = useCallback(
+    (paths: readonly string[]): void => {
+      const current = dialogStateRef.current;
+      if (!current.importOpen) {
+        displacedDialogRef.current = current.exportOpen
+          ? 'export'
+          : current.settingsOpen
+            ? 'settings'
+            : current.librariesOpen
+              ? 'libraries'
+              : null;
+      }
+      setDropped((existing) => mergeDropPaths(existing, paths));
+      dispatch({ type: 'dialog/set', dialog: 'import', open: true });
+    },
+    [dispatch],
+  );
   const rejectExternalDrop = useCallback((): void => {
     setDropped(null);
     dispatch({ type: 'dialog/set', dialog: 'import', open: false });
+    const displacedDialog = displacedDialogRef.current;
+    displacedDialogRef.current = null;
+    if (displacedDialog !== null) {
+      dispatch({ type: 'dialog/set', dialog: displacedDialog, open: true });
+    }
     dispatch({ type: 'toast/shown', toast: { title: 'Nothing to import — drop photo files', tone: 'amber' } });
   }, [dispatch]);
 
@@ -60,10 +89,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
     const boundary = installExternalFileDropBoundary(window, {
       pathForFile: window.overlook.import.pathForFile,
       onDraggingChange: setDragging,
-      onPaths: (paths) => {
-        setDropped((current) => mergeDropPaths(current, paths));
-        dispatch({ type: 'dialog/set', dialog: 'import', open: true });
-      },
+      onPaths: openDroppedPaths,
       onUnsupported: rejectExternalDrop,
       report: createBoundedExternalDropReporter(),
     });
@@ -74,16 +100,15 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
       offFocus();
       boundary.dispose();
     };
-  }, [dispatch, rejectExternalDrop]);
+  }, [openDroppedPaths, rejectExternalDrop]);
 
   useEffect(() => {
     const unsubscribe = window.overlook.import.onExternalPaths(({ paths }) => {
-      setDropped((current) => mergeDropPaths(current, paths));
-      dispatch({ type: 'dialog/set', dialog: 'import', open: true });
+      openDroppedPaths(paths);
     });
     void window.overlook.import.externalReady();
     return unsubscribe;
-  }, [dispatch]);
+  }, [openDroppedPaths]);
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [albums, setAlbums] = useState<readonly AlbumSummary[]>([]);
   // Current library name for the titlebar trigger (#386). Registry reads
@@ -339,6 +364,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
           dropped={dropped}
           onClose={() => {
             setDropped(null);
+            displacedDialogRef.current = null;
             dispatch({ type: 'dialog/set', dialog: 'import', open: false });
           }}
           onDone={() => {
