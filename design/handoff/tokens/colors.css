@@ -10,7 +10,7 @@
 
   --white-1: oklch(0.955 0.004 250); /* primary text */
   --white-2: oklch(0.74 0.008 250);  /* secondary text */
-  --white-3: oklch(0.55 0.01 250);   /* faint text, disabled */
+  --white-3: oklch(0.64 0.01 250);   /* faint text, disabled — AA through --gray-3 */
 
   /* ---- Accents ---- */
   /* Primary brand accent — the app-icon blue-violet "iris". Used for selection, focus,
@@ -22,13 +22,13 @@
   --accent-violet: oklch(0.62 0.20 305);   /* violet — gradient deep end */
   --accent-amber: oklch(0.74 0.125 75);    /* cloud / offloaded / sync states */
   --accent-green: oklch(0.74 0.125 155);   /* encrypted / verified / success */
-  --accent-red: oklch(0.62 0.19 25);       /* destructive */
+  --accent-red: oklch(0.74 0.19 25);       /* destructive — AA over its dim fill */
 
   --accent-iris-dim: oklch(0.70 0.16 278 / 0.16);
   --accent-cyan-dim: var(--accent-iris-dim);
   --accent-amber-dim: oklch(0.74 0.125 75 / 0.16);
   --accent-green-dim: oklch(0.74 0.125 155 / 0.16);
-  --accent-red-dim: oklch(0.62 0.19 25 / 0.16);
+  --accent-red-dim: oklch(0.74 0.19 25 / 0.16);
 
   /* Brand gradient — cyan → iris → violet, matching the app icon's hexagon ring. */
   --brand-gradient: linear-gradient(135deg, var(--accent-cyan-bright) 0%, var(--accent-iris) 52%, var(--accent-violet) 100%);
