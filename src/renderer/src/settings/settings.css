@@ -116,6 +116,28 @@
   color: var(--text-faint);
 }
 
+.ovl-settings__disconnectCopy,
+.ovl-settings__disconnectError {
+  margin: 0;
+}
+
+.ovl-settings__disconnectReassure {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  color: var(--text-muted);
+  background: var(--accent-green-dim);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+}
+
+.ovl-settings__disconnectError {
+  margin-top: var(--space-4);
+  color: var(--accent-red);
+}
+
 .ovl-settings__restoreOriginals {
   display: flex;
   flex-direction: column;

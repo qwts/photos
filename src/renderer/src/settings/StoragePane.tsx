@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { formatBytes } from '../../../shared/library/format.js';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
+import { Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 import { Segmented } from '../components/Segmented';
@@ -36,6 +37,8 @@ type ProviderStatusLoad =
   | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderStatus }
   | { readonly targetId: string; readonly state: 'error' };
 
+type ConnectionOperation = 'connect' | 'disconnect';
+
 export interface StoragePaneProps {
   readonly settings: AppSettings;
   readonly selectedPhotoIds: readonly string[];
@@ -51,9 +54,11 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   const [statusLoad, setStatusLoad] = useState<ProviderStatusLoad | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
-  const [connecting, setConnecting] = useState(false);
+  const [connectionOperation, setConnectionOperation] = useState<ConnectionOperation | null>(null);
+  const [disconnectConfirmation, setDisconnectConfirmation] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const statusRequestRef = useRef(0);
+  const operationRef = useRef<ConnectionOperation | null>(null);
 
   const refresh = useCallback(() => {
     const request = statusRequestRef.current + 1;
@@ -71,26 +76,35 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
       });
   }, [targetId]);
 
-  const toggleConnection = useCallback(
-    (isConnected: boolean) => {
-      setConnecting(true);
+  const changeConnection = useCallback(
+    (operation: ConnectionOperation) => {
+      if (operationRef.current !== null || targetId === null) return;
+      operationRef.current = operation;
+      setConnectionOperation(operation);
       setConnectError(null);
       setStatusLoad(null);
-      if (targetId === null) {
-        setConnecting(false);
-        return;
-      }
-      void (
-        isConnected ? window.overlook.backup.disconnect({ providerId: targetId }) : window.overlook.backup.connect({ providerId: targetId })
-      )
+      statusRequestRef.current += 1;
+      const request =
+        operation === 'disconnect'
+          ? window.overlook.backup.disconnect({ providerId: targetId })
+          : window.overlook.backup.connect({ providerId: targetId });
+      void request
         .then((result) => {
           if (!result.ok) {
             setConnectError(result.reason ?? 'Connection failed.');
+            setStatusLoad({ targetId, state: 'error' });
+            return;
           }
+          if (operation === 'disconnect') setDisconnectConfirmation(false);
+          refresh();
+        })
+        .catch(() => {
+          setConnectError(operation === 'disconnect' ? 'Disconnect failed. Check status and try again.' : 'Connection failed. Try again.');
+          setStatusLoad({ targetId, state: 'error' });
         })
         .finally(() => {
-          setConnecting(false);
-          refresh();
+          operationRef.current = null;
+          setConnectionOperation(null);
         });
     },
     [refresh, targetId],
@@ -126,6 +140,8 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   const connected = connection === 'connected';
   const name = descriptor?.label ?? 'Cloud provider';
   const bandwidth = settings.bandwidthLimit;
+  const disconnecting = connectionOperation === 'disconnect';
+  const connecting = connectionOperation === 'connect';
 
   return (
     <div className="ovl-settings__fields">
@@ -134,7 +150,9 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         <div className="ovl-settings__providerBody">
           <div className="ovl-settings__providerHead">
             <span className="ovl-settings__providerName">{name}</span>
-            {connection === 'loading' ? (
+            {disconnecting ? (
+              <Badge tone="neutral">Disconnecting…</Badge>
+            ) : connection === 'loading' ? (
               <Badge tone="neutral">Checking…</Badge>
             ) : connected ? (
               <Badge tone="green">Connected</Badge>
@@ -144,7 +162,9 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
               <Badge tone="neutral">Not connected</Badge>
             )}
           </div>
-          {connection === 'loading' ? (
+          {disconnecting ? (
+            <div className="ovl-settings__providerMeta">Removing this device’s saved authorization…</div>
+          ) : connection === 'loading' ? (
             <div className="ovl-settings__providerMeta">Checking connection…</div>
           ) : connection === 'error' ? (
             <div className="ovl-settings__providerMeta">Could not check this provider’s connection.</div>
@@ -169,29 +189,63 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
               {descriptor.capabilities.resumableUpload ? 'RESUMABLE UPLOADS' : 'RESTARTS INTERRUPTED UPLOADS'}
             </div>
           )}
-          {connectError === null || !connected ? null : <div className="ovl-settings__providerMeta">{connectError}</div>}
+          {connectError === null || (!connected && connection !== 'error') ? null : (
+            <div className="ovl-settings__providerMeta">{connectError}</div>
+          )}
         </div>
         <Button
           variant={connected ? 'secondary' : 'primary'}
-          disabled={connection === 'loading' || connecting || descriptor?.available === false}
+          disabled={connection === 'loading' || connectionOperation !== null || descriptor?.available === false}
           onClick={() => {
             if (connection === 'error') {
               setStatusLoad(null);
+              setConnectError(null);
               refresh();
-            } else toggleConnection(connected);
+            } else if (connected) {
+              setDisconnectConfirmation(true);
+            } else {
+              changeConnection('connect');
+            }
           }}
         >
-          {connection === 'loading'
-            ? 'Checking…'
+          {disconnecting
+            ? 'Disconnecting…'
             : connecting
               ? 'Connecting…'
-              : connection === 'error'
-                ? 'Try again'
-                : connected
-                  ? 'Disconnect'
-                  : `Connect ${name}`}
+              : connection === 'loading'
+                ? 'Checking…'
+                : connection === 'error'
+                  ? 'Try again'
+                  : connected
+                    ? 'Disconnect'
+                    : `Connect ${name}`}
         </Button>
       </div>
+
+      <Dialog
+        open={disconnectConfirmation}
+        title={`Disconnect ${name}?`}
+        icon="cloud"
+        width={420}
+        {...(disconnecting ? {} : { onClose: () => setDisconnectConfirmation(false) })}
+        footer={
+          <>
+            <Button variant="ghost" disabled={disconnecting} onClick={() => setDisconnectConfirmation(false)}>
+              Cancel
+            </Button>
+            <Button disabled={disconnecting} onClick={() => changeConnection('disconnect')}>
+              {disconnecting ? 'Disconnecting…' : `Disconnect ${name}`}
+            </Button>
+          </>
+        }
+      >
+        <p className="ovl-settings__disconnectCopy">This removes this device’s saved {name} authorization.</p>
+        <div className="ovl-settings__disconnectReassure">
+          <Icon name="shield-check" size={16} color="var(--accent-green)" />
+          <span>Encrypted data already stored in {name} is not deleted.</span>
+        </div>
+        {connectError === null ? null : <p className="ovl-settings__disconnectError">{connectError}</p>}
+      </Dialog>
 
       {connection === 'disconnected' && providers.length > 1 && targetId !== null ? (
         <Field label="Backup provider" hint="Choose where encrypted library data is stored.">

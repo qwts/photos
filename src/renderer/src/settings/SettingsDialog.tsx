@@ -63,12 +63,19 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
     if (!open) {
       return;
     }
-    void window.overlook.settings.get().then((response) => {
-      setSettings(response.settings);
-    });
-    return window.overlook.settings.onChanged((payload) => {
+    let active = true;
+    let changed = false;
+    const unsubscribe = window.overlook.settings.onChanged((payload) => {
+      changed = true;
       setSettings(payload.settings);
     });
+    void window.overlook.settings.get().then((response) => {
+      if (active && !changed) setSettings(response.settings);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [open]);
 
   useEffect(() => {
