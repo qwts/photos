@@ -7,7 +7,7 @@ export interface SwitchProps {
   readonly onChange?: (checked: boolean) => void;
   /** The "always on, cannot be disabled" pattern renders checked+disabled. */
   readonly disabled?: boolean;
-  readonly label?: string;
+  readonly label: string;
 }
 
 // components/forms/Switch.jsx with real switch semantics (#61 exit criteria):
@@ -27,7 +27,7 @@ export function Switch({ checked, onChange, disabled = false, label }: SwitchPro
       <span className="ovl-switch__track">
         <span className="ovl-switch__knob" />
       </span>
-      {label === undefined ? null : <span>{label}</span>}
+      <span>{label}</span>
     </button>
   );
 }

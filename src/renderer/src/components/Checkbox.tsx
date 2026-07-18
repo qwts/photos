@@ -9,7 +9,7 @@ export interface CheckboxProps {
   readonly indeterminate?: boolean;
   readonly onChange?: (checked: boolean) => void;
   readonly disabled?: boolean;
-  readonly label?: string;
+  readonly label: string;
 }
 
 // components/forms/Checkbox.jsx over a real hidden input (#61 exit criteria):
@@ -42,7 +42,7 @@ export function Checkbox({ checked, indeterminate = false, onChange, disabled = 
       <span className={`ovl-checkbox__box${on ? ' ovl-checkbox__box--on' : ''}`}>
         {indeterminate ? <Icon name="minus" size={11} strokeWidth={3} /> : checked ? <Icon name="check" size={11} strokeWidth={3} /> : null}
       </span>
-      {label === undefined ? null : <span>{label}</span>}
+      <span>{label}</span>
     </label>
   );
 }

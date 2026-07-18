@@ -98,6 +98,7 @@ export function PrivacyPane({
       </Field>
       <Field label="Lock when hidden" hint="Also lock when the app is hidden or minimized.">
         <Switch
+          label="Lock when hidden"
           checked={settings.lockWhenHidden}
           disabled={!appLockConfigured}
           onChange={(lockWhenHidden) => onPatch({ lockWhenHidden })}
@@ -151,7 +152,7 @@ export function PrivacyPane({
         </div>
       </div>
       <Field label="Face grouping" hint="Not yet available — will run entirely on-device when it ships.">
-        <Switch checked={false} disabled />
+        <Switch checked={false} disabled label="Face grouping" />
       </Field>
       <Field
         label="Share diagnostics"
