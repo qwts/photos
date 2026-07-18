@@ -637,6 +637,28 @@
       ]
     },
     {
+      "id": "m09-pcloud-disconnect-custody",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "paths": ["tests/e2e/settings.spec.ts", "tests/e2e/settings-restart.spec.ts"]
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/provider-runtime.test.ts"
+        },
+        {
+          "type": "manual",
+          "reason": "A real packaged pCloud token is OS-keychain-sealed and cannot be safely fabricated or reused in automation. The packaged pass verifies the confirmation and restart UI; the Electron E2E lane exercises the real profile custody files with the unpackaged-only insecure keystore."
+        }
+      ]
+    },
+    {
       "id": "tooling-hidden-electron-e2e",
       "wiki": "Testing-Strategy",
       "coverage": [

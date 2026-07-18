@@ -91,6 +91,12 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     const card = page.getByTestId('provider-card');
     await expect(card).toContainText('Connected');
     await page.getByRole('button', { name: 'Disconnect' }).click();
+    const disconnectConfirmation = page.getByRole('dialog', { name: 'Disconnect Local mock?' });
+    await expect(disconnectConfirmation).toContainText('Encrypted data already stored in Local mock is not deleted.');
+    await disconnectConfirmation.getByRole('button', { name: 'Cancel' }).click();
+    await expect(card).toContainText('Connected');
+    await page.getByRole('button', { name: 'Disconnect' }).click();
+    await page.getByRole('button', { name: 'Disconnect Local mock' }).click();
     await expect(card).toContainText('Not connected');
     await expect(page.getByRole('radio', { name: 'Google Drive' })).toBeDisabled();
     await expect(page.getByText('Google Drive: Google Drive OAuth is not configured in this build.')).toBeVisible();
