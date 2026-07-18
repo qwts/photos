@@ -21,6 +21,8 @@ import {
 export interface ScopedSettingsStoreOptions {
   readonly profileFilePath: string;
   readonly libraryFilePath: () => string;
+  /** Test seam for persistence failures; production keeps atomic JSON writes. */
+  readonly persist?: ((filePath: string, value: unknown) => void) | undefined;
 }
 
 export class ScopedSettingsStore {
@@ -47,13 +49,23 @@ export class ScopedSettingsStore {
     this.ensureActiveLibrary();
     const merged = mergeSettings(combineSettings(this.profile, this.library), patch);
     if (patchTouchesProfile(patch)) {
-      this.profile = profileSettingsOf(merged);
-      persistJson(this.options.profileFilePath, this.profile);
+      const nextProfile = profileSettingsOf(merged);
+      this.persist(this.options.profileFilePath, nextProfile);
+      this.profile = nextProfile;
     }
     if (patchTouchesLibrary(patch)) {
-      this.library = librarySettingsOf(merged);
-      this.libraryDirty = true;
-      this.persistLibraryIfMaterialized();
+      const nextLibrary = librarySettingsOf(merged);
+      if (existsSync(path.dirname(this.activeLibraryFile))) {
+        this.persist(this.activeLibraryFile, nextLibrary);
+        if (this.legacyLibrarySeed !== null) {
+          this.persist(this.options.profileFilePath, this.profile);
+          this.legacyLibrarySeed = null;
+        }
+        this.libraryDirty = false;
+      } else {
+        this.libraryDirty = true;
+      }
+      this.library = nextLibrary;
     }
     this.emit();
     return combineSettings(this.profile, this.library);
@@ -91,7 +103,7 @@ export class ScopedSettingsStore {
       this.libraryDirty = false;
       if (this.legacyLibrarySeed !== null) {
         this.legacyLibrarySeed = null;
-        persistJson(this.options.profileFilePath, this.profile);
+        this.persist(this.options.profileFilePath, this.profile);
       }
       return;
     }
@@ -111,15 +123,19 @@ export class ScopedSettingsStore {
   private persistLibraryIfMaterialized(): boolean {
     if (!this.libraryDirty) return false;
     if (!existsSync(path.dirname(this.activeLibraryFile))) return false;
-    persistJson(this.activeLibraryFile, this.library);
+    this.persist(this.activeLibraryFile, this.library);
     this.libraryDirty = false;
     if (this.legacyLibrarySeed !== null) {
       this.legacyLibrarySeed = null;
       // Completing the one-time move prevents a library created later from
       // inheriting whichever library happened to own the legacy preferences.
-      persistJson(this.options.profileFilePath, this.profile);
+      this.persist(this.options.profileFilePath, this.profile);
     }
     return true;
+  }
+
+  private persist(filePath: string, value: unknown): void {
+    (this.options.persist ?? persistJson)(filePath, value);
   }
 }
 

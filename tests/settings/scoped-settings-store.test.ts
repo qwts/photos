@@ -70,6 +70,27 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
     assert.equal(h.store.get().sortOrder, 'date');
   });
 
+  test('a failed library write leaves memory and restart on the last durable provider selection (#488 review)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-scoped-settings-failure-'));
+    const profileFilePath = join(root, 'settings.json');
+    const libraryFilePath = join(root, 'library', 'settings.json');
+    mkdirSync(join(root, 'library'));
+    let failLibraryWrite = false;
+    const persist = (filePath: string, value: unknown): void => {
+      if (failLibraryWrite && filePath === libraryFilePath) throw new Error('injected settings write failure');
+      writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+    };
+    const store = new ScopedSettingsStore({ profileFilePath, libraryFilePath: () => libraryFilePath, persist });
+    store.set({ providerId: 'pcloud' });
+
+    failLibraryWrite = true;
+    assert.throws(() => store.set({ providerId: null }), /injected settings write failure/u);
+    assert.equal(store.get().providerId, 'pcloud', 'failed persistence cannot publish optimistic state in memory');
+
+    const restarted = new ScopedSettingsStore({ profileFilePath, libraryFilePath: () => libraryFilePath });
+    assert.equal(restarted.get().providerId, 'pcloud', 'restart reads the same last durable provider selection');
+  });
+
   test('legacy combined settings migrate once into the active library', () => {
     const root = mkdtempSync(join(tmpdir(), 'overlook-scoped-settings-migration-'));
     const profileFilePath = join(root, 'settings.json');
