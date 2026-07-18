@@ -60,13 +60,12 @@ describe('app state reducer', () => {
     assert.equal(afterSecond.selection.size, 0);
   });
 
-  test('dialog flags set independently', () => {
-    const state = apply(
-      initialAppState,
-      { type: 'dialog/set', dialog: 'import', open: true },
-      { type: 'dialog/set', dialog: 'settings', open: true },
-      { type: 'dialog/set', dialog: 'import', open: false },
-    );
+  test('opening a shell dialog is exclusive while closing one preserves the active dialog (#486)', () => {
+    const importing = apply(initialAppState, { type: 'dialog/set', dialog: 'import', open: true });
+    const settings = apply(importing, { type: 'dialog/set', dialog: 'settings', open: true });
+    const state = apply(settings, { type: 'dialog/set', dialog: 'import', open: false });
+    assert.equal(importing.importOpen, true);
+    assert.equal(settings.importOpen, false);
     assert.deepEqual(
       { importOpen: state.importOpen, exportOpen: state.exportOpen, settingsOpen: state.settingsOpen },
       { importOpen: false, exportOpen: false, settingsOpen: true },

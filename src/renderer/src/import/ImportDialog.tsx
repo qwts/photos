@@ -76,6 +76,8 @@ export interface ImportDialogProps {
   readonly onClose: () => void;
   /** "Show in library" — the shell jumps to Recent imports (E6.7). */
   readonly onDone: () => void;
+  /** The dropped paths resolved, but none passed the shared media allowlist. */
+  readonly onRejectedDrop?: (() => void) | undefined;
   /** Clean completion (no failures): feeds the green toast (#89). Fired
    * when the dialog CLOSES — never while the modal scrim still covers the
    * toast layer and burns its 4s timer (PR #185 review). */
@@ -89,7 +91,7 @@ interface Bar {
   readonly total: number;
 }
 
-export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: ImportDialogProps): ReactElement | null {
+export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, onComplete }: ImportDialogProps): ReactElement | null {
   const [phase, setPhase] = useState<Phase>('options');
   const [mode, setMode] = useState<'copy' | 'move'>('copy');
   const [source, setSource] = useState<ImportSourceKind>(dropped === null ? 'sd' : 'drop');
@@ -162,6 +164,10 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
       .scanFiles({ paths: [...dropped] })
       .then((summary) => {
         if (!stale) {
+          if (summary.total === 0) {
+            onRejectedDrop?.();
+            return;
+          }
           setDrop({ status: 'ready', summary });
         }
       })
@@ -173,7 +179,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onComplete }: Imp
     return () => {
       stale = true;
     };
-  }, [dropped]);
+  }, [dropped, onRejectedDrop]);
 
   const chooseFolder = (): void => {
     void window.overlook.import
