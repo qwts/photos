@@ -134,37 +134,43 @@ exits 1, and `.guard/last-run.json` records the reason and peak RSS. Timeout
 path: same command with `OVERLOOK_GUARD_TIMEOUT_S=5`. Lock path: start a
 guarded run, then a second in the same worktree — it must refuse.
 
-## Baselines (measured locally, Apple Silicon, Node 24.18)
+## Baselines
 
 See `.guard/history.jsonl` in a working checkout for current numbers; ratchet
-ceilings from measured peaks with headroom, not guesses:
+ceilings from measured peaks with headroom, not guesses. Note macOS and Linux
+`ps` report meaningfully different aggregate RSS for the same lane (macOS
+consistently higher) — ceilings are sized for the macOS numbers since that is
+where local/agent runs happen, and CI (Linux) has proportionally more
+headroom as a result.
 
 - Full `npm test` (typecheck + compile + Electron-hosted unit + happy-dom DOM):
-  peak 1845-2071 MB across 19 processes over three runs → 4096 MB default
-  (~2x headroom).
-- `npm run test:cov` (same, under `c8`): peak 1932 MB across 20 processes,
-  comparable to `npm test` plus c8's own overhead → 4096 MB default.
+  peak 1845-2071 MB across 19 processes locally (macOS, Apple Silicon, Node
+  24.18) over three runs → 4096 MB default (~2x headroom).
+- `npm run test:cov` (same, under `c8`): peak 1932 MB across 20 processes
+  locally, 1194-1198 MB across 13 processes on CI (Linux) → 4096 MB default.
 - `npm run test:stories:ci` (static Storybook build served over http, driven
   by Playwright chromium): the 4096 MB default killed a **healthy** run 18 s
-  in, mid-build (`rss-limit`, 44 processes) — the esbuild/webpack build step is
-  the heavy part, not the interaction tests themselves. An 8192 MB trial
-  ceiling let it complete but peaked at 8067 MB, only ~1.5% headroom. A second
-  run at the same 8192 MB ceiling would plausibly have been killed by normal
-  run-to-run variance (a third measurement at a raised ceiling came in at only
-  5660 MB, a >2x spread across runs) — raised to 12288 MB (~1.5-2x headroom
-  over both observed peaks), the same ceiling as the perf lane and the same
-  ratchet-up-after-a-healthy-kill pattern image-trail's own e2e ceiling went
-  through.
+  in locally, mid-build (`rss-limit`, 44 processes) — the esbuild/webpack
+  build step is the heavy part, not the interaction tests themselves. An
+  8192 MB local trial let it complete but peaked at 8067 MB, only ~1.5%
+  headroom; a third local run at a raised ceiling came in at just 5660 MB, a
+  > 2x spread across runs. Raised to 12288 MB (~1.5-2x headroom over the
+  > highest local peak) — the same ratchet-up-after-a-healthy-kill pattern
+  > image-trail's own e2e ceiling went through. CI's (Linux) first real run
+  > peaked at only 3849 MB across 24 processes, comfortably inside even the old
+  > 4096 MB default — confirming the macOS/Linux RSS-accounting gap above and
+  > leaving ~3.2x headroom at 12288 MB.
 - `npm run test:e2e` (Playwright driving real Electron instances, `workers: 3`
-  on CI) and `npm run test:perf` (single worker, 200K-photo synthetic seed):
-  **provisional.** The 8192 MB / 12288 MB ceilings above are generous trial
-  values, not measured peaks — both lanes need a real Electron window and a
-  display server (Xvfb in CI), so they were not run against the guard
-  locally to avoid popping up GUI windows on this machine. Tighten (or, if
-  the guard kills a healthy run — as happened locally with the stories:ci
-  ceiling above — raise) both from the first real CI run's
-  `.guard/last-run.json`, the same way image-trail's own e2e ceiling was
-  raised from a too-tight trial value after its first full run.
+  on CI): CI's first real run peaked at 4183 MB across 24 processes,
+  comfortably inside the 8192 MB ceiling (~2x headroom) — no change needed.
+  Not run locally (avoids popping a real Electron/Chromium GUI window on this
+  machine); the CI number is the one that matters since that lane never runs
+  outside CI/Xvfb in practice.
+- `npm run test:perf` (single worker, 200K-photo synthetic seed): **still
+  provisional** — a manual `workflow_dispatch`-only lane (`perf.yml`) that has
+  not run yet. The 12288 MB ceiling and 2700 s timeout are generous trial
+  values; tighten or raise from the first real run's `.guard/last-run.json`
+  the way `test:stories:ci` and `test:e2e` were above.
 
 ## Limitations
 
