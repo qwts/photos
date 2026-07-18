@@ -1,7 +1,10 @@
 import { Fragment, type DragEvent, type ReactElement } from 'react';
+import { useIntl } from 'react-intl';
 
 import './phototile.css';
+import type { PreviewFailureReason } from '../../../shared/library/preview.js';
 import { Icon } from './Icon';
+import { previewFailureLabel } from './previewFailureLabel';
 import { StatusGlyph, type SyncState } from './StatusGlyph';
 
 export interface PhotoTileProps {
@@ -11,6 +14,7 @@ export interface PhotoTileProps {
   readonly favorite?: boolean;
   readonly status?: SyncState;
   readonly showStatus?: boolean;
+  readonly previewFailure?: PreviewFailureReason | null;
   /** Opens the photo (tile body). */
   readonly onClick?: () => void;
   /** Toggles selection (circle only) — never opens. */
@@ -20,11 +24,11 @@ export interface PhotoTileProps {
   readonly onDragEnd?: (() => void) | undefined;
 }
 
-function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean): void {
+function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean, label: string): void {
   image.dataset['unavailable'] = unavailable ? 'true' : 'false';
   const fallback = image.nextElementSibling;
   if (!(fallback instanceof HTMLElement)) return;
-  fallback.textContent = unavailable ? 'PREVIEW UNAVAILABLE' : '';
+  fallback.textContent = unavailable ? label : '';
   if (unavailable) fallback.setAttribute('role', 'status');
   else fallback.removeAttribute('role');
 }
@@ -39,12 +43,15 @@ export function PhotoTile({
   favorite = false,
   status = 'local',
   showStatus = true,
+  previewFailure,
   onClick,
   onToggleSelect,
   onContextAction,
   onDragStart,
   onDragEnd,
 }: PhotoTileProps): ReactElement {
+  const intl = useIntl();
+  const unavailableLabel = previewFailureLabel(intl, previewFailure);
   const classes = ['ovl-tile', selected ? 'ovl-tile--selected' : undefined, status === 'offloaded' ? 'ovl-tile--offloaded' : undefined]
     .filter(Boolean)
     .join(' ');
@@ -68,7 +75,7 @@ export function PhotoTile({
         }
       }}
     >
-      <Fragment key={src}>
+      <Fragment key={`${src}:${previewFailure ?? ''}`}>
         <img
           src={src}
           alt={alt}
@@ -77,10 +84,10 @@ export function PhotoTile({
           className="ovl-tile__img"
           data-unavailable="false"
           onLoad={(event) => {
-            setPreviewUnavailable(event.currentTarget, false);
+            setPreviewUnavailable(event.currentTarget, false, unavailableLabel);
           }}
           onError={(event) => {
-            setPreviewUnavailable(event.currentTarget, true);
+            setPreviewUnavailable(event.currentTarget, true, unavailableLabel);
           }}
         />
         <div className="ovl-tile__unavailable mono-data" />

@@ -103,6 +103,45 @@ test('full circle: import a real RAF, lightbox-export as JPEG from its preview',
   }
 });
 
+test('HEIC import renders oriented previews and Original export remains byte-faithful (#487)', async () => {
+  test.skip(process.platform !== 'darwin', 'HEIC preview decode is the macOS ImageIO contract');
+  const destination = mkdtempSync(join(tmpdir(), 'overlook-heic-export-'));
+  const card = join(mkdtempSync(join(tmpdir(), 'overlook-heic-card-')), 'SDCARD');
+  mkdirSync(card);
+  const source = join(import.meta.dirname, '../fixtures/heic/iphone-13-pro.heic');
+  copyFileSync(source, join(card, 'iphone-13-pro.heic'));
+  const { app, page } = await launch(destination, { OVERLOOK_SEED: '0', OVERLOOK_IMPORT_SOURCE: card });
+  try {
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('button', { name: 'Import 1 photos' }).click();
+    await expect(page.getByText('All 1 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Show in library' }).click();
+
+    const tile = page.locator('.ovl-tile__img').first();
+    await expect
+      .poll(() => tile.evaluate((image) => (image as unknown as { readonly naturalWidth: number }).naturalWidth))
+      .toBeGreaterThan(0);
+    const row = await page.evaluate<{ width: number; height: number; previewFailure: string | null }>(
+      `window.overlook.library.page({ source: 'all', limit: 1 }).then((r) => ({ width: r.photos[0].width, height: r.photos[0].height, previewFailure: r.photos[0].previewFailure }))`,
+    );
+    expect(row).toEqual({ width: 3024, height: 4032, previewFailure: null });
+
+    await page.getByRole('button', { name: 'Open iphone-13-pro.heic' }).click();
+    const image = page.getByTestId('lightbox').getByRole('img', { name: 'iphone-13-pro.heic' });
+    await expect.poll(() => image.evaluate((node) => (node as unknown as { readonly naturalHeight: number }).naturalHeight)).toBe(4032);
+    await expect(page.getByText('PREVIEW UNAVAILABLE')).toHaveCount(0);
+
+    await page.getByTestId('lightbox').getByRole('button', { name: 'Export' }).click();
+    await page.getByRole('radio', { name: 'Original' }).click();
+    await page.getByRole('button', { name: /Choose folder/u }).click();
+    await page.getByRole('button', { name: 'Export 1 photo', exact: true }).click();
+    await expect(page.getByText('1 photo exported and decrypted.')).toBeVisible({ timeout: 20_000 });
+    expect(readFileSync(join(destination, 'iphone-13-pro.heic'))).toEqual(readFileSync(source));
+  } finally {
+    await app.close();
+  }
+});
+
 test('metadata-lite JPEG imports with decoded dimensions, renders, and exports byte-identically (#367)', async () => {
   const destination = mkdtempSync(join(tmpdir(), 'overlook-export-dest-'));
   const card = join(mkdtempSync(join(tmpdir(), 'overlook-zero-dim-card-')), 'SDCARD');

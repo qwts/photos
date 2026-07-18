@@ -68,7 +68,7 @@ function harness(overrides?: Partial<ImportEngineDeps>) {
         rows.set(photo.id, photo);
         hashes.add(photo.contentHash);
       },
-      repairDimensions: (id, width, height) => {
+      repairGeneratedDimensions: (id, width, height) => {
         const photo = rows.get(id);
         if (photo === undefined || (photo.width > 0 && photo.height > 0)) return false;
         rows.set(id, { ...photo, width, height });

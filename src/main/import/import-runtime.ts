@@ -49,7 +49,7 @@ export function createImportRuntime(options: ImportRuntimeOptions): ImportRuntim
       hasContentHash: (hash) => options.repo.hasContentHash(hash),
       get: (id) => options.repo.get(id),
       insert: (photo) => options.repo.insert(photo),
-      repairDimensions: (id, width, height) => options.repo.repairDimensions(id, width, height),
+      repairGeneratedDimensions: (id, width, height) => options.repo.repairGeneratedDimensions(id, width, height),
       setPreviewFailure: (id, failure) => options.repo.setPreviewFailure(id, failure),
     },
     blobs: {

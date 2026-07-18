@@ -69,8 +69,8 @@ export class RawRepairService {
         if (this.controller.signal.aborted) break;
         const repairedMetadata = this.options.repairMetadata(photo.id, {
           ...metadata,
-          width: metadata.width ?? outcome?.width ?? null,
-          height: metadata.height ?? outcome?.height ?? null,
+          width: photo.fileKind === 'heic' ? (outcome?.width ?? metadata.width) : (metadata.width ?? outcome?.width ?? null),
+          height: photo.fileKind === 'heic' ? (outcome?.height ?? metadata.height) : (metadata.height ?? outcome?.height ?? null),
         });
         const repairedThumbs = !thumbsReady && outcome?.generated === true;
         const failure =

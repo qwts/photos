@@ -200,6 +200,17 @@ export const UndecodablePreviewIsExplicit: Story = {
   },
 };
 
+export const CorruptHeicFailureIsExplicit: Story = {
+  args: {
+    photo: { ...PHOTO, width: 0, height: 0, fileName: 'CORRUPT.HEIC', fileKind: 'heic', previewFailure: 'corrupt' },
+    imageSrc: 'data:image/jpeg;base64,AAAA',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByText('PREVIEW UNAVAILABLE — FILE IS CORRUPT')).toBeVisible());
+  },
+};
+
 export const KeyboardZoom: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

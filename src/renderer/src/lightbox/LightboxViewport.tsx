@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement, SyntheticEvent, WheelEvent as ReactWheelEvent } from 'react';
+import { useIntl } from 'react-intl';
 
 import { fullUrl } from '../../../shared/library/full-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
+import { previewFailureLabel } from '../components/previewFailureLabel';
 import {
   DEFAULT_ORIENTATION,
   clampTransform,
@@ -65,6 +67,7 @@ export function LightboxViewport({
   onActivity,
   onDimensionsResolved,
 }: LightboxViewportProps): ReactElement {
+  const intl = useIntl();
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<LightboxSize>({ width: 0, height: 0 });
   const [transform, setTransform] = useState<LightboxTransform>(FIT);
@@ -268,7 +271,7 @@ export function LightboxViewport({
       />
       {decodeFailed ? (
         <div className="ovl-lightbox__unavailable mono-data" role="status">
-          PREVIEW UNAVAILABLE
+          {previewFailureLabel(intl, photo.previewFailure)}
         </div>
       ) : null}
       {showHint ? (

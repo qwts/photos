@@ -1,4 +1,16 @@
 {
+  "preview.unavailable": {
+    "defaultMessage": "PREVIEW UNAVAILABLE"
+  },
+  "preview.unavailable.corrupt": {
+    "defaultMessage": "PREVIEW UNAVAILABLE — FILE IS CORRUPT"
+  },
+  "preview.unavailable.decodeFailed": {
+    "defaultMessage": "PREVIEW UNAVAILABLE — IMAGE DECODE FAILED"
+  },
+  "preview.unavailable.unsupportedCodec": {
+    "defaultMessage": "PREVIEW UNAVAILABLE — HEIC CODEC IS UNSUPPORTED"
+  },
   "restore.local.error.alreadyRegistered": {
     "defaultMessage": "That library is already registered."
   },

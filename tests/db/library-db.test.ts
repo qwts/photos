@@ -288,6 +288,19 @@ describe('PhotosRepository', () => {
     db.close();
   });
 
+  test('generated HEIC dimensions replace un-oriented metadata dimensions (#487)', () => {
+    const { db, repo } = openSeeded();
+    const heic = samplePhoto({ fileKind: 'heic', width: 4032, height: 3024 });
+    repo.insert(heic);
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+
+    assert.equal(repo.repairGeneratedDimensions(heic.id, 3024, 4032), true);
+    assert.deepEqual({ width: repo.get(heic.id)?.width, height: repo.get(heic.id)?.height }, { width: 3024, height: 4032 });
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', heic.id)?.dirty, 1);
+    assert.equal(repo.repairGeneratedDimensions(heic.id, 3024, 4032), false);
+    db.close();
+  });
+
   test('preview repair candidates stay local and metadata repair fills only unknown values (#368, #487)', () => {
     const { db, repo } = openSeeded();
     const affected = samplePhoto({ width: 0, height: 0, camera: null, lens: null });

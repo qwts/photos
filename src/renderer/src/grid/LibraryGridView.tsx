@@ -88,6 +88,7 @@ export function LibraryGridView({
         alt={photo.fileName}
         favorite={photo.favorite}
         status={photo.syncState}
+        previewFailure={photo.previewFailure}
         selected={state.selection.has(photo.id)}
         onClick={() => {
           dispatch({ type: 'lightbox/opened', photoId: photo.id });

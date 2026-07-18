@@ -68,7 +68,7 @@ export interface ImportEngineDeps {
     readonly hasContentHash: (hash: string) => boolean;
     readonly get: (id: string) => PhotoRecord | undefined;
     readonly insert: (photo: PhotoInsert) => void;
-    readonly repairDimensions: (id: string, width: number, height: number) => boolean;
+    readonly repairGeneratedDimensions: (id: string, width: number, height: number) => boolean;
     readonly setPreviewFailure: (id: string, failure: PhotoRecord['previewFailure']) => boolean;
   };
   readonly blobs: {
@@ -243,7 +243,7 @@ export class ImportEngine {
           fileKind: file.kind,
         });
         if (outcome.width !== null && outcome.height !== null) {
-          this.deps.repo.repairDimensions(file.photoId ?? '', outcome.width, outcome.height);
+          this.deps.repo.repairGeneratedDimensions(file.photoId ?? '', outcome.width, outcome.height);
         }
         if (file.kind === 'heic') {
           this.deps.repo.setPreviewFailure(file.photoId ?? '', outcome.generated ? null : (outcome.failure ?? 'decode-failed'));
