@@ -107,6 +107,92 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(flipped, 'mock');
   });
 
+  test('pCloud disconnect verifies custody and persisted selection before reporting success', async () => {
+    let providerId: string | null = 'pcloud';
+    const { runtime: r } = runtime({
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+    });
+    const record = {
+      accessToken: 'disconnect-token',
+      apiHost: 'api.pcloud.com',
+      connectedAt: '2026-07-18T00:00:00.000Z',
+    } as const;
+    r.tokenStore().save(record);
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
+
+    assert.deepEqual(await Promise.resolve(r.disconnect('pcloud')), { ok: true, reason: null });
+    assert.equal(r.tokenStore().load(), null);
+    assert.equal(providerId, null);
+  });
+
+  test('pCloud disconnect restores custody when provider selection does not persist', async () => {
+    const { runtime: r } = runtime({
+      providerId: () => 'pcloud',
+      setProviderId: () => undefined,
+    });
+    const record = {
+      accessToken: 'rollback-token',
+      apiHost: 'eapi.pcloud.com',
+      connectedAt: '2026-07-18T00:00:00.000Z',
+    } as const;
+    r.tokenStore().save(record);
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
+
+    const result = await Promise.resolve(r.disconnect('pcloud'));
+    assert.equal(result.ok, false);
+    assert.match(result.reason ?? '', /save the disconnected state/u);
+    assert.deepEqual(r.tokenStore().load(), record, 'a failed settings write cannot silently discard working credentials');
+  });
+
+  test('pCloud disconnect reports credential-removal failure without changing provider selection', async () => {
+    let providerId: string | null = 'pcloud';
+    const { runtime: r } = runtime({
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+    });
+    const store = r.tokenStore();
+    store.save({
+      accessToken: 'retained-token',
+      apiHost: 'api.pcloud.com',
+      connectedAt: '2026-07-18T00:00:00.000Z',
+    });
+    store.clear = () => {
+      throw new Error('injected custody failure');
+    };
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
+
+    const result = await Promise.resolve(r.disconnect('pcloud'));
+    assert.equal(result.ok, false);
+    assert.match(result.reason ?? '', /remove the pCloud authorization/u);
+    assert.equal(providerId, 'pcloud');
+  });
+
+  test('concurrent pCloud disconnect requests share one transaction', async () => {
+    let providerId: string | null = 'pcloud';
+    const { runtime: r } = runtime({
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+    });
+    r.tokenStore().save({
+      accessToken: 'single-flight-token',
+      apiHost: 'api.pcloud.com',
+      connectedAt: '2026-07-18T00:00:00.000Z',
+    });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
+
+    const first = r.disconnect('pcloud');
+    const repeated = r.disconnect('pcloud');
+    assert.equal(repeated, first);
+    await Promise.resolve(first);
+  });
+
   test('descriptors expose capabilities and switching is blocked during active work', async () => {
     let active = true;
     const { runtime: r } = runtime({ isWorkActive: () => active });
