@@ -6,6 +6,7 @@ import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/renderer-lock-reload.js';
 import { initialWindowBehavior } from './e2e-window-visibility.js';
+import { installWindowNavigationPolicy } from './window-navigation-policy.js';
 
 export function createWindow(): BrowserWindow {
   const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
@@ -33,6 +34,7 @@ export function createWindow(): BrowserWindow {
     },
   });
   const emitFocusChanged = createEmitter(events.focusChanged, (name, payload) => win.webContents.send(name, payload));
+  installWindowNavigationPolicy(win.webContents);
   win.on('focus', () => emitFocusChanged({ focused: true }));
   win.on('blur', () => emitFocusChanged({ focused: false }));
   const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
