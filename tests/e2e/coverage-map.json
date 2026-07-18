@@ -1095,7 +1095,7 @@
         },
         {
           "type": "unit-dom",
-          "paths": ["tests/tooling/a11y-budget.test.ts"]
+          "paths": ["tests/dom/toast-positioning.test.ts", "tests/tooling/a11y-budget.test.ts"]
         },
         {
           "type": "manual",
