@@ -22,6 +22,13 @@ on:
   push:
     branches:
       - main
+  # A draft skipped during a main merge would otherwise sit stuck once marked
+  # ready: strict up-to-date blocks its auto-merge, and nothing re-runs this
+  # updater until the next unrelated merge (PR #541 review). The ready flip —
+  # and a PR opened or reopened on an already-stale base — gets an update pass
+  # of its own. Draft-opened PRs no-op in the job's non-draft filter.
+  pull_request:
+    types: [opened, reopened, ready_for_review]
   # Manual lever for recovery (e.g. after a conflict was resolved elsewhere).
   workflow_dispatch:
 

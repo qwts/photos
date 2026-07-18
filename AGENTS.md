@@ -76,7 +76,10 @@ this file in the same PR as the change — never after the fact.
   conflicting branches; the PR shows CONFLICTING — see Branch And GitHub
   Hygiene). Because automation may rebase your branch between your pushes,
   run `git pull --rebase` before pushing. Dependabot branches are excluded —
-  comment `@dependabot rebase` on those instead.
+  comment `@dependabot rebase` on those instead. After any rebase that
+  changes `package-lock.json`, run `npm ci` before trusting local gates: a
+  stale install fails E2E in ways that look like flakes (an Electron bump
+  landing mid-session produced two identical timeout failures this way).
 - **Draft CI is the fast lane only.** On draft PRs CI runs the deterministic
   gates (lint, format, acceptance/a11y budgets, unit+coverage, build) and skips
   the browser lanes (Storybook interaction tests, Electron E2E). The full suite
