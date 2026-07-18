@@ -90,6 +90,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     const page = await app.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
     await page.locator('.ovl-tile__img').first().waitFor();
+    await page.evaluate('window.overlook.settings.set({ patch: { autoBackupOnImport: false } })');
 
     const createAlbum = async (name: string): Promise<void> => {
       await page.getByRole('button', { name: 'New album' }).click();
