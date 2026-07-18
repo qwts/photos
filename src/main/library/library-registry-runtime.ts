@@ -53,6 +53,12 @@ export class LibraryRegistryRuntime {
 
   resolveActive(): LibraryEntry {
     if (this.active !== undefined) return this.active;
+    // Once startup chose a virtual default, registry mutations must not
+    // silently repoint the dataDir-bound runtime. In particular, registering
+    // an existing library from fresh-profile onboarding must leave the
+    // virtual default active until the explicit switch selects, app-lock
+    // swaps to, and reloads into that library.
+    if (this.virtualDefault !== undefined) return this.virtualDefault;
     const registry = this.getRegistry();
     const existing = registry.startupEntry();
     if (existing !== undefined) {

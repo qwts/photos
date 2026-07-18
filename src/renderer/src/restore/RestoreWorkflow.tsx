@@ -211,12 +211,24 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
           }
           return;
         }
-        // A fresh profile has no open library. With the retained directory
-        // now its only registry entry, leaving onboarding lets the ordinary
-        // lazy bootstrap open that entry without a destructive restore or a
-        // live-switch teardown (#479).
-        setOpeningLocal(false);
-        onStartNew?.();
+        // Registration alone does not move the dataDir-bound app-lock host.
+        // Use the normal switch path even though this fresh profile has no
+        // open library: it selects the retained directory, swaps/initializes
+        // its lock controller, and reloads into either LockScreen or Shell.
+        // A successful switch destroys this renderer before its promise
+        // callback runs, matching LibrarySwitcher behavior.
+        void window.overlook.libraries
+          .open({ id: outcome.library.id })
+          .then((opened) => {
+            if (!opened.ok) {
+              setOpeningLocal(false);
+              setError({ reason: 'local-open', message: intl.formatMessage(messages.openFailed) });
+            }
+          })
+          .catch(() => {
+            setOpeningLocal(false);
+            setError({ reason: 'local-open', message: intl.formatMessage(messages.openFailed) });
+          });
       })
       .catch(() => {
         setOpeningLocal(false);

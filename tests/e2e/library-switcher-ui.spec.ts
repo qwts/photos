@@ -1,9 +1,11 @@
-import { mkdtempSync } from 'node:fs';
+import { copyFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+const APP_PASSWORD = 'Correct Horse Battery Staple 42!';
 
 // #386: the switcher UI end-to-end — create a library in the modal and LAND
 // in it, switch back with the keyboard only, and registry-only removal. The
@@ -115,7 +117,7 @@ test('fresh-profile onboarding opens a retained local library without cloud reco
   const freshProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-reinstall-profile-'));
   const retainedLibrary = join(originalProfile, 'library');
 
-  const original = await launch(originalProfile, { OVERLOOK_SEED: '3' });
+  const original = await launch(originalProfile, { OVERLOOK_SEED: '3', OVERLOOK_APP_LOCK_TEST_ANCHOR: '1' });
   try {
     const page = await original.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
@@ -124,7 +126,10 @@ test('fresh-profile onboarding opens a retained local library without cloud reco
     await original.close();
   }
 
-  const reinstalled = await launch(freshProfile, { OVERLOOK_PICK_LIBRARY_DIR: retainedLibrary });
+  const reinstalled = await launch(freshProfile, {
+    OVERLOOK_PICK_LIBRARY_DIR: retainedLibrary,
+    OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
+  });
   try {
     let page = await reinstalled.firstWindow();
     await expect(page.getByTestId('restore-onboarding')).toBeVisible();
@@ -135,6 +140,57 @@ test('fresh-profile onboarding opens a retained local library without cloud reco
     await expect(page.getByTestId('restore-onboarding')).not.toBeVisible();
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
     await expect(page.getByTestId('library-trigger')).toContainText('library');
+  } finally {
+    await reinstalled.close();
+  }
+});
+
+test('fresh-profile onboarding rebinds app lock before opening a retained protected library (#479)', async () => {
+  test.setTimeout(90_000);
+  const originalProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-retained-locked-library-'));
+  const freshProfile = mkdtempSync(join(tmpdir(), 'overlook-e2e-reinstall-locked-profile-'));
+  const retainedLibrary = join(originalProfile, 'library');
+
+  const original = await launch(originalProfile, {
+    OVERLOOK_SEED: '2',
+    OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
+  });
+  try {
+    const page = await original.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('button', { name: 'Set password…' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Set app password' });
+    await dialog.getByLabel('New app password').fill(APP_PASSWORD);
+    await dialog.getByLabel('Confirm app password').fill(APP_PASSWORD);
+    await dialog.getByRole('button', { name: 'Set app password' }).click();
+    await expect(page.getByTestId('lock-screen')).toBeVisible();
+  } finally {
+    await original.close();
+  }
+
+  const reinstalled = await launch(freshProfile, {
+    OVERLOOK_PICK_LIBRARY_DIR: retainedLibrary,
+    OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
+  });
+  try {
+    let page = await reinstalled.firstWindow();
+    await expect(page.getByTestId('restore-onboarding')).toBeVisible();
+    // The test adapter is profile-scoped; make the retained library's anchor
+    // visible only after the fresh default has initialized. This stands in
+    // for the OS credential store's dataDir-scoped anchor surviving reinstall.
+    copyFileSync(join(originalProfile, 'app-lock-test-anchor.json'), join(freshProfile, 'app-lock-test-anchor.json'));
+    await page.getByRole('button', { name: 'Open existing library…' }).click();
+
+    page = await reinstalled.firstWindow();
+    await expect(page.getByTestId('lock-screen')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Library locked' })).toBeVisible();
+    await expect(page.getByTestId('restore-onboarding')).toHaveCount(0);
+    await page.getByLabel('App password').fill(APP_PASSWORD);
+    await page.getByRole('button', { name: 'Unlock' }).click();
+    await page.getByTestId('virtual-grid').waitFor();
+    await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(2);
   } finally {
     await reinstalled.close();
   }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -35,11 +35,14 @@ describe('app profile identity', () => {
     assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, 'path:userData:/tmp/overlook-profile']);
   });
 
-  it('ignores profile overrides in packaged builds', () => {
-    const { app, calls } = profileApp(true);
+  it('ignores profile overrides and creates the stable profile before binding it in packaged builds', () => {
+    const appData = mkdtempSync(join(tmpdir(), 'overlook-app-profile-first-launch-'));
+    const stable = join(appData, OVERLOOK_PRODUCT_NAME);
+    const { app, calls } = profileApp(true, { appData, userData: join(appData, 'photos') });
 
     assert.equal(configureAppProfile(app, '/tmp/overlook-profile'), undefined);
-    assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:/profiles/${OVERLOOK_PRODUCT_NAME}`]);
+    assert.equal(existsSync(stable), true);
+    assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:${stable}`]);
   });
 
   it('reuses the established packaged profile containing the library registry and provider custody', () => {
