@@ -753,7 +753,7 @@ export class PhotosRepository {
       const recoverable = `(p.deleted_at IS NULL OR (p.deleted_at IS NOT NULL AND l.status IN ('synced', 'offloaded')))`;
       const photos = queryAll<PhotoRow>(this.db, `${select('date')} WHERE ${recoverable} ORDER BY p.imported_at, p.id`).map(
         (row): BackupManifestPhotoV2 => {
-          const { syncState: _syncState, ...photo } = toRecord(row);
+          const { previewFailure: _previewFailure, syncState: _syncState, ...photo } = toRecord(row);
           return {
             ...photo,
             blobPath: `blobs/${photo.contentHash.slice(0, 2)}/${photo.contentHash}`,
