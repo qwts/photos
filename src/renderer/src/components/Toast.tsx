@@ -16,6 +16,10 @@ const TONES: Record<ToastTone, { icon: IconName; color: string }> = {
 };
 
 const messages = defineMessages({
+  announcement: {
+    id: 'toast.announcement',
+    defaultMessage: '{title} — {detail}',
+  },
   dismiss: {
     id: 'toast.dismiss',
     defaultMessage: 'Dismiss notification',
@@ -169,11 +173,16 @@ function ToastTimer({
 // Bottom-right stack; action toasts stay until acted on or dismissed. Timed
 // toasts preserve their remaining duration while hovered or focused (#411).
 export function ToastHost({ toasts, onDismiss, className, autoDismissMs = 4000 }: ToastHostProps): ReactElement {
+  const intl = useIntl();
   const latest = toasts.at(-1);
+  const announcement =
+    latest?.detail === undefined
+      ? latest?.title
+      : intl.formatMessage(messages.announcement, { title: latest.title, detail: latest.detail });
   return (
     <div className={['ovl-toast-host', className].filter(Boolean).join(' ')}>
       <div className="ovl-toast-host__announcer" role="status" aria-live="polite" aria-atomic="true">
-        {latest === undefined ? null : `${latest.title}${latest.detail === undefined ? '' : ` — ${latest.detail}`}`}
+        {announcement}
       </div>
       {toasts.map((toast) => (
         <ToastTimer key={toast.id} toast={toast} onDismiss={onDismiss} autoDismissMs={autoDismissMs} />
