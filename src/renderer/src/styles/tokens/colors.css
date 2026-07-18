@@ -50,6 +50,7 @@
   --text-muted: var(--white-2);
   --text-faint: var(--white-3);
   --text-on-accent: oklch(0.14 0.01 250);
+  --on-danger-strong: var(--text-on-accent);
 
   --selection: var(--accent-cyan);
   --focus-ring: 0 0 0 2px var(--gray-0), 0 0 0 4px var(--accent-cyan);

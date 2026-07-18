@@ -4,7 +4,6 @@
 :root {
   --btn-primary-hover: oklch(0.76 0.15 278);
   --btn-primary-press: oklch(0.63 0.16 278);
-  --on-danger-strong: oklch(0.97 0.005 25);
 }
 
 /* ---- Button ---- */

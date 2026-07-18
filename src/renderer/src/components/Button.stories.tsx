@@ -71,3 +71,23 @@ export const DisabledDoesNotFire: Story = {
     await expect(args.onClick).not.toHaveBeenCalled();
   },
 };
+
+export const DangerHoverContrast: Story = {
+  args: {
+    variant: 'danger',
+    children: 'Delete 12 photos',
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.hover(within(canvasElement).getByRole('button'));
+  },
+};
+
+export const DangerActiveContrast: Story = {
+  args: {
+    variant: 'danger',
+    children: 'Delete 12 photos',
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.pointer({ keys: '[MouseLeft>]', target: within(canvasElement).getByRole('button') });
+  },
+};
