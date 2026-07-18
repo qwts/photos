@@ -1,13 +1,14 @@
-import { copyFileSync, mkdirSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test, _electron as electron, type Page } from '@playwright/test';
 
+import { mkE2eTmpDir } from './support/tmp-dir.js';
+
 const FIXTURE = join(import.meta.dirname, '../fixtures/exif/exif-stripped.jpg');
 
 function makeFolder(count: number, nested = false): { readonly folder: string; readonly paths: readonly string[] } {
-  const folder = join(mkdtempSync(join(tmpdir(), 'overlook-e2e-drop-')), 'photos');
+  const folder = join(mkE2eTmpDir('overlook-e2e-drop-'), 'photos');
   const target = nested ? join(folder, 'nested') : folder;
   mkdirSync(target, { recursive: true });
   const paths = Array.from({ length: count }, (_, index) => {
@@ -57,7 +58,7 @@ test('P0 #486: Finder-shaped drops over a modal stay responsive and cannot open 
   copyFileSync(FIXTURE, raw);
   copyFileSync(FIXTURE, heic);
   const jpeg = join(folder, 'photo-0000.jpg');
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-window-drop-'));
+  const userData = mkE2eTmpDir('overlook-e2e-window-drop-');
   const app = await electron.launch({
     args: ['.'],
     env: { ...process.env, OVERLOOK_USER_DATA: userData, OVERLOOK_INSECURE_KEYSTORE: '1' },
@@ -130,7 +131,7 @@ test('P0 #486: Finder-shaped drops over a modal stay responsive and cannot open 
 
 test('P0 #406: 800 Finder paths route into one running window and one import batch', async () => {
   const { paths } = makeFolder(800);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-large-drop-'));
+  const userData = mkE2eTmpDir('overlook-e2e-large-drop-');
   const env = { ...process.env, OVERLOOK_USER_DATA: userData, OVERLOOK_INSECURE_KEYSTORE: '1' };
   const app = await electron.launch({ args: ['.'], env });
   try {
@@ -150,7 +151,7 @@ test('P0 #406: 800 Finder paths route into one running window and one import bat
 
 test('P0 #406: a folder path recursively opens as one dropped import source', async () => {
   const { folder } = makeFolder(3, true);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-folder-drop-'));
+  const userData = mkE2eTmpDir('overlook-e2e-folder-drop-');
   const app = await electron.launch({
     args: ['.'],
     env: { ...process.env, OVERLOOK_USER_DATA: userData, OVERLOOK_INSECURE_KEYSTORE: '1' },

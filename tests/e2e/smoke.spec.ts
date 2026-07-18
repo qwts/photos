@@ -1,10 +1,8 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
 
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // Launches the real Electron app from the out/ bundle produced by
 // global-setup — the lane fails if the app cannot launch, render, or expose
@@ -17,7 +15,7 @@ import type { OverlookApi } from '../../src/shared/ipc/api.js';
 test('opens a window rendering the React shell', async () => {
   // The composed shell (#73) fetches library counts on mount, so even the
   // smoke needs an isolated temp profile + the CI-safe keystore.
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-smoke-'));
+  const userData = mkE2eTmpDir('overlook-e2e-smoke-');
   const app = await electron.launch({
     args: ['.'],
     env: { ...process.env, OVERLOOK_USER_DATA: userData, OVERLOOK_INSECURE_KEYSTORE: '1' },

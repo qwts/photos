@@ -1,8 +1,9 @@
-import { existsSync, mkdtempSync, readdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 /** Recursive file count — the mock provider's remote blob tree. */
 function fileCount(dir: string): number {
@@ -16,7 +17,7 @@ function fileCount(dir: string): number {
 // #120 exit criteria: delete from grid AND lightbox → Recently deleted →
 // restore → back with favorite/status intact. Purge lands with #121.
 test('soft delete: grid + lightbox routes, trash restore keeps state intact', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-trash-'));
+  const userData = mkE2eTmpDir('overlook-e2e-trash-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -93,7 +94,7 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
   // A full backup precedes the purge — under parallel-suite load 30s is
   // too tight (the earlier backup-spec CI flake was this same class).
   test.setTimeout(60_000);
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-purge-'));
+  const userData = mkE2eTmpDir('overlook-e2e-purge-');
   const app = await electron.launch({
     args: ['.'],
     env: {

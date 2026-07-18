@@ -1,14 +1,12 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #117 exit criteria: create → appears with count 0 → the album filters the
 // grid; membership dirties the ledger (pendingCount rises). The full
 // album + delete/restore journey is #122's spec.
 test('albums: inline create, live counts, album-as-source grid filter', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-albums-'));
+  const userData = mkE2eTmpDir('overlook-e2e-albums-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -76,7 +74,7 @@ test('albums: inline create, live counts, album-as-source grid filter', async ()
 // APIs; membership removal never becomes photo deletion; active album and
 // keyboard focus have deterministic fallbacks.
 test('album management: rename, delete, remove membership, and collapsed keyboard actions', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-album-management-'));
+  const userData = mkE2eTmpDir('overlook-e2e-album-management-');
   const app = await electron.launch({
     args: ['.'],
     env: {

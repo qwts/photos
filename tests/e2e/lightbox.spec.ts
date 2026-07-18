@@ -1,14 +1,12 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #93 exit criteria: the mock's keyboard contract in lightbox mode — ←/→
 // step the visible sequence with wraparound, Esc closes the lightbox first
 // (dual semantics), i toggles the Inspector — all without clicking to focus.
 test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-lightbox-'));
+  const userData = mkE2eTmpDir('overlook-e2e-lightbox-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -80,7 +78,7 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
 });
 
 test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#307)', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-lightbox-transform-'));
+  const userData = mkE2eTmpDir('overlook-e2e-lightbox-transform-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -187,7 +185,7 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
 // the ledger dirties (pendingCount), the StatusBar flips amber, and the
 // grid tile's star appears, all via targeted pushes with no reload.
 test('lightbox favorite: tile star + pendingCount + StatusBar update without reload', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-fav-'));
+  const userData = mkE2eTmpDir('overlook-e2e-fav-');
   const app = await electron.launch({
     args: ['.'],
     env: {
@@ -231,7 +229,7 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
 // through Esc-from-lightbox (dual semantics at the UI level) and the 2.2s
 // chrome autohide observed end-to-end.
 test('viewing journey: selection survives Esc-from-lightbox; chrome autohides and wakes', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-journey-'));
+  const userData = mkE2eTmpDir('overlook-e2e-journey-');
   const app = await electron.launch({
     args: ['.'],
     env: {

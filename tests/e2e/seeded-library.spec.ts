@@ -1,17 +1,15 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
 
 import type { OverlookApi } from '../../src/shared/ipc/api.js';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #72 exit criteria: the app boots against a seeded fresh temp profile and
 // the library is really there — encrypted blobs, SQLCipher rows — behind the
 // typed bridge; #75: thumbs decrypt over the protocol into real images.
 // Interactive browse flows live in browse.spec.ts (#82).
 test('boots a seeded temp profile deterministically', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-profile-'));
+  const userData = mkE2eTmpDir('overlook-e2e-profile-');
   const app = await electron.launch({
     args: ['.'],
     env: {

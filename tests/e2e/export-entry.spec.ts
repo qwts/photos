@@ -1,14 +1,12 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { test, expect, _electron as electron } from '@playwright/test';
+
+import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // #100 exit criteria: both design entry points open the ExportDialog with
 // exact counts — the selection pill's Export and the lightbox share icon —
 // and the selection survives the flow.
 test('export entry points: pill opens with the selection count, lightbox with count=1', async () => {
-  const userData = mkdtempSync(join(tmpdir(), 'overlook-e2e-export-entry-'));
+  const userData = mkE2eTmpDir('overlook-e2e-export-entry-');
   const app = await electron.launch({
     args: ['.'],
     env: {
