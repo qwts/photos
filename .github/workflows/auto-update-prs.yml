@@ -1,0 +1,96 @@
+# The hand-rolled merge queue (user-owned repos get no real one — GitHub's merge
+# queue is organizations-only). Three pieces compose into serialized, always-tested-
+# on-tip merges:
+#
+#   1. This workflow: every push to main rebases each open, non-draft, non-bot PR
+#      branch onto the new tip and re-dispatches CI onto it.
+#   2. The ruleset's strict up-to-date requirement: a PR whose branch is behind main
+#      cannot merge, so auto-merge can never land a stale-green combination.
+#   3. Auto-merge (agents run `gh pr merge --auto --rebase` once ready): merges the
+#      moment the rebased head goes green and review threads are resolved.
+#
+# The cascade after each merge — rebase next PR → CI on the true merged state →
+# auto-merge — is exactly what a merge queue does, minus the queue UI. Nobody
+# clicks "update branch" by hand.
+#
+# Excluded branches: dependabot/* (a foreign force-push makes Dependabot stop
+# maintaining its PR — comment `@dependabot rebase` instead) and changeset-release/*
+# (the version-cut workflow force-pushes it already).
+name: Auto-update PR branches
+
+on:
+  push:
+    branches:
+      - main
+  # Manual lever for recovery (e.g. after a conflict was resolved elsewhere).
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+  # Lets this workflow dispatch CI onto the branches it pushes: GITHUB_TOKEN pushes
+  # suppress pull_request triggers (same reason version-cut dispatches CI), so the
+  # required "CI" / "E2E gate" contexts must be supplied by workflow_dispatch runs —
+  # contexts match by name across event types.
+  actions: write
+
+# One updater at a time, and GitHub keeps at most one queued run per group — a burst
+# of merges coalesces into the run that sees the final main tip.
+concurrency:
+  group: auto-update-prs
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Rebase open PRs onto main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Full history: rebasing arbitrary PR branches needs real merge bases.
+          fetch-depth: 0
+
+      - name: Rebase each behind branch and re-dispatch CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          gh pr list --repo "$REPO" --state open \
+            --json number,isDraft,headRefName,headRepositoryOwner \
+            --jq '.[] | select(.isDraft | not)
+                      | select(.headRepositoryOwner.login == "'"${REPO%%/*}"'")
+                      | select((.headRefName | startswith("dependabot/")) or (.headRefName | startswith("changeset-release/")) | not)
+                      | "\(.number)\t\(.headRefName)"' |
+          while IFS=$'\t' read -r number branch; do
+            behind=$(gh api "repos/$REPO/compare/main...$branch" --jq .behind_by 2>/dev/null || echo unknown)
+            if [ "$behind" = "unknown" ]; then
+              echo "::warning title=PR #$number::could not compare $branch to main; skipping."
+              continue
+            fi
+            if [ "$behind" -eq 0 ]; then
+              echo "PR #$number ($branch) is current; nothing to do."
+              continue
+            fi
+            git fetch origin "$branch"
+            git checkout -B "$branch" "origin/$branch"
+            if ! git rebase origin/main; then
+              git rebase --abort
+              # A real conflict needs a human or the owning agent; the PR shows
+              # CONFLICTING either way, and AGENTS.md points there.
+              echo "::warning title=PR #$number needs manual rebase::$branch conflicts with main; skipped."
+              continue
+            fi
+            # force-with-lease: if the owning agent pushed between our fetch and now,
+            # their push wins and the next main merge retries us.
+            if git push --force-with-lease origin "$branch"; then
+              gh workflow run ci.yml --repo "$REPO" --ref "$branch"
+              echo "PR #$number ($branch): rebased onto main ($behind behind) and CI dispatched."
+            else
+              echo "::warning title=PR #$number raced an agent push::lease on $branch failed; the next run will retry."
+            fi
+            git checkout --detach origin/main
+          done

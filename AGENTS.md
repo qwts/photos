@@ -64,13 +64,19 @@ this file in the same PR as the change — never after the fact.
   work; push regularly so CI and the draft PR stay current. No end-of-session
   mega-commits.
 - **Queue the merge yourself.** Right after `gh pr ready`, run
-  `gh pr merge <n> --auto`. Once review threads are resolved and required checks
-  pass, the merge queue builds the up-to-date merged state, runs CI + E2E on
-  that state, and merges (rebase — linear history preserved). Because staleness
-  is validated in the queue, **never manually rebase or "update" a branch that
-  is merely behind `main`** — that chore is the queue's job now. Rebase only to
-  resolve a real conflict: a CONFLICTING PR gets no queue entry and no CI runs
-  (see Branch And GitHub Hygiene).
+  `gh pr merge <n> --auto --rebase`. GitHub's real merge queue is
+  organizations-only, so this repo runs the hand-rolled equivalent
+  (`.github/workflows/auto-update-prs.yml`): after every merge to `main` the
+  workflow rebases each open ready PR onto the new tip and re-dispatches CI,
+  the ruleset's strict up-to-date requirement stops auto-merge from landing a
+  stale-green combination, and auto-merge lands the PR once its rebased head
+  is green and review threads are resolved. **Never manually rebase or
+  "update" a branch that is merely behind `main`** — that chore is the
+  automation's job. Rebase only to resolve a real conflict (the workflow skips
+  conflicting branches; the PR shows CONFLICTING — see Branch And GitHub
+  Hygiene). Because automation may rebase your branch between your pushes,
+  run `git pull --rebase` before pushing. Dependabot branches are excluded —
+  comment `@dependabot rebase` on those instead.
 - **Draft CI is the fast lane only.** On draft PRs CI runs the deterministic
   gates (lint, format, acceptance/a11y budgets, unit+coverage, build) and skips
   the browser lanes (Storybook interaction tests, Electron E2E). The full suite
