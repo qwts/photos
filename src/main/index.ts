@@ -61,7 +61,7 @@ import { ProtectedRuntime } from './library/protected-runtime.js';
 import { registerAppServices } from './register-app-services.js';
 import { runDevSeeds } from './library/dev-seed.js';
 import { ThumbService } from './thumbs/thumb-service.js';
-import { exitForSmokeIfRequested } from './release-smoke.js';
+import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
 
 // Test/dev steering hooks (#72/#129) are unpackaged-only; runtime tuning stays outside this gate.
@@ -794,7 +794,7 @@ function getRestoreRuntime(): RestoreRuntime {
 }
 
 void externalOpen.whenReady().then(async () => {
-  if (await exitForSmokeIfRequested(app)) return;
+  if (exitForReleaseSmokeIfRequested(app)) return;
   const registryFailure = registryRuntime.resolveFailure();
   if (registryFailure !== null) {
     dialog.showErrorBox('Library registry is damaged', registryFailure);
