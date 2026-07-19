@@ -14,6 +14,7 @@ Lane C — starts early (the settings store needs only M01's IPC). Typed, persis
 | [#114](https://github.com/qwts/photos/issues/114) | Settings — Storage & Backup section                      | #112             |
 | [#115](https://github.com/qwts/photos/issues/115) | Settings — Privacy section                               | #112             |
 | [#116](https://github.com/qwts/photos/issues/116) | E2E: settings persist across app restart                 | #113, #114, #115 |
+| [#492](https://github.com/qwts/photos/issues/492) | Responsive Settings scrolling and dialog motion          | #112             |
 
 ## Acceptance coverage
 
@@ -26,6 +27,7 @@ Lane C — starts early (the settings store needs only M01's IPC). Typed, persis
 | Privacy: always-on E2E badge (factual copy), face grouping shipped disabled as "not yet available" (mock's locked-on state deferred by design, not faked), diagnostics off-by-default with local-only honesty                                     | ✅ #115 (PR #214) | e2e + stories — ledger id `m09-settings-privacy`                                                                                                                                       |
 | Acceptance: settings persist across a REAL app relaunch — store reports, grid re-renders in persisted order unprompted, disconnected card re-renders, manual backup stays blocked                                                                 | ✅ #116 (PR #215) | `tests/e2e/settings-restart.spec.ts` — ledger id `m09-settings-restart-persistence`                                                                                                    |
 | Provider-neutral selection: addressed list/status/connect/disconnect, explicit capabilities, honest unknown quota, and switching blocked during backup/restore                                                                                    | ✅ #280 (PR #298) | settings E2E + stories + provider runtime/contract tests — ledger id `m09-provider-selection-capabilities`; [ADR-0011](../adr/ADR-0011-Provider-Catalog-Capabilities-And-Switching.md) |
+| Responsive dialog: Settings opens at its final bounded size before provider results arrive; navigation stays fixed while only the active pane scrolls; section changes reset scroll; open/close motion honors reduced motion and restores focus   | 🟡 #492           | Settings/Dialog stories + Settings E2E — ledger id `m09-settings-responsive-dialog`                                                                                                    |
 
 Recorded decisions: sort semantics — date newest-first, name A→Z (case-insensitive), size largest-first; `bandwidthLimit` 100 = unlimited (mock's `80` read as demo state, product default is unlimited); the connection card names the ACTUAL provider ("Mock provider" until #109 ships pCloud) rather than faking a pCloud connection; automatic backup successes are quiet (status bar flips; no green toast — it raced the import toast), manual runs toast green, failures always loud.
 

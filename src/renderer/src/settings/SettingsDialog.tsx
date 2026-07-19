@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -50,6 +50,7 @@ const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: MessageD
 export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfer }: SettingsDialogProps): ReactElement | null {
   const intl = useIntl();
   const [section, setSection] = useState<SettingsSection>('storage');
+  const paneRef = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Recovery-key dialog (#240): layered over Settings, per the mock.
   const [keyMode, setKeyMode] = useState<KeyDialogMode | null>(null);
@@ -104,8 +105,21 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
     });
   };
 
+  const selectSection = (nextSection: SettingsSection): void => {
+    if (nextSection === section) return;
+    if (paneRef.current !== null) paneRef.current.scrollTop = 0;
+    setSection(nextSection);
+  };
+
   return (
-    <Dialog open title={intl.formatMessage(messages.title)} icon="settings-2" width={640} onClose={onClose}>
+    <Dialog
+      open
+      title={intl.formatMessage(messages.title)}
+      icon="settings-2"
+      width={640}
+      bodyClassName="ovl-dialog__body--settings"
+      onClose={onClose}
+    >
       <div className="ovl-settings" data-testid="settings-dialog">
         <nav className="ovl-settings__nav" aria-label={intl.formatMessage(messages.sections)}>
           {SECTIONS.map(({ key, icon, label }) => {
@@ -117,7 +131,7 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
                 className={`ovl-settings__navrow${current ? ' ovl-settings__navrow--active' : ''}`}
                 aria-current={current}
                 onClick={() => {
-                  setSection(key);
+                  selectSection(key);
                 }}
               >
                 <Icon name={icon} size={14} color={current ? 'var(--accent-cyan)' : 'var(--text-faint)'} />
@@ -126,7 +140,7 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
             );
           })}
         </nav>
-        <div className="ovl-settings__pane" data-testid="settings-pane">
+        <div ref={paneRef} className="ovl-settings__pane" data-testid="settings-pane" data-section={section}>
           {settings === null ? null : section === 'general' ? (
             <GeneralPane settings={settings} onPatch={patch} />
           ) : section === 'storage' ? (

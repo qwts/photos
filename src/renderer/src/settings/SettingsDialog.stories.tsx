@@ -294,7 +294,10 @@ export const StorageOpensByDefault: Story = {
   ],
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await expect(body.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+    const dialog = body.getByRole('dialog', { name: 'Settings' });
+    await expect(dialog).toBeVisible();
+    await Promise.all(dialog.getAnimations({ subtree: true }).map((animation) => animation.finished));
+    const loadingBounds = dialog.getBoundingClientRect();
     const storage = body.getByRole('button', { name: 'Storage & Backup' });
     await expect(storage).toHaveAttribute('aria-current', 'true');
     // A slow provider check stays neutral: never claim the selected provider
@@ -312,6 +315,9 @@ export const StorageOpensByDefault: Story = {
     storyWindow.releaseInitialProviderStatus();
     // The real pane (#114): connected card with live quota + enabled knobs.
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
+    const resolvedBounds = dialog.getBoundingClientRect();
+    await expect(resolvedBounds.width).toBeCloseTo(loadingBounds.width, 0);
+    await expect(resolvedBounds.height).toBeCloseTo(loadingBounds.height, 0);
     await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
     await expect(body.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
     await expect(body.getByText('12.6 GB stored only in your verified cloud backup. Thumbnails remain on this Mac.')).toBeVisible();
@@ -441,6 +447,34 @@ export const NavSwitchesPanes: Story = {
   },
 };
 
+export const ContentOwnsScrolling: Story = {
+  render: (args) => (
+    <div style={{ position: 'relative', height: 380 }}>
+      <SettingsDialog {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByRole('button', { name: 'Privacy' }));
+    const pane = body.getByTestId('settings-pane');
+    const nav = body.getByRole('navigation', { name: 'Settings sections' });
+    const dialogBody = pane.parentElement?.parentElement;
+    if (dialogBody === null) throw new Error('settings dialog body missing');
+
+    await expect(getComputedStyle(dialogBody).overflowY).toBe('hidden');
+    await expect(getComputedStyle(pane).overflowY).toBe('auto');
+    await expect(pane.scrollHeight).toBeGreaterThan(pane.clientHeight);
+    const navTop = nav.getBoundingClientRect().top;
+    pane.scrollTop = 120;
+    await expect(pane.scrollTop).toBeGreaterThan(0);
+    await expect(nav.getBoundingClientRect().top).toBe(navTop);
+
+    await userEvent.click(body.getByRole('button', { name: 'General' }));
+    await expect(pane).toHaveAttribute('data-section', 'general');
+    await expect(pane.scrollTop).toBe(0);
+  },
+};
+
 export const TransferAndSyncAction: Story = {
   args: { onTransfer: fn() },
   play: async ({ canvasElement, args }) => {
@@ -471,11 +505,12 @@ export const PrivacySection: Story = {
     // Stacked modals (PR #250 review): Escape closes ONLY the top dialog —
     // Settings stays open underneath.
     await userEvent.keyboard('{Escape}');
-    await expect(body.queryByRole('dialog', { name: 'Back up encryption key' })).not.toBeInTheDocument();
+    await waitFor(() => expect(body.queryByRole('dialog', { name: 'Back up encryption key' })).not.toBeInTheDocument());
     await expect(body.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     await userEvent.click(body.getByRole('button', { name: 'Import…' }));
     await expect(body.getByRole('dialog', { name: 'Import encryption key' })).toBeVisible();
     await userEvent.click(body.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(body.queryByRole('dialog', { name: 'Import encryption key' })).not.toBeInTheDocument());
 
     // Factual, always-on encryption row.
     await waitFor(() => expect(body.getByText('Always on')).toBeVisible());
@@ -525,7 +560,7 @@ export const KeyboardOperable: Story = {
     await waitFor(() => expect(body.getByText('Default sort order')).toBeVisible());
     // Esc closes from anywhere inside the dialog.
     await userEvent.keyboard('{Escape}');
-    await expect(args.onClose).toHaveBeenCalled();
+    await waitFor(async () => expect(args.onClose).toHaveBeenCalled());
   },
 };
 
