@@ -31,6 +31,8 @@ const messages = defineMessages({
   settings: { id: 'sidebar.settings', defaultMessage: 'Settings' },
   encrypted: { id: 'sidebar.encrypted', defaultMessage: 'Library encrypted' },
   encryptedOpenSettings: { id: 'sidebar.encrypted.openSettings', defaultMessage: 'Library encrypted — open Settings' },
+  storageOnDisk: { id: 'sidebar.storage.onDisk', defaultMessage: '{bytes} ON DISK' },
+  storageOffload: { id: 'sidebar.storage.offload', defaultMessage: '{bytes} OFFLOAD ({provider})' },
   connect: { id: 'sidebar.connect', defaultMessage: 'Connect' },
   sourceAll: { id: 'sidebar.source.all', defaultMessage: 'All Photos' },
   sourceFavorites: { id: 'sidebar.source.favorites', defaultMessage: 'Favorites' },
@@ -467,11 +469,25 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
             />
           ) : null}
           <div className="ovl-sidebar__storage mono-data">
-            {stats === null
-              ? '—'
-              : state.providerConnected
-                ? `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL · ${formatBytes(stats.offloadedBytes).toUpperCase()} ${state.providerLabel.toUpperCase()}`
-                : `${formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase()} LOCAL`}
+            {stats === null ? (
+              '—'
+            ) : (
+              <>
+                <div>
+                  {intl.formatMessage(messages.storageOnDisk, {
+                    bytes: formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase(),
+                  })}
+                </div>
+                {state.providerConnected ? (
+                  <div>
+                    {intl.formatMessage(messages.storageOffload, {
+                      bytes: formatBytes(stats.offloadedBytes).toUpperCase(),
+                      provider: state.providerLabel.toUpperCase(),
+                    })}
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
           {state.providerConnected ? null : (
             // Disconnected (#239): say so and offer the path back — never a

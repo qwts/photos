@@ -269,7 +269,16 @@
 }
 
 .ovl-sidebar__storage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   color: var(--text-faint);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.ovl-sidebar__storage > * {
+  white-space: nowrap;
 }
 
 /* Disconnected card row (#239): plain-fact line + the Connect path. */

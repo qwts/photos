@@ -135,6 +135,8 @@ export const en: Readonly<Record<string, string>> = {
   "sidebar.source.favorites": "Favorites",
   "sidebar.source.offloaded": "Offloaded",
   "sidebar.source.recent": "Recent imports",
+  "sidebar.storage.offload": "{bytes} OFFLOAD ({provider})",
+  "sidebar.storage.onDisk": "{bytes} ON DISK",
   "toast.announcement": "{title} — {detail}",
   "toast.dismiss": "Dismiss notification",
   "toast.notification": "Notification",
