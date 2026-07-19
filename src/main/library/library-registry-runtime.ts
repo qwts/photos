@@ -251,7 +251,13 @@ export class LibraryRegistryRuntime {
     if (entry === undefined) throw new LibraryRegistryError(`library ${id} is not registered`);
     const current = this.resolveActive();
     if (entry.id === current.id) {
-      return { library: this.describe(current, openId), requiresRestart: false };
+      // Same id is NOT the same entry: relocation (#483, ADR-0022) rewrites
+      // the path under an unchanged id, so a same-id select refreshes the
+      // cached entry from the registry file — serving the cached object here
+      // left the runtime bound to a moved library's deleted source path
+      // (PR #553 review).
+      if (this.active !== undefined) this.active = entry;
+      return { library: this.describe(this.active ?? current, openId), requiresRestart: false };
     }
     if (!existsSync(entry.path)) {
       throw new LibraryRegistryError(`library directory is missing: ${entry.path}`);
