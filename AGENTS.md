@@ -129,6 +129,13 @@ possible, enforced as executable checks._
   [wiki](https://github.com/qwts/photos/wiki). Other repo markdown is pointer
   stubs, except agent instruction files, `CONTRIBUTING.md`, and root `README.md`
   (see the wiki [Repo Documentation Pointer Map](https://github.com/qwts/photos/wiki/Repo-Documentation-Pointer-Map)).
+- **ADR gate:** an issue labeled `adr` changes an architectural contract — do
+  not start its implementation until the governing ADR is accepted in the wiki
+  (precedent: ADR-0022 ↔ #483, ADR-0023 ↔ #534). The issue's "ADR gate"
+  section names the cluster: clustered issues share one ADR, written by
+  whoever starts the first of them at the next free number, indexed, and
+  linked from every clustered issue. Semantic changes after acceptance go
+  through an ADR amendment first, code second.
 - Before claiming done: run `npm run ci` (lint chain → format:check → test:cov →
   build — the same non-browser gates CI enforces, including the `.c8rc.json`
   coverage floor and the happy-dom renderer lane in `tests/dom`). Use
