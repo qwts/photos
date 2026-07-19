@@ -85,6 +85,23 @@ export class LibraryRegistry {
     return updated;
   }
 
+  /** Atomic registry path rewrite — the relocation commit point (ADR-0022
+   * §1/§4, #483). The entry stays authoritative at its old path until this
+   * write lands; callers run it only after full verification. */
+  updatePath(id: string, newPath: string): LibraryEntry {
+    const entry = this.get(id);
+    if (entry === undefined) throw new LibraryRegistryError(`library ${id} is not registered`);
+    const resolved = path.resolve(newPath);
+    const clash = this.file.entries.find((existing) => existing.id !== id && path.resolve(existing.path) === resolved);
+    if (clash !== undefined) {
+      throw new LibraryRegistryError(`path already registered to library ${clash.id} (${clash.name})`);
+    }
+    const updated = { ...entry, path: newPath };
+    this.file = { ...this.file, entries: this.file.entries.map((e) => (e.id === id ? updated : e)) };
+    this.persist();
+    return updated;
+  }
+
   rename(id: string, name: string): LibraryEntry {
     const entry = this.get(id);
     if (entry === undefined) throw new LibraryRegistryError(`library ${id} is not registered`);
