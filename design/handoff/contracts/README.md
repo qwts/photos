@@ -13,4 +13,4 @@ fall back to a locally modified contract.
 
 Contract v1 is tracked by `qwts/photos#331` and `qwts/image-trail#584`.
 Its architecture decision is canonical in the Photos wiki:
-[ADR-0014](https://github.com/qwts/photos/wiki/ADR-0014-Image-Trail-Bidirectional-Interoperability).
+[ADR-0014](../../../docs/adr/ADR-0014-Image-Trail-Bidirectional-Interoperability.md).

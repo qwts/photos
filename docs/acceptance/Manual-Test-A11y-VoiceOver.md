@@ -1,7 +1,7 @@
 # Manual Test — VoiceOver (macOS)
 
 > The screen-reader half of the accessibility gate. Automated axe checks
-> ([Testing Strategy](../Testing-Strategy.md)) prove the a11y *tree* is well-formed; they cannot
+> ([Testing Strategy](../Testing-Strategy.md)) prove the a11y _tree_ is well-formed; they cannot
 > prove a blind user can finish a task. This script does.
 >
 > Established by [#398](https://github.com/qwts/photos/issues/398) for epic
@@ -66,7 +66,7 @@ Tab into the grid, then **⌃⌥→** through tiles.
 - **Expect:** each photo announces its position in the **whole library** ("3 of 1,204").
 - **Known fail** (finding 3, [#399](https://github.com/qwts/photos/issues/399)): the grid
   is virtualized with no `aria-setsize`/`aria-posinset`/`aria-rowcount`, so it announces
-  the count of *mounted* tiles — **actively wrong**, not merely missing.
+  the count of _mounted_ tiles — **actively wrong**, not merely missing.
 - Also check: is there any way **past** the grid without tabbing every tile? (No.)
 - On a tile, press **Space**. **Known fail** (finding 9,
   [#412](https://github.com/qwts/photos/issues/412)): only Enter works.
@@ -124,7 +124,7 @@ with "Retry").
   auto-dismisses after **4 seconds**, taking the action with it. Time it: from the end of
   the announcement, can you tab to the button before it vanishes? Record how long the
   announcement itself takes — that is the argument.
-- Also: the toast mounts *with* `role="status"` rather than living as a persistent region,
+- Also: the toast mounts _with_ `role="status"` rather than living as a persistent region,
   so the announcement may not fire at all. Try several times; intermittency is the symptom.
 
 ### 8. Dialogs — does focus come back?
@@ -140,7 +140,7 @@ Open Settings, tab around, close with Escape.
 - Navigate the Settings section nav with **arrow keys**. **Known fail** (finding 21): it
   is a tab pattern with no tab semantics.
 
-### 9. Lock and protected surfaces — accessible *and* fail-closed
+### 9. Lock and protected surfaces — accessible _and_ fail-closed
 
 Lock the app (⌘L or Settings → Privacy).
 
@@ -161,7 +161,7 @@ With VoiceOver on, open a dialog **not** in `use-global-keys`' list (Offload, Ke
 Interop) and press **`i`**.
 
 - **Known fail** (finding 23, [#399](https://github.com/qwts/photos/issues/399)): the
-  inspector toggles *behind* the dialog. `anyDialogOpen` tracks 3 of ~11 dialogs.
+  inspector toggles _behind_ the dialog. `anyDialogOpen` tracks 3 of ~11 dialogs.
 - Type `i` into any password field and confirm the inspector does **not** toggle (the
   `inField` guard covers `input`, so this should pass).
 - Note for 2.1.4 (finding 14): `i`, `+`, `-`, `0` are unmodified single-key shortcuts and

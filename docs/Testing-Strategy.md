@@ -20,16 +20,16 @@
 
 ## The lanes
 
-| #   | Lane          | Command                                | Scope                                                        | Status                              |
-| --- | ------------- | -------------------------------------- | ------------------------------------------------------------ | ----------------------------------- |
-| 1   | Static        | `npm run lint` (pins → new-file size → eslint → cycles → dead code → type coverage), `typecheck`, `format:check` | Pins, size budgets, correctness (incl. react-hooks + @eslint-react for the renderer and the process-boundary import matrix), ts+tsx cycles, dead code, all configured TypeScript projects, style (ts/tsx/html included) | Active |
-| 2   | Unit          | `npm run test:compile && npm run test:unit:run` — compiled `.test-dist/tests/**/*.test.js` | Pure logic, no DOM                                           | Active                              |
-| 3   | Coverage      | `npm run test:cov` — c8 floors in `.c8rc.json` (**lines 90 / branches 80**) | Ratchet over the unit and renderer DOM lanes                  | Active                              |
-| 4   | DOM           | `npm run test:dom` — renderer-scoped compile, happy-dom registrator, CSS hook, then `node --test` | Rendering/controllers against a DOM implementation (`tests/dom/`) | Active (#135) |
-| 5   | Story         | `npm run test:stories:ci` — static Storybook build + test-runner (`play` assertions, chromium) | Component-level UI behavior on the real token canvas        | Active (#56 — token + Icon stories are the first content) |
-| 6a  | E2E smoke     | `npm run test:e2e` — Playwright `_electron` launches the built app (`tests/e2e/smoke.spec.ts`) | The real Electron app launches, renders the React root, exposes only the typed bridge, IPC round-trips | Active (#52 — replaced the http-server fixture, which stayed green regardless of app health) |
-| 6b  | Acceptance    | Playwright specs per canonical flow + a coverage-map ledger  | End-to-end user flows                                        | **Deferred** until user-facing surfaces exist |
-| 7   | Accessibility | `check:a11y-budget` (static, in `npm run ci`) + axe in `test:stories:ci` (per story) and `test:e2e` (`tests/e2e/a11y.spec.ts`, composed flows) | WCAG 2.2 AA violations against a shrink-only budget | Active (#398 — baseline 103) |
+| #   | Lane          | Command                                                                                                                                        | Scope                                                                                                                                                                                                                   | Status                                                                                       |
+| --- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 1   | Static        | `npm run lint` (pins → new-file size → eslint → cycles → dead code → type coverage), `typecheck`, `format:check`                               | Pins, size budgets, correctness (incl. react-hooks + @eslint-react for the renderer and the process-boundary import matrix), ts+tsx cycles, dead code, all configured TypeScript projects, style (ts/tsx/html included) | Active                                                                                       |
+| 2   | Unit          | `npm run test:compile && npm run test:unit:run` — compiled `.test-dist/tests/**/*.test.js`                                                     | Pure logic, no DOM                                                                                                                                                                                                      | Active                                                                                       |
+| 3   | Coverage      | `npm run test:cov` — c8 floors in `.c8rc.json` (**lines 90 / branches 80**)                                                                    | Ratchet over the unit and renderer DOM lanes                                                                                                                                                                            | Active                                                                                       |
+| 4   | DOM           | `npm run test:dom` — renderer-scoped compile, happy-dom registrator, CSS hook, then `node --test`                                              | Rendering/controllers against a DOM implementation (`tests/dom/`)                                                                                                                                                       | Active (#135)                                                                                |
+| 5   | Story         | `npm run test:stories:ci` — static Storybook build + test-runner (`play` assertions, chromium)                                                 | Component-level UI behavior on the real token canvas                                                                                                                                                                    | Active (#56 — token + Icon stories are the first content)                                    |
+| 6a  | E2E smoke     | `npm run test:e2e` — Playwright `_electron` launches the built app (`tests/e2e/smoke.spec.ts`)                                                 | The real Electron app launches, renders the React root, exposes only the typed bridge, IPC round-trips                                                                                                                  | Active (#52 — replaced the http-server fixture, which stayed green regardless of app health) |
+| 6b  | Acceptance    | Playwright specs per canonical flow + a coverage-map ledger                                                                                    | End-to-end user flows                                                                                                                                                                                                   | **Deferred** until user-facing surfaces exist                                                |
+| 7   | Accessibility | `check:a11y-budget` (static, in `npm run ci`) + axe in `test:stories:ci` (per story) and `test:e2e` (`tests/e2e/a11y.spec.ts`, composed flows) | WCAG 2.2 AA violations against a shrink-only budget                                                                                                                                                                     | Active (#398 — baseline 103)                                                                 |
 
 ### Compile-then-run model
 
@@ -146,9 +146,9 @@ arrive (M03, ADR-0006's prebuilt-only policy). Signing/notarization is M11.
 Recorded baselines live next to the lane that produces them; re-record when
 the machinery they measure changes.
 
-| Baseline | How | Result (2026-07-12, Apple Silicon dev machine) |
-| --- | --- | --- |
-| 200K keyset page | unit lane prints `[baseline] 200K keyset page` | 0.4 ms |
+| Baseline         | How                                                                                                                                           | Result (2026-07-12, Apple Silicon dev machine)                          |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 200K keyset page | unit lane prints `[baseline] 200K keyset page`                                                                                                | 0.4 ms                                                                  |
 | 200K grid scroll | `npm run seed:perf` boots a 200,000-row synthetic profile; the grid's frame monitor exposes `globalThis.__overlookFrameStats` while scrolling | 557 frames observed, 0 dropped (>25 ms), worst 9.4 ms; 36 cells mounted |
 
 The E2E lane keeps a fast 2,000-row variant of the same path
@@ -175,17 +175,17 @@ maximum across trials. An incomplete trial set fails closed. This reduces
 single-run scheduler noise without hiding a repeated regression or relaxing a
 budget.
 
-| Metric | Budget | Baseline (2026-07-17, Apple Silicon dev machine, 200K) |
-| --- | --- | --- |
-| Cold start → existing-library grid interactive | < 5,000 ms | 3,267 ms |
-| `library:page` (500) median over IPC | < 250 ms | 5.4 ms |
-| `library:counts` median over IPC | < 500 ms | 469.1 ms (#124: one FILTER-clause pass) |
-| Search page median over IPC (place substring) | < 600 ms | 28.5 ms |
-| Scroll dropped-frame share (zooms 96/160/320) | < 0.30 each | 0.2581 / 0.0050 / 0.0000 median |
-| Scroll worst frame delta | < 500 ms | 100.9 ms maximum |
-| Import throughput (100 files, full pipeline) | > 3 photos/s | 4.20 photos/s |
-| Main-process RSS after the workout | < 1,500 MB | 524 MB |
-| Renderer JS heap after the workout | < 512 MB | 20.7 MB |
+| Metric                                         | Budget       | Baseline (2026-07-17, Apple Silicon dev machine, 200K) |
+| ---------------------------------------------- | ------------ | ------------------------------------------------------ |
+| Cold start → existing-library grid interactive | < 5,000 ms   | 3,267 ms                                               |
+| `library:page` (500) median over IPC           | < 250 ms     | 5.4 ms                                                 |
+| `library:counts` median over IPC               | < 500 ms     | 469.1 ms (#124: one FILTER-clause pass)                |
+| Search page median over IPC (place substring)  | < 600 ms     | 28.5 ms                                                |
+| Scroll dropped-frame share (zooms 96/160/320)  | < 0.30 each  | 0.2581 / 0.0050 / 0.0000 median                        |
+| Scroll worst frame delta                       | < 500 ms     | 100.9 ms maximum                                       |
+| Import throughput (100 files, full pipeline)   | > 3 photos/s | 4.20 photos/s                                          |
+| Main-process RSS after the workout             | < 1,500 MB   | 524 MB                                                 |
+| Renderer JS heap after the workout             | < 512 MB     | 20.7 MB                                                |
 
 #124 outcomes: `counts()` rewritten as ONE FILTER-clause pass over the
 ledger join (689 → 378 ms; ratchet tightened to 500 ms). Zoom-96 scroll
@@ -216,11 +216,11 @@ enforces shape, path existence, and that deferred entries carry issues.
 
 WCAG 2.2 AA is the bar (epic #381). Three gates, two of which need a browser:
 
-| Gate | Where | What it catches |
-| --- | --- | --- |
-| `npm run check:a11y-budget` | `npm run ci` + the CI `ci` job | Budget shape, path existence, unowned debt, a raised number. No browser, so it fails fast. Also runs as `--visited` after the story lane for the orphan check. |
-| axe per story | `test:stories:ci` (existing chromium runner, +0 lanes) | Component-level violations across all 107 stories, scoped to `#storybook-root`. |
-| axe per composed flow | `test:e2e` (`tests/e2e/a11y.spec.ts`) | What isolated stories structurally cannot show: landmark uniqueness, focus order across regions, an overlay leaving the shell in the a11y tree. |
+| Gate                        | Where                                                  | What it catches                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check:a11y-budget` | `npm run ci` + the CI `ci` job                         | Budget shape, path existence, unowned debt, a raised number. No browser, so it fails fast. Also runs as `--visited` after the story lane for the orphan check. |
+| axe per story               | `test:stories:ci` (existing chromium runner, +0 lanes) | Component-level violations across all 107 stories, scoped to `#storybook-root`.                                                                                |
+| axe per composed flow       | `test:e2e` (`tests/e2e/a11y.spec.ts`)                  | What isolated stories structurally cannot show: landmark uniqueness, focus order across regions, an overlay leaving the shell in the a11y tree.                |
 
 **The budget** (`tests/a11y/violation-budget.json`) is the honest list of KNOWN
 violations, keyed by story id / flow id, each naming the issue that owns the fix.
@@ -242,7 +242,7 @@ violations, keyed by story id / flow id, each naming the issue that owns the fix
   `tags`** — the tag set is pinned in the budget and re-checked by the validator.
 
 **`axe-core` is pinned exact and overridden into `axe-playwright`'s floating
-`^4.10.1`.** Its rule set *defines* every count, so a Dependabot bump is *expected*
+`^4.10.1`.** Its rule set _defines_ every count, so a Dependabot bump is _expected_
 to move numbers: re-audit and re-baseline in that PR.
 
 Re-baseline (this is how the audit was produced):

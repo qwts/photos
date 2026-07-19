@@ -11,21 +11,21 @@ and `README.md` there (the spec), plus ADRs 0003–0007 as they land.
 
 ## Milestone index
 
-| Milestone | Title | Epic | Lane |
-| --- | --- | --- | --- |
-| [M01](./User-Story-M01-Desktop-shell.md) | Desktop shell | [#36](https://github.com/qwts/photos/issues/36) | Foundation (gates all) |
-| [M02](./User-Story-M02-Design-system.md) | Design system | [#37](https://github.com/qwts/photos/issues/37) | Lane A — UI |
-| [M03](./User-Story-M03-Encrypted-library-core.md) | Encrypted library core | [#38](https://github.com/qwts/photos/issues/38) | Lane B — Core |
-| [M04](./User-Story-M04-Library-browsing.md) | Library browsing | [#39](https://github.com/qwts/photos/issues/39) | Join A+B |
-| [M05](./User-Story-M05-Import-pipeline.md) | Import pipeline | [#40](https://github.com/qwts/photos/issues/40) | Lane B — Core |
-| [M06](./User-Story-M06-Lightbox-Inspector.md) | Lightbox & Inspector | [#41](https://github.com/qwts/photos/issues/41) | Lane A — UI |
-| [M07](./User-Story-M07-Export.md) | Export | [#42](https://github.com/qwts/photos/issues/42) | Lane B — Core |
-| [M08](./User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first.md) | Backup & offload engine (provider abstraction, mock-first) | [#43](https://github.com/qwts/photos/issues/43) | Lane B — Core (tail) |
-| [M09](./User-Story-M09-Settings-preferences.md) | Settings & preferences | [#44](https://github.com/qwts/photos/issues/44) | Lane C — Settings |
-| [M10](./User-Story-M10-Albums-organization-deletion.md) | Albums, organization & deletion | [#45](https://github.com/qwts/photos/issues/45) | Lane A — UI (tail) |
-| [M11](./User-Story-M11-Scale-hardening-release-readiness.md) | Scale, hardening & release readiness | [#46](https://github.com/qwts/photos/issues/46) | Closing |
-| [M20](./User-Story-M20-Privacy-lock-protected-albums.md) | Privacy lock, Touch ID & protected albums | [#305](https://github.com/qwts/photos/issues/305) | Lane B — Core with Lane A/C UI |
-| [M21](./User-Story-M21-Image-Trail-Interoperability.md) | Image Trail interoperability | [#283](https://github.com/qwts/photos/issues/283) | Lane B — Core, then transport and UI |
+| Milestone                                                                        | Title                                                      | Epic                                              | Lane                                 |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------- | ------------------------------------ |
+| [M01](./User-Story-M01-Desktop-shell.md)                                         | Desktop shell                                              | [#36](https://github.com/qwts/photos/issues/36)   | Foundation (gates all)               |
+| [M02](./User-Story-M02-Design-system.md)                                         | Design system                                              | [#37](https://github.com/qwts/photos/issues/37)   | Lane A — UI                          |
+| [M03](./User-Story-M03-Encrypted-library-core.md)                                | Encrypted library core                                     | [#38](https://github.com/qwts/photos/issues/38)   | Lane B — Core                        |
+| [M04](./User-Story-M04-Library-browsing.md)                                      | Library browsing                                           | [#39](https://github.com/qwts/photos/issues/39)   | Join A+B                             |
+| [M05](./User-Story-M05-Import-pipeline.md)                                       | Import pipeline                                            | [#40](https://github.com/qwts/photos/issues/40)   | Lane B — Core                        |
+| [M06](./User-Story-M06-Lightbox-Inspector.md)                                    | Lightbox & Inspector                                       | [#41](https://github.com/qwts/photos/issues/41)   | Lane A — UI                          |
+| [M07](./User-Story-M07-Export.md)                                                | Export                                                     | [#42](https://github.com/qwts/photos/issues/42)   | Lane B — Core                        |
+| [M08](./User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first.md) | Backup & offload engine (provider abstraction, mock-first) | [#43](https://github.com/qwts/photos/issues/43)   | Lane B — Core (tail)                 |
+| [M09](./User-Story-M09-Settings-preferences.md)                                  | Settings & preferences                                     | [#44](https://github.com/qwts/photos/issues/44)   | Lane C — Settings                    |
+| [M10](./User-Story-M10-Albums-organization-deletion.md)                          | Albums, organization & deletion                            | [#45](https://github.com/qwts/photos/issues/45)   | Lane A — UI (tail)                   |
+| [M11](./User-Story-M11-Scale-hardening-release-readiness.md)                     | Scale, hardening & release readiness                       | [#46](https://github.com/qwts/photos/issues/46)   | Closing                              |
+| [M20](./User-Story-M20-Privacy-lock-protected-albums.md)                         | Privacy lock, Touch ID & protected albums                  | [#305](https://github.com/qwts/photos/issues/305) | Lane B — Core with Lane A/C UI       |
+| [M21](./User-Story-M21-Image-Trail-Interoperability.md)                          | Image Trail interoperability                               | [#283](https://github.com/qwts/photos/issues/283) | Lane B — Core, then transport and UI |
 
 ## Parallelism
 

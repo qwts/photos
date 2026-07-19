@@ -63,7 +63,7 @@ empty directory (no `keys.json` rows AND no `master.key`) is refused
 "master exists but no library keys" guard; restore the library files first);
 if `keys.json` exists with rows, the imported master must unwrap every row
 (else `mismatch` — the honest "this key is not this library's"); a matching
-installed master is a no-op (`already-installed`); a *different* master with
+installed master is a no-op (`already-installed`); a _different_ master with
 no keys file to arbitrate is refused (`mismatch` — never overwrite working
 custody blindly); otherwise the key is installed by atomic temp+rename,
 keychain-wrapped exactly like a minted master. A validated key MAY replace a

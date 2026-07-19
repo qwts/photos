@@ -58,7 +58,7 @@ behavior, §7 multi-library moves.
   (`updatePath(id, newPath)` shape) using ADR-0017 §1 mechanics (main-owned,
   temp-file + rename). The source entry stays registered and **authoritative
   for the entire move**; the rewrite is the commit point and runs only after
-  full verification (§4). What a registered path *means* is unchanged — it is
+  full verification (§4). What a registered path _means_ is unchanged — it is
   the library's one authoritative location; relocation adds a governed
   transition between two such locations.
 - Relocation is local filesystem work. It never uploads, downloads,
@@ -142,7 +142,7 @@ registered and usable; recovery (§2) discards or resumes staging.
 
 **Optimized same-volume rename** is permitted only as steps 2–4 collapsed into
 one `rename(source → finalDir)`, with the journal recording the intent
-*before* the rename: a crash between rename and commit is then repaired from
+_before_ the rename: a crash between rename and commit is then repaired from
 the journal (complete the commit, or reverse the rename — the journal wins).
 The guarantee set must be identical to the copy path; cross-volume moves
 always copy.

@@ -45,23 +45,23 @@ The zod schema lives in `src/shared/theme/theme-file.ts` and is validated **in t
 ```jsonc
 {
   "meta": {
-    "name": "Nord-ish",             // 1–80 chars
-    "author": "chris",              // 0–120 chars, optional
-    "version": "1.0.0",             // semver string
-    "base": "dark",                 // 'dark' | 'light' — the mode this theme extends
-    "tokensVersion": 1              // integer; the token-schema version it targets
+    "name": "Nord-ish", // 1–80 chars
+    "author": "chris", // 0–120 chars, optional
+    "version": "1.0.0", // semver string
+    "base": "dark", // 'dark' | 'light' — the mode this theme extends
+    "tokensVersion": 1, // integer; the token-schema version it targets
   },
   "tokens": {
     "--accent-iris": "oklch(0.72 0.16 260)",
     "--surface-window": "#101014",
-    "--text-body": "oklch(0.93 0.01 260)"
-  }
+    "--text-body": "oklch(0.93 0.01 260)",
+  },
 }
 ```
 
 - **v1 themable surface: color tokens only** — the enumerated `colors.css` set (neutrals, accents and their `-dim` variants, borders, scrim, selection, focus ring, surfaces, text) **excluding** the gradient tokens (`--brand-gradient`, `--brand-gradient-soft`, `--protect-grad`). Spacing, typography, radii, elevation, and motion are not user-themable in v1 — they change layout and readability, and the safety story ("every value is a single color") is worth more than the flexibility. The exact list is one exported array in the schema module; the template (§6) is generated from it, so contract and documentation cannot drift.
 - **Value rule:** every value must parse as a single CSS `<color>` (hex, `rgb()`, `hsl()`, `oklch()`, `color()`). Parsing happens in the schema module with a pure parser — no `var()`, no `calc()`, no functions with URLs, no strings passed through unparsed.
-- **Unknown tokens warn-and-skip** (reported by name, not applied): a theme written against an older token schema keeps working as the surface grows; the file round-trips unmodified. A theme where *nothing* matches fails validation outright.
+- **Unknown tokens warn-and-skip** (reported by name, not applied): a theme written against an older token schema keeps working as the surface grows; the file round-trips unmodified. A theme where _nothing_ matches fails validation outright.
 - **Error shape:** validation returns the parsed theme or a `{ path, message }[]` list — rendered verbatim in the import dialog (#396), so an LLM-authored file that got one token wrong produces a fixable message, not a mystery failure.
 
 ### 4. Contrast guardrails — warn at AA, block only the unusable

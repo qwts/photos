@@ -18,11 +18,11 @@ One hardening fix landed with this review (F1); two protocol follow-ups have sin
 landed, and one crypto follow-up remains. The ADR-0004 crypto guarantee is upheld
 across every reachable sink.
 
-| Seam | Verdict | Fix-before-release | Follow-ups |
-| --- | --- | --- | --- |
-| Crypto (envelope + keystore) | Sound | none | [#229](https://github.com/qwts/photos/issues/229) |
-| IPC registry + protocols | Sound | none | #230 and #231 resolved |
-| Plaintext at rest | No leaks | none | F1 (fixed here) |
+| Seam                         | Verdict  | Fix-before-release | Follow-ups                                        |
+| ---------------------------- | -------- | ------------------ | ------------------------------------------------- |
+| Crypto (envelope + keystore) | Sound    | none               | [#229](https://github.com/qwts/photos/issues/229) |
+| IPC registry + protocols     | Sound    | none               | #230 and #231 resolved                            |
+| Plaintext at rest            | No leaks | none               | F1 (fixed here)                                   |
 
 ## 1. Crypto — envelope & keystore
 
@@ -30,7 +30,7 @@ Files: `src/main/crypto/envelope.ts`, `src/main/crypto/keystore.ts`, dev-keystor
 wiring in `src/main/index.ts`.
 
 - **AAD completeness — sound.** Every chunk binds `photoId + keyId + chunkIndex +
-  flags + totalChunks`. Chunk reorder/drop-middle (monotonic decrypt index vs
+flags + totalChunks`. Chunk reorder/drop-middle (monotonic decrypt index vs
   AAD index), cross-photo / cross-key substitution (photoId + keyId in AAD, keyId
   also selects the key), truncation (drop-final → `finalSeen` never set → "truncated
   envelope" on flush), and post-final extension (`if (finalSeen) throw`) all fail
@@ -72,14 +72,14 @@ Files: `src/main/ipc.ts`, `src/shared/ipc/registry.ts`, `src/shared/ipc/channels
 - **Forged-id / path traversal — refuted.** The renderer-supplied photo id from an
   `overlook-thumb://` / `overlook-full://` URL **never reaches a filesystem path**.
   URL parsers require `host === 'library'` and exactly one path segment; `standard:
-  true` normalizes `..` before parsing. The id resolves via a **parameterized** DB
+true` normalizes `..` before parsing. The id resolves via a **parameterized** DB
   lookup (forged id → `undefined` → 404). The on-disk path is derived solely from
   the DB-owned `contentHash`, hex-gated by `assertHash` (`/^[0-9a-f]{64}$/`) at every
   read entry point — a `../`, absolute, or non-hex value can never form a path.
   Defense in depth: the URL photoId is fed as AAD, so a hash/id mismatch also fails
   the AEAD tag.
 - **Privilege scope — sound.** thumb: `standard, stream`; full: `standard, stream,
-  supportFetchAPI, corsEnabled`. No `bypassCSP`, `allowServiceWorkers`, or `secure`.
+supportFetchAPI, corsEnabled`. No `bypassCSP`, `allowServiceWorkers`, or `secure`.
   Fetch and CORS on full are justified by the fetch-based lightbox and neighbor
   prefetch; full-res sets `Cache-Control: no-store` so Chromium never disk-caches
   plaintext. The exact privilege contract is regression-tested

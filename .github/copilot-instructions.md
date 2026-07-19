@@ -2,8 +2,8 @@
 
 Review photos changes against the repo workflow and gate policies, not only
 general TypeScript style. `AGENTS.md` is the shared agent-context file; the
-full workflow lives in the wiki:
-https://github.com/qwts/photos/wiki/Contributing
+full workflow lives in the repo:
+../docs/Contributing.md
 
 ## Product Model
 
@@ -31,7 +31,7 @@ Invariants become review priorities here._
 - Tracked work links the PR to its issue with an explicit closing reference
   (`Closes #N`) — the close-linked-issues workflow parses merged PR bodies.
 - When a PR changes behavior, testing strategy, CI, automation, or workflow
-  expectations, expect a matching wiki/ADR/AGENTS.md update in the same PR.
+  expectations, expect a matching docs/ADR/AGENTS.md update in the same PR.
 
 ## Expected Validation
 

@@ -26,11 +26,11 @@ Electron shell, which is already quarantined behind ~23 adapter files (6% of
 `src/`). It is concentrated in four places: `better-sqlite3-multiple-ciphers`,
 `sharp`, the macOS-only Objective-C++ addon, and — the only genuinely hard
 problem — **master key custody**, which is bound to Electron `safeStorage` and
-unreachable from a native app. The on-disk *format* is portable and, for the
+unreachable from a native app. The on-disk _format_ is portable and, for the
 database, empirically SQLCipher-4-compatible; roughly half of `src/` is already
 platform-neutral TypeScript, and the image pipeline is only seven operations
-wide. The renderer's *logic* was already deliberately extracted into
-`src/shared/`; its *pixels and gestures* are desktop-web and get rewritten per
+wide. The renderer's _logic_ was already deliberately extracted into
+`src/shared/`; its _pixels and gestures_ are desktop-web and get rewritten per
 platform whatever framework is chosen. And no single framework covers even the
 reduced target set — tvOS and visionOS sit outside all of them.
 
@@ -62,19 +62,19 @@ release-engineering item.
 
 Measured over the 41,722 lines of `.ts`/`.tsx` in `src/`:
 
-| Dependency | Files | LOC in those files |
-| --- | --- | --- |
-| `electron` | 23 | 2,611 (6%) |
-| `node:crypto` | 33 | 8,106 |
-| `node:path` | 37 | 7,038 |
-| `node:fs` | 36 | 5,588 |
-| `better-sqlite3-multiple-ciphers` | 16 | 4,481 |
-| `node:http` | 2 | 289 |
-| `child_process` | 1 | 296 |
-| `worker_threads` | 2 | 265 |
-| `sharp` | 3 | 221 |
-| `exifr` | 1 | 138 |
-| **Free of all of the above** | — | **21,485 (51%)** |
+| Dependency                        | Files | LOC in those files |
+| --------------------------------- | ----- | ------------------ |
+| `electron`                        | 23    | 2,611 (6%)         |
+| `node:crypto`                     | 33    | 8,106              |
+| `node:path`                       | 37    | 7,038              |
+| `node:fs`                         | 36    | 5,588              |
+| `better-sqlite3-multiple-ciphers` | 16    | 4,481              |
+| `node:http`                       | 2     | 289                |
+| `child_process`                   | 1     | 296                |
+| `worker_threads`                  | 2     | 265                |
+| `sharp`                           | 3     | 221                |
+| `exifr`                           | 1     | 138                |
+| **Free of all of the above**      | —     | **21,485 (51%)**   |
 
 Read this carefully: "imports no Electron" is not the same as "portable", and
 the LOC column counts whole files, not the coupled lines within them. The
@@ -93,23 +93,23 @@ defaults and is recorded nowhere. Probing a freshly created database through
 the pinned `better-sqlite3-multiple-ciphers` (SQLite3 Multiple Ciphers 2.3.5,
 SQLite 3.53.2) returns:
 
-| Parameter | Value | Meaning |
-| --- | --- | --- |
-| `legacy` | 0 | SQLCipher **4** format |
-| `legacy_page_size` / `page_size` | 4096 | SQLCipher 4 default |
-| `kdf_algorithm` | 2 | PBKDF2-**SHA512** |
-| `hmac_algorithm` | 2 | HMAC-**SHA512** |
-| `kdf_iter` | 256000 | SQLCipher 4 default (bypassed in raw-key mode) |
-| `fast_kdf_iter` | 2 | derives the HMAC key from the raw key + salt |
-| `hmac_pgno` | 1 | |
-| `hmac_salt_mask` | 0x3a (58) | |
-| `plaintext_header_size` | 0 | |
+| Parameter                        | Value     | Meaning                                        |
+| -------------------------------- | --------- | ---------------------------------------------- |
+| `legacy`                         | 0         | SQLCipher **4** format                         |
+| `legacy_page_size` / `page_size` | 4096      | SQLCipher 4 default                            |
+| `kdf_algorithm`                  | 2         | PBKDF2-**SHA512**                              |
+| `hmac_algorithm`                 | 2         | HMAC-**SHA512**                                |
+| `kdf_iter`                       | 256000    | SQLCipher 4 default (bypassed in raw-key mode) |
+| `fast_kdf_iter`                  | 2         | derives the HMAC key from the raw key + salt   |
+| `hmac_pgno`                      | 1         |                                                |
+| `hmac_salt_mask`                 | 0x3a (58) |                                                |
+| `plaintext_header_size`          | 0         |                                                |
 
 These are exactly the SQLCipher 4 defaults, and the first 16 bytes of the file
 are the random salt (confirmed identical to `PRAGMA cipher_salt`). Because the
 key is supplied raw, there is no passphrase KDF to replicate.
 
-**Caveat, stated plainly:** this establishes that the *parameters* match
+**Caveat, stated plainly:** this establishes that the _parameters_ match
 SQLCipher 4 defaults. It does **not** prove byte-for-byte interoperability — no
 upstream SQLCipher build was used to open the file. Actually opening a real
 `library.db` with `net.zetetic` SQLCipher on iOS and Android is the first
@@ -121,13 +121,13 @@ Two things make this much safer than a single-source bet:
   SQLCipher versions 1–4**, and `legacy=0` selects the v4 format.
 - **SQLite3 Multiple Ciphers ships as a plain C amalgamation** and builds for
   every target here. So there are two independent routes to a second
-  implementation: talk to stock SQLCipher, or compile the *identical* cipher
+  implementation: talk to stock SQLCipher, or compile the _identical_ cipher
   implementation we already use and remove the compatibility question entirely.
   This is not theoretical — the Flutter ecosystem has moved the other way for
   exactly this reason: `drift` now recommends SQLite3MultipleCiphers **over**
   SQLCipher, because it covers all native platforms including Windows and Linux.
 
-One near-miss worth recording: sqlite3mc's *default* cipher is ChaCha20-Poly1305
+One near-miss worth recording: sqlite3mc's _default_ cipher is ChaCha20-Poly1305
 (sqleet), which is **not** SQLCipher-compatible. `database.ts` sets
 `cipher='sqlcipher'` explicitly. Had it relied on the default, this section would
 be describing a whole-library migration instead.
@@ -178,7 +178,7 @@ both are already specified — which is a much better starting position than it
 sounds.
 
 Deepening the problem, `credential-anchor.ts` maintains the app-lock freshness
-anchor by *shelling out* to `/usr/bin/security` (line 204), `secret-tool`, or an
+anchor by _shelling out_ to `/usr/bin/security` (line 204), `secret-tool`, or an
 embedded PowerShell DPAPI script (lines 164, 283). **Process spawning is
 prohibited on iOS, iPadOS, tvOS, and visionOS** — there is no workaround. This
 is a rewrite against Keychain/Secure Enclave and Android Keystore directly,
@@ -209,7 +209,7 @@ this, with comments saying so:
 **What does not survive, on any target:**
 
 - **56 HTML5 drag-and-drop handlers.** Photo→album drag and OS file-drop-to-import.
-  The *payload* is portable (`src/shared/library/photo-drag.ts` is versioned
+  The _payload_ is portable (`src/shared/library/photo-drag.ts` is versioned
   JSON behind an interface); the `DataTransfer` transport is not.
 - **Zero touch events exist.** No pinch, no pan, no long-press. Lightbox zoom is
   `onWheel` with `DOM_DELTA_LINE` normalization.
@@ -240,8 +240,8 @@ cleanly onto touch and TV selection modes.
 The strongest evidence that this is tractable: **the team has already done this
 exercise once.** `src/shared/interop/` plus `design/handoff/contracts/v1/`
 define a versioned, product-neutral, encrypted, wire-level transfer protocol
-that a *different product* (`qwts/image-trail`) with a *different database
-format and key hierarchy* implements against
+that a _different product_ (`qwts/image-trail`) with a _different database
+format and key hierarchy_ implements against
 ([ADR-0014](./adr/ADR-0014-Image-Trail-Bidirectional-Interoperability.md)).
 
 It ships published draft-2020-12 JSON schemas, seven golden fixtures
@@ -255,7 +255,7 @@ This matters twice over:
 
 1. It is the template for how to specify the library format for a second
    implementation. That work has a precedent in this repo, not just a plan.
-2. **A mobile app could be modeled as an interop *peer* rather than a second
+2. **A mobile app could be modeled as an interop _peer_ rather than a second
    implementation of the library format** — a companion that syncs, rather than
    a full port that opens `library.db` directly. That is a dramatically smaller
    and safer first step.
@@ -285,19 +285,19 @@ Playwright E2E lane in which **all 27 specs are bound to
 
 ## Platform-by-platform
 
-| Target | Real status | Dominant cost |
-| --- | --- | --- |
-| **Windows** | **Already ships.** Needs a signing cert ([#128](https://github.com/qwts/photos/issues/128)). | Release engineering, not porting. |
-| **iPadOS** | Most tractable Apple target. Three-pane layout survives; density and gestures do not. | Touch input model, custody. |
-| **iOS (phone)** | Shell must become a navigation stack; 5 breakpoints to build on. | Layout redesign + touch + custody + background-execution limits for long imports/backups. |
-| **Android** | Comparable to iOS, plus a back-button model that does not exist today, and scoped-storage conflicts with the blob store's hardlink/rename durability. | As iOS, plus storage semantics. |
-| **visionOS** | Closest to a "hover exists" model (gaze), so hover-reveals partly survive. Inherits iOS core work. | 24–34px controls are far below spatial-UI guidance. |
-| **tvOS** | **Should be cut from scope as specified** — see below. | Not a port at all; a different product. |
+| Target          | Real status                                                                                                                                           | Dominant cost                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Windows**     | **Already ships.** Needs a signing cert ([#128](https://github.com/qwts/photos/issues/128)).                                                          | Release engineering, not porting.                                                         |
+| **iPadOS**      | Most tractable Apple target. Three-pane layout survives; density and gestures do not.                                                                 | Touch input model, custody.                                                               |
+| **iOS (phone)** | Shell must become a navigation stack; 5 breakpoints to build on.                                                                                      | Layout redesign + touch + custody + background-execution limits for long imports/backups. |
+| **Android**     | Comparable to iOS, plus a back-button model that does not exist today, and scoped-storage conflicts with the blob store's hardlink/rename durability. | As iOS, plus storage semantics.                                                           |
+| **visionOS**    | Closest to a "hover exists" model (gaze), so hover-reveals partly survive. Inherits iOS core work.                                                    | 24–34px controls are far below spatial-UI guidance.                                       |
+| **tvOS**        | **Should be cut from scope as specified** — see below.                                                                                                | Not a port at all; a different product.                                                   |
 
 ### tvOS cannot host a local library — cut or redefine it
 
 This is the one finding that removes work rather than adding it, so it is worth
-stating bluntly. Apple's *App Programming Guide for tvOS* specifies that a tvOS
+stating bluntly. Apple's _App Programming Guide for tvOS_ specifies that a tvOS
 app gets roughly **500 KB of persistent local storage** (via `NSUserDefaults`).
 Everything else — including `Caches` — is **purgeable by the system whenever the
 app is not running**, and the app bundle is capped at **4 GB**. Persistent data
@@ -325,7 +325,7 @@ live and documented on `UserDefaults.sizeLimitExceededNotification`:
 
 (The archived guide's "500 KB" and this "512 KB" are the same number rounded
 differently — cite 512 KB.) There is also affirmative evidence Apple is
-*maintaining* the posture rather than relaxing it: when iOS 18 raised on-demand
+_maintaining_ the posture rather than relaxing it: when iOS 18 raised on-demand
 resource ceilings from 20 GB to 70 GB and per-pack limits from 512 MB to 8 GB,
 **tvOS was deliberately excluded and stayed at 20 GB / 512 MB**.
 
@@ -345,28 +345,28 @@ Surveyed 2026-07-18. The headline is not which framework is best; it is that
 **tvOS and visionOS fall outside every mainstream cross-platform framework**, so
 the six-platform ask cannot be satisfied by one technology choice.
 
-| Option | Covers | Does not cover | Notes |
-| --- | --- | --- | --- |
-| **Electron** (today) | Windows, macOS, Linux | iOS, iPadOS, tvOS, visionOS, Android | Windows already ships. |
-| **Tauri v2** (2.11.5, 2026-07-01) | Windows, macOS, Linux, iOS, Android | **tvOS, visionOS** | Stable mobile since v2.0 (2024-10-02). Rust core — the second toolchain [ADR-0003](./adr/ADR-0003-Desktop-Stack.md) rejected. |
-| **React Native** | iOS, iPadOS, Android, Windows (RN-Windows) | tvOS and visionOS only via **separate forks** | See below. |
-| **`react-native-tvos`** | tvOS, Android TV | — | Community fork, at 0.76.5-0, active through 2026. Not core RN. |
-| **`react-native-visionos`** | visionOS | — | Callstack fork, active through 2026. Not core RN. |
-| **Compose Multiplatform** (1.11.x, 2026-05) | Android, iOS, desktop (JVM) | **tvOS, visionOS** (UI) | iOS UI stable since CMP 1.8.0 (2025-05); KMP stable since 2023-11. See the tvOS/visionOS asymmetry below. |
-| **.NET MAUI** (10.0.x, .NET 10) | iOS, iPadOS, Android, Windows (WinUI 3), Mac Catalyst | **tvOS, visionOS** (UI) | Best *native* Windows story of any option. But MAUI 10 support ends 2027-05-11 — it does **not** inherit .NET 10's LTS window. |
-| **Flutter** (3.44.x, 2026-05) | iOS, iPadOS, Android, Windows, macOS, Linux | **tvOS, visionOS** | tvOS ([#47928](https://github.com/flutter/flutter/issues/47928)) open since 2019, P3, dormant since 2022; visionOS ([#128313](https://github.com/flutter/flutter/issues/128313)) open, P3, tagged "requires significant investment". Windows renderer (Impeller) is still experimental. |
-| **Capacitor** | iOS, iPadOS, Android | tvOS, visionOS | Thinnest wrapper; keeps the existing web UI. Worst fit for a large photo grid — webview memory ceiling plus async bridge. |
-| **Native per platform** | **all six** | — | SwiftUI (iOS/iPadOS/tvOS/visionOS), Compose (Android), existing Electron (Windows). Maximum reuse of the *core*, zero reuse of the UI. |
+| Option                                      | Covers                                                | Does not cover                                | Notes                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------- | ----------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Electron** (today)                        | Windows, macOS, Linux                                 | iOS, iPadOS, tvOS, visionOS, Android          | Windows already ships.                                                                                                                                                                                                                                                                  |
+| **Tauri v2** (2.11.5, 2026-07-01)           | Windows, macOS, Linux, iOS, Android                   | **tvOS, visionOS**                            | Stable mobile since v2.0 (2024-10-02). Rust core — the second toolchain [ADR-0003](./adr/ADR-0003-Desktop-Stack.md) rejected.                                                                                                                                                           |
+| **React Native**                            | iOS, iPadOS, Android, Windows (RN-Windows)            | tvOS and visionOS only via **separate forks** | See below.                                                                                                                                                                                                                                                                              |
+| **`react-native-tvos`**                     | tvOS, Android TV                                      | —                                             | Community fork, at 0.76.5-0, active through 2026. Not core RN.                                                                                                                                                                                                                          |
+| **`react-native-visionos`**                 | visionOS                                              | —                                             | Callstack fork, active through 2026. Not core RN.                                                                                                                                                                                                                                       |
+| **Compose Multiplatform** (1.11.x, 2026-05) | Android, iOS, desktop (JVM)                           | **tvOS, visionOS** (UI)                       | iOS UI stable since CMP 1.8.0 (2025-05); KMP stable since 2023-11. See the tvOS/visionOS asymmetry below.                                                                                                                                                                               |
+| **.NET MAUI** (10.0.x, .NET 10)             | iOS, iPadOS, Android, Windows (WinUI 3), Mac Catalyst | **tvOS, visionOS** (UI)                       | Best _native_ Windows story of any option. But MAUI 10 support ends 2027-05-11 — it does **not** inherit .NET 10's LTS window.                                                                                                                                                          |
+| **Flutter** (3.44.x, 2026-05)               | iOS, iPadOS, Android, Windows, macOS, Linux           | **tvOS, visionOS**                            | tvOS ([#47928](https://github.com/flutter/flutter/issues/47928)) open since 2019, P3, dormant since 2022; visionOS ([#128313](https://github.com/flutter/flutter/issues/128313)) open, P3, tagged "requires significant investment". Windows renderer (Impeller) is still experimental. |
+| **Capacitor**                               | iOS, iPadOS, Android                                  | tvOS, visionOS                                | Thinnest wrapper; keeps the existing web UI. Worst fit for a large photo grid — webview memory ceiling plus async bridge.                                                                                                                                                               |
+| **Native per platform**                     | **all six**                                           | —                                             | SwiftUI (iOS/iPadOS/tvOS/visionOS), Compose (Android), existing Electron (Windows). Maximum reuse of the _core_, zero reuse of the UI.                                                                                                                                                  |
 
 **The tvOS/visionOS asymmetry is worth understanding precisely**, because two of
-these options can share *logic* even where they cannot share *UI*:
+these options can share _logic_ even where they cannot share _UI_:
 
 - **Kotlin/Native has tvOS targets at Tier 2** (`tvosArm64`,
   `tvosSimulatorArm64`; `tvosX64` is deprecated as of Kotlin 2.3.20), so KMP can
   share business logic to tvOS under a hand-written SwiftUI layer. **There is no
   Kotlin/Native visionOS target at all** — visionOS gets nothing, not even
   shared logic.
-- **.NET has real tvOS *bindings*** (`net10.0-tvos` is a genuine TFM) while
+- **.NET has real tvOS _bindings_** (`net10.0-tvos` is a genuine TFM) while
   **MAUI's UI layer does not target tvOS**. Note that MAUI's support-policy page
   lists tvOS among "the SDKs MAUI encompasses", which contradicts its own
   supported-platforms doc; the latter is authoritative for UI targets. Do not
@@ -386,7 +386,7 @@ Two consequences worth internalising:
   option that most directly contradicts ADR-0003's single-TypeScript-toolchain
   driver, and that invalidates the gate suite described in Finding 7. It is
   nonetheless the architecture used by comparable privacy-first apps with a
-  cryptographic core, and it is the one that best fits *this* codebase, because
+  cryptographic core, and it is the one that best fits _this_ codebase, because
   the expensive, security-critical, well-specified part (formats, crypto,
   protocol) is exactly the part that would be shared.
 
@@ -474,7 +474,7 @@ Both apply to every framework choice equally; they are properties of the product
 - **iOS backup exclusion — real, but not the guideline people cite.** There is
   **no 2.5.x guideline covering iCloud backup**; the old numbered rule no longer
   exists, and the requirement now lives in the "Before You Submit" section by
-  reference to *Optimizing your app's data for iCloud backup*. Likewise
+  reference to _Optimizing your app's data for iCloud backup_. Likewise
   **QA1719 is archived and redirects** — cite the current doc. The substance
   holds: the encrypted database and originals are non-reproducible user data and
   belong in `Application Support/` **backed up**, while regenerable thumbnails
@@ -502,7 +502,7 @@ Both apply to every framework choice equally; they are properties of the product
   `dataSync`. Note also the Play target-SDK deadline: **API 36+ from
   2026-08-31**, extendable to 2026-11-01.
 
-## Finding 12 — iOS background execution is *better* than the folklore
+## Finding 12 — iOS background execution is _better_ than the folklore
 
 This finding was revised after a second research pass; the first version of this
 page repeated the standard "iOS cannot back up a photo library in the
@@ -523,7 +523,7 @@ decision should be made deliberately rather than by default. It also requires
 will not do — and is unavailable in the Simulator.
 
 For user-initiated bulk work there is **`BGContinuedProcessingTask`** (iOS 26),
-whose *documented example* is literally "Creating thumbnails for a new batch of
+whose _documented example_ is literally "Creating thumbnails for a new batch of
 photo uploads". It starts in the foreground, survives backgrounding, and shows a
 cancellable Live Activity. Two constraints shape the design: progress reporting
 is mandatory and enforced ("the system prioritizes the termination of tasks that
@@ -544,7 +544,7 @@ copied into designs:
   `backgroundTimeRemaining`. The figure appears to originate in a retired guide.
   Do not hardcode it.
 - **`BGAppRefreshTask` / `BGProcessingTask` have no documented numeric budgets.**
-  Design against the expiration handler, not a clock. What *is* documented is
+  Design against the expiration handler, not a clock. What _is_ documented is
   queue depth: 1 refresh task and 10 processing tasks scheduled at a time.
 
 The product consequence is unchanged and still the important part:
@@ -553,7 +553,7 @@ paths**. The existing import state machine and the resumable journals in
 `src/main/import/` and the interop layer are real assets here — the desktop
 design already anticipated the shape mobile forces.
 
-One hazard that is *not* good news: `PHImageRequestOptions.isNetworkAccessAllowed`
+One hazard that is _not_ good news: `PHImageRequestOptions.isNetworkAccessAllowed`
 defaults to **false**, so on any device with Optimize iPhone Storage most
 originals are not local and requests **silently** return nothing useful. For
 byte-exact originals use `PHAssetResourceManager` rather than `PHImageManager`.
@@ -629,7 +629,7 @@ resilience gap in the product today.
 
 ## Sources
 
-External claims, checked 2026-07-18. Everything about *this* repo was verified
+External claims, checked 2026-07-18. Everything about _this_ repo was verified
 directly against the working tree at `abbb413`; the SQLCipher parameters were
 measured, not read.
 

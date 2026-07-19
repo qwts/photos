@@ -25,7 +25,7 @@ design's surfaces:
 - **Thumb** — 512 px long edge, WebP quality 80: covers the grid's 96–320 px
   tiles at 2× DPR.
 - **Mid** — 2048 px long edge, WebP quality 85: the lightbox fast path while
-  the decrypted original loads (or *is* the lightbox image for offloaded
+  the decrypted original loads (or _is_ the lightbox image for offloaded
   photos).
 - **Color management:** convert to sRGB honoring the embedded ICC profile.
   **Strip all metadata from derivatives** — a thumbnail must never leak the

@@ -139,14 +139,14 @@ without ever holding the password.
   "generation": 3,
   "kdf": { "name": "scrypt", "N": 131072, "r": 8, "p": 1, "salt": "<base64, 16 bytes>" },
   "passwordSlot": { "algorithm": "AES-256-GCM", "nonce": "<base64, 12>", "ciphertextAndTag": "<base64, 48>" },
-  "masterSlot":   { "algorithm": "AES-256-GCM", "nonce": "<base64, 12>", "ciphertextAndTag": "<base64, 48>" }
+  "masterSlot": { "algorithm": "AES-256-GCM", "nonce": "<base64, 12>", "ciphertextAndTag": "<base64, 48>" }
 }
 ```
 
 - **KDF**: scrypt, N = 2^17 = 131072, r = 8, p = 1, 16-byte salt, 32-byte output.
   Costs ~128 MiB; implementations must raise any `maxmem` equivalent above that.
 - `ciphertextAndTag` is **ciphertext ‖ tag** (32 + 16 = 48 bytes). Note this is
-  the *opposite* order from §5. See §12.
+  the _opposite_ order from §5. See §12.
 - **AAD** is an ASCII string, built per slot:
   ```
   OVLK|1|<libraryId>|<generation>|password|AES-256-GCM
@@ -185,7 +185,7 @@ presence with a missing or non-record `master.key` is what distinguishes
   "version": 1,
   "keys": [
     { "id": 1, "createdAt": "<ISO 8601>", "status": "retired", "wrappedKey": "<base64>" },
-    { "id": 2, "createdAt": "<ISO 8601>", "status": "active",  "wrappedKey": "<base64>" }
+    { "id": 2, "createdAt": "<ISO 8601>", "status": "active", "wrappedKey": "<base64>" }
   ]
 }
 ```
@@ -212,22 +212,22 @@ Used for originals, thumbnails, and — with a twist — protected blobs (§10.1
 
 ### Header (17 bytes, once per file)
 
-| Offset | Size | Field |
-| --- | --- | --- |
-| 0 | 4 | magic `OVLK` |
-| 4 | 1 | format version, currently `1` |
-| 5 | 4 | key id (`u32be`) — selects the library key from §5 |
-| 9 | 8 | nonce prefix (random, per blob) |
+| Offset | Size | Field                                              |
+| ------ | ---- | -------------------------------------------------- |
+| 0      | 4    | magic `OVLK`                                       |
+| 4      | 1    | format version, currently `1`                      |
+| 5      | 4    | key id (`u32be`) — selects the library key from §5 |
+| 9      | 8    | nonce prefix (random, per blob)                    |
 
 ### Chunks (repeating, until one carries the final flag)
 
-| Offset | Size | Field |
-| --- | --- | --- |
-| 0 | 1 | flags (`u8`); bit 0 = final |
-| 1 | 4 | total chunks (`u32be`) — **0 on every non-final chunk** |
-| 5 | 4 | ciphertext length (`u32be`) |
-| 9 | 16 | GCM tag |
-| 25 | *length* | ciphertext |
+| Offset | Size     | Field                                                   |
+| ------ | -------- | ------------------------------------------------------- |
+| 0      | 1        | flags (`u8`); bit 0 = final                             |
+| 1      | 4        | total chunks (`u32be`) — **0 on every non-final chunk** |
+| 5      | 4        | ciphertext length (`u32be`)                             |
+| 9      | 16       | GCM tag                                                 |
+| 25     | _length_ | ciphertext                                              |
 
 - Plaintext chunk size is **4 MiB**. Decoders must reject a declared length above
   **8 MiB** (2 × chunk size) so a forged length cannot force unbounded buffering.
@@ -285,7 +285,7 @@ metadata stripped, per [ADR-0006](./adr/ADR-0006-Media-Processing.md).
    plaintext as it goes.
 2. `fsync` the staged file.
 3. `link()` it to its final path. `EEXIST` means these exact bytes are already
-   stored — **keep the existing envelope** and report *its* key id, because its
+   stored — **keep the existing envelope** and report _its_ key id, because its
    AAD binds the original photo id. Overwriting would orphan that row's
    decrypts.
 4. Remove the stage file, then `fsync` the destination **directory** so the entry
@@ -302,14 +302,14 @@ address before they count as present. A failed verification deletes the file.
 should size-check before buffering — the runtime rejects any file of a different
 size before reading it.
 
-| Offset | Size | Field |
-| --- | --- | --- |
-| 0 | 4 | magic `OVRK` |
-| 4 | 1 | version, currently `1` |
-| 5 | 16 | scrypt salt |
-| 21 | 12 | GCM nonce |
-| 33 | 32 | ciphertext (the sealed master key) |
-| 65 | 16 | GCM tag |
+| Offset | Size | Field                              |
+| ------ | ---- | ---------------------------------- |
+| 0      | 4    | magic `OVRK`                       |
+| 4      | 1    | version, currently `1`             |
+| 5      | 16   | scrypt salt                        |
+| 21     | 12   | GCM nonce                          |
+| 33     | 32   | ciphertext (the sealed master key) |
+| 65     | 16   | GCM tag                            |
 
 - Key = scrypt(password, salt, 32) with **N = 2^17, r = 8, p = 1** — same
   parameters as §4.2.
@@ -350,20 +350,20 @@ PRAGMA foreign_keys = ON;
 Everything else rides on defaults. **Measured** against the pinned driver
 (SQLite3 Multiple Ciphers 2.3.5 / SQLite 3.53.2):
 
-| Parameter | Value |
-| --- | --- |
-| `legacy` | 0 → SQLCipher **4** format |
-| page size | 4096 |
-| `kdf_algorithm` | 2 → PBKDF2-SHA512 |
-| `hmac_algorithm` | 2 → HMAC-SHA512 |
-| `kdf_iter` | 256000 (bypassed in raw-key mode) |
-| `fast_kdf_iter` | 2 (derives the HMAC key) |
-| `hmac_pgno` | 1 |
-| `hmac_salt_mask` | 0x3a |
-| `plaintext_header_size` | 0 |
+| Parameter               | Value                             |
+| ----------------------- | --------------------------------- |
+| `legacy`                | 0 → SQLCipher **4** format        |
+| page size               | 4096                              |
+| `kdf_algorithm`         | 2 → PBKDF2-SHA512                 |
+| `hmac_algorithm`        | 2 → HMAC-SHA512                   |
+| `kdf_iter`              | 256000 (bypassed in raw-key mode) |
+| `fast_kdf_iter`         | 2 (derives the HMAC key)          |
+| `hmac_pgno`             | 1                                 |
+| `hmac_salt_mask`        | 0x3a                              |
+| `plaintext_header_size` | 0                                 |
 
 These are exactly the SQLCipher 4 defaults. The **first 16 bytes of the file are
-the random salt** (equal to `PRAGMA cipher_salt`); the SQLite magic is *not*
+the random salt** (equal to `PRAGMA cipher_salt`); the SQLite magic is _not_
 present in plaintext.
 
 Because the key is supplied raw, there is no passphrase KDF to reproduce — but
@@ -381,7 +381,7 @@ content_rowid='rowid'` (external content) kept current by exactly **three
 triggers** — `photos_fts_ai`, `_ad`, `_au` on insert/delete/update.
 
 **10 migrations**, forward-only with no down path, each applied in its own
-transaction and tracked in `schema_migrations(version, applied_at)` — *not*
+transaction and tracked in `schema_migrations(version, applied_at)` — _not_
 `PRAGMA user_version`, which is the detail most reimplementations assume.
 
 **FTS5 must be compiled in.** It is present in SQLCipher's amalgamation but
@@ -438,13 +438,13 @@ serialized compactly (no spaces), binding library, album, and photo identity.
 
 ## 11. Magic byte registry
 
-| Magic | Where | Meaning |
-| --- | --- | --- |
-| `OVLK` | blob/thumb/protected-blob files | envelope header (§6) |
-| `OVLK` | `master.key` first 4 bytes | app-lock record (§4.2) |
-| `OVLK1\n` | `app-lock.configured` | 6-byte configured marker |
-| `OVRK` | `overlook-recovery.key` | recovery file (§8) |
-| `OVPP` | protected photo metadata | sealed metadata (§10.2) |
+| Magic     | Where                           | Meaning                  |
+| --------- | ------------------------------- | ------------------------ |
+| `OVLK`    | blob/thumb/protected-blob files | envelope header (§6)     |
+| `OVLK`    | `master.key` first 4 bytes      | app-lock record (§4.2)   |
+| `OVLK1\n` | `app-lock.configured`           | 6-byte configured marker |
+| `OVRK`    | `overlook-recovery.key`         | recovery file (§8)       |
+| `OVPP`    | protected photo metadata        | sealed metadata (§10.2)  |
 
 `OVLK` is overloaded across two unrelated formats, disambiguated only by
 filename. Do not sniff for it generically.

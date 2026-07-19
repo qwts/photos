@@ -25,7 +25,7 @@ surface).
 
 ## Context
 
-Deletion is the one operation whose *purpose* is data loss, so it runs the
+Deletion is the one operation whose _purpose_ is data loss, so it runs the
 project's zero-data-loss philosophy inverted: every step before the last must
 be reversible, and the last step must be willful, fully disclosed, and
 auditable.
@@ -41,7 +41,7 @@ auditable.
 - **The shipped purge order already encodes the house blast-radius rule.**
   DB row first, local blobs second (content-hash refcounted), remote last
   with retries — "nothing ever points at missing data"
-  (`purge-service.ts:4-10`). Failures strand *extra* copies (audited
+  (`purge-service.ts:4-10`). Failures strand _extra_ copies (audited
   `ORPHAN-REMOTE` lines, retried on later purges), never a row that lies.
 - **Confirmations are renderer-only today** ("destructive-confirmed in the
   renderer", `src/shared/ipc/channels.ts:427-431`) — a stale or buggy
@@ -59,20 +59,20 @@ auditable.
 Every destructive action belongs to exactly one tier, and its language is
 fixed by tier (#534's language contract, elevated to ADR law):
 
-| Tier | Meaning | Vocabulary |
-| --- | --- | --- |
-| **R — Reversible** | Content moves to a recoverable state; bytes untouched | **Move to Trash**, **Restore from Trash** |
+| Tier                         | Meaning                                                          | Vocabulary                                                                                                                             |
+| ---------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **R — Reversible**           | Content moves to a recoverable state; bytes untouched            | **Move to Trash**, **Restore from Trash**                                                                                              |
 | **M — Membership/structure** | Destroys structure, links, or registry state — never photo bytes | Object-specific: **Delete album**, **Remove from album**, **Remove library from list**, **Disconnect provider**, **Clear diagnostics** |
-| **D — Irreversible** | Photo bytes, keys, or remote state destroyed | **Delete permanently…**, **Empty Trash…**, destructive profile erase (ADR-0013's naming rules) |
+| **D — Irreversible**         | Photo bytes, keys, or remote state destroyed                     | **Delete permanently…**, **Empty Trash…**, destructive profile erase (ADR-0013's naming rules)                                         |
 
 A Tier-R action is never labeled permanent; a Tier-D action is never reachable
 through a generic "Delete"; a Tier-M action never implies content loss and its
-ceremony must *say* the content survives (ADR-0017 §5's "Remove never deletes
+ceremony must _say_ the content survives (ADR-0017 §5's "Remove never deletes
 library contents" becomes the pattern for the whole tier).
 
 ### 2. Trash is the product surface of soft delete
 
-- Renaming **Recently deleted → Trash** (#534) is ratified: the surface *is*
+- Renaming **Recently deleted → Trash** (#534) is ratified: the surface _is_
   a trash can and must present as one.
 - Soft delete sets `deleted_at` and nothing else — no blob, ledger, or
   membership changes (`photos-repository.ts:408-430`); Restore returns the
@@ -129,11 +129,11 @@ library contents" becomes the pattern for the whole tier).
 - Per-photo purge **includes** the remote ciphertext blob — a user purging a
   photo means gone everywhere, and the ceremony (§6) discloses the cloud
   outcome rather than asking twice. Library-level destructive erase keeps
-  ADR-0013's stricter rule (remote deletion is a *separate* confirmation) —
+  ADR-0013's stricter rule (remote deletion is a _separate_ confirmation) —
   the blast radius difference justifies the ceremony difference.
 - Purge owes and pushes a fresh manifest generation (`purge-service.ts:81-85`).
   ADR-0007 retains N=2 previous generations whose encrypted manifests may
-  still *name* the purged photo (metadata: filename, size, content hash)
+  still _name_ the purged photo (metadata: filename, size, content hash)
   until they rotate; their blob references dangle, which correctly makes them
   ineligible restore fallbacks under ADR-0010's validation. The honest
   user-facing sentence is therefore: **"Cloud copy deleted now (or flagged
@@ -142,7 +142,7 @@ library contents" becomes the pattern for the whole tier).
   #534's "reports local/cloud outcomes honestly" is implemented with exactly
   this honesty, including surfacing `remoteFailures` in the result — a purge
   with stranded remote copies never reports as fully clean.
-- Per-photo cloud retention controls (#506) change the *disclosure set* (which
+- Per-photo cloud retention controls (#506) change the _disclosure set_ (which
   copies exist to enumerate), not this custody order.
 
 ### 6. The ceremony contract — and authorization moves below the renderer
@@ -152,7 +152,7 @@ library contents" becomes the pattern for the whole tier).
   sidecars, metadata, cloud copies, structure); states plainly that it cannot
   be undone; names the partial-failure behavior (audited orphans, retry); and
   carries a destructive button whose label matches the action verb. Tier-M
-  ceremonies must state what *survives*. High-impact Tier-R bulk actions may
+  ceremonies must state what _survives_. High-impact Tier-R bulk actions may
   confirm, but the copy must say restoration is possible. Protected Originals
   keep #482's stronger ceremony.
 - **Destructive authorization is enforced in the main process**, generalizing

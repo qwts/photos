@@ -85,7 +85,7 @@ the registry still points at the old path and the library shows as Missing.
 Use **Add existing…** and choose the folder at its new location: Overlook
 reads the folder's own `library-id` and, because the ID matches, offers to
 re-point the existing entry — identity, backups, and settings all stay. A
-folder with the *wrong* ID is rejected rather than adopted.
+folder with the _wrong_ ID is rejected rather than adopted.
 
 Never hand-edit `libraries.json`; if it is ever corrupted, Overlook refuses
 to overwrite it and tells you at startup rather than silently forgetting your

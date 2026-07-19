@@ -22,19 +22,19 @@ Recovery requires the separately exported ADR-0008 key file and its password.
 
 ## Executable acceptance matrix
 
-| Scenario | Evidence |
-| --- | --- |
-| Protect a populated ordinary album; remove its rows, memberships, photos, and counts from ordinary UI | `tests/e2e/protected-albums.spec.ts`, `tests/library/protected-workflow-service.test.ts` |
-| Restart with only a generic locked row and no file-name/image/summary bypass | `tests/e2e/protected-albums.spec.ts`, `tests/library/protected-library-service.test.ts` |
-| Keyboard unlock, authorized real-photo route, focus-trapped lightbox, and focus restoration | Electron spec plus `ProtectedAlbumView.stories.tsx` |
-| Navigation and manual relock clear DOM state, reject late page responses, and revoke stale media URLs | Electron spec plus protected library/protocol tests |
-| Password change, exported-key recovery, and verified removal/restoration | Electron spec plus credential/workflow suites |
-| App lock, lock-screen, suspend, user resignation, shutdown, and restart revoke album authority | Electron spec, `app-lock.spec.ts`, authority/runtime tests |
-| Progress, safe cancellation, conflict, failure, recovery mismatch, interruption, and completion copy | `ProtectedAlbumCeremony.stories.tsx`, workflow and migration suites |
-| Corrupt source/destination and every crash boundary retain a verified copy | `tests/crypto/protected-photo-migration-service.test.ts` |
-| Ordinary queries/counts/search/dedupe/status/diagnostics and cross-domain requests cannot discover protected records | protected repository/library/media/IPC suites from PR #353 |
-| Cloud namespace, backup, integrity repair, offload/rehydrate, and fresh restore remain ciphertext-only and closed | protected backup/manifest/restore suites from PR #354 |
-| Real photo fixtures, password-manager attributes, live regions, reduced motion, and 600px layout | Protected Storybook interactions and Electron spec |
+| Scenario                                                                                                             | Evidence                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Protect a populated ordinary album; remove its rows, memberships, photos, and counts from ordinary UI                | `tests/e2e/protected-albums.spec.ts`, `tests/library/protected-workflow-service.test.ts` |
+| Restart with only a generic locked row and no file-name/image/summary bypass                                         | `tests/e2e/protected-albums.spec.ts`, `tests/library/protected-library-service.test.ts`  |
+| Keyboard unlock, authorized real-photo route, focus-trapped lightbox, and focus restoration                          | Electron spec plus `ProtectedAlbumView.stories.tsx`                                      |
+| Navigation and manual relock clear DOM state, reject late page responses, and revoke stale media URLs                | Electron spec plus protected library/protocol tests                                      |
+| Password change, exported-key recovery, and verified removal/restoration                                             | Electron spec plus credential/workflow suites                                            |
+| App lock, lock-screen, suspend, user resignation, shutdown, and restart revoke album authority                       | Electron spec, `app-lock.spec.ts`, authority/runtime tests                               |
+| Progress, safe cancellation, conflict, failure, recovery mismatch, interruption, and completion copy                 | `ProtectedAlbumCeremony.stories.tsx`, workflow and migration suites                      |
+| Corrupt source/destination and every crash boundary retain a verified copy                                           | `tests/crypto/protected-photo-migration-service.test.ts`                                 |
+| Ordinary queries/counts/search/dedupe/status/diagnostics and cross-domain requests cannot discover protected records | protected repository/library/media/IPC suites from PR #353                               |
+| Cloud namespace, backup, integrity repair, offload/rehydrate, and fresh restore remain ciphertext-only and closed    | protected backup/manifest/restore suites from PR #354                                    |
+| Real photo fixtures, password-manager attributes, live regions, reduced motion, and 600px layout                     | Protected Storybook interactions and Electron spec                                       |
 
 ## Renderer leakage assertions
 

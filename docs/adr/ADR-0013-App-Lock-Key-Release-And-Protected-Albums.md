@@ -171,7 +171,7 @@ The design does not protect against a compromised OS/kernel, keylogger, debugger
 | Change/remove/recovery/destructive-reset ceremonies; anchor rollback/downgrade/crash states | #311             | Unit fault matrix, fresh-profile recovery E2E, security review          |
 | Supported signed Touch ID opt-in/unlock and password fallback                               | #310             | Native adapter contract, deterministic fake, signed macOS owner test    |
 | Touch ID cancel/lockout/unavailable/enrollment change/unsigned build/revocation             | #310             | Adapter and packaging tests; no simulated success in unsupported builds |
-| Protected album key slots, sealed metadata, unlock/change/recover, and relock custody       | #325             | KDF, key-slot, persistence, tamper, and zeroization tests                |
+| Protected album key slots, sealed metadata, unlock/change/recover, and relock custody       | #325             | KDF, key-slot, persistence, tamper, and zeroization tests               |
 | Crash-safe protect/move/remove migration and one-domain conflict rule                       | #326             | Migration kill matrix and ciphertext verification                       |
 | Query/count/protocol/export/cache/deep-link leakage audit                                   | #327             | Table-driven repository/service/protocol bypass suite                   |
 | Backup/restore/sync/offload isolation                                                       | #328             | Disaster-recovery and provider contract                                 |

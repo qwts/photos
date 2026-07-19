@@ -60,9 +60,9 @@ required recovery phrase.**
   BIP39-style words encoding the master key — shown once with instructions to
   store it offline. This is not optional polish: restoring a pCloud backup on
   a new machine has no OS keychain to read, so a portable key path must exist
-  for backup to mean anything. Stated plainly in-product: *"Lose the keychain
+  for backup to mean anything. Stated plainly in-product: _"Lose the keychain
   and the phrase, and the library cannot be decrypted. There is no other
-  recovery."*
+  recovery."_
 
 **Database at rest — whole-DB encryption (SQLCipher family).** Filenames,
 EXIF, GPS coordinates, and places are exactly as sensitive as pixels; a
@@ -108,7 +108,7 @@ is weaker than the prose above, with the accepted position.
 
 - **Nonce uniqueness is probabilistic, not enforced (accepted for v0.x).** The
   "nonce reuse impossible within a key's lifetime at our volumes" claim in the
-  *Blob encryption* section rests on a **64-bit random per-blob prefix**
+  _Blob encryption_ section rests on a **64-bit random per-blob prefix**
   (`envelope.ts` `nonceFor`), so uniqueness is a birthday bound (N²/2⁶⁵ under
   one key), not an invariant: negligible (~2⁻²²) at a few million blobs/key,
   ~1/130k by ~16M, 50% at 2³². Rotation resets the per-key population, which is

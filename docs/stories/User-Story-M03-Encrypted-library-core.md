@@ -6,16 +6,16 @@ Lane B. The privacy foundation the whole app sits on: a local SQLite library plu
 
 ## Issues
 
-| # | Title | Blocked by |
-| --- | --- | --- |
-| [#65](https://github.com/qwts/photos/issues/65) | ADR-0004: encryption & key management | — |
-| [#66](https://github.com/qwts/photos/issues/66) | ADR-0005: library data model & on-disk layout | — |
-| [#67](https://github.com/qwts/photos/issues/67) | Crypto engine: streaming AES-256-GCM with versioned keys | #65, #49 |
-| [#68](https://github.com/qwts/photos/issues/68) | Master-key lifecycle: keychain custody, key metadata, rotation scaffold | #65, #49 |
-| [#69](https://github.com/qwts/photos/issues/69) | SQLite module: better-sqlite3, migrations runner, schema v1 | #66, #49 |
-| [#70](https://github.com/qwts/photos/issues/70) | Encrypted blob store: originals + thumbnails with integrity checksums | #66, #67 |
-| [#71](https://github.com/qwts/photos/issues/71) | Library IPC service: paged queries, mutations, counts | #69, #70 |
-| [#72](https://github.com/qwts/photos/issues/72) | Dev-seed fixture library for development and E2E | #71 |
+| #                                               | Title                                                                   | Blocked by |
+| ----------------------------------------------- | ----------------------------------------------------------------------- | ---------- |
+| [#65](https://github.com/qwts/photos/issues/65) | ADR-0004: encryption & key management                                   | —          |
+| [#66](https://github.com/qwts/photos/issues/66) | ADR-0005: library data model & on-disk layout                           | —          |
+| [#67](https://github.com/qwts/photos/issues/67) | Crypto engine: streaming AES-256-GCM with versioned keys                | #65, #49   |
+| [#68](https://github.com/qwts/photos/issues/68) | Master-key lifecycle: keychain custody, key metadata, rotation scaffold | #65, #49   |
+| [#69](https://github.com/qwts/photos/issues/69) | SQLite module: better-sqlite3, migrations runner, schema v1             | #66, #49   |
+| [#70](https://github.com/qwts/photos/issues/70) | Encrypted blob store: originals + thumbnails with integrity checksums   | #66, #67   |
+| [#71](https://github.com/qwts/photos/issues/71) | Library IPC service: paged queries, mutations, counts                   | #69, #70   |
+| [#72](https://github.com/qwts/photos/issues/72) | Dev-seed fixture library for development and E2E                        | #71        |
 
 ## Definition of done
 

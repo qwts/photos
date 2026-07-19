@@ -50,7 +50,7 @@ The registry is a versioned standalone file, **not** part of `settings.ts`:
 - **One id.** The library's identity is the ULID already defined by ADR-0007 ("the ULID minted at library creation"). It is minted **eagerly at library creation** (no longer lazily on first provider use) and stored in two places: the `library-id` file inside the library directory (authoritative — it travels with the directory) and the registry entry (a cache for display/dedup).
 - **Provider identity = library identity.** `getProviderRuntime().libraryId()` keeps returning this ULID; the remote stays `/Overlook/<library-id>/` (ADR-0007 unchanged). Per-library backup identity therefore falls out of the id model — no mapping table exists or is needed. The ADR-0013 custody record's `libraryId` is the same ULID.
 - **Open-time verification.** On open, read `library-id`; if absent (pre-registry library), mint-and-write exactly as today (`provider-runtime.ts:237-243` semantics, moved to open). If it differs from the registry entry's cached id, the directory wins: heal the registry entry and surface a notice.
-- **Copied libraries.** Two directories carrying the same ULID would be two writers on one `/Overlook/<id>/` remote — forbidden by ADR-0007. Adding or locating a library whose ULID already exists in the registry at a *different, still-existing* path forces an explicit choice in the UI (#386): **"moved"** (re-point the existing entry, keep the id) or **"copy"** (mint a fresh ULID into the new directory's `library-id`, giving it a fresh, empty backup home; local content is untouched). No silent default.
+- **Copied libraries.** Two directories carrying the same ULID would be two writers on one `/Overlook/<id>/` remote — forbidden by ADR-0007. Adding or locating a library whose ULID already exists in the registry at a _different, still-existing_ path forces an explicit choice in the UI (#386): **"moved"** (re-point the existing entry, keep the id) or **"copy"** (mint a fresh ULID into the new directory's `library-id`, giving it a fresh, empty backup home; local content is untouched). No silent default.
 
 ### 3. Per-library key model and app-lock scope
 
@@ -65,20 +65,20 @@ The registry is a versioned standalone file, **not** part of `settings.ts`:
 
 `closeLibrary()`'s existing shape becomes the **single, universal** teardown contract. The ordinary-quit gap (teardown currently runs only when app lock is configured — `before-quit` in `src/main/crypto/app-lock-lifecycle.ts:44-50`) is a defect #385 closes: quit, switch, lock, and restore-activation all run the same sequence.
 
-**Drain vs cancel classification.** A service *cancels* when persistent journals/ledgers make abandoned work resumable; it *drains* when in-flight work is destructive or user-visible and must reach a safe boundary:
+**Drain vs cancel classification.** A service _cancels_ when persistent journals/ledgers make abandoned work resumable; it _drains_ when in-flight work is destructive or user-visible and must reach a safe boundary:
 
-| Service | Policy | Why it is safe |
-| --- | --- | --- |
-| Import batch | Cancel (abort), then drain the turn queue | `import-journal.json` write-then-rename journal resumes or rolls back on next open (`src/main/import/import-service.ts:186-221`) |
-| Import scans | Cancel | Read-only |
-| Thumbnail pool | Cancel — reject queue, terminate workers (`thumbnail-pool.ts:75-83`) | Derivatives are re-derivable from originals |
-| Thumb / full-res LRU caches | Close (drop) | Pure caches |
-| Backup runs | Abort controllers, await run promises | `sync_ledger` dirty set is the durable queue (`backup-engine.ts:18-24`); verify-after-upload (ADR-0007) makes partial uploads re-checkable |
-| Auto-backup debounce | Cancel timer | Ledger persists intent |
-| Export | Drain in-flight items to completion boundary | User-visible artifacts outside the library |
-| Purge + protected migrations | Drain to step boundary; cancellation only **at** boundaries | Destructive two-phase work; journaled (`purge-runtime.ts:33-42`, ADR-0013 migration journal) |
-| Startup maintenance | Cancel timer, drain in-flight repair | Idempotent |
-| Restore | Neither — a switch or quit is **rejected** while a restore is activating (ADR-0011 parity with provider switching) | Restore staging/activation is atomic and must not race teardown |
+| Service                      | Policy                                                                                                             | Why it is safe                                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Import batch                 | Cancel (abort), then drain the turn queue                                                                          | `import-journal.json` write-then-rename journal resumes or rolls back on next open (`src/main/import/import-service.ts:186-221`)           |
+| Import scans                 | Cancel                                                                                                             | Read-only                                                                                                                                  |
+| Thumbnail pool               | Cancel — reject queue, terminate workers (`thumbnail-pool.ts:75-83`)                                               | Derivatives are re-derivable from originals                                                                                                |
+| Thumb / full-res LRU caches  | Close (drop)                                                                                                       | Pure caches                                                                                                                                |
+| Backup runs                  | Abort controllers, await run promises                                                                              | `sync_ledger` dirty set is the durable queue (`backup-engine.ts:18-24`); verify-after-upload (ADR-0007) makes partial uploads re-checkable |
+| Auto-backup debounce         | Cancel timer                                                                                                       | Ledger persists intent                                                                                                                     |
+| Export                       | Drain in-flight items to completion boundary                                                                       | User-visible artifacts outside the library                                                                                                 |
+| Purge + protected migrations | Drain to step boundary; cancellation only **at** boundaries                                                        | Destructive two-phase work; journaled (`purge-runtime.ts:33-42`, ADR-0013 migration journal)                                               |
+| Startup maintenance          | Cancel timer, drain in-flight repair                                                                               | Idempotent                                                                                                                                 |
+| Restore                      | Neither — a switch or quit is **rejected** while a restore is activating (ADR-0011 parity with provider switching) | Restore staging/activation is atomic and must not race teardown                                                                            |
 
 **Ordering** (codifying `src/main/index.ts:706-743` plus two additions in bold):
 

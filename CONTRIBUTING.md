@@ -1,8 +1,8 @@
 # Contributing to photos
 
-The canonical contributor and agent workflow guide lives in the GitHub wiki:
+The canonical contributor and agent workflow guide lives in the repo:
 
-- [Contributing](https://github.com/qwts/photos/wiki/Contributing)
+- [Contributing](docs/Contributing.md)
 
 This repository file is retained as a pointer for GitHub and existing links.
-Update the wiki page, not this stub.
+Update `docs/Contributing.md`, not this stub.
