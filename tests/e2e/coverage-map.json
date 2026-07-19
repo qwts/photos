@@ -561,6 +561,24 @@
       ]
     },
     {
+      "id": "m09-settings-responsive-dialog",
+      "wiki": "User-Story-M09-Settings-preferences",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/components/Dialog.stories.tsx"
+        }
+      ]
+    },
+    {
       "id": "m09-settings-transfer-action",
       "wiki": "Acceptance-Test-Image-Trail-Transfer-And-Sync-UI",
       "coverage": [

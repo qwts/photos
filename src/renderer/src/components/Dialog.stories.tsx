@@ -39,6 +39,18 @@ function ImportShell({ onClose }: { readonly onClose?: (() => void) | undefined 
   );
 }
 
+function FocusRestoreShell(): ReactElement {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative', height: 480 }}>
+      <Button onClick={() => setOpen(true)}>Open dialog</Button>
+      <Dialog open={open} title="Animated dialog" onClose={() => setOpen(false)}>
+        Dialog motion keeps the surface present through its visual exit.
+      </Dialog>
+    </div>
+  );
+}
+
 export const FlowDialog: Story = {
   render: () => <ImportShell />,
 };
@@ -102,5 +114,21 @@ export const FocusStaysTrapped: Story = {
     }
     await userEvent.tab({ shift: true });
     await expect(dialog.contains(document.activeElement)).toBe(true);
+  },
+};
+
+export const ExitMotionRestoresFocus: Story = {
+  render: () => <FocusRestoreShell />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const opener = canvas.getByRole('button', { name: 'Open dialog' });
+    await userEvent.click(opener);
+    const dialog = canvas.getByRole('dialog', { name: 'Animated dialog' });
+    await waitFor(async () => expect(dialog).toHaveFocus());
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Close' }));
+    await expect(dialog).toHaveAttribute('data-state', 'closing');
+    await waitFor(async () => expect(canvas.queryByRole('dialog', { name: 'Animated dialog' })).not.toBeInTheDocument());
+    await waitFor(async () => expect(opener).toHaveFocus());
   },
 };

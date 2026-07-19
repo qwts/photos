@@ -9,6 +9,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: ovl-dialog-scrim-in var(--duration-normal) var(--ease-out);
 }
 
 .ovl-dialog {
@@ -23,6 +24,15 @@
   overflow: hidden;
   font-family: var(--font-ui);
   color: var(--text-body);
+  animation: ovl-dialog-panel-in var(--duration-normal) var(--ease-out);
+}
+
+.ovl-dialog-scrim--closing {
+  animation: ovl-dialog-scrim-out var(--duration-normal) var(--ease-out) forwards;
+}
+
+.ovl-dialog--closing {
+  animation: ovl-dialog-panel-out var(--duration-normal) var(--ease-out) forwards;
 }
 
 .ovl-dialog__header {
@@ -54,6 +64,38 @@
   padding: var(--space-4) var(--space-6);
   border-top: 1px solid var(--border-1);
   background: var(--gray-2);
+}
+
+@keyframes ovl-dialog-scrim-in {
+  from {
+    background: transparent;
+  }
+}
+
+@keyframes ovl-dialog-scrim-out {
+  to {
+    background: transparent;
+  }
+}
+
+@keyframes ovl-dialog-panel-in {
+  from {
+    transform: translateY(var(--space-2)) scale(0.985);
+  }
+}
+
+@keyframes ovl-dialog-panel-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--space-2)) scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-dialog-scrim,
+  .ovl-dialog {
+    animation-duration: 1ms;
+  }
 }
 
 .ovl-toast {

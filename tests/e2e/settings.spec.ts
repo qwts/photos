@@ -117,7 +117,9 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     // The sidebar's Connect link is the path back — it opens Settings.
     await page.getByTestId('sidebar-connect').click();
     await expect(page.getByTestId('settings-dialog')).toBeVisible();
-    await page.getByRole('button', { name: 'Connect Local mock' }).click();
+    await expect(page.getByText('Checking connection…')).toBeHidden();
+    const connectButton = page.getByRole('button', { name: 'Connect Local mock' });
+    await connectButton.click();
     await expect(card).toContainText('Connected');
     await expect(page.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
     // Reconnect restores the shell surfaces live, no restart.
@@ -150,6 +152,50 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(diagnosticsDialog).toContainText('No reports are waiting locally.');
     await expect(diagnosticsDialog).toContainText('Nothing is sent.');
     await diagnosticsDialog.getByRole('button', { name: 'Done' }).click();
+  } finally {
+    await app.close();
+  }
+});
+
+test('settings keeps stable modal geometry and content-only scrolling in a short reduced-motion viewport', async () => {
+  const userData = mkE2eTmpDir('overlook-e2e-settings-layout-');
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '2',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 760, height: 420 });
+    await page.getByTestId('virtual-grid').waitFor();
+
+    const opener = page.getByRole('button', { name: 'Settings' });
+    await opener.click();
+    const dialog = page.getByRole('dialog', { name: 'Settings' });
+    const pane = page.getByTestId('settings-pane');
+    const nav = page.getByRole('navigation', { name: 'Settings sections' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveCSS('animation-duration', '0.001s');
+    await expect.poll(async () => (await dialog.boundingBox())?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(388);
+
+    await page.getByRole('button', { name: 'Privacy' }).click();
+    await expect(pane).toHaveCSS('overflow-y', 'auto');
+    const navTop = (await nav.boundingBox())?.y;
+    await page.evaluate("document.querySelector('[data-testid=settings-pane]').scrollTop = 160");
+    await expect.poll(() => page.evaluate<number>("document.querySelector('[data-testid=settings-pane]').scrollTop")).toBeGreaterThan(0);
+    await expect.poll(async () => (await nav.boundingBox())?.y).toBe(navTop);
+
+    await page.getByRole('button', { name: 'General' }).click();
+    await expect(pane).toHaveAttribute('data-section', 'general');
+    await expect.poll(() => page.evaluate<number>("document.querySelector('[data-testid=settings-pane]').scrollTop")).toBe(0);
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
   } finally {
     await app.close();
   }
