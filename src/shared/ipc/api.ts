@@ -151,6 +151,14 @@ export interface OverlookApi {
     readonly current: () => Promise<Res<typeof channels.libraryRegistryCurrent>>;
     readonly add: (request: Req<typeof channels.libraryRegistryAdd>) => Promise<Res<typeof channels.libraryRegistryAdd>>;
     readonly pickLocation: () => Promise<Res<typeof channels.libraryRegistryPickLocation>>;
+    // Relocation (#483, ADR-0022)
+    readonly move: (request: Req<typeof channels.libraryRelocationMove>) => Promise<Res<typeof channels.libraryRelocationMove>>;
+    readonly cancelMove: (request: Req<typeof channels.libraryRelocationCancel>) => Promise<Res<typeof channels.libraryRelocationCancel>>;
+    readonly finishMoveCleanup: (
+      request: Req<typeof channels.libraryRelocationFinishCleanup>,
+    ) => Promise<Res<typeof channels.libraryRelocationFinishCleanup>>;
+    readonly pendingMoves: () => Promise<Res<typeof channels.libraryRelocationPending>>;
+    readonly onMoveProgress: (listener: (payload: z.output<typeof events.relocationProgress.payload>) => void) => () => void;
   };
   readonly import: {
     readonly listSources: () => Promise<Res<typeof channels.importListSources>>;

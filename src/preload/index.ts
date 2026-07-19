@@ -32,6 +32,7 @@ const diagnosticsPurge = createInvoker(channels.diagnosticsPurge, invokeTranspor
 const libraryRegistryList = createInvoker(channels.libraryRegistryList, invokeTransport);
 const libraryRegistryCurrent = createInvoker(channels.libraryRegistryCurrent, invokeTransport);
 const libraryRegistryPickLocation = createInvoker(channels.libraryRegistryPickLocation, invokeTransport);
+const libraryRelocationPending = createInvoker(channels.libraryRelocationPending, invokeTransport);
 const backupProviders = createInvoker(channels.backupProviders, invokeTransport);
 const backupProviderStatus = createInvoker(channels.backupProviderStatus, invokeTransport);
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
@@ -180,6 +181,13 @@ const overlook: OverlookApi = {
     current: async () => libraryRegistryCurrent({}),
     add: createInvoker(channels.libraryRegistryAdd, invokeTransport),
     pickLocation: async () => libraryRegistryPickLocation({}),
+    // Relocation (#483, ADR-0022): move/cancel/cleanup + journal-backed
+    // pending list for the resume banner; progress drives the wizard tracks.
+    move: createInvoker(channels.libraryRelocationMove, invokeTransport),
+    cancelMove: createInvoker(channels.libraryRelocationCancel, invokeTransport),
+    finishMoveCleanup: createInvoker(channels.libraryRelocationFinishCleanup, invokeTransport),
+    pendingMoves: async () => libraryRelocationPending({}),
+    onMoveProgress: createSubscriber(events.relocationProgress, subscribeTransport),
   }),
   import: Object.freeze({
     listSources: async () => importListSources({}),

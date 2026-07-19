@@ -47,14 +47,14 @@ import type { DrainableExportFacade } from './export/export-runtime.js';
 import { createExportFacade } from './export/export-facade-factory.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import { pickExportDestination } from './export/export-destination.js';
-import { registerIpcHandlers } from './ipc.js';
+import { registerIpcHandlers, registerRelocationHandlers } from './ipc.js';
 import { activateSettingsLibrary, configureSettingsLibrary, getSettingsStore } from './settings/settings-runtime.js';
 import { throttlePercentOf } from '../shared/settings/settings.js';
 import { LibraryService } from './library/library-service.js';
 import { LibraryRegistryRuntime } from './library/library-registry-runtime.js';
 import { acquireLibraryLock, readLockHolder } from './library/library-lock.js';
+import { createLibraryLifecycle } from './library/library-lifecycle-wiring.js';
 import { pickLibraryDirectory } from './library/library-picker.js';
-import { createSwitchLibrary } from './library/switch-runtime.js';
 import { AppLockHost } from './crypto/app-lock-host.js';
 import { registerQuitTeardown, registerSingleInstance } from './app-bootstrap.js';
 import { ProtectedRuntime } from './library/protected-runtime.js';
@@ -722,25 +722,24 @@ async function closeLibrary(mode: 'restore' | 'lock' | 'switch'): Promise<void> 
 const closeLibraryForRestore = (): Promise<void> => closeLibrary('restore');
 const closeLibraryForLock = (): Promise<void> => closeLibrary('lock');
 
-// Live switch (#385): see library/switch-runtime.ts for the contract.
-const switchLibrary = createSwitchLibrary({
-  registry: registryRuntime,
+// Live switch (#385) + relocation (#483): see library/switch-runtime.ts,
+// library/relocation-runtime.ts, and library-lifecycle-wiring.ts for the
+// contracts — both runtimes are built from this one deps bag.
+const { switchLibrary, getRelocationRuntime, settleRelocationJournals } = createLibraryLifecycle({
+  registryRuntime,
+  instanceId,
+  safeStorage: pickSafeStorage,
   activeId: () => registryRuntime.resolveActive().id,
   openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
   lockState: () => appLockHost?.snapshot().state,
   providerBusy: () => providerWorkCount > 0,
-  probeTarget: (id) => registryRuntime.probeSwitchTarget(id),
   closeLibrary: () => closeLibrary('switch'),
-  activateLibrary: () => {
-    activateSettingsLibrary();
-    getProviderRuntime().resetLibraryBinding();
-  },
-  swapAppLock: async () => {
-    if (appLockHost !== undefined) await appLockHost.swap(buildAppLockController());
-  },
+  activateSettings: activateSettingsLibrary,
+  resetProviderBinding: () => getProviderRuntime().resetLibraryBinding(),
+  appLockHost: () => appLockHost,
+  buildAppLockController,
   reloadWindows: reloadContentWindowsForLock,
   fault: () => harnessEnv('OVERLOOK_SWITCH_FAULT'),
-  exit: (code) => app.exit(code),
 });
 
 let appLockHost: AppLockHost | undefined;
@@ -795,6 +794,11 @@ function getRestoreRuntime(): RestoreRuntime {
 
 void externalOpen.whenReady().then(async () => {
   if (exitForReleaseSmokeIfRequested(app)) return;
+  // Settle relocation journals FIRST (ADR-0022 §2): recovery may re-point the
+  // registry (roll a commit forward), so it must run before resolveActive()
+  // caches an entry and before anything opens or classifies libraries. A
+  // corrupt registry falls through to resolveFailure()'s loud dialog below.
+  await settleRelocationJournals();
   const registryFailure = registryRuntime.resolveFailure();
   if (registryFailure !== null) {
     dialog.showErrorBox('Library registry is damaged', registryFailure);
@@ -807,6 +811,7 @@ void externalOpen.whenReady().then(async () => {
   await lock.initialize();
   externalOpen.followAuthorization(lock);
   registerIpcHandlers();
+  registerRelocationHandlers(getRelocationRuntime);
   registerAppLockIpc({
     controller: lock,
     currentMaster: () => {
