@@ -48,7 +48,7 @@ function installStub(): void {
 const counts: SourceCounts = { all: 204318, favorites: 11, recent: 96, offloaded: 12, deleted: 3 };
 const stats: LibraryStats = {
   photos: 204318,
-  bytes: 1_200_000_000_000,
+  bytes: 1_580_000_000_000,
   pending: 0,
   lastBackupAt: null,
   offloadedBytes: 380_000_000_000,
@@ -79,6 +79,14 @@ const meta: Meta<typeof Sidebar> = {
 export default meta;
 type Story = StoryObj<typeof Sidebar>;
 
+function ForceProvider({ label }: { readonly label: string }): null {
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    dispatch({ type: 'provider/set', connected: true, label });
+  }, [dispatch, label]);
+  return null;
+}
+
 export const Expanded: Story = {
   loaders: [
     () => {
@@ -86,12 +94,25 @@ export const Expanded: Story = {
       return Promise.resolve({});
     },
   ],
+  render: (args) => (
+    <>
+      <ForceProvider label="Google Drive" />
+      <Sidebar {...args} />
+    </>
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('All Photos')).toBeVisible();
     // Offloaded earns its row here: counts.offloaded is 12 (#268).
     await expect(canvas.getByText('Offloaded')).toBeVisible();
     await expect(canvas.getByTestId('backup-card')).toBeVisible();
+    await expect(canvas.getByText('1.2 TB ON DISK')).toBeVisible();
+    const offloadRow = await canvas.findByText('380 GB OFFLOAD (GOOGLE DRIVE)');
+    await expect(offloadRow).toBeVisible();
+    await expect(window.getComputedStyle(offloadRow).whiteSpace).toBe('nowrap');
+    const storage = offloadRow.parentElement;
+    await expect(storage).not.toBeNull();
+    await expect(offloadRow.scrollWidth).toBeLessThanOrEqual(storage?.clientWidth ?? 0);
     await expect(canvas.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
   },
 };
@@ -180,11 +201,13 @@ export const Disconnected: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // No fabricated backup state: the progress figure is gone, the storage
-    // line is local-only, and the Connect path is offered.
+    // summary is on-disk-only, and the Connect path is offered.
     await waitFor(async () => {
       await expect(canvas.getByTestId('sidebar-connect')).toBeVisible();
     });
     await expect(canvas.getByTestId('backup-card')).not.toHaveTextContent('CLOUD');
+    await expect(canvas.getByText('1.2 TB ON DISK')).toBeVisible();
+    await expect(canvas.queryByText(/OFFLOAD/)).not.toBeInTheDocument();
     await expect(canvas.getByText('Library encrypted')).toBeVisible();
   },
 };

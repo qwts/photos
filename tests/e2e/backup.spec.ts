@@ -37,7 +37,8 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
     await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
     const backupButton = page.getByRole('button', { name: 'Back up' });
     await expect(backupButton).toBeEnabled();
-    await expect(page.getByTestId('backup-card')).toContainText('LOCAL · 0 B LOCAL MOCK');
+    await expect(page.getByTestId('backup-card')).toContainText('ON DISK');
+    await expect(page.getByTestId('backup-card')).toContainText('0 B OFFLOAD (LOCAL MOCK)');
 
     // Trigger: the mock's toast pair around the run…
     await backupButton.click();
@@ -158,7 +159,7 @@ test('edit re-dirties after a backup; offload → temporary lightbox stream roun
     // Offload photo 0 (synced + clean): the card split shifts.
     const offloaded = await page.evaluate<{ offloaded: number }>(`window.overlook.backup.offload({ photoIds: ['01J8SEEDPHOTO0000'] })`);
     expect(offloaded.offloaded).toBe(1);
-    await expect(page.getByTestId('backup-card')).not.toContainText('· 0 B LOCAL MOCK');
+    await expect(page.getByTestId('backup-card')).not.toContainText('0 B OFFLOAD (LOCAL MOCK)');
     const firstTile = page.locator('.ovl-grid__cell').first();
     await expect(firstTile.getByRole('img', { name: 'Offloaded to cloud' })).toBeVisible();
 

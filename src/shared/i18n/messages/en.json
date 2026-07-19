@@ -392,6 +392,12 @@
   "sidebar.source.recent": {
     "defaultMessage": "Recent imports"
   },
+  "sidebar.storage.offload": {
+    "defaultMessage": "{bytes} OFFLOAD ({provider})"
+  },
+  "sidebar.storage.onDisk": {
+    "defaultMessage": "{bytes} ON DISK"
+  },
   "toast.announcement": {
     "defaultMessage": "{title} — {detail}"
   },
