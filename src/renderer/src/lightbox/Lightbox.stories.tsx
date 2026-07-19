@@ -111,6 +111,19 @@ export const ChromeAutohide: Story = {
   },
 };
 
+export const ClickImageHidesChromeAndKeyboardWakes: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const surface = canvas.getByTestId('lightbox');
+    const image = canvas.getByRole('img', { name: PHOTO.fileName });
+    await userEvent.click(image);
+    await expect(surface).toHaveAttribute('data-chrome', 'off');
+    await expect(canvas.queryByText(/DOUBLE-CLICK TO FILL/u)).not.toBeInTheDocument();
+    await userEvent.keyboard('x');
+    await expect(surface).toHaveAttribute('data-chrome', 'on');
+  },
+};
+
 // #269: an explicit ✕ closes back to the gallery — the back arrow reads as
 // navigation and Esc is invisible; both still work alongside it.
 export const CloseButton: Story = {
@@ -145,6 +158,7 @@ export const PortraitFillZoomAndReset: Story = {
     await userEvent.dblClick(image);
     await expect(viewport).toHaveAttribute('data-mode', 'fill');
     await expect(viewport).toHaveAttribute('data-zoom', '2.000');
+    await expect(canvas.getByTestId('lightbox')).toHaveAttribute('data-chrome', 'on');
     await userEvent.click(canvas.getByRole('button', { name: 'Fit image (0)' }));
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');

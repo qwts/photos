@@ -32,7 +32,7 @@ interface LightboxViewportProps {
   readonly photo: PhotoRecord;
   readonly suppressRehydrate: boolean;
   readonly imageSrc?: string | undefined;
-  readonly chromeClass: string;
+  readonly chromeVisible: boolean;
   readonly onActivity: () => void;
   readonly onDimensionsResolved: (width: number, height: number) => void;
 }
@@ -63,7 +63,7 @@ export function LightboxViewport({
   photo,
   suppressRehydrate,
   imageSrc,
-  chromeClass,
+  chromeVisible,
   onActivity,
   onDimensionsResolved,
 }: LightboxViewportProps): ReactElement {
@@ -81,6 +81,7 @@ export function LightboxViewport({
   const fitted = fitSize(orientedImage, viewport);
   const elementSize = orientedSize(fitted, orientation);
   const toolbarTop = Math.max(64, Math.min((viewport.height + fitted.height) / 2 - 8, viewport.height - 92));
+  const chromeClass = chromeVisible ? ' ovl-lightbox__chrome--on' : '';
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -274,7 +275,7 @@ export function LightboxViewport({
           {previewFailureLabel(intl, photo.previewFailure)}
         </div>
       ) : null}
-      {showHint ? (
+      {showHint && chromeVisible ? (
         <div className="ovl-lightbox__gesture-hint mono-data" role="status">
           DOUBLE-CLICK TO FILL · OPTION + SCROLL TO ZOOM · SCROLL TO PAN
         </div>
