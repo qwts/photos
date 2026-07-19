@@ -142,6 +142,7 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     await changeDialog.getByRole('button', { name: 'Change app password' }).click();
     await expect(changeDialog).toHaveCount(0);
     await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Lock now' }).click();
     await expect(page.getByTestId('lock-screen')).toBeVisible();
