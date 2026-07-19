@@ -1,5 +1,16 @@
 # photos
 
+## 0.34.0
+
+### Minor Changes
+
+- c91f362: Move library… wizard (ADR-0022, #483): the library switcher gains per-row Move actions and multi-select, opening a Review → Progress → Results wizard over the relocation service — collision-safe destination folders under a chosen root, sequential batch moves with the open library last, live item/byte progress, a cancel affordance that changes honestly once a move commits, and results that report exact bytes, unchanged library IDs, and the both-copies cleanup-pending state with a safe retry. A resume banner surfaces committed moves whose source cleanup is still pending after a crash.
+- 5653b24: Relocation hardening (ADR-0022, #483): preflight now classifies the destination volume for real — FAT32 refuses with an actionable message (its 4 GB file cap would truncate large originals) and network mounts are flagged as a warning, never a block (ADR-0017 §5). A new `library-relocation:preflight` dry-run channel powers the wizard's Review step (resolved move method, exact byte requirements vs. free space, network warning, source-lock holder) without taking locks or writing journals. Electron E2E now proves the ADR-0022 §4 crash matrix end to end: killed at every copy/verify/activate/commit boundary, relaunch recovery leaves exactly one authoritative, usable library.
+
+### Patch Changes
+
+- 7049599: Relocation fixes from PR #553 review: a successful active-library move now rebinds the runtime to the destination (same-id select refreshes the cached registry entry instead of serving the stale source path), and moving an app-locked library no longer fails verification — the staged-custody probe recognizes ADR-0013 OVLK custody and skips the passwordless open probe, relying on the byte-digest verification that already proved the copy identical.
+
 ## 0.33.0
 
 ### Minor Changes
