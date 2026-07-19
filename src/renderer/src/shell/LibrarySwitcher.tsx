@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import './library-switcher.css';
 import { formatRelativeTime } from '../../../shared/library/format.js';
 import type { LibraryDescriptor } from '../../../shared/library/registry.js';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
+import { Checkbox } from '../components/Checkbox';
 import { Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { IconButton } from '../components/IconButton';
+import { MoveLibraryDialog } from './MoveLibraryDialog';
 
 // Library Switcher (#386, ADR-0017): view, switch, create, and manage the
 // registered libraries. Switching hands off to the main process (#385) which
 // tears down, repoints, and reloads this window — the "switching" phase here
 // is honest about that: it survives only until the reload wipes the renderer.
 
-type Phase = 'list' | 'switching' | 'create' | 'confirm-remove';
+type Phase = 'list' | 'switching' | 'create' | 'confirm-remove' | 'move';
 
 interface Refusal {
   readonly kind:
@@ -37,11 +40,20 @@ const REFUSAL_COPY: Record<Refusal['kind'], { title: string; detail: string }> =
   error: { title: 'Something went wrong', detail: 'The operation could not be completed safely. Try again.' },
 };
 
+// New copy goes through the catalog (ADR-0020 §6); the switcher's legacy
+// literals hold a shrinking budget and migrate opportunistically.
+const moveMessages = defineMessages({
+  select: { id: 'libswitch.move.select', defaultMessage: 'Select {name} to move' },
+  moveOne: { id: 'libswitch.move.one', defaultMessage: 'Move {name}…' },
+  moveSelected: { id: 'libswitch.move.selected', defaultMessage: 'Move {count} selected…' },
+});
+
 export interface LibrarySwitcherProps {
   readonly onClose: () => void;
 }
 
 export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement {
+  const intl = useIntl();
   const [libs, setLibs] = useState<readonly LibraryDescriptor[] | null>(null);
   // "4h ago" stamps are relative to load time, not render time (purity).
   const [loadedAt, setLoadedAt] = useState(0);
@@ -53,6 +65,8 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
   const [createName, setCreateName] = useState('');
   const [createPath, setCreatePath] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [moveTargets, setMoveTargets] = useState<readonly LibraryDescriptor[] | null>(null);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const listRef = useRef<HTMLUListElement>(null);
 
   const refresh = useCallback((): void => {
@@ -192,6 +206,20 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
     }
     onClose();
   };
+
+  if (phase === 'move' && moveTargets !== null) {
+    return (
+      <MoveLibraryDialog
+        libraries={moveTargets}
+        onClose={() => {
+          setPhase('list');
+          setMoveTargets(null);
+          setSelected(new Set());
+          refresh();
+        }}
+      />
+    );
+  }
 
   if (phase === 'switching') {
     return (
@@ -357,6 +385,33 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
                     {lib.lastOpenedAt === null ? 'Never opened' : formatRelativeTime(lib.lastOpenedAt, loadedAt)}
                   </span>
                 </button>
+                {blocked ? null : (
+                  <Checkbox
+                    checked={selected.has(lib.id)}
+                    label={intl.formatMessage(moveMessages.select, { name: lib.name })}
+                    onChange={(checked) => {
+                      setSelected((previous) => {
+                        const next = new Set(previous);
+                        if (checked) next.add(lib.id);
+                        else next.delete(lib.id);
+                        return next;
+                      });
+                    }}
+                  />
+                )}
+                {blocked ? null : (
+                  <IconButton
+                    icon="hard-drive"
+                    label={intl.formatMessage(moveMessages.moveOne, { name: lib.name })}
+                    size="sm"
+                    data-testid={`move-library-${lib.name}`}
+                    onClick={() => {
+                      setRefusal(null);
+                      setMoveTargets([lib]);
+                      setPhase('move');
+                    }}
+                  />
+                )}
                 {lib.open ? null : (
                   <IconButton
                     icon="trash-2"
@@ -388,6 +443,19 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
           <Button icon="folder-open" onClick={addExisting} data-testid="add-existing">
             Add existing…
           </Button>
+          {selected.size === 0 ? null : (
+            <Button
+              icon="hard-drive"
+              data-testid="move-selected"
+              onClick={() => {
+                setRefusal(null);
+                setMoveTargets((libs ?? []).filter((lib) => selected.has(lib.id)));
+                setPhase('move');
+              }}
+            >
+              {intl.formatMessage(moveMessages.moveSelected, { count: selected.size })}
+            </Button>
+          )}
           <span className="mono-data ovl-libswitch__keys">↑↓ select · ⏎ switch · esc close</span>
         </div>
       </div>

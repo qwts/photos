@@ -1,0 +1,215 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+
+import { MoveLibraryDialog } from './MoveLibraryDialog';
+import type { OverlookApi } from '../../../shared/ipc/api.js';
+import type { LibraryDescriptor } from '../../../shared/library/registry.js';
+
+// #483 / ADR-0022: every wizard state renders and its flow asserts — review
+// (destination required, custody assurance, open-library note), sequential
+// progress with the commit-aware cancel affordance, and results incl. the
+// two-verified-copies cleanup-pending state (acceptance 10). The decorator
+// stubs the relocation IPC; real moves round-trip in the E2E lane.
+
+const ALPHA_ID = '01ARZ3NDEKTSV4RRFFQ69G5FAA';
+const BETA_ID = '01BRZ3NDEKTSV4RRFFQ69G5FAB';
+
+function lib(overrides: Partial<LibraryDescriptor>): LibraryDescriptor {
+  return {
+    id: ALPHA_ID,
+    name: 'Alpha',
+    path: '/Users/ansel/Pictures/Overlook/Alpha',
+    createdAt: '2026-07-01T00:00:00.000Z',
+    lastOpenedAt: '2026-07-17T08:00:00.000Z',
+    missing: false,
+    open: false,
+    lockedBy: null,
+    ...overrides,
+  };
+}
+
+type MoveOutcome = Awaited<ReturnType<OverlookApi['libraries']['move']>>;
+
+interface StubOptions {
+  readonly moveOutcome?: MoveOutcome | ((id: string) => MoveOutcome);
+  readonly movePends?: boolean;
+}
+
+function installStub(options: StubOptions = {}): { readonly calls: string[] } {
+  const calls: string[] = [];
+  const okOutcome = (destPath: string): MoveOutcome => ({
+    ok: true,
+    outcome: 'moved',
+    mode: 'copy',
+    items: 1204,
+    bytes: 48_211_890_176,
+    sourcePath: '/Users/ansel/Pictures/Overlook/Alpha',
+    destPath,
+  });
+  const libraries = {
+    move: ({ id, destPath }: { id: string; destPath: string }) => {
+      calls.push(`move:${id}:${destPath}`);
+      if (options.movePends === true) return new Promise(() => undefined);
+      const outcome = options.moveOutcome;
+      if (outcome === undefined) return Promise.resolve(okOutcome(destPath));
+      return Promise.resolve(typeof outcome === 'function' ? outcome(id) : outcome);
+    },
+    cancelMove: ({ id }: { id: string }) => {
+      calls.push(`cancel:${id}`);
+      return Promise.resolve({ cancelled: true });
+    },
+    finishMoveCleanup: ({ id }: { id: string }) => {
+      calls.push(`cleanup:${id}`);
+      return Promise.resolve({ result: 'cleaned' as const });
+    },
+    pendingMoves: () => Promise.resolve({ pending: [] }),
+    pickLocation: () => {
+      calls.push('pick-location');
+      return Promise.resolve({ path: '/Volumes/External/Overlook' });
+    },
+    onMoveProgress: () => () => undefined,
+  } as unknown as OverlookApi['libraries'];
+  (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { libraries };
+  return { calls };
+}
+
+const meta: Meta<typeof MoveLibraryDialog> = {
+  title: 'App/MoveLibraryDialog',
+  component: MoveLibraryDialog,
+  args: { onClose: fn(), libraries: [lib({})] },
+  decorators: [
+    (Story) => {
+      installStub();
+      return <Story />;
+    },
+  ],
+};
+
+export default meta;
+type Story = StoryObj<typeof MoveLibraryDialog>;
+
+export const Review: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await expect(body.getByRole('dialog', { name: 'Move library' })).toBeVisible();
+    // Custody assurance and the advisory (never a gate — ADR-0022 §5).
+    await expect(body.getByText(/original stays in place until every byte/)).toBeVisible();
+    await expect(body.getByText(/never required/)).toBeVisible();
+    // Primary is disabled until a destination is chosen.
+    await expect(body.getByTestId('move-start')).toBeDisabled();
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-start')).toBeEnabled();
+    });
+    // Destination preview resolves root + collision-safe folder.
+    await expect(body.getByText('→ /Volumes/External/Overlook/Alpha')).toBeVisible();
+  },
+};
+
+export const ReviewIncludesOpenLibrary: Story = {
+  args: { libraries: [lib({ open: true }), lib({ id: BETA_ID, name: 'Beta', path: '/Users/ansel/Pictures/Overlook/Beta' })] },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await expect(body.getByRole('dialog', { name: 'Move 2 libraries' })).toBeVisible();
+    await expect(body.getByText(/The open library moves last/)).toBeVisible();
+  },
+};
+
+export const ProgressHoldsWithCancel: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ movePends: true });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-start')).toBeEnabled();
+    });
+    await userEvent.click(body.getByTestId('move-start'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-progress')).toBeVisible();
+    });
+    await expect(body.getByText('LIBRARY 1 OF 1')).toBeVisible();
+    // Pre-commit: cancel maps to the engine's rollback.
+    await expect(body.getByTestId('move-cancel')).toBeVisible();
+  },
+};
+
+export const ResultsMovedAndCleanupPending: Story = {
+  args: { libraries: [lib({}), lib({ id: BETA_ID, name: 'Beta', path: '/Users/ansel/Pictures/Overlook/Beta' })] },
+  decorators: [
+    (Story) => {
+      installStub({
+        moveOutcome: (id) =>
+          id === BETA_ID
+            ? {
+                ok: true,
+                outcome: 'moved-cleanup-pending',
+                mode: 'copy',
+                items: 88,
+                bytes: 1_200_000_000,
+                sourcePath: '/Users/ansel/Pictures/Overlook/Beta',
+                destPath: '/Volumes/External/Overlook/Beta',
+              }
+            : {
+                ok: true,
+                outcome: 'moved',
+                mode: 'rename',
+                items: 1204,
+                bytes: 48_211_890_176,
+                sourcePath: '/Users/ansel/Pictures/Overlook/Alpha',
+                destPath: '/Volumes/External/Overlook/Alpha',
+              },
+      });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-start')).toBeEnabled();
+    });
+    await userEvent.click(body.getByTestId('move-start'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-results')).toBeVisible();
+    });
+    await expect(body.getByText('Moved')).toBeVisible();
+    await expect(body.getByText('INSTANT MOVE', { exact: false })).toBeVisible();
+    // Acceptance 10: both verified locations, safe retry, never a guess.
+    await expect(body.getByText('Moved — cleanup pending')).toBeVisible();
+    await expect(body.getByText(/nothing will be deleted without you/)).toBeVisible();
+    await userEvent.click(body.getByTestId('move-finish-cleanup-Beta'));
+    await waitFor(async () => {
+      await expect(body.queryByText('Moved — cleanup pending')).toBeNull();
+    });
+  },
+};
+
+export const ResultsFailureIsHonest: Story = {
+  decorators: [
+    (Story) => {
+      installStub({
+        moveOutcome: { ok: false, reason: 'insufficient-space', detail: 'need 52,000,000,000 bytes free, destination has 9,000,000,000' },
+      });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-start')).toBeEnabled();
+    });
+    await userEvent.click(body.getByTestId('move-start'));
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-results')).toBeVisible();
+    });
+    await expect(body.getByText('Failed')).toBeVisible();
+    await expect(body.getByText(/Not enough free space/)).toBeVisible();
+    await expect(body.getByTestId('move-retry')).toBeVisible();
+  },
+};

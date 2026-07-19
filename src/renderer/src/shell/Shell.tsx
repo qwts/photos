@@ -18,6 +18,7 @@ import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useGlobalKeys } from '../state/use-global-keys';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
 import { LibrarySwitcher } from './LibrarySwitcher';
+import { MoveResumeBanner } from './MoveResumeBanner';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { ToastAction } from './ToastAction';
@@ -347,6 +348,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
           void window.overlook.closeWindow();
         }}
       />
+      <MoveResumeBanner />
       <Toolbar
         onLock={lockConfigured ? () => void window.overlook.appLock.lockNow() : undefined}
         onImport={() => {

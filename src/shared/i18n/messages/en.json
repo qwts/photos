@@ -1,4 +1,190 @@
 {
+  "libmove.badge.active": {
+    "defaultMessage": "Moving…"
+  },
+  "libmove.badge.cleanupPending": {
+    "defaultMessage": "Moved — cleanup pending"
+  },
+  "libmove.badge.failed": {
+    "defaultMessage": "Failed"
+  },
+  "libmove.badge.moved": {
+    "defaultMessage": "Moved"
+  },
+  "libmove.badge.skipped": {
+    "defaultMessage": "Skipped"
+  },
+  "libmove.badge.waiting": {
+    "defaultMessage": "Waiting"
+  },
+  "libmove.banner.corrupt": {
+    "defaultMessage": "A library move journal is damaged. Nothing was changed — both locations are untouched."
+  },
+  "libmove.banner.dismiss": {
+    "defaultMessage": "Dismiss"
+  },
+  "libmove.banner.finishCleanup": {
+    "defaultMessage": "Finish cleanup"
+  },
+  "libmove.banner.paths": {
+    "defaultMessage": "{from} → {to}"
+  },
+  "libmove.banner.pending": {
+    "defaultMessage": "A finished library move still has its original in place. Both copies are verified — finishing removes the original."
+  },
+  "libmove.error.didNotReport": {
+    "defaultMessage": "The move did not report back."
+  },
+  "libmove.pathArrow": {
+    "defaultMessage": "{from} → {to}"
+  },
+  "libmove.phase.cleaning": {
+    "defaultMessage": "Removing original"
+  },
+  "libmove.phase.committing": {
+    "defaultMessage": "Finishing"
+  },
+  "libmove.phase.copying": {
+    "defaultMessage": "Copying"
+  },
+  "libmove.phase.preflight": {
+    "defaultMessage": "Checking…"
+  },
+  "libmove.phase.verifying": {
+    "defaultMessage": "Verifying"
+  },
+  "libmove.progress.cancelRollback": {
+    "defaultMessage": "Cancel & roll back"
+  },
+  "libmove.progress.counter": {
+    "defaultMessage": "LIBRARY {n} OF {total}"
+  },
+  "libmove.progress.finishing": {
+    "defaultMessage": "Finishing — this move can no longer roll back"
+  },
+  "libmove.progress.label": {
+    "defaultMessage": "{phase} {name}"
+  },
+  "libmove.progress.title": {
+    "defaultMessage": "Moving libraries"
+  },
+  "libmove.reason.appLocked": {
+    "defaultMessage": "Unlock Overlook before moving the open library."
+  },
+  "libmove.reason.cancelled": {
+    "defaultMessage": "Cancelled — the original library is untouched."
+  },
+  "libmove.reason.destinationNotEmpty": {
+    "defaultMessage": "The destination folder is not empty — Overlook never overwrites or merges."
+  },
+  "libmove.reason.destinationNotWritable": {
+    "defaultMessage": "The destination is not writable."
+  },
+  "libmove.reason.destinationRegistered": {
+    "defaultMessage": "The destination already belongs to a registered library."
+  },
+  "libmove.reason.insufficientSpace": {
+    "defaultMessage": "Not enough free space on the destination."
+  },
+  "libmove.reason.invalidDestination": {
+    "defaultMessage": "That destination is not usable for a library."
+  },
+  "libmove.reason.ioError": {
+    "defaultMessage": "A disk error interrupted the move — the original library is untouched."
+  },
+  "libmove.reason.journalCorrupt": {
+    "defaultMessage": "The move journal is damaged; nothing was changed."
+  },
+  "libmove.reason.locked": {
+    "defaultMessage": "The library is open in another Overlook instance."
+  },
+  "libmove.reason.moveInProgress": {
+    "defaultMessage": "Another move is already running."
+  },
+  "libmove.reason.providerBusy": {
+    "defaultMessage": "Finish or wait for the current backup or restore first."
+  },
+  "libmove.reason.sourceUnreadable": {
+    "defaultMessage": "The library could not be read from its current location."
+  },
+  "libmove.reason.unsupportedFilesystem": {
+    "defaultMessage": "The destination filesystem cannot hold a library safely."
+  },
+  "libmove.reason.verificationFailed": {
+    "defaultMessage": "The copy failed verification — the original was not touched."
+  },
+  "libmove.results.cleanupCopy": {
+    "defaultMessage": "Both copies are verified. The move is complete; the original could not be removed yet — nothing will be deleted without you."
+  },
+  "libmove.results.detail": {
+    "defaultMessage": "{items} items · {bytes} bytes · {method} · LIBRARY ID {id}… UNCHANGED"
+  },
+  "libmove.results.done": {
+    "defaultMessage": "Done"
+  },
+  "libmove.results.finishCleanup": {
+    "defaultMessage": "Finish cleanup"
+  },
+  "libmove.results.methodCopy": {
+    "defaultMessage": "COPY & VERIFY"
+  },
+  "libmove.results.methodInstant": {
+    "defaultMessage": "INSTANT MOVE"
+  },
+  "libmove.results.retryFailed": {
+    "defaultMessage": "Retry failed"
+  },
+  "libmove.results.title": {
+    "defaultMessage": "Move complete"
+  },
+  "libmove.review.assurance": {
+    "defaultMessage": "The library ID, keys, albums, and backup links move unchanged. The original stays in place until every byte of the copy is verified."
+  },
+  "libmove.review.backupNote": {
+    "defaultMessage": "A current cloud backup is extra safety, but never required — the move keeps one verified copy at all times."
+  },
+  "libmove.review.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "libmove.review.choose": {
+    "defaultMessage": "Choose…"
+  },
+  "libmove.review.destPreview": {
+    "defaultMessage": "→ {path}"
+  },
+  "libmove.review.destination": {
+    "defaultMessage": "Destination"
+  },
+  "libmove.review.destinationPlaceholder": {
+    "defaultMessage": "Choose a destination folder…"
+  },
+  "libmove.review.openNote": {
+    "defaultMessage": "The open library moves last: Overlook closes it, moves it, and reopens it from the new location."
+  },
+  "libmove.review.openNow": {
+    "defaultMessage": "Open now"
+  },
+  "libmove.review.start.many": {
+    "defaultMessage": "Move {count} libraries…"
+  },
+  "libmove.review.start.one": {
+    "defaultMessage": "Move library…"
+  },
+  "libmove.title.many": {
+    "defaultMessage": "Move {count} libraries"
+  },
+  "libmove.title.one": {
+    "defaultMessage": "Move library"
+  },
+  "libswitch.move.one": {
+    "defaultMessage": "Move {name}…"
+  },
+  "libswitch.move.select": {
+    "defaultMessage": "Select {name} to move"
+  },
+  "libswitch.move.selected": {
+    "defaultMessage": "Move {count} selected…"
+  },
   "preview.unavailable": {
     "defaultMessage": "PREVIEW UNAVAILABLE"
   },
