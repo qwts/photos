@@ -71,6 +71,19 @@ function installStub(options: StubOptions = {}): { readonly calls: string[] } {
       calls.push('pick-location');
       return Promise.resolve({ path: '/Users/ansel/External/NewHome' });
     },
+    // The per-row Move action mounts the wizard, which subscribes and probes.
+    onMoveProgress: () => () => undefined,
+    probeMove: () =>
+      Promise.resolve({
+        ok: true as const,
+        mode: 'copy' as const,
+        requiredBytes: 1_000,
+        items: 3,
+        freeBytes: 9_000_000_000,
+        network: false,
+        lockedBy: null,
+      }),
+    pendingMoves: () => Promise.resolve({ pending: [] }),
   } as unknown as OverlookApi['libraries'];
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { libraries };
   return { calls };
@@ -239,5 +252,25 @@ export const CreateFlow: Story = {
       await expect(body.getByTestId('switch-progress')).toBeVisible();
     });
     await expect(body.getByText('Opening Studio 2026…')).toBeVisible();
+  },
+};
+
+export const MoveEntryPointsAndMultiSelect: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(async () => {
+      await expect(body.getByTestId('library-row-Alpha')).toBeVisible();
+    });
+    // Per-row Move action exists for movable rows and is absent on blocked
+    // ones (missing volume / locked elsewhere) — #483 entry points.
+    await expect(body.getByLabelText('Move Alpha…')).toBeVisible();
+    await expect(body.queryByLabelText('Move ExpeditionX 2026…')).toBeNull();
+    // Multi-select: checking rows reveals the batch action with a count.
+    await userEvent.click(body.getByLabelText('Select Alpha to move'));
+    await userEvent.click(body.getByLabelText('Select Beta to move'));
+    await expect(body.getByTestId('move-selected')).toHaveTextContent('Move 2 selected…');
+    // The per-row action opens the wizard's Review step.
+    await userEvent.click(body.getByLabelText('Move Beta…'));
+    await expect(body.getByRole('dialog', { name: 'Move library' })).toBeVisible();
   },
 };

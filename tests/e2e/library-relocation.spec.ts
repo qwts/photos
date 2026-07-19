@@ -166,6 +166,73 @@ test('ACCEPTANCE: a non-empty destination refuses — never overwrites, never me
   }
 });
 
-// The wizard-driven flow (Review → Progress → Results through the real UI,
-// multi-select batch) lands with the follow-up slice once the wizard (#557)
-// and this engine hardening are both on main.
+test('ACCEPTANCE: the wizard moves a library end to end — Review probe, Progress, Results (#483 acceptance 1)', async () => {
+  test.setTimeout(90_000);
+  const userData = mkE2eTmpDir('overlook-e2e-reloc-wizard-');
+  const destRoot = mkE2eTmpDir('overlook-e2e-reloc-destroot-');
+  const app = await launch(userData, { OVERLOOK_SEED: '1', OVERLOOK_PICK_LIBRARY_DIR: destRoot });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await createSecondLibrary(page);
+
+    await page.getByTestId('library-trigger').click();
+    await page.getByTestId('library-switcher').waitFor();
+    await page.getByTestId('move-library-Second').click();
+    await page.getByTestId('move-pick-destination').click();
+    // The Review probe resolves the honest method chip before Start.
+    await page.getByTestId('move-method-chip').waitFor();
+    await page.getByTestId('move-start').click();
+    await page.getByTestId('move-results').waitFor();
+    await expect(page.getByTestId('move-results').getByText('Moved')).toBeVisible();
+    await page.getByTestId('move-done').click();
+
+    const after = await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      const { libraries } = await overlook.libraries.list();
+      return libraries.find((lib) => lib.name === 'Second')?.path ?? null;
+    });
+    expect(after).toBe(join(destRoot, 'Second'));
+  } finally {
+    await app.close();
+  }
+});
+
+test('ACCEPTANCE: multi-select moves several libraries into one root with independent results (#483 acceptance 4)', async () => {
+  test.setTimeout(120_000);
+  const userData = mkE2eTmpDir('overlook-e2e-reloc-multi-');
+  const destRoot = mkE2eTmpDir('overlook-e2e-reloc-multiroot-');
+  const app = await launch(userData, { OVERLOOK_SEED: '1', OVERLOOK_PICK_LIBRARY_DIR: destRoot });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      await overlook.libraries.create({ name: 'Alpha2', path: null });
+      await overlook.libraries.create({ name: 'Beta2', path: null });
+    });
+
+    await page.getByTestId('library-trigger').click();
+    await page.getByTestId('library-switcher').waitFor();
+    await page.getByLabel('Select Alpha2 to move').click();
+    await page.getByLabel('Select Beta2 to move').click();
+    await page.getByTestId('move-selected').click();
+    await page.getByTestId('move-pick-destination').click();
+    await page.getByTestId('move-start').click();
+    await page.getByTestId('move-results').waitFor();
+    await expect(page.getByTestId('move-results').getByText('Moved')).toHaveCount(2);
+    await page.getByTestId('move-done').click();
+
+    const paths = await page.evaluate(async () => {
+      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
+      const { libraries } = await overlook.libraries.list();
+      return libraries
+        .filter((lib) => lib.name.endsWith('2'))
+        .map((lib) => lib.path)
+        .sort();
+    });
+    expect(paths).toEqual([join(destRoot, 'Alpha2'), join(destRoot, 'Beta2')].sort());
+  } finally {
+    await app.close();
+  }
+});
