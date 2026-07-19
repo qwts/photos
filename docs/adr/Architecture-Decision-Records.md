@@ -1,7 +1,7 @@
 # Architecture Decision Records
 
-Canonical architecture decision records for photos. ADRs live **only** in this
-wiki (no repo copies). They are appended, never rewritten — a superseding
+Canonical architecture decision records for photos. ADRs live in `docs/adr/`
+in this repository. They are appended, never rewritten — a superseding
 decision gets a new ADR that links back to the one it replaces.
 
 ## Index

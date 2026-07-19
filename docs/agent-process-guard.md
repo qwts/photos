@@ -10,7 +10,7 @@ library — so this guard is adopted proactively here before this repo has its
 own incident.
 
 This doc is referenced directly by `AGENTS.md` for agent operational safety;
-like `AGENTS.md` itself, it is kept in-repo rather than the wiki so the
+like `AGENTS.md` itself, it lives in the repository so the
 guarded entrypoints and their limits are versioned alongside the scripts they
 describe.
 

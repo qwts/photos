@@ -1,9 +1,19 @@
-# photos Wiki
+# photos Documentation
 
-This wiki holds photos' canonical process, planning, and SOP documentation.
-Repository markdown docs are pointer stubs unless they are compact agent
-instructions or entrypoints (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, root
-`README.md`).
+This directory holds photos' canonical process, planning, and SOP
+documentation. It is the source of truth: docs are versioned with the code they
+describe, reviewed in the same pull request, and findable by GitHub code search
+(see
+[ENG-0003](https://github.com/qwts/playbook-software-engineering/blob/master/docs/decisions/ENG-0003-repo-is-documentation-source-of-truth.md)).
+
+The GitHub wiki is retired. Its pages are stubs pointing here, kept only so
+existing links resolve — never add content there.
+
+## Layout
+
+- [`adr/`](./adr/) — architecture decision records and their index
+- [`acceptance/`](./acceptance/) — acceptance and manual test plans
+- [`stories/`](./stories/) — user stories and milestone planning
 
 ## Start Here
 
@@ -28,9 +38,11 @@ instructions or entrypoints (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, root
 
 ## Maintenance Convention
 
-- Detailed process/SOP/planning docs live **here**; repo files stay compact pointers.
-- Wiki updates happen **as part of** issue/PR work — a change that alters
-  workflow, testing strategy, or architecture updates the wiki page in the same
-  unit of work, not after the fact.
+- Detailed process/SOP/planning docs live **here**; root-level repo files
+  (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`) stay compact
+  entrypoints that link here.
+- Doc updates ship **in the same pull request** as the change that makes them
+  true — a change altering workflow, testing strategy, or architecture updates
+  the page in the same unit of work, not after the fact.
 - ADRs are appended, never rewritten; superseding decisions get a new ADR that
   links back.

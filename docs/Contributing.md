@@ -1,11 +1,11 @@
 # Contributing to photos
 
-This wiki page is the canonical contributor and agent workflow guide. Read it
+This page is the canonical contributor and agent workflow guide. Read it
 before starting tracked work, and update this page when workflow, documentation,
 issue-claim, branch, PR, or validation rules change.
 
 photos is built in small, issue-scoped slices. Canonical milestone, user-story,
-ADR, and project notes live in this wiki. Repository markdown docs are pointer
+ADR, and project notes live in `docs/`. Root-level repo markdown files are
 stubs unless they are `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or root
 `README.md`.
 
@@ -30,8 +30,8 @@ stubs unless they are `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or root
 
 4. **Review documentation before merge.** If the PR changes behavior,
    architecture, testing strategy, automation checks, or CI expectations, update
-   the relevant wiki page in the same unit of work. If a repo pointer exists,
-   leave it as a stub and update the linked wiki page. If no doc update is
+   the relevant `docs/` page in the same unit of work. If a repo pointer exists,
+   leave it as a stub and update the linked `docs/` page. If no doc update is
    needed, say why in the PR description.
 5. **Write a manual test script for user-visible behavior.** When a PR changes
    behavior CI cannot fully exercise, include a short step-by-step manual test in
@@ -82,7 +82,7 @@ Automated coding agents follow the same hygiene as human contributors, plus:
   green" are not.
 - Verify before claiming success: run the same gates CI runs (`npm run ci`).
 - After pushing, wait for required checks; report failures factually.
-- Record lessons and follow-ups in issues, PRs, or the wiki — not only in chat.
+- Record lessons and follow-ups in issues, PRs, or `docs/` — not only in chat.
 - Keep user-facing summaries short and factual: what changed, what was tested,
   what remains.
 
@@ -97,12 +97,12 @@ Automated coding agents follow the same hygiene as human contributors, plus:
 
 ## Documentation policy (maintenance convention)
 
-- Canonical documentation lives in this wiki.
+- Canonical documentation lives in `docs/`.
 - Repository markdown files are pointer stubs unless they are `AGENTS.md`,
   `CLAUDE.md`, `CONTRIBUTING.md`, or root `README.md`.
 - Preserve existing repo paths as stubs when issues, PRs, or comments may link
-  to them; update the wiki page a stub links to, not the stub.
-- Wiki updates ship **in the same unit of work** as the change that makes them
+  to them; update the `docs/` page a stub links to, not the stub.
+- Doc updates ship **in the same unit of work** as the change that makes them
   necessary.
 - ADRs are appended, never rewritten. A superseding decision gets a new ADR
   linking back to the one it replaces (see

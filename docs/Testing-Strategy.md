@@ -1,8 +1,8 @@
 # Testing Strategy
 
 > Canonical reference for how photos is tested: the lanes, what runs when and
-> where, and the policy for adding coverage when features land. Lives in the
-> wiki (wiki-first); the repo keeps only pointers.
+> where, and the policy for adding coverage when features land. Lives in
+> `docs/`, versioned with the code it describes.
 
 ## TL;DR
 
