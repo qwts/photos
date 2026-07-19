@@ -145,23 +145,45 @@ const messages = defineMessages({
   probing: { id: 'libmove.review.probing', defaultMessage: 'Checking destination…' },
 });
 
+/** Windows reserves device names (CON, PRN, AUX, NUL, COM1–9, LPT1–9) that
+ * are invalid folder names even on shares mounted from other platforms. */
+const RESERVED_FOLDER_NAMES = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/iu;
+
+/** A display name is arbitrary user text (1–120 chars); the destination
+ * folder must be a valid name on every platform the disk might visit.
+ * Unsafe characters collapse to '-'; a name that is empty or reserved after
+ * sanitizing falls back to the source folder's basename (app-managed sources
+ * are ULIDs) and finally the library id. */
+function folderNameFor(lib: LibraryDescriptor): string {
+  const named = lib.name
+    .trim()
+    // eslint-disable-next-line no-control-regex -- control chars are invalid in Windows filenames
+    .replace(/[\\/:*?"<>|\u0000-\u001f]+/gu, '-')
+    .replace(/[. ]+$/u, '');
+  if (named !== '' && !RESERVED_FOLDER_NAMES.test(named)) return named;
+  return lib.path.split(/[\\/]/u).filter(Boolean).pop() ?? lib.id;
+}
+
 /** Destination = chosen root + one collision-safe folder per library
  * (handoff / ADR-0022 §7), named after the library's DISPLAY name — an
  * app-managed source folder is a ULID, which nobody should find on their
  * external disk. The engine is the collision arbiter — it refuses occupied
  * paths — so suffixing retries are attempted in order. */
 function destFor(lib: LibraryDescriptor, root: string, attempt: number): string {
-  const named = lib.name.trim().replace(/[\\/:]+/gu, '-');
-  const base = named !== '' ? named : (lib.path.split(/[\\/]/).filter(Boolean).pop() ?? lib.id);
+  const base = folderNameFor(lib);
   return `${root}/${attempt === 1 ? base : `${base} ${String(attempt)}`}`;
 }
 
 type Probe = Awaited<ReturnType<typeof window.overlook.libraries.probeMove>>;
 
 /** A probe outcome that must stop the move: collisions are informational
- * (the move retries numbered names), everything else blocks Start. */
+ * (the move retries numbered names); every refusal blocks Start, and so does
+ * an ok probe that found the library locked by another instance — the
+ * switcher list can be stale, the probe is live. */
 function probeBlocks(probe: Probe | undefined): boolean {
-  return probe !== undefined && !probe.ok && probe.reason !== 'destination-not-empty';
+  if (probe === undefined) return false;
+  if (probe.ok) return probe.lockedBy !== null;
+  return probe.reason !== 'destination-not-empty';
 }
 
 export interface MoveLibraryDialogProps {
@@ -209,7 +231,7 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
         .then((probe) => {
           // Keyed by root+library, so a destination change never needs a
           // reset — lookups for the new root simply miss until it lands.
-          if (!stale) setProbes((previous) => new Map(previous).set(`${root} ${lib.id}`, probe));
+          if (!stale) setProbes((previous) => new Map(previous).set(`${root}\u0000${lib.id}`, probe));
         })
         .catch(() => undefined);
     }
@@ -321,8 +343,11 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
 
   if (phase === 'review') {
     const many = ordered.length > 1;
-    const collected = ordered.map((lib) => (root === null ? undefined : probes.get(`${root} ${lib.id}`)));
+    const collected = ordered.map((lib) => (root === null ? undefined : probes.get(`${root}\u0000${lib.id}`)));
     const anyBlocked = collected.some((probe) => probeBlocks(probe));
+    // Start waits for every probe: on a slow volume the walk takes a moment,
+    // and enabling early would let a quick click outrun the preflight.
+    const anyPending = collected.some((probe) => probe === undefined);
     const copyProbes = collected.filter((probe): probe is Probe & { ok: true } => probe?.ok === true && probe.mode === 'copy');
     const requiredBytes = copyProbes.reduce((sum, probe) => sum + probe.requiredBytes, 0);
     const freeBytes = copyProbes.length > 0 ? Math.min(...copyProbes.map((probe) => probe.freeBytes)) : 0;
@@ -339,7 +364,7 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
             <Button variant="ghost" onClick={onClose}>
               <FormattedMessage {...messages.cancel} />
             </Button>
-            <Button variant="primary" disabled={root === null || anyBlocked} onClick={start} data-testid="move-start">
+            <Button variant="primary" disabled={root === null || anyPending || anyBlocked} onClick={start} data-testid="move-start">
               {many ? (
                 <FormattedMessage {...messages.startMany} values={{ count: ordered.length }} />
               ) : (
@@ -367,8 +392,8 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
                 </span>
               )}
               <ReviewProbe
-                probe={root === null ? undefined : probes.get(`${root} ${lib.id}`)}
-                pending={root !== null && !probes.has(`${root} ${lib.id}`)}
+                probe={root === null ? undefined : probes.get(`${root}\u0000${lib.id}`)}
+                pending={root !== null && !probes.has(`${root}\u0000${lib.id}`)}
               />
             </li>
           ))}
@@ -551,6 +576,15 @@ function ReviewProbe({ probe, pending }: { readonly probe: Probe | undefined; re
   }
   if (probe === undefined) return null;
   if (probe.ok) {
+    // The switcher list can be stale; the probe's lock check is live. A
+    // library locked since the list was read blocks like any refusal.
+    if (probe.lockedBy !== null) {
+      return (
+        <span className="ovl-libmove__error" role="alert">
+          <FormattedMessage {...reasonMessages.locked} />
+        </span>
+      );
+    }
     return (
       <span className="ovl-libmove__probe" data-testid="move-method-chip">
         <Badge tone={probe.mode === 'rename' ? 'cyan' : 'neutral'}>

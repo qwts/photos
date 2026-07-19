@@ -36,6 +36,7 @@ interface StubOptions {
   readonly moveOutcome?: MoveOutcome | ((id: string) => MoveOutcome);
   readonly movePends?: boolean;
   readonly probeOutcome?: ProbeOutcome | ((id: string) => ProbeOutcome);
+  readonly probePends?: boolean;
 }
 
 function installStub(options: StubOptions = {}): { readonly calls: string[] } {
@@ -67,6 +68,7 @@ function installStub(options: StubOptions = {}): { readonly calls: string[] } {
     },
     probeMove: ({ id }: { id: string }) => {
       calls.push(`probe:${id}`);
+      if (options.probePends === true) return new Promise(() => undefined);
       const probe = options.probeOutcome;
       if (probe === undefined) {
         return Promise.resolve({
@@ -267,6 +269,54 @@ export const ReviewNetworkWarningNeverBlocks: Story = {
     // ADR-0017 §5: network destinations warn, never block.
     await expect(body.getByTestId('move-network-warning')).toBeVisible();
     await expect(body.getByTestId('move-start')).toBeEnabled();
+  },
+};
+
+export const ReviewHoldsStartWhileProbing: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ probePends: true });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    // A quick click must not outrun the preflight on a slow volume: Start
+    // stays disabled until every selected library's probe has resolved.
+    await waitFor(async () => {
+      await expect(body.getByText('Checking destination…')).toBeVisible();
+    });
+    await expect(body.getByTestId('move-start')).toBeDisabled();
+  },
+};
+
+export const ReviewBlocksWhenLockedElsewhere: Story = {
+  decorators: [
+    (Story) => {
+      installStub({
+        probeOutcome: {
+          ok: true,
+          mode: 'copy',
+          requiredBytes: 1_000,
+          items: 3,
+          freeBytes: 9_000_000,
+          network: false,
+          lockedBy: 'other-machine',
+        },
+      });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    // The switcher list can be stale; the probe's lock check is live and
+    // blocks Start instead of letting the move fail after the fact.
+    await waitFor(async () => {
+      await expect(body.getByText('The library is open in another Overlook instance.')).toBeVisible();
+    });
+    await expect(body.getByTestId('move-start')).toBeDisabled();
   },
 };
 
