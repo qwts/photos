@@ -1,0 +1,81 @@
+# ADR-0018: Semantic Search and Language-Model Architecture
+
+## Status
+
+Accepted 2026-07-17 on issue [#389](https://github.com/qwts/photos/issues/389) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands). This ADR extends [ADR-0004](ADR-0004-Encryption-And-Key-Management), [ADR-0005](ADR-0005-Library-Data-Model), [ADR-0006](ADR-0006-Media-Processing), [ADR-0011](ADR-0011-Provider-Catalog-Capabilities-And-Switching), [ADR-0013](ADR-0013-App-Lock-Key-Release-And-Protected-Albums), and [ADR-0017](ADR-0017-Multi-Library-Registry-Keying-And-Lifecycle); it rewrites none of them.
+
+Section map for the epic's children: §1 ratifies the already-landed [#390](https://github.com/qwts/photos/issues/390); §2–§5 govern [#391](https://github.com/qwts/photos/issues/391) (embedding pipeline + encrypted vector index); §5–§6 govern [#392](https://github.com/qwts/photos/issues/392) (semantic query path + UX); §7 governs [#393](https://github.com/qwts/photos/issues/393) (opt-in LLM assistant); §8 states the privacy invariants that bind all of them.
+
+## Context
+
+Epic #379 adds meaning-based search and opt-in language-model features without weakening the encrypted-library model. The deciding constraints, from the repo as it stands:
+
+- **Keyword search already works.** #390 activated `photos_fts` (external-content FTS5 over `file_name`, `place`, `camera`, trigger-synced; bm25 with the literal-`ORDER BY rank` streamed-sort fast path; quoted prefix-phrase AND queries; substring fallback for token-less queries; startup integrity verify + rebuild via StartupMaintenance) — `src/main/db/photos-repository.ts`, `migrations.ts:84-103`. Anything this ADR adds must degrade gracefully back to exactly that.
+- **Perf is a ratchet system.** The 200K synthetic fixture (`tests/perf/perf-harness.spec.ts`) asserts budgets in `tests/perf/budgets.ts`: search 600 ms median over IPC, cold start 5 s, import ≥ 3 photos/s, main RSS ≤ 1.5 GB. Semantic features must land inside this harness, not beside it.
+- **Native dependencies are policy-bound.** Exact pins (`scripts/check-package-pins.mjs`), the `allowScripts` allowlist in `package.json`, `npmRebuild: true` + `asarUnpack: **/*.node` in `electron-builder.yml`, and ADR-0006's prebuilt-only stance. Off-main-thread native work has a working precedent: sharp in `thumbnail-worker.ts` behind a bounded pool.
+- **Custody patterns exist.** Provider credentials are `safeStorage`-wrapped files under a per-profile directory (`provider-auth/`), never `settings.json`. `shareDiagnostics` (default false, honest copy, no hidden pipeline) is the consent-copy precedent.
+- **Everything derived is per-library and invalidated on purge.** ADR-0017 makes the library directory the isolation unit; `PurgeService` already invalidates blobs, thumbs, and in-memory caches; ADR-0017 §4 classifies background work as drain-or-cancel and left a slot for search indexes.
+- **The product rules are strict:** fully on-device by default (a fresh install makes zero network calls for search/ML), embeddings and captions are encrypted derived data (the face-grouping stance, #285), cloud LLM use is per-feature opt-in with keys in OS custody, and originals never leave the device.
+
+## Decision
+
+### 1. Keyword search — ratified as landed (#390)
+
+FTS5 as shipped is the keyword layer of record: external-content `photos_fts`, trigger-synced from migration v1, bm25 ranking, prefix-phrase AND semantics, substring fallback, startup verify + rebuild. This ADR changes nothing about it. Keyword search works before and without any semantic index; every surface below treats it as the always-available floor.
+
+### 2. Embedding model and runtime
+
+- **Model family: CLIP-style dual encoder** (separate image and text towers producing vectors in one space), exported to ONNX, **512-dimensional** output. The exact checkpoint is pinned by a measured spike at the start of #391 — candidates in preference order: **MobileCLIP-S2** (small, fast, Apple-published) and **OpenCLIP ViT-B/32** (well-tested baseline). The decision criteria are fixed here: ≥ 5 photos/s embedding throughput on CPU on the dev baseline machine, ≤ 40 ms text-tower query embedding, and retrieval quality sanity-checked against a small labeled fixture. The pinned checkpoint and its SHA-256 go into a committed manifest; changing models is a manifest bump plus re-index (§4), never a silent swap.
+- **Runtime: onnxruntime-node**, exact-pinned like every dependency. Execution providers per platform: **CoreML → CPU fallback on macOS, DirectML → CPU on Windows, CPU on Linux**. EP selection is a runtime probe with fallback, never a hard requirement — CPU must always work. If the pinned onnxruntime-node version carries an install script, it is added to the `allowScripts` allowlist explicitly (same review bar as better-sqlite3-multiple-ciphers); a script-free version is preferred if available.
+- **Placement: a dedicated embedding worker** (`embedding-worker.ts`) on the thumbnail-worker pattern — native module loaded off the main thread, bounded pool of **1**, jobs are (photo id, decoded pixels) → vector. The image input is the **mid-size derivative** (ADR-0006's lightbox image), decrypted and decoded in memory via the existing pipeline — plaintext pixels never touch disk, and originals are never re-decoded for indexing.
+
+### 3. Model asset delivery — download on explicit enable, never bundled
+
+Model files (~30–170 MB) are **not bundled** into the installer and are **not fetched on first run**. Semantic search ships disabled; enabling it is an explicit user action whose consent copy states that model files will be downloaded once. Enabling downloads the manifest-pinned assets over HTTPS, verifies each file's **SHA-256 against the committed manifest** (mismatch = delete + fail loud, never load), and stores them in a per-profile cache (`userData/models/<model-id>/`) — models are app assets shared across libraries, not library content, and contain nothing user-derived. This preserves the epic's zero-network-by-default rule literally: the default configuration makes no network calls; the one-time download happens only behind consent, and the setting's copy is honest about it (the `shareDiagnostics` copy standard). Re-download only on manifest bump; the cache survives library switches and restores.
+
+### 4. Vector storage — sqlite-vec inside the SQLCipher database
+
+- **The vector index lives inside the library's SQLCipher DB** via the **sqlite-vec** (`vec0`) loadable extension — not a separate index file. This buys, by construction: encryption at rest (ADR-0004 — the page-level cipher encrypts extension tables like any other), per-library isolation and lifecycle (ADR-0017 — the index is inside `library.db`), transactional consistency with `photos` (delete/purge invalidation in the same transaction), and WAL crash-safety. A separate encrypted sidecar file would reimplement all four badly.
+- **Spike gate:** the first commit of #391 proves `loadExtension` of the pinned sqlite-vec build composes with `better-sqlite3-multiple-ciphers` + the SQLCipher pragmas on all three platforms (extension loading sits above the encryption VFS layer, so this is expected to work — but it is verified before anything is built on it). sqlite-vec is exact-pinned; its prebuilt platform binaries follow the same `asarUnpack` packaging as other `.node`/dylib assets.
+- **Schema** (schema migration in #391): `photo_embeddings` — `photo_id` (fk → photos, indexed), `content_hash`, `model_version`, `embedding` (vec0 column, **int8-quantized**, 512-dim), `embedded_at`. Uniqueness on `(photo_id, model_version)`. Rows are deleted in the same transaction as `purgeRow()`; edits that change pixels (there are none today — RAW repair replaces derivatives, which does re-queue) mark the row stale via `content_hash` mismatch.
+- **Search shape: brute-force KNN, no ANN index in v1.** At the 200K scale target, int8 512-dim is ~100 MB of vector data and a full scan is well inside the §6 budget; ANN structures (IVF/HNSW) add build/maintenance complexity that 200K does not justify. Revisit if the scale target moves past ~500K (recorded consequence).
+- **Protected-domain photos (ADR-0013) are never embedded.** The indexing surface is `ordinary_visible_photos`; a photo moving into a protected album has its embedding rows deleted in the same migration transaction that hides it. An embedding is a content fingerprint — leaving it in an unlocked index would leak protected content similarity. Restoring a photo to ordinary visibility re-queues it like a new import.
+
+### 5. Indexing lifecycle — incremental by construction, cancellable by classification
+
+- **The queue is a query, not a journal:** photos in `ordinary_visible_photos` lacking a `photo_embeddings` row for the current `model_version`. Resumability is free — a crash or teardown loses at most the in-flight photo, and the next sweep finds it again. (Contrast with import, which needs a journal because it mutates; embedding is a pure derivation.)
+- **Scheduling:** a StartupMaintenance-style tracked task (the FTS verify precedent) sweeps at startup; an after-import trigger queues new photos; both funnel into the single embedding worker. The indexer **pauses while an import batch or backup run is active** (import throughput ≥ 3 photos/s is a ratchet that must not regress) and **pauses on battery power** (`powerMonitor.isOnBatteryPower`), resuming on AC.
+- **Teardown class: cancel** (ADR-0017 §4 table addition): embeddings are re-derivable, so library close/switch/quit aborts the in-flight job and drops the queue — no drain. The worker terminates with the thumbnail pool in teardown step 4.
+- **Model upgrades:** bumping the model manifest re-indexes lazily — new `model_version` rows are built by the same sweep; old rows are dropped once the sweep completes (query results always use one version; the toolbar surfaces "index updating" state via the existing progress-event pattern).
+- **Per-library:** all of this is inside the library DB and the library's service lifecycle — multi-library isolation (ADR-0017) requires no additional work beyond the §4 classification above.
+
+### 6. Query path and fusion
+
+- **Query embedding** runs the text tower in the same embedding worker (a query is one small tensor — milliseconds-class; no separate runtime).
+- **Fusion: reciprocal rank fusion (RRF)** over two ranked lists — FTS5 bm25 (as landed) and cosine KNN over `photo_embeddings` — `score = Σ 1/(k + rank_i)`, k = 60 to start. RRF needs no score normalization across incomparable scales (bm25 vs cosine), is stable under missing lists, and is a two-line SQL/JS merge. When the semantic index is disabled, absent, or mid-build, the query path **is** the #390 path — same code, one list. Filters (favorites, source, chips) apply identically to both lists before fusion.
+- **Latency budgets** (new ratchets in `tests/perf/budgets.ts`, measured in the perf harness at 200K): keyword search stays at its existing 600 ms median; **semantic/fused search p50 ≤ 900 ms end-to-end over IPC** (query embed + KNN + fusion + hydration). #392 lands the measurement alongside the feature; the ratchet is set from the first honest measurement at or under the ceiling, then only ever tightened (ADR-0001 discipline).
+- **UX contract** (design detail in #392): one search field; semantic results merge into the grid ranking rather than a separate mode; the "SEMANTIC SEARCH — COMING SOON" toolbar hint retires when #392 ships.
+
+### 7. Language-model boundary — cloud, per-feature opt-in, provider-pluggable
+
+- **v1 is cloud-only for generative features** (captions, photo Q&A). A local LLM is deferred, recorded plainly: multi-GB weights, GPU-dependent latency, and quality below the utility bar for Q&A on consumer hardware today; the provider contract below keeps the door open for a local provider later without UI changes. Semantic *search* (§2–§6) remains fully local — the LLM boundary concerns #393's features only.
+- **Provider contract mirrors the storage-provider pattern (ADR-0011):** an `LlmProvider` registry with typed capabilities (caption, qa), explicit connect/disconnect, and per-provider custody. **Anthropic is the reference implementation** (Messages API with vision); the contract is small enough that additional providers are additive. Model tiering is a provider-implementation detail, not contract: captions target the provider's fast tier, Q&A its balanced tier (for Anthropic today: Haiku-class for captions, Sonnet/Opus-class for Q&A), pinned in code and bump-able without an ADR.
+- **Key custody:** API keys are `safeStorage`-wrapped files under the per-profile `userData/llm-auth/<providerId>/` directory — the exact `provider-auth/` pattern. Keys never appear in `settings.json`, logs, exports, or backups (per-profile dirs are outside the library and outside every backup surface by construction). Settings stores only the selected provider id and per-feature toggles.
+- **What may leave the device — exhaustive list:** (a) the **user-selected** photo's mid-size derivative, downscaled to ≤ 1024 px long edge and re-encoded **without EXIF/GPS metadata**; (b) the user's typed prompt; (c) minimal display metadata for context (taken-at date, camera model — never place, never GPS, never file paths or library ids). **Never:** originals, embeddings, thumbnails of photos the user did not explicitly select, protected-domain content (ADR-0013 photos are excluded from LLM features entirely), or library-wide batches without a separate explicit action that names its scope.
+- **Consent and visibility:** each feature (captions, Q&A) has its own opt-in toggle, default off, with first-use confirmation that names the provider and links the data list above; a **status-bar indicator is visible whenever a request is in flight** (the epic's visible-indicator rule) with the mono vocabulary of the existing sync states. Fresh installs make zero LLM-related network calls; even after opt-in, calls happen only on explicit user action (generate caption / ask).
+- **Logging and redaction:** requests/responses are logged locally only (library-scoped, encrypted with everything else), with API keys and `Authorization` headers structurally excluded from every log path; `shareDiagnostics` never includes prompt or image content. Cloud-returned captions are **derived data**: stored encrypted in the library DB, included in the FTS index (they are searchable text), deleted with the photo.
+
+### 8. Privacy invariants (bind every child)
+
+1. Fresh install: zero network calls for search or ML. (Asserted by test in #391 — the epic exit criterion.)
+2. Embeddings, captions, and any content-derived understanding are encrypted at rest inside the library DB, per-library, purged with their photos.
+3. Protected-domain content is invisible to indexing, search fusion, and LLM features.
+4. Originals never leave the device; anything that does leave is enumerated in §7 and gated on per-feature consent plus per-request user action, with a visible indicator.
+5. Secrets live in OS-backed custody (`safeStorage` per-profile files), never plaintext settings, never logs.
+
+## Consequences
+
+- **Easier:** #390's landed FTS makes fusion additive; ADR-0017's per-library DB makes vector isolation free; existing worker/maintenance/purge patterns mean the indexer introduces no new lifecycle machinery.
+- **Harder:** two native runtime additions (onnxruntime-node, sqlite-vec) enter the exact-pin/allowScripts/asarUnpack regime and add ~50–80 MB of platform binaries to the package; the model cache is a new per-profile asset class with its own manifest discipline; EP probing (CoreML/DirectML) adds a platform matrix to test.
+- **Deferred, with owners:** exact model checkpoint + measured budgets → #391 spike (criteria fixed in §2); ANN indexing → revisit at >500K scale target (new ADR amendment); local LLM provider → future issue behind the §7 contract; video understanding and face grouping → out of scope (#285 owns faces and shares the derived-data stance).
+- **Revisit when:** the scale target moves past 200K (ANN, §4); a credible on-device captioning model clears the quality bar (§7); Linux GPU EPs mature (§2 stays CPU-safe regardless).
