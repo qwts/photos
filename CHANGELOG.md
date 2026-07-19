@@ -1,5 +1,11 @@
 # photos
 
+## 0.34.2
+
+### Patch Changes
+
+- 66404bf: Clarify sidebar storage with separate on-disk and provider-specific offload totals.
+
 ## 0.34.1
 
 ### Patch Changes
