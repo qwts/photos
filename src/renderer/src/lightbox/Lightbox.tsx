@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { LightboxViewport } from './LightboxViewport';
+import { useLightboxChrome } from './use-lightbox-chrome';
 
 import './lightbox.css';
 
@@ -14,8 +15,6 @@ import './lightbox.css';
 // fades in on mousemove and auto-hides after 2.2s idle (200ms ease-out
 // fades), waking on photo change. Keyboard lands with #93, Inspector with
 // #94; delete stays a disabled stub until M10's soft-delete.
-
-const CHROME_IDLE_MS = 2200;
 
 export interface LightboxProps {
   readonly photo: PhotoRecord;
@@ -71,58 +70,12 @@ export function Lightbox({
   suppressRehydrate = false,
   onDelete,
 }: LightboxProps): ReactElement {
-  const [chrome, setChrome] = useState(true);
-  const [wokenFor, setWokenFor] = useState(photo.id);
   const [ephemeralState, setEphemeralState] = useState<{
     readonly photoId: string;
     readonly stage: 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
   } | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  // Wake on photo change — a during-render adjustment, so the effect below
-  // never sets state synchronously (react-hooks/set-state-in-effect).
-  if (wokenFor !== photo.id) {
-    setWokenFor(photo.id);
-    setChrome(true);
-  }
-
-  const armTimer = useCallback(() => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      setChrome(false);
-    }, CHROME_IDLE_MS);
-  }, []);
-
-  const wakeChrome = useCallback(() => {
-    setChrome(true);
-    armTimer();
-  }, [armTimer]);
-
-  // Mousemove wakes the chrome and pushes the idle deadline out. Chromium
-  // re-dispatches a synthetic mousemove when hit-testing changes under a
-  // STATIONARY cursor (our own pointer-events flip on fade!) — ignore
-  // events that didn't actually move, or the chrome can never hide while
-  // the pointer rests on it.
-  const lastPoint = useRef<{ x: number; y: number } | null>(null);
-  const wake = useCallback(
-    (event: { clientX: number; clientY: number }) => {
-      const previous = lastPoint.current;
-      lastPoint.current = { x: event.clientX, y: event.clientY };
-      if (previous !== null && previous.x === event.clientX && previous.y === event.clientY) {
-        return;
-      }
-      wakeChrome();
-    },
-    [wakeChrome],
-  );
-
-  // (Re)arm the hide timer on mount and on every photo change.
-  useEffect(() => {
-    armTimer();
-    return () => {
-      clearTimeout(timer.current);
-    };
-  }, [armTimer, photo.id]);
+  const { chrome, rootRef, armTimer, wakeChrome, startClickGesture, trackClickGesture, cancelClickGesture, hideForImageClick } =
+    useLightboxChrome(photo.id);
 
   const offloaded = photo.syncState === 'offloaded';
   const rehydrateErrorRef = useRef(onRehydrateError);
@@ -155,27 +108,36 @@ export function Lightbox({
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
 
   return (
-    // REAL DEBT, not an exception: `onMouseMove` is the ONLY thing that wakes the chrome
-    // after it auto-hides, so a keyboard-only user's controls vanish and never come back
-    // (audit finding 2 — SC 2.2.1, and 2.4.7 if focus lands on a faded control).
-    // Owned by #399, which adds the keyboard wake path. Remove this disable with the fix.
+    // The lightbox surface observes pointer activity and image/background clicks
+    // without becoming a control itself; every actionable child remains a native
+    // button with its own keyboard behavior.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
+      ref={rootRef}
       className={`ovl-lightbox${inspectorOpen ? ' ovl-lightbox--docked' : ''}`}
       data-testid="lightbox"
       data-chrome={chrome ? 'on' : 'off'}
-      onMouseMove={wake}
+      onPointerDown={startClickGesture}
+      onPointerMove={trackClickGesture}
+      onPointerCancel={cancelClickGesture}
+      onClick={hideForImageClick}
+      onDoubleClickCapture={wakeChrome}
+      onKeyDown={wakeChrome}
+      onFocusCapture={wakeChrome}
+      onBlurCapture={armTimer}
     >
       <LightboxViewport
         key={photo.id}
         photo={photo}
         suppressRehydrate={suppressRehydrate}
         imageSrc={imageSrc}
-        chromeClass={chromeClass}
+        chromeVisible={chrome}
         onActivity={wakeChrome}
         onDimensionsResolved={onRepairDimensions}
       />
-      {photo.fileKind === 'raw' ? <span className="ovl-lightbox__preview mono-data">PREVIEW</span> : null}
+      {photo.fileKind === 'raw' ? (
+        <span className={`ovl-lightbox__preview ovl-lightbox__chrome${chromeClass} mono-data`}>PREVIEW</span>
+      ) : null}
       <div className={`ovl-lightbox__top ovl-lightbox__chrome${chromeClass}`}>
         <IconButton icon="arrow-left" label="Back to library (Esc)" onClick={onClose} />
         <span className="ovl-lightbox__title mono-data">

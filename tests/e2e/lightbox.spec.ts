@@ -252,9 +252,17 @@ test('viewing journey: selection survives Esc-from-lightbox; chrome autohides an
     const orientationToolbar = page.getByRole('toolbar', { name: 'Image orientation controls' });
     await expect(lightbox).toBeVisible();
 
-    // Chrome starts awake, hides after the 2.2s idle window (no mouse), and
-    // wakes on movement.
+    // A click on the photo immediately clears every overlay, and keyboard
+    // activity or meaningful pointer movement wakes the chrome again.
     await expect(lightbox).toHaveAttribute('data-chrome', 'on');
+    await lightbox.getByRole('img').click();
+    await expect(lightbox).toHaveAttribute('data-chrome', 'off');
+    await expect(lightbox.locator('.ovl-lightbox__chrome--on')).toHaveCount(0);
+    await expect(lightbox.locator('.ovl-lightbox__gesture-hint')).toHaveCount(0);
+    await page.keyboard.press('x');
+    await expect(lightbox).toHaveAttribute('data-chrome', 'on');
+
+    // The existing idle path remains intact.
     await expect(lightbox).toHaveAttribute('data-chrome', 'off', { timeout: 5000 });
     await expect(orientationToolbar).toHaveCSS('opacity', '0');
     await expect(orientationToolbar).toHaveCSS('pointer-events', 'none');
