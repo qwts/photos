@@ -30,6 +30,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0020](ADR-0020-Internationalization-Architecture)               | i18n Architecture                  | Accepted |
 | [ADR-0021](ADR-0021-Opt-In-Crash-Diagnostics-Privacy-Boundary)       | Crash Diagnostics Privacy Boundary | Accepted |
 | [ADR-0022](ADR-0022-Library-Relocation-And-Registry-Path-Rewrite)    | Library Relocation & Path Rewrite  | Accepted |
+| [ADR-0023](ADR-0023-Trash-Purge-And-Destructive-Action-Ceremony)     | Trash, Purge & Destructive Ceremony | Accepted |
 
 ## Template
 
