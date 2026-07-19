@@ -41,7 +41,7 @@ New ADRs use the next sequential number and this structure:
 
 ## Status
 
-Proposed | Accepted | Superseded by [ADR-MMMM](./ADR-MMMM-Title.md)
+Proposed | Accepted | Superseded by `[ADR-MMMM](./ADR-MMMM-Title.md)`
 
 ## Context
 
