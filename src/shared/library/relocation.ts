@@ -67,6 +67,10 @@ export const relocationFailureReasonSchema = z.enum([
   'journal-corrupt',
   'cancelled',
   'io-error',
+  /* Runtime-level designed refusals (switch parity, ADR-0017 §4/#385): */
+  'move-in-progress',
+  'app-locked',
+  'provider-busy',
 ]);
 export type RelocationFailureReason = z.infer<typeof relocationFailureReasonSchema>;
 

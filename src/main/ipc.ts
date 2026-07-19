@@ -8,6 +8,7 @@ import { wrapHandler as createValidatedHandler } from '../shared/ipc/registry.js
 import type { HandlerErrorReport } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
 import type { LibraryDescriptor } from '../shared/library/registry.js';
+import type { RelocationRuntime } from './library/relocation-runtime.js';
 import type { ProviderDescriptor } from '../shared/backup/provider-descriptor.js';
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
@@ -349,6 +350,27 @@ export function registerLibraryRegistryHandlers(getFacade: () => LibraryRegistry
   );
   ipcMain.handle(channels.libraryRegistryPickLocation.name, (_event, request: unknown) =>
     validateHandler(channels.libraryRegistryPickLocation, () => getFacade().pickLocation())(request),
+  );
+}
+
+export type RelocationFacade = Pick<RelocationRuntime, 'move' | 'cancel' | 'finishCleanup' | 'pending'>;
+
+// Library relocation (#483, ADR-0022). Like the registry handlers these use
+// validateHandler directly: moving an INACTIVE library exposes no content and
+// must work while the active library is app-locked; moving the ACTIVE library
+// is refused by the runtime while locked ('app-locked' designed refusal).
+export function registerRelocationHandlers(getRuntime: () => RelocationFacade): void {
+  ipcMain.handle(channels.libraryRelocationMove.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRelocationMove, ({ id, destPath }) => getRuntime().move(id, destPath))(request),
+  );
+  ipcMain.handle(channels.libraryRelocationCancel.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRelocationCancel, ({ id }) => ({ cancelled: getRuntime().cancel(id) }))(request),
+  );
+  ipcMain.handle(channels.libraryRelocationFinishCleanup.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRelocationFinishCleanup, async ({ id }) => ({ result: await getRuntime().finishCleanup(id) }))(request),
+  );
+  ipcMain.handle(channels.libraryRelocationPending.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRelocationPending, () => ({ pending: getRuntime().pending() }))(request),
   );
 }
 

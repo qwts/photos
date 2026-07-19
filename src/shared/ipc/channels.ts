@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 import { settingsPatchSchema, settingsSchema } from '../settings/settings.js';
 import { libraryDescriptorSchema, libraryIdSchema } from '../library/registry.js';
+import {
+  relocationFailureReasonSchema,
+  relocationModeSchema,
+  relocationOutcomeSchema,
+  relocationStateSchema,
+} from '../library/relocation.js';
 import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
 
@@ -727,6 +733,60 @@ export const channels = {
   ),
   /** Native directory picker for the create flow's location (#386). */
   libraryRegistryPickLocation: defineChannel('library-registry:pick-location', z.object({}), z.object({ path: z.string().nullable() })),
+  // Library relocation (#483, ADR-0022 §1): journaled move with an atomic
+  // registry path rewrite as the commit point. Designed refusals (the §5
+  // preflight matrix, verification failure, cancellation) are RESPONSE
+  // outcomes like the switch — the wizard renders reason + detail, and
+  // moved-cleanup-pending is a success variant reporting both paths.
+  libraryRelocationMove: defineChannel(
+    'library-relocation:move',
+    z.object({ id: libraryIdSchema, destPath: z.string().min(1) }),
+    z.discriminatedUnion('ok', [
+      z.object({
+        ok: z.literal(true),
+        outcome: relocationOutcomeSchema,
+        mode: relocationModeSchema,
+        items: z.number().int().nonnegative(),
+        bytes: z.number().int().nonnegative(),
+        /** Both verified locations — cleanup-pending renders them (#483 acceptance 10). */
+        sourcePath: z.string(),
+        destPath: z.string(),
+      }),
+      z.object({ ok: z.literal(false), reason: relocationFailureReasonSchema, detail: z.string() }),
+    ]),
+  ),
+  /** Cancel the in-flight move for a library — honored at file boundaries,
+   * only ever before the registry commit (ADR-0022 §4). */
+  libraryRelocationCancel: defineChannel(
+    'library-relocation:cancel',
+    z.object({ id: libraryIdSchema }),
+    z.object({ cancelled: z.boolean() }),
+  ),
+  /** Retry source removal after moved-cleanup-pending (#483 acceptance 10). */
+  libraryRelocationFinishCleanup: defineChannel(
+    'library-relocation:finish-cleanup',
+    z.object({ id: libraryIdSchema }),
+    z.object({ result: z.enum(['cleaned', 'nothing-pending']) }),
+  ),
+  /** Journals on disk — the resume banner's work list (states are ADR-0022
+   * §2; pre-commit entries offer resume/discard, committed entries offer
+   * finish-cleanup). */
+  libraryRelocationPending: defineChannel(
+    'library-relocation:pending',
+    z.object({}),
+    z.object({
+      pending: z.array(
+        z.object({
+          libraryId: libraryIdSchema,
+          /** Null only for a corrupt journal — surfaced, never guessed at. */
+          state: relocationStateSchema.nullable(),
+          sourcePath: z.string().nullable(),
+          destPath: z.string().nullable(),
+          corrupt: z.boolean(),
+        }),
+      ),
+    }),
+  ),
 } as const;
 
 export const events = {
@@ -765,6 +825,19 @@ export const events = {
   importExternalPaths: defineEvent('import:external-paths', z.object({ paths: z.array(z.string()).min(1).max(100_000).readonly() })),
   // Export progress (#97): n/total over the batch.
   exportProgress: defineEvent('export:progress', z.object({ done: z.number().int().nonnegative(), total: z.number().int().nonnegative() })),
+  // Relocation item/byte progress per library (#483): drives the wizard's
+  // staged tracks; phases mirror ADR-0022 §4 order.
+  relocationProgress: defineEvent(
+    'library-relocation:progress',
+    z.object({
+      libraryId: libraryIdSchema,
+      phase: z.enum(['preflight', 'copying', 'verifying', 'committing', 'cleaning']),
+      copiedItems: z.number().int().nonnegative(),
+      totalItems: z.number().int().nonnegative(),
+      copiedBytes: z.number().nonnegative(),
+      totalBytes: z.number().nonnegative(),
+    }),
+  ),
   // Backup completion (#106): drives the red toast + retry on failures.
   // `auto` keeps automatic successes quiet (#116) — an auto-backup's green
   // toast must never replace the import-complete toast; failures stay loud.

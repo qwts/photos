@@ -1,0 +1,144 @@
+import { RelocationError, finishRelocationCleanup, relocateLibrary, type RelocationDeps } from './relocation-engine.js';
+import type { RelocationOutcome, RelocationMode, RelocationProgress, RelocationState } from '../../shared/library/relocation.js';
+
+// Relocation runtime (#483, ADR-0022 §4): the IPC-facing wrapper around the
+// engine. Inactive libraries relocate directly; the ACTIVE library runs the
+// switch-shaped sequence (guards → teardown → relocate → reactivate), and
+// reactivation happens whatever the move's outcome — on success the registry
+// points at the destination, on any refusal/failure it still points at the
+// source, so the same reopen lands on the right directory both ways.
+// Designed refusals are RETURNED, not thrown (#386 convention): IPC strips
+// thrown errors to bare codes, and the wizard needs reason + detail.
+
+export type RelocationMoveOutcome =
+  | {
+      readonly ok: true;
+      readonly outcome: RelocationOutcome;
+      readonly mode: RelocationMode;
+      readonly items: number;
+      readonly bytes: number;
+      readonly sourcePath: string;
+      readonly destPath: string;
+    }
+  | { readonly ok: false; readonly reason: RelocationError['reason']; readonly detail: string };
+
+export interface RelocationPendingEntry {
+  readonly libraryId: string;
+  readonly state: RelocationState | null;
+  readonly sourcePath: string | null;
+  readonly destPath: string | null;
+  readonly corrupt: boolean;
+}
+
+export interface RelocationRuntimeOptions {
+  readonly engineDeps: RelocationDeps;
+  readonly active: {
+    readonly openLibraryId: () => string | null;
+    /** App-lock state, undefined before the controller exists. */
+    readonly lockState: () => string | undefined;
+    /** True while backup/restore provider work is in flight (ADR-0011 parity). */
+    readonly providerBusy: () => boolean;
+    /** Full ADR-0017 §4 teardown — same contract as the switch. */
+    readonly closeLibrary: () => Promise<void>;
+    /** Re-point + rebind + app-lock swap + renderer reload for wherever the
+     * registry points now (destination after a commit, source otherwise). */
+    readonly reactivate: (id: string) => Promise<void>;
+  };
+  readonly emitProgress: (payload: RelocationProgress & { libraryId: string }) => void;
+  /** Test seams; default to the real engine. */
+  readonly relocate?: typeof relocateLibrary;
+  readonly finishCleanup?: typeof finishRelocationCleanup;
+}
+
+export class RelocationRuntime {
+  private running: { readonly id: string; readonly controller: AbortController } | null = null;
+
+  constructor(private readonly options: RelocationRuntimeOptions) {}
+
+  /** One move at a time, app-wide: multi-select is N sequential singles
+   * driven by the wizard, each with independent progress and results. */
+  async move(id: string, destPath: string): Promise<RelocationMoveOutcome> {
+    if (this.running !== null) {
+      return { ok: false, reason: 'move-in-progress', detail: `a move is already running for library ${this.running.id}` };
+    }
+    const entry = this.options.engineDeps.registry.get(id);
+    if (entry === undefined) {
+      return { ok: false, reason: 'io-error', detail: `library ${id} is not registered` };
+    }
+    const sourcePath = entry.path;
+    const isActive = this.options.active.openLibraryId() === id;
+    if (isActive) {
+      const lockState = this.options.active.lockState();
+      if (lockState !== undefined && lockState !== 'unconfigured-unlocked' && lockState !== 'unlocked') {
+        return { ok: false, reason: 'app-locked', detail: 'unlock the library before moving it' };
+      }
+      if (this.options.active.providerBusy()) {
+        return { ok: false, reason: 'provider-busy', detail: 'backup or restore work is in flight' };
+      }
+    }
+
+    const controller = new AbortController();
+    this.running = { id, controller };
+    try {
+      // Quiesce the active library first (ADR-0017 §4 teardown: fence →
+      // cancel/drain → checkpoint → close → zero keys → release lock); the
+      // engine then takes the freed advisory lock like any inactive move.
+      if (isActive) await this.options.active.closeLibrary();
+      try {
+        const result = await (this.options.relocate ?? relocateLibrary)(this.options.engineDeps, {
+          libraryId: id,
+          destDir: destPath,
+          signal: controller.signal,
+          onProgress: (progress) => this.options.emitProgress({ ...progress, libraryId: id }),
+        });
+        return {
+          ok: true,
+          outcome: result.outcome,
+          mode: result.mode,
+          items: result.items,
+          bytes: result.bytes,
+          sourcePath,
+          destPath: this.options.engineDeps.registry.get(id)?.path ?? destPath,
+        };
+      } catch (error) {
+        if (error instanceof RelocationError) {
+          return { ok: false, reason: error.reason, detail: error.message };
+        }
+        throw error;
+      } finally {
+        if (isActive) await this.options.active.reactivate(id);
+      }
+    } finally {
+      this.running = null;
+    }
+  }
+
+  /** Cancellation is honored at file boundaries and only ever before the
+   * registry commit (ADR-0022 §4) — after it, the engine no longer checks. */
+  cancel(id: string): boolean {
+    if (this.running?.id !== id) return false;
+    this.running.controller.abort();
+    return true;
+  }
+
+  async finishCleanup(id: string): Promise<'cleaned' | 'nothing-pending'> {
+    return (this.options.finishCleanup ?? finishRelocationCleanup)(this.options.engineDeps, id);
+  }
+
+  /** The resume banner's work list: journals on disk, corrupt ones surfaced
+   * with null fields — never guessed at (ADR-0022 §2). */
+  pending(): RelocationPendingEntry[] {
+    return this.options.engineDeps.journals.list().map((item) => {
+      if (item.journal instanceof Error) {
+        return { libraryId: item.libraryId, state: null, sourcePath: null, destPath: null, corrupt: true };
+      }
+      return {
+        libraryId: item.libraryId,
+        state: item.journal.state,
+        sourcePath: item.journal.sourcePath,
+        destPath: item.journal.destPath,
+        corrupt: false,
+      };
+    });
+  }
+}
