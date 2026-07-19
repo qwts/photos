@@ -28,6 +28,8 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0018](ADR-0018-Semantic-Search-And-Language-Model-Architecture) | Semantic Search & LLM Architecture | Accepted |
 | [ADR-0019](ADR-0019-User-Theme-Contract)                             | User Theme Contract                | Accepted |
 | [ADR-0020](ADR-0020-Internationalization-Architecture)               | i18n Architecture                  | Accepted |
+| [ADR-0021](ADR-0021-Opt-In-Crash-Diagnostics-Privacy-Boundary)       | Crash Diagnostics Privacy Boundary | Accepted |
+| [ADR-0022](ADR-0022-Library-Relocation-And-Registry-Path-Rewrite)    | Library Relocation & Path Rewrite  | Accepted |
 
 ## Template
 
