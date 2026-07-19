@@ -128,6 +128,7 @@ export const ExitMotionRestoresFocus: Story = {
 
     await userEvent.click(canvas.getByRole('button', { name: 'Close' }));
     await expect(dialog).toHaveAttribute('data-state', 'closing');
+    await expect(dialog).toHaveAttribute('inert');
     await waitFor(async () => expect(canvas.queryByRole('dialog', { name: 'Animated dialog' })).not.toBeInTheDocument());
     await waitFor(async () => expect(opener).toHaveFocus());
   },

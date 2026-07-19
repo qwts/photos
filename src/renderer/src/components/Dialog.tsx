@@ -45,6 +45,7 @@ export function Dialog({ open, title, icon, width = 420, onClose, bodyClassName,
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        inert={closing ? true : undefined}
         tabIndex={-1}
         className={`ovl-dialog${closing ? ' ovl-dialog--closing' : ''}`}
         data-state={closing ? 'closing' : 'open'}

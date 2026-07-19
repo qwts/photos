@@ -84,7 +84,7 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
       title="Export"
       icon="share"
       width={420}
-      onClose={phase === 'running' ? () => undefined : onClose}
+      onClose={phase === 'running' ? undefined : onClose}
       footer={
         phase === 'options' ? (
           <>
