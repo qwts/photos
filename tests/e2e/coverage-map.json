@@ -1167,16 +1167,21 @@
       "wiki": "Library-Management",
       "coverage": [
         {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/library-relocation.spec.ts"
+        },
+        {
           "type": "storybook",
           "path": "src/renderer/src/shell/MoveLibraryDialog.stories.tsx"
         },
         {
           "type": "unit-dom",
-          "paths": ["tests/library/relocation.test.ts", "tests/library/relocation-runtime.test.ts"]
-        },
-        {
-          "type": "deferred",
-          "issue": 483
+          "paths": [
+            "tests/library/relocation.test.ts",
+            "tests/library/relocation-runtime.test.ts",
+            "tests/library/relocation-verify.test.ts",
+            "tests/library/volume-info.test.ts"
+          ]
         }
       ]
     }

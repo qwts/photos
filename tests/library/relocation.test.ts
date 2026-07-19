@@ -10,6 +10,7 @@ import { LibraryRegistry, LibraryRegistryError } from '../../src/main/library/li
 import {
   RelocationError,
   finishRelocationCleanup,
+  probeRelocation,
   recoverRelocations,
   relocateLibrary,
   stagingPathFor,
@@ -492,5 +493,79 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       assert.throws(() => h.registry.updatePath(ULID_A, otherDir), LibraryRegistryError);
       assert.equal(h.registry.updatePath(ULID_A, h.sourceDir).path, h.sourceDir, 'no-op re-point to own path is allowed');
     });
+  });
+
+  describe('preflight probe — Review-step dry run (#483, ADR-0022 §5)', () => {
+    test('a copy-mode probe reports method, exact bytes, free space, and takes no lock, journal, or staging', async () => {
+      const h = harness({ freeBytes: () => 500_000_000, networkVolume: () => false });
+      const probe = await probeRelocation(h.deps, { libraryId: ULID_A, destDir: h.destDir });
+      assert.ok(probe.ok);
+      assert.equal(probe.mode, 'copy');
+      assert.equal(probe.items, Object.keys(LIB_FILES).length);
+      assert.ok(probe.requiredBytes > 0);
+      assert.equal(probe.freeBytes, 500_000_000);
+      assert.equal(probe.network, false);
+      assert.equal(probe.lockedBy, null);
+      assert.equal(h.journals.load(ULID_A), null, 'no journal written');
+      assert.ok(!existsSync(stagingPathFor(h.destDir)), 'no staging created');
+      assert.ok(!existsSync(join(h.sourceDir, 'library.lock.probe')), 'nothing new in the source');
+    });
+
+    test('same-volume probes resolve INSTANT MOVE and flag network destinations as a warning, not a refusal', async () => {
+      const h = harness({ networkVolume: () => true }, 'rename');
+      const probe = await probeRelocation(h.deps, { libraryId: ULID_A, destDir: h.destDir });
+      assert.ok(probe.ok);
+      assert.equal(probe.mode, 'rename');
+      assert.equal(probe.network, true, 'ADR-0017 §5: warn, never block');
+    });
+
+    test('probe refusals carry the same stable reasons as the move', async () => {
+      const h = harness();
+      mkdirSync(h.destDir, { recursive: true });
+      writeFileSync(join(h.destDir, 'occupied'), 'x', 'utf8');
+      const probe = await probeRelocation(h.deps, { libraryId: ULID_A, destDir: h.destDir });
+      assert.ok(!probe.ok);
+      assert.equal(probe.reason, 'destination-not-empty');
+      assertSourceIntactAndAuthoritative(h);
+    });
+
+    test('a probe names the host holding the source lock instead of failing', async () => {
+      const h = harness();
+      writeFileSync(
+        join(h.sourceDir, 'library.lock'),
+        JSON.stringify({ instanceId: 'other', pid: 4321, hostname: 'OTHER-HOST', acquiredAt: NOW().toISOString() }),
+        'utf8',
+      );
+      const probe = await probeRelocation(h.deps, { libraryId: ULID_A, destDir: h.destDir });
+      assert.ok(probe.ok);
+      assert.equal(probe.lockedBy, 'OTHER-HOST');
+    });
+  });
+
+  test('EXIT CRITERIA: fault hooks fire at every §4 boundary in protocol order (acceptance 6 harness)', async () => {
+    const fired: string[] = [];
+    let arm = '';
+    const h = harness({
+      fault: () => arm,
+      exit: (code: number): never => {
+        throw new RelocationError('io-error', `fault-exit:${String(code)}`);
+      },
+    });
+    // Walk the boundaries: each armed point interrupts exactly there.
+    for (const point of ['after-copy', 'after-verify', 'after-activate', 'after-commit']) {
+      const fresh = harness({
+        fault: () => point,
+        exit: (): never => {
+          fired.push(point);
+          throw new RelocationError('io-error', `fault:${point}`);
+        },
+      });
+      await assert.rejects(relocateLibrary(fresh.deps, { libraryId: ULID_A, destDir: fresh.destDir }));
+    }
+    assert.deepEqual(fired, ['after-copy', 'after-verify', 'after-activate', 'after-commit']);
+    // Unarmed: the same move completes untouched.
+    arm = '';
+    const result = await relocateLibrary(h.deps, { libraryId: ULID_A, destDir: h.destDir });
+    assert.equal(result.outcome, 'moved');
   });
 });

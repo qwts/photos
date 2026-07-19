@@ -184,6 +184,7 @@ const overlook: OverlookApi = {
     // Relocation (#483, ADR-0022): move/cancel/cleanup + journal-backed
     // pending list for the resume banner; progress drives the wizard tracks.
     move: createInvoker(channels.libraryRelocationMove, invokeTransport),
+    probeMove: createInvoker(channels.libraryRelocationPreflight, invokeTransport),
     cancelMove: createInvoker(channels.libraryRelocationCancel, invokeTransport),
     finishMoveCleanup: createInvoker(channels.libraryRelocationFinishCleanup, invokeTransport),
     pendingMoves: async () => libraryRelocationPending({}),

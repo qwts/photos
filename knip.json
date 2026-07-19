@@ -3,6 +3,6 @@
   "entry": ["tests/**/*.test.ts", "tests/dom/css-loader.ts", "tests/dom/register.ts", "tests/e2e/**/*.spec.ts", "scripts/*.mjs"],
   "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.mjs"],
   "ignoreExportsUsedInFile": true,
-  "ignoreBinaries": ["ditto", "plutil", "security", "ps"],
+  "ignoreBinaries": ["ditto", "plutil", "security", "ps", "mount"],
   "ignoreDependencies": ["@formatjs/cli", "node-addon-api", "node-test-github-reporter", "prebuildify"]
 }

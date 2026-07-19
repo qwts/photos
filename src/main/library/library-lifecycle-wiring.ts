@@ -9,6 +9,7 @@ import { recoverRelocations, type RelocationDeps } from './relocation-engine.js'
 import { RelocationJournalStore } from './relocation-journal.js';
 import { RelocationRuntime } from './relocation-runtime.js';
 import { verifyStagedLibrary } from './relocation-verify.js';
+import { classifyVolume } from './volume-info.js';
 import type { LibraryRegistryRuntime } from './library-registry-runtime.js';
 import type { SafeStorageLike } from '../crypto/keystore.js';
 import { createEmitter } from '../../shared/ipc/registry.js';
@@ -38,8 +39,11 @@ export interface LibraryLifecycleDeps {
   readonly appLockHost: () => AppLockHost | undefined;
   readonly buildAppLockController: () => Parameters<AppLockHost['swap']>[0];
   readonly reloadWindows: () => Promise<void>;
-  /** OVERLOOK_SWITCH_FAULT harness hook (crash-mid-switch E2E). */
-  readonly fault: () => string | undefined;
+  /** Harness env reader: OVERLOOK_SWITCH_FAULT (crash-mid-switch E2E),
+   * OVERLOOK_RELOCATION_FAULT (#483 acceptance 6), and
+   * OVERLOOK_RELOCATION_FORCE_COPY (exercise the copy path on one volume —
+   * E2E cannot mount a second filesystem in CI). */
+  readonly harnessEnv: (name: string) => string | undefined;
 }
 
 export interface LibraryLifecycle {
@@ -72,7 +76,7 @@ export function createLibraryLifecycle(deps: LibraryLifecycleDeps): LibraryLifec
     activateLibrary,
     swapAppLock,
     reloadWindows: deps.reloadWindows,
-    fault: deps.fault,
+    fault: () => deps.harnessEnv('OVERLOOK_SWITCH_FAULT'),
     exit: (code) => app.exit(code),
   });
 
@@ -85,6 +89,20 @@ export function createLibraryLifecycle(deps: LibraryLifecycleDeps): LibraryLifec
     registry: deps.registryRuntime.getRegistry(),
     instanceId: deps.instanceId,
     verifyOpenable: (dir) => verifyStagedLibrary(deps.safeStorage, dir),
+    // ADR-0022 §5 filesystem preflight: FAT32 blocks (4 GB cap); network
+    // mounts warn-don't-block (ADR-0017 §5) via the probe channel.
+    unsupportedFilesystem: (dir) => classifyVolume(dir).blocked,
+    networkVolume: (dir) => classifyVolume(dir).network,
+    fault: () => deps.harnessEnv('OVERLOOK_RELOCATION_FAULT'),
+    // app.exit/process.exit route through Chromium's message loop in the
+    // main process, and a fast microtask chain outruns the posted quit — the
+    // "crash" would land several protocol steps late. SIGKILL to self is the
+    // only deterministic boundary kill (#483 acceptance 6).
+    exit: (code: number): never => {
+      process.kill(process.pid, 'SIGKILL');
+      return process.exit(code);
+    },
+    ...(deps.harnessEnv('OVERLOOK_RELOCATION_FORCE_COPY') === '1' ? { sameVolume: () => false } : {}),
   });
 
   const emitProgress = createEmitter(events.relocationProgress, (name, payload) => {

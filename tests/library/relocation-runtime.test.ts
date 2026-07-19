@@ -33,6 +33,10 @@ function harness(overrides: Partial<RelocationRuntimeOptions> = {}, active = fal
   const root = mkdtempSync(join(tmpdir(), 'overlook-reloc-runtime-'));
   const registry = new LibraryRegistry({ filePath: join(root, 'libraries.json'), now: NOW });
   registry.register({ id: ULID_A, name: 'My Library', path: join(root, 'lib-a'), createdAt: NOW().toISOString(), lastOpenedAt: null });
+  // A real source directory: the active-move path dry-runs the §5 preflight
+  // BEFORE teardown (PR #557 review), so the probe must have bytes to walk.
+  mkdirSync(join(root, 'lib-a'), { recursive: true });
+  writeFileSync(join(root, 'lib-a', 'library-id'), ULID_A, 'utf8');
   const journals = new RelocationJournalStore(join(root, 'relocations'));
   const calls: string[] = [];
   const runtime = new RelocationRuntime({
@@ -64,10 +68,11 @@ function harness(overrides: Partial<RelocationRuntimeOptions> = {}, active = fal
 describe('relocation runtime (#483, ADR-0022 §4)', () => {
   test('EXIT CRITERIA: active-library move runs teardown → relocate → reactivate, in that order', async () => {
     const h = harness({}, true);
-    const outcome = await h.runtime.move(ULID_A, '/somewhere/new');
+    const dest = join(h.root, 'new-home');
+    const outcome = await h.runtime.move(ULID_A, dest);
     assert.deepEqual(h.calls, ['close', 'relocate', `reactivate:${ULID_A}`]);
     assert.ok(outcome.ok);
-    assert.equal(outcome.destPath, '/somewhere/new');
+    assert.equal(outcome.destPath, dest);
     assert.equal(outcome.sourcePath, join(h.root, 'lib-a'), 'both paths reported for the wizard');
   });
 
@@ -78,7 +83,7 @@ describe('relocation runtime (#483, ADR-0022 §4)', () => {
       },
       true,
     );
-    const outcome = await h.runtime.move(ULID_A, '/somewhere/new');
+    const outcome = await h.runtime.move(ULID_A, join(h.root, 'new-home'));
     assert.deepEqual(h.calls, ['close', `reactivate:${ULID_A}`], 'reopen happens on failure too');
     assert.ok(!outcome.ok);
     assert.equal(outcome.reason, 'verification-failed');
@@ -175,6 +180,26 @@ describe('relocation runtime (#483, ADR-0022 §4)', () => {
     assert.ok(!outcome.ok);
     assert.equal(outcome.reason, 'cancelled');
     assert.equal(h.runtime.cancel(ULID_A), false, 'nothing left to cancel');
+  });
+
+  test('an ACTIVE-library preflight refusal returns before teardown — no reload eats the wizard retry (PR #557 review)', async () => {
+    const h = harness(
+      {
+        relocate: () => assert.fail('must not reach the engine move'),
+      },
+      true,
+    );
+    // Real source dir + occupied destination: the pre-teardown probe refuses.
+    mkdirSync(join(h.root, 'lib-a'), { recursive: true });
+    writeFileSync(join(h.root, 'lib-a', 'library-id'), ULID_A, 'utf8');
+    const dest = join(h.root, 'occupied');
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(join(dest, 'content'), 'x', 'utf8');
+
+    const outcome = await h.runtime.move(ULID_A, dest);
+    assert.ok(!outcome.ok);
+    assert.equal(outcome.reason, 'destination-not-empty');
+    assert.deepEqual(h.calls, [], 'no teardown, no reactivation, no reload');
   });
 
   test('pending() surfaces journals — corrupt ones with null fields, never guessed at', () => {
