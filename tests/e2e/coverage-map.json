@@ -1161,6 +1161,24 @@
           "paths": ["tests/diagnostics/diagnostics-export.test.ts", "tests/diagnostics/diagnostics-service.test.ts"]
         }
       ]
+    },
+    {
+      "id": "m22-library-relocation",
+      "wiki": "Library-Management",
+      "coverage": [
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/MoveLibraryDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/library/relocation.test.ts", "tests/library/relocation-runtime.test.ts"]
+        },
+        {
+          "type": "deferred",
+          "issue": 483
+        }
+      ]
     }
   ]
 }
