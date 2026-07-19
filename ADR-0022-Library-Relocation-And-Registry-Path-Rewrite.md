@@ -70,17 +70,27 @@ behavior, §7 multi-library moves.
 ### 2. Journal and staging marker
 
 - Each move writes a relocation journal at
-  `userData/relocations/<libraryId>.json` — main-owned, atomic write,
-  **fail-loud** like the registry (never self-healing; ADR-0017 §1's
-  rationale). It records
-  `{libraryId, sourcePath, destPath, stagingPath, mode, state}` with states
-  `copying → verified → committed → cleaned` (`mode` is copy vs same-volume
-  rename, §4).
+  `userData/relocations/<libraryId>.json` — main-owned, `version: 1`
+  strict-schema, atomic temp-file + rename (the restore-checkpoint
+  conventions, `src/main/backup/restore-staging.ts:9-38`), **fail-loud** like
+  the registry (never self-healing; ADR-0017 §1's rationale). It records
+  `{version, libraryId, sourcePath, destPath, stagingPath, mode, state}` with
+  states `copying → verified → committed → cleaned` (`mode` is copy vs
+  same-volume rename, §4). Unlike the restore checkpoint it lives in the
+  profile root, not inside staging: recovery must still run when the
+  destination volume is unplugged, so the journal cannot live on it.
 - Staging is a sibling of the final destination **on the destination volume**,
   named `<finalDir>.relocate-staging` (parallel to ADR-0010's
   `library.restore-staging`), so activation is a same-volume atomic rename.
   Staging carries a marker file `relocation.json` binding it to its journal
-  (library ULID + journal nonce).
+  (library ULID + journal nonce). **The marker, not the directory name,
+  defines staging**: it travels through the activation rename, so a crash
+  between activation and commit leaves the final-path directory still
+  marker-bound and therefore still staging (§3) — the source stays
+  authoritative and resume-or-discard applies. The marker is deleted
+  immediately after the registry commit; a crash in that window resolves from
+  the `committed` journal plus the registry already pointing at the
+  destination.
 - Startup recovery reads journals, not guesses: pre-commit states resume or
   discard staging; a `committed` journal with a surviving source finishes
   cleanup; disk state matching no journal is never silently acted on.
@@ -110,12 +120,16 @@ acceptance 6):
    by another instance (§5).
 2. **Copy** the closed, checkpointed directory into staging. Bytes are copied
    as-is; nothing decrypts and no plaintext is persisted.
-3. **Verify**: every file by relative path, size, and cryptographic digest;
-   the staged `library-id` equals the entry id; the staged database opens with
-   the existing key custody (read-only health check), then closes.
+3. **Verify**: every file by relative path, size, and SHA-256 digest (the
+   house algorithm — ADR-0010's manifest binding, ADR-0013's anchor hash; the
+   marker file is excluded from the comparison set); the staged `library-id`
+   equals the entry id; the staged database opens with the existing key
+   custody (read-only health check), then closes.
 4. **Activate**: rename staging → final destination (same-volume, atomic).
-5. **Commit**: the atomic registry path rewrite (§1). Before this step the
-   source is authoritative; after it, the destination is.
+   The marker travels with it (§2).
+5. **Commit**: the atomic registry path rewrite (§1), then delete the marker.
+   Before this step the source is authoritative; after it, the destination
+   is.
 6. **Reopen** and health-check the destination when the active library moved —
    with the same full renderer reset as a switch (ADR-0017 §4).
 7. **Cleanup**: remove the source. Failure here leaves two verified copies;
