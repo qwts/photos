@@ -160,6 +160,18 @@ always copy.
 - An inactive library whose lock is live-held by another instance refuses to
   move; same-hostname dead-pid locks are stale and reclaimable per
   ADR-0017 §5.
+- **Cloud backup is advisory, never a gate.** The §4 guarantees hold with or
+  without a backup: at every instant one verified authoritative copy exists,
+  and the only destructive step runs after two copies verify. Requiring an
+  active, fully-synced backup would couple a local, offline-capable operation
+  to network availability and an optional feature — and a blocked user's
+  fallback is a manual Finder move with no verification or journal, the exact
+  hazard #483 exists to remove. Preflight instead **reports** backup posture
+  in the confirmation UI: active and current; active with N items pending
+  (recommend letting backup finish first); or not configured (one-line
+  advisory). Nothing blocks. A backup run in flight is quiesced by §4 step 1
+  like any other service — the sync ledger preserves its intent across the
+  move, and the unchanged ULID (§1) leaves the remote namespace untouched.
 
 ### 6. External-volume behavior
 
