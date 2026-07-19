@@ -1,0 +1,188 @@
+/* Move library wizard (#483, ADR-0022) — tokens only, matching the
+   library-switcher idiom. */
+
+.ovl-libmove__sources {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ovl-libmove__source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+}
+
+.ovl-libmove__source-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-medium);
+  color: var(--text-body);
+}
+
+.ovl-libmove__path,
+.ovl-libmove__dest-preview,
+.ovl-libmove__result-detail {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+
+.ovl-libmove__dest-preview {
+  color: var(--accent-iris);
+}
+
+.ovl-libmove__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.ovl-libmove__location {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  margin-bottom: var(--space-4);
+}
+
+.ovl-libmove__location-path {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.ovl-libmove__reassure,
+.ovl-libmove__note {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.ovl-libmove__note--muted {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+}
+
+.ovl-libmove__counter {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  margin-bottom: var(--space-3);
+}
+
+.ovl-libmove__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ovl-libmove__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 32px;
+}
+
+.ovl-libmove__cancel-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+.ovl-libmove__result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-card);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+}
+
+.ovl-libmove__result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ovl-libmove__cleanup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.ovl-libmove__error {
+  font-size: var(--text-sm);
+  color: var(--accent-red);
+}
+
+.ovl-libmove__error-detail {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+/* Resume banner: above the grid, below toasts (handoff z-order). */
+.ovl-movebanner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3);
+  padding: var(--space-3);
+  padding-right: var(--space-8);
+  background: var(--surface-card);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+}
+
+.ovl-movebanner > .ovl-icon-button {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.ovl-movebanner__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.ovl-movebanner__copy {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.ovl-movebanner__paths {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+  margin-top: var(--space-1);
+}
