@@ -33,6 +33,7 @@ async function openPrivacy(page: Page): Promise<void> {
 }
 
 async function exportRecoveryKey(page: Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'Back up encryption key' });
   await page.getByRole('button', { name: 'Back up…' }).click();
   await page.getByLabel('New password').fill(RECOVERY_PASSWORD);
   await page.getByLabel('Re-enter password').fill(RECOVERY_PASSWORD);
@@ -40,10 +41,12 @@ async function exportRecoveryKey(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Export key backup' }).click();
   await expect(page.getByText('Key backup saved.')).toBeVisible({ timeout: 30_000 });
   await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 }
 
 async function createPrivateAlbum(page: Page): Promise<readonly string[]> {
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toHaveCount(0);
   await page.getByRole('button', { name: 'New album' }).click();
   await page.getByRole('textbox', { name: 'Album name' }).fill('Private originals');
   await page.getByRole('textbox', { name: 'Album name' }).press('Enter');

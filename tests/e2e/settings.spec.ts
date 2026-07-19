@@ -193,7 +193,7 @@ test('settings keeps stable modal geometry and content-only scrolling in a short
     await page.getByRole('button', { name: 'General' }).click();
     await expect(pane).toHaveAttribute('data-section', 'general');
     await expect.poll(() => page.evaluate<number>("document.querySelector('[data-testid=settings-pane]').scrollTop")).toBe(0);
-    await page.getByRole('button', { name: 'Close' }).click();
+    await dialog.getByRole('button', { name: 'Close' }).click();
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();
   } finally {
