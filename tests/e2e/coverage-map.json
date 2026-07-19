@@ -1172,6 +1172,10 @@
         },
         {
           "type": "storybook",
+          "path": "src/renderer/src/shell/LibrarySwitcher.stories.tsx"
+        },
+        {
+          "type": "storybook",
           "path": "src/renderer/src/shell/MoveLibraryDialog.stories.tsx"
         },
         {

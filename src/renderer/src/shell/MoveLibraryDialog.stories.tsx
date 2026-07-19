@@ -30,9 +30,12 @@ function lib(overrides: Partial<LibraryDescriptor>): LibraryDescriptor {
 
 type MoveOutcome = Awaited<ReturnType<OverlookApi['libraries']['move']>>;
 
+type ProbeOutcome = Awaited<ReturnType<OverlookApi['libraries']['probeMove']>>;
+
 interface StubOptions {
   readonly moveOutcome?: MoveOutcome | ((id: string) => MoveOutcome);
   readonly movePends?: boolean;
+  readonly probeOutcome?: ProbeOutcome | ((id: string) => ProbeOutcome);
 }
 
 function installStub(options: StubOptions = {}): { readonly calls: string[] } {
@@ -61,6 +64,22 @@ function installStub(options: StubOptions = {}): { readonly calls: string[] } {
     finishMoveCleanup: ({ id }: { id: string }) => {
       calls.push(`cleanup:${id}`);
       return Promise.resolve({ result: 'cleaned' as const });
+    },
+    probeMove: ({ id }: { id: string }) => {
+      calls.push(`probe:${id}`);
+      const probe = options.probeOutcome;
+      if (probe === undefined) {
+        return Promise.resolve({
+          ok: true as const,
+          mode: 'copy' as const,
+          requiredBytes: 48_211_890_176,
+          items: 1204,
+          freeBytes: 512_000_000_000,
+          network: false,
+          lockedBy: null,
+        });
+      }
+      return Promise.resolve(typeof probe === 'function' ? probe(id) : probe);
     },
     pendingMoves: () => Promise.resolve({ pending: [] }),
     pickLocation: () => {
@@ -211,5 +230,61 @@ export const ResultsFailureIsHonest: Story = {
     await expect(body.getByText('Failed')).toBeVisible();
     await expect(body.getByText(/Not enough free space/)).toBeVisible();
     await expect(body.getByTestId('move-retry')).toBeVisible();
+  },
+};
+
+export const ReviewResolvesMethodAndSpace: Story = {
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    // The dry-run probe resolves the honest method chip and the space meter
+    // (ADR-0022 §5 preflight surfaced at Review, per the design handoff).
+    await waitFor(async () => {
+      await expect(body.getByTestId('move-method-chip')).toBeVisible();
+    });
+    await expect(body.getByText('COPY & VERIFY')).toBeVisible();
+    await expect(body.getByTestId('move-space-meter')).toBeVisible();
+    await expect(body.getByText('48.2 GB needed · 512 GB free')).toBeVisible();
+    await expect(body.getByTestId('move-start')).toBeEnabled();
+  },
+};
+
+export const ReviewNetworkWarningNeverBlocks: Story = {
+  decorators: [
+    (Story) => {
+      installStub({
+        probeOutcome: { ok: true, mode: 'rename', requiredBytes: 1_000, items: 3, freeBytes: 9_000_000, network: true, lockedBy: null },
+      });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    await waitFor(async () => {
+      await expect(body.getByText('INSTANT MOVE')).toBeVisible();
+    });
+    // ADR-0017 §5: network destinations warn, never block.
+    await expect(body.getByTestId('move-network-warning')).toBeVisible();
+    await expect(body.getByTestId('move-start')).toBeEnabled();
+  },
+};
+
+export const ReviewBlocksOnInsufficientSpace: Story = {
+  decorators: [
+    (Story) => {
+      installStub({
+        probeOutcome: { ok: false, reason: 'insufficient-space', detail: 'need 52 GB free, destination has 9 GB' },
+      });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await userEvent.click(body.getByTestId('move-pick-destination'));
+    await waitFor(async () => {
+      await expect(body.getByText('Not enough free space on the destination.')).toBeVisible();
+    });
+    await expect(body.getByTestId('move-start')).toBeDisabled();
   },
 };

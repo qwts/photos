@@ -149,6 +149,9 @@
   "libmove.review.choose": {
     "defaultMessage": "Choose…"
   },
+  "libmove.review.collisionNote": {
+    "defaultMessage": "A folder with this name already exists — the move will use a numbered name."
+  },
   "libmove.review.destPreview": {
     "defaultMessage": "→ {path}"
   },
@@ -158,11 +161,23 @@
   "libmove.review.destinationPlaceholder": {
     "defaultMessage": "Choose a destination folder…"
   },
+  "libmove.review.networkWarning": {
+    "defaultMessage": "The destination is a network volume. Overlook cannot verify locks across machines and database safety is not guaranteed there."
+  },
   "libmove.review.openNote": {
     "defaultMessage": "The open library moves last: Overlook closes it, moves it, and reopens it from the new location."
   },
   "libmove.review.openNow": {
     "defaultMessage": "Open now"
+  },
+  "libmove.review.probing": {
+    "defaultMessage": "Checking destination…"
+  },
+  "libmove.review.spaceDetail": {
+    "defaultMessage": "{needed} needed · {free} free"
+  },
+  "libmove.review.spaceLabel": {
+    "defaultMessage": "Destination space"
   },
   "libmove.review.start.many": {
     "defaultMessage": "Move {count} libraries…"

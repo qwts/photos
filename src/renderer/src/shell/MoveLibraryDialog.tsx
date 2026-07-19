@@ -131,14 +131,37 @@ const messages = defineMessages({
   didNotReport: { id: 'libmove.error.didNotReport', defaultMessage: 'The move did not report back.' },
   destPreview: { id: 'libmove.review.destPreview', defaultMessage: '→ {path}' },
   pathArrow: { id: 'libmove.pathArrow', defaultMessage: '{from} → {to}' },
+  spaceLabel: { id: 'libmove.review.spaceLabel', defaultMessage: 'Destination space' },
+  spaceDetail: { id: 'libmove.review.spaceDetail', defaultMessage: '{needed} needed · {free} free' },
+  networkWarning: {
+    id: 'libmove.review.networkWarning',
+    defaultMessage:
+      'The destination is a network volume. Overlook cannot verify locks across machines and database safety is not guaranteed there.',
+  },
+  collisionNote: {
+    id: 'libmove.review.collisionNote',
+    defaultMessage: 'A folder with this name already exists — the move will use a numbered name.',
+  },
+  probing: { id: 'libmove.review.probing', defaultMessage: 'Checking destination…' },
 });
 
 /** Destination = chosen root + one collision-safe folder per library
- * (handoff / ADR-0022 §7). The engine is the collision arbiter — it refuses
- * occupied paths — so suffixing retries are attempted in order. */
+ * (handoff / ADR-0022 §7), named after the library's DISPLAY name — an
+ * app-managed source folder is a ULID, which nobody should find on their
+ * external disk. The engine is the collision arbiter — it refuses occupied
+ * paths — so suffixing retries are attempted in order. */
 function destFor(lib: LibraryDescriptor, root: string, attempt: number): string {
-  const base = lib.path.split(/[\\/]/).filter(Boolean).pop() ?? lib.name;
+  const named = lib.name.trim().replace(/[\\/:]+/gu, '-');
+  const base = named !== '' ? named : (lib.path.split(/[\\/]/).filter(Boolean).pop() ?? lib.id);
   return `${root}/${attempt === 1 ? base : `${base} ${String(attempt)}`}`;
+}
+
+type Probe = Awaited<ReturnType<typeof window.overlook.libraries.probeMove>>;
+
+/** A probe outcome that must stop the move: collisions are informational
+ * (the move retries numbered names), everything else blocks Start. */
+function probeBlocks(probe: Probe | undefined): boolean {
+  return probe !== undefined && !probe.ok && probe.reason !== 'destination-not-empty';
 }
 
 export interface MoveLibraryDialogProps {
@@ -162,6 +185,7 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
     totalBytes: number;
   } | null>(null);
   const [committed, setCommitted] = useState(false);
+  const [probes, setProbes] = useState<ReadonlyMap<string, Probe>>(new Map());
   const stopRef = useRef(false);
   const includesOpen = ordered.some((lib) => lib.open);
 
@@ -171,6 +195,30 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
       if (payload.phase === 'committing' || payload.phase === 'cleaning') setCommitted(true);
     });
   }, []);
+
+  // Review-step dry run (#483/ADR-0022 §5): resolve the method chip, space
+  // requirement, and network warning per library BEFORE anything moves. A
+  // 'destination-not-empty' probe is informational — the move itself retries
+  // collision-safe numbered names; every other refusal blocks Start honestly.
+  useEffect(() => {
+    if (root === null) return;
+    let stale = false;
+    for (const lib of ordered) {
+      void window.overlook.libraries
+        .probeMove({ id: lib.id, destPath: destFor(lib, root, 1) })
+        .then((probe) => {
+          // Keyed by root+library, so a destination change never needs a
+          // reset — lookups for the new root simply miss until it lands.
+          if (!stale) setProbes((previous) => new Map(previous).set(`${root} ${lib.id}`, probe));
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      stale = true;
+    };
+    // ordered is derived from a stable prop; root is the only real input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ordered identity churns per render
+  }, [root]);
 
   const chooseRoot = (): void => {
     void window.overlook.libraries.pickLocation().then(({ path }) => {
@@ -273,6 +321,12 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
 
   if (phase === 'review') {
     const many = ordered.length > 1;
+    const collected = ordered.map((lib) => (root === null ? undefined : probes.get(`${root} ${lib.id}`)));
+    const anyBlocked = collected.some((probe) => probeBlocks(probe));
+    const copyProbes = collected.filter((probe): probe is Probe & { ok: true } => probe?.ok === true && probe.mode === 'copy');
+    const requiredBytes = copyProbes.reduce((sum, probe) => sum + probe.requiredBytes, 0);
+    const freeBytes = copyProbes.length > 0 ? Math.min(...copyProbes.map((probe) => probe.freeBytes)) : 0;
+    const anyNetwork = collected.some((probe) => probe?.ok === true && probe.network);
     return (
       <Dialog
         open
@@ -285,7 +339,7 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
             <Button variant="ghost" onClick={onClose}>
               <FormattedMessage {...messages.cancel} />
             </Button>
-            <Button variant="primary" disabled={root === null} onClick={start} data-testid="move-start">
+            <Button variant="primary" disabled={root === null || anyBlocked} onClick={start} data-testid="move-start">
               {many ? (
                 <FormattedMessage {...messages.startMany} values={{ count: ordered.length }} />
               ) : (
@@ -312,9 +366,32 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
                   <FormattedMessage {...messages.destPreview} values={{ path: destFor(lib, root, 1) }} />
                 </span>
               )}
+              <ReviewProbe
+                probe={root === null ? undefined : probes.get(`${root} ${lib.id}`)}
+                pending={root !== null && !probes.has(`${root} ${lib.id}`)}
+              />
             </li>
           ))}
         </ul>
+        {copyProbes.length > 0 ? (
+          <div className="ovl-libmove__space" data-testid="move-space-meter">
+            <ProgressBar
+              value={Math.min(requiredBytes, freeBytes > 0 ? freeBytes : requiredBytes)}
+              max={freeBytes > 0 ? freeBytes : Math.max(requiredBytes, 1)}
+              tone={requiredBytes > freeBytes ? 'amber' : 'cyan'}
+              label={intl.formatMessage(messages.spaceLabel)}
+              detail={intl.formatMessage(messages.spaceDetail, { needed: formatBytes(requiredBytes), free: formatBytes(freeBytes) })}
+            />
+          </div>
+        ) : null}
+        {anyNetwork ? (
+          <div className="ovl-libmove__note" data-testid="move-network-warning">
+            <Icon name="triangle-alert" size={14} color="var(--accent-amber)" />
+            <span>
+              <FormattedMessage {...messages.networkWarning} />
+            </span>
+          </div>
+        ) : null}
         <div className="ovl-libmove__label">
           <FormattedMessage {...messages.destination} />
         </div>
@@ -459,6 +536,40 @@ export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps
         ))}
       </ul>
     </Dialog>
+  );
+}
+
+/** Per-library Review line: resolved method chip, collision note, or the
+ * blocking refusal — decided copy for every designed reason (ADR-0022 §5). */
+function ReviewProbe({ probe, pending }: { readonly probe: Probe | undefined; readonly pending: boolean }): ReactElement | null {
+  if (pending) {
+    return (
+      <span className="mono-data ovl-libmove__probe-note">
+        <FormattedMessage {...messages.probing} />
+      </span>
+    );
+  }
+  if (probe === undefined) return null;
+  if (probe.ok) {
+    return (
+      <span className="ovl-libmove__probe" data-testid="move-method-chip">
+        <Badge tone={probe.mode === 'rename' ? 'cyan' : 'neutral'}>
+          <FormattedMessage {...(probe.mode === 'rename' ? messages.methodInstant : messages.methodCopy)} />
+        </Badge>
+      </span>
+    );
+  }
+  if (probe.reason === 'destination-not-empty') {
+    return (
+      <span className="ovl-libmove__probe-note">
+        <FormattedMessage {...messages.collisionNote} />
+      </span>
+    );
+  }
+  return (
+    <span className="ovl-libmove__error" role="alert">
+      <FormattedMessage {...reasonMessages[probe.reason]} />
+    </span>
   );
 }
 
