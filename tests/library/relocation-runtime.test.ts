@@ -148,8 +148,10 @@ describe('relocation runtime (#483, ADR-0022 §4)', () => {
 
     releaseFirst?.();
     assert.ok((await first).ok);
-    const third = await h.runtime.move(ULID_B, '/dest-b');
-    assert.ok(third.ok, 'runs again once the slot frees');
+    // The gated fake parks every call — release the third move's gate too.
+    const third = h.runtime.move(ULID_B, '/dest-b');
+    releaseFirst?.();
+    assert.ok((await third).ok, 'runs again once the slot frees');
   });
 
   test("cancel aborts the running move's signal — and only for the right library", async () => {
