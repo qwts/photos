@@ -2,11 +2,12 @@
 
 Repo-local agent orientation layer — the **shared agent-context file**; other
 agent files (`CLAUDE.md`, `.github/copilot-instructions.md`) point here instead
-of duplicating. Read `CONTRIBUTING.md` first, then the wiki contributor guide
-it links: https://github.com/qwts/photos/wiki/Contributing
+of duplicating. Read `CONTRIBUTING.md` first, then the contributor guide
+it links: [`docs/Contributing.md`](docs/Contributing.md).
 
 Keep this file compact; use references instead of duplicating long procedures.
-Detailed workflow, SOP, and project documentation belong in the wiki.
+Detailed workflow, SOP, and project documentation belong in
+[`docs/`](docs/README.md).
 
 **Maintenance convention:** when workflow, gates, or invariants change, update
 this file in the same PR as the change — never after the fact.
@@ -32,7 +33,7 @@ this file in the same PR as the change — never after the fact.
   approval gate. Proceed from the user's stated goal, and surface only decisions
   that would materially change scope or risk.
 - **Shared issue context:** add the same working note to the issue (issue comment
-  per the wiki claim flow) so the user and other contributors can work from the
+  per the claim flow in `docs/Contributing.md`) so the user and other contributors can work from the
   same information.
 - **During implementation:** post issue comments for each meaningful change
   slice: what changed and why.
@@ -57,9 +58,11 @@ this file in the same PR as the change — never after the fact.
   reporting completion. If something genuinely blocks ready-for-review, say so on
   the PR and in your summary and name the blocker; silence reads as abandonment.
   **"Ready for review" is the definition of done for a code slice** — "pushed"
-  and "CI is green" are not. (Wiki-only work such as an ADR has no PR at all —
-  precedent [#394](https://github.com/qwts/photos/issues/394) /
-  [#402](https://github.com/qwts/photos/issues/402); say which case applies.)
+  and "CI is green" are not. Documentation-only work — an ADR, an SOP — now
+  lives in `docs/` and goes through a PR like any other change; the former
+  "wiki-only work has no PR" exemption (precedent
+  [#394](https://github.com/qwts/photos/issues/394) /
+  [#402](https://github.com/qwts/photos/issues/402)) no longer applies.
 - **Commit frequently.** Small, coherent commits at each meaningful slice of
   work; push regularly so CI and the draft PR stay current. No end-of-session
   mega-commits.
@@ -125,12 +128,19 @@ possible, enforced as executable checks._
 
 ## Documentation And Validation
 
-- Wiki-first: long-lived docs, SOPs, ADRs, and agent pitfalls belong in the
-  [wiki](https://github.com/qwts/photos/wiki). Other repo markdown is pointer
-  stubs, except agent instruction files, `CONTRIBUTING.md`, and root `README.md`
-  (see the wiki [Repo Documentation Pointer Map](https://github.com/qwts/photos/wiki/Repo-Documentation-Pointer-Map)).
+- Repo-first: long-lived docs, SOPs, ADRs, and agent pitfalls live in
+  [`docs/`](docs/README.md) — ADRs in [`docs/adr/`](docs/adr/), acceptance and
+  manual test plans in [`docs/acceptance/`](docs/acceptance/), user stories in
+  [`docs/stories/`](docs/stories/) (see the
+  [Repo Documentation Pointer Map](docs/Repo-Documentation-Pointer-Map.md)).
+  The GitHub wiki is retired: its pages are stubs pointing here, kept only so
+  existing links resolve. Never add content there — it is not indexed by code
+  search, cannot be reviewed in a PR, and agents working from a clone never see
+  it (see
+  [ENG-0003](https://github.com/qwts/playbook-software-engineering/blob/master/docs/decisions/ENG-0003-repo-is-documentation-source-of-truth.md)).
 - **ADR gate:** an issue labeled `adr` changes an architectural contract — do
-  not start its implementation until the governing ADR is accepted in the wiki
+  not start its implementation until the governing ADR in
+  [`docs/adr/`](docs/adr/) reads `Status: Accepted`
   (precedent: ADR-0022 ↔ #483, ADR-0023 ↔ #534). The issue's "ADR gate"
   section names the cluster: clustered issues share one ADR, written by
   whoever starts the first of them at the next free number, indexed, and
@@ -159,17 +169,17 @@ possible, enforced as executable checks._
   800-line file budget, the a11y violation budget (`tests/a11y/violation-budget.json`):
   raise them as coverage improves; never lower them to pass. The a11y budget
   ratchets the other way — its counts only **shrink**, and a surface that comes
-  in under budget fails until the number is tightened. See the wiki
-  [Testing Strategy](https://github.com/qwts/photos/wiki/Testing-Strategy)
-  and [ADR-0001](https://github.com/qwts/photos/wiki/ADR-0001-Automation-Check-Governance).
+  in under budget fails until the number is tightened. See
+  [Testing Strategy](docs/Testing-Strategy.md)
+  and [ADR-0001](docs/adr/ADR-0001-Automation-Check-Governance.md).
 - **A11y runs in three lanes, and none of them subsumes the others.** `jsx-a11y`
   (strict, `src/renderer`) reads the **source**, so pointer-only handlers and
   label/control mismatches fail at authoring time; the **story** lane runs axe
   over every story; the **E2E** lane runs axe over composed flows plus the
   focus-obscured probe for SC 2.4.11, which has no axe rule. A story-lane pass
   proves nothing about composition, and an axe pass proves nothing about
-  criteria axe does not implement — roughly two thirds of WCAG. The wiki
-  [Accessibility Audit](https://github.com/qwts/photos/wiki/Accessibility-Audit-2026-07)
+  criteria axe does not implement — roughly two thirds of WCAG. The
+  [Accessibility Audit](docs/Accessibility-Audit-2026-07.md)
   records which criteria are gated and which rest on the manual pass.
 - **Never suppress an a11y rule bare.** `reportUnusedDisableDirectives` is
   `error`, so every `eslint-disable` must carry a reason: either why the code is
@@ -211,7 +221,7 @@ possible, enforced as executable checks._
   zero findings as a failure, not a win.
 - Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only
   PRs may skip it. 0.x semantics (minor = behavior-changing, patch = fixes):
-  wiki [ADR-0002 Versioning Policy](https://github.com/qwts/photos/wiki/ADR-0002-Versioning-Policy).
+  [ADR-0002 Versioning Policy](docs/adr/ADR-0002-Versioning-Policy.md).
   `CHANGELOG.md` is generated by `npm run changeset:version` — never hand-edit.
 - Releases are cut by merging the bot-maintained **Version packages** PR (the
   version-cut workflow keeps it current while changesets are pending). That

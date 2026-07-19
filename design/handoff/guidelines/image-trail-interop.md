@@ -3,7 +3,7 @@
 The previous import-only/plaintext recommendation is superseded.
 
 Canonical architecture:
-[ADR-0014 — Image Trail Bidirectional Interoperability](https://github.com/qwts/photos/wiki/ADR-0014-Image-Trail-Bidirectional-Interoperability)
+[ADR-0014 — Image Trail Bidirectional Interoperability](../../../docs/adr/ADR-0014-Image-Trail-Bidirectional-Interoperability.md)
 
 Canonical machine-readable contract:
 [`design/handoff/contracts/v1/`](../contracts/v1/)

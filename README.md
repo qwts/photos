@@ -1,7 +1,7 @@
 # photos
 
 Overlook — a privacy-first desktop photo library app (Electron + React 18 + Vite;
-see the wiki [ADR-0003](https://github.com/qwts/photos/wiki/ADR-0003-Desktop-Stack)).
+see [ADR-0003](docs/adr/ADR-0003-Desktop-Stack.md)).
 
 ## Local development
 
