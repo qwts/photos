@@ -352,7 +352,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
       width={440}
       onClose={
         phase === 'running'
-          ? () => undefined
+          ? undefined
           : () => {
               close(false);
             }
