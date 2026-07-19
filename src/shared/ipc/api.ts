@@ -153,6 +153,9 @@ export interface OverlookApi {
     readonly pickLocation: () => Promise<Res<typeof channels.libraryRegistryPickLocation>>;
     // Relocation (#483, ADR-0022)
     readonly move: (request: Req<typeof channels.libraryRelocationMove>) => Promise<Res<typeof channels.libraryRelocationMove>>;
+    readonly probeMove: (
+      request: Req<typeof channels.libraryRelocationPreflight>,
+    ) => Promise<Res<typeof channels.libraryRelocationPreflight>>;
     readonly cancelMove: (request: Req<typeof channels.libraryRelocationCancel>) => Promise<Res<typeof channels.libraryRelocationCancel>>;
     readonly finishMoveCleanup: (
       request: Req<typeof channels.libraryRelocationFinishCleanup>,

@@ -739,7 +739,7 @@ const { switchLibrary, getRelocationRuntime, settleRelocationJournals } = create
   appLockHost: () => appLockHost,
   buildAppLockController,
   reloadWindows: reloadContentWindowsForLock,
-  fault: () => harnessEnv('OVERLOOK_SWITCH_FAULT'),
+  harnessEnv,
 });
 
 let appLockHost: AppLockHost | undefined;

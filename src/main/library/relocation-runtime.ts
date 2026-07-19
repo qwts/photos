@@ -1,4 +1,11 @@
-import { RelocationError, finishRelocationCleanup, relocateLibrary, type RelocationDeps } from './relocation-engine.js';
+import {
+  RelocationError,
+  finishRelocationCleanup,
+  probeRelocation,
+  relocateLibrary,
+  type RelocationDeps,
+  type RelocationProbe,
+} from './relocation-engine.js';
 import type { RelocationOutcome, RelocationMode, RelocationProgress, RelocationState } from '../../shared/library/relocation.js';
 
 // Relocation runtime (#483, ADR-0022 §4): the IPC-facing wrapper around the
@@ -75,6 +82,14 @@ export class RelocationRuntime {
       if (this.options.active.providerBusy()) {
         return { ok: false, reason: 'provider-busy', detail: 'backup or restore work is in flight' };
       }
+      // Preflight BEFORE teardown (PR #557 review): an active-library refusal
+      // (occupied destination, space, filesystem) must return to the caller —
+      // the wizard's collision-suffix retry — not tear down and reload the
+      // window. The real move re-runs preflight after quiesce regardless.
+      const pre = await probeRelocation(this.options.engineDeps, { libraryId: id, destDir: destPath });
+      if (!pre.ok) {
+        return { ok: false, reason: pre.reason, detail: pre.detail };
+      }
     }
 
     const controller = new AbortController();
@@ -123,6 +138,11 @@ export class RelocationRuntime {
 
   async finishCleanup(id: string): Promise<'cleaned' | 'nothing-pending'> {
     return (this.options.finishCleanup ?? finishRelocationCleanup)(this.options.engineDeps, id);
+  }
+
+  /** Review-step dry run (#483): no lock, no journal, no bytes moved. */
+  async probe(id: string, destPath: string): Promise<RelocationProbe> {
+    return probeRelocation(this.options.engineDeps, { libraryId: id, destDir: destPath });
   }
 
   /** The resume banner's work list: journals on disk, corrupt ones surfaced

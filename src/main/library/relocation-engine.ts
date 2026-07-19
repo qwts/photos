@@ -26,7 +26,7 @@ import {
   type RelocationResult,
 } from '../../shared/library/relocation.js';
 import type { LibraryEntry } from '../../shared/library/registry.js';
-import { acquireLibraryLock, LibraryLockError, lockPath, type LibraryLockOptions } from './library-lock.js';
+import { acquireLibraryLock, LibraryLockError, lockPath, readLockHolder, type LibraryLockOptions } from './library-lock.js';
 import type { RelocationJournalStore } from './relocation-journal.js';
 
 // Relocation engine (ADR-0022 §4/§5, #483): preflight → copy → verify →
@@ -91,6 +91,13 @@ export interface RelocationDeps {
     readonly rename?: typeof rename;
     readonly rmrf?: (target: string) => Promise<void>;
   };
+  /** OVERLOOK_RELOCATION_FAULT harness (#483 acceptance 6, E2E): kill the
+   * process at a named §4 boundary — 'after-copy' | 'after-verify' |
+   * 'after-activate' | 'after-commit'. */
+  readonly fault?: () => string | undefined;
+  readonly exit?: (code: number) => never;
+  /** ADR-0017 §5 network-mount classification for probes — warn, never block. */
+  readonly networkVolume?: (dir: string) => boolean;
 }
 
 export interface RelocateOptions {
@@ -179,6 +186,14 @@ async function hashFile(file: string): Promise<string> {
 
 function throwIfCancelled(signal: AbortSignal | undefined): void {
   if (signal?.aborted === true) throw new RelocationError('cancelled', 'relocation cancelled');
+}
+
+/** Crash-boundary harness (#483 acceptance 6): E2E kills the process at a
+ * named §4 boundary and proves recovery leaves one authoritative library. */
+function faultPoint(deps: RelocationDeps, point: string): void {
+  if (deps.fault?.() === point) {
+    (deps.exit ?? ((code: number): never => process.exit(code)))(1);
+  }
 }
 
 /** Clears the destination slot with a non-recursive remove, so content that
@@ -398,20 +413,24 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
           copiedBytes += file.size;
           emit({ phase: 'copying', copiedItems, copiedBytes, ...totals });
         }
+        faultPoint(deps, 'after-copy');
         await verifyStaging(deps, journal.stagingPath, entry.id, plan.files, digests, options.signal, (done) =>
           emit({ phase: 'verifying', copiedItems: done, copiedBytes, ...totals }),
         );
         deps.journals.advance(journal, 'verified');
+        faultPoint(deps, 'after-verify');
 
         throwIfCancelled(options.signal);
         await removeIfEmptyDir(plan.destDir); // refuses content that appeared since preflight
         await ops.rename(journal.stagingPath, plan.destDir);
+        faultPoint(deps, 'after-activate');
       } else {
         await writeMarker(plan.sourceDir, marker);
         deps.journals.advance(journal, 'verified'); // rename is all-or-nothing; intent recorded, nothing to verify byte-wise
         throwIfCancelled(options.signal);
         await removeIfEmptyDir(plan.destDir);
         await ops.rename(plan.sourceDir, plan.destDir);
+        faultPoint(deps, 'after-activate');
       }
     } catch (error) {
       await discardAndRethrow(
@@ -425,6 +444,7 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
     emit({ phase: 'committing', copiedItems: totals.totalItems, copiedBytes: totals.totalBytes, ...totals });
     deps.registry.updatePath(entry.id, plan.destDir);
     deps.journals.advance(journal, 'committed');
+    faultPoint(deps, 'after-commit');
     await rm(path.join(plan.destDir, RELOCATION_MARKER_FILENAME), { force: true });
     await rm(lockPath(plan.destDir), { force: true }); // rename mode: our own lock traveled with the directory
 
@@ -444,6 +464,44 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
     return { outcome: 'moved', ...result };
   } finally {
     release();
+  }
+}
+
+export type RelocationProbe =
+  | {
+      readonly ok: true;
+      readonly mode: RelocationMode;
+      readonly requiredBytes: number;
+      readonly items: number;
+      readonly freeBytes: number;
+      /** ADR-0017 §5 unsupported-but-not-blocked — the Review warning. */
+      readonly network: boolean;
+      /** Hostname holding the source's live lock, or null. */
+      readonly lockedBy: string | null;
+    }
+  | { readonly ok: false; readonly reason: RelocationFailureReason; readonly detail: string };
+
+/** Dry-run of the §5 preflight for the wizard's Review step (method chip,
+ * space meter, network warning): no lock taken, no journal written, no bytes
+ * moved — the real move re-runs preflight from scratch. */
+export async function probeRelocation(deps: RelocationDeps, options: { libraryId: string; destDir: string }): Promise<RelocationProbe> {
+  const entry = deps.registry.get(options.libraryId);
+  if (entry === undefined) return { ok: false, reason: 'io-error', detail: `library ${options.libraryId} is not registered` };
+  try {
+    const plan = await preflight(deps, entry, options.destDir);
+    const destParent = path.dirname(plan.destDir);
+    return {
+      ok: true,
+      mode: plan.mode,
+      requiredBytes: plan.totalBytes,
+      items: plan.files.length,
+      freeBytes: (deps.freeBytes ?? defaultFreeBytes)(destParent),
+      network: deps.networkVolume?.(destParent) ?? false,
+      lockedBy: readLockHolder(plan.sourceDir, deps.instanceId, deps.lockOptions),
+    };
+  } catch (error) {
+    if (error instanceof RelocationError) return { ok: false, reason: error.reason, detail: error.message };
+    throw error;
   }
 }
 

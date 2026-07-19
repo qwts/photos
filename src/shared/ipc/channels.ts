@@ -762,6 +762,25 @@ export const channels = {
     z.object({ id: libraryIdSchema }),
     z.object({ cancelled: z.boolean() }),
   ),
+  /** Dry-run preflight for the wizard's Review step (#483): resolves the
+   * method chip (rename vs copy), space meter, and the ADR-0017 §5 network
+   * warning — no lock, no journal, no bytes moved. */
+  libraryRelocationPreflight: defineChannel(
+    'library-relocation:preflight',
+    z.object({ id: libraryIdSchema, destPath: z.string().min(1) }),
+    z.discriminatedUnion('ok', [
+      z.object({
+        ok: z.literal(true),
+        mode: relocationModeSchema,
+        requiredBytes: z.number().nonnegative(),
+        items: z.number().int().nonnegative(),
+        freeBytes: z.number().nonnegative(),
+        network: z.boolean(),
+        lockedBy: z.string().nullable(),
+      }),
+      z.object({ ok: z.literal(false), reason: relocationFailureReasonSchema, detail: z.string() }),
+    ]),
+  ),
   /** Retry source removal after moved-cleanup-pending (#483 acceptance 10). */
   libraryRelocationFinishCleanup: defineChannel(
     'library-relocation:finish-cleanup',

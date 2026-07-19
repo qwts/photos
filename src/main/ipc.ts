@@ -353,7 +353,7 @@ export function registerLibraryRegistryHandlers(getFacade: () => LibraryRegistry
   );
 }
 
-export type RelocationFacade = Pick<RelocationRuntime, 'move' | 'cancel' | 'finishCleanup' | 'pending'>;
+export type RelocationFacade = Pick<RelocationRuntime, 'move' | 'cancel' | 'finishCleanup' | 'pending' | 'probe'>;
 
 // Library relocation (#483, ADR-0022). Like the registry handlers these use
 // validateHandler directly: moving an INACTIVE library exposes no content and
@@ -365,6 +365,9 @@ export function registerRelocationHandlers(getRuntime: () => RelocationFacade): 
   );
   ipcMain.handle(channels.libraryRelocationCancel.name, (_event, request: unknown) =>
     validateHandler(channels.libraryRelocationCancel, ({ id }) => ({ cancelled: getRuntime().cancel(id) }))(request),
+  );
+  ipcMain.handle(channels.libraryRelocationPreflight.name, (_event, request: unknown) =>
+    validateHandler(channels.libraryRelocationPreflight, ({ id, destPath }) => getRuntime().probe(id, destPath))(request),
   );
   ipcMain.handle(channels.libraryRelocationFinishCleanup.name, (_event, request: unknown) =>
     validateHandler(channels.libraryRelocationFinishCleanup, async ({ id }) => ({ result: await getRuntime().finishCleanup(id) }))(request),
