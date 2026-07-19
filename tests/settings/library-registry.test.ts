@@ -111,6 +111,31 @@ describe('library registry (#384)', () => {
     assert.equal(selectStartupLibrary([]), undefined);
   });
 
+  test('REGRESSION: same-id select refreshes the cached path after a relocation commit (PR #553 review)', () => {
+    const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-reloc-'));
+    const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });
+    const sourceDir = join(userData, 'lib-src');
+    const destDir = join(userData, 'lib-dest');
+    mkdirSync(sourceDir, { recursive: true });
+    mkdirSync(destDir, { recursive: true });
+    runtime.getRegistry().register({
+      id: ULID_A,
+      name: 'Lib',
+      path: sourceDir,
+      createdAt: '2026-07-19T00:00:00.000Z',
+      lastOpenedAt: '2026-07-19T00:00:00.000Z',
+    });
+    assert.equal(runtime.resolveActive().path, sourceDir, 'cache primed at the source');
+
+    // The ADR-0022 §4 commit rewrites the path under an unchanged id; the
+    // post-move reactivation select must serve the registry truth, not the
+    // cached object bound to the (now deleted) source.
+    runtime.getRegistry().updatePath(ULID_A, destDir);
+    const selected = runtime.select(ULID_A, null);
+    assert.equal(selected.library.path, destDir, 'select serves the registry truth');
+    assert.equal(runtime.dataDir(), destDir, 'runtime rebinds to the destination');
+  });
+
   test('REGRESSION: a fresh profile resolves without touching disk (restore needs a pristine target)', () => {
     const userData = mkdtempSync(join(tmpdir(), 'overlook-registry-'));
     const runtime = new LibraryRegistryRuntime({ userDataDir: () => userData });

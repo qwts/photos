@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { BrowserWindow, app } from 'electron';
@@ -6,12 +5,12 @@ import { BrowserWindow, app } from 'electron';
 import { createSwitchLibrary } from './switch-runtime.js';
 import type { AppLockHost } from '../crypto/app-lock-host.js';
 import { LibraryRegistryError } from './library-registry.js';
-import { RelocationError, recoverRelocations, type RelocationDeps } from './relocation-engine.js';
+import { recoverRelocations, type RelocationDeps } from './relocation-engine.js';
 import { RelocationJournalStore } from './relocation-journal.js';
 import { RelocationRuntime } from './relocation-runtime.js';
+import { verifyStagedLibrary } from './relocation-verify.js';
 import type { LibraryRegistryRuntime } from './library-registry-runtime.js';
-import { KeyStore, type SafeStorageLike } from '../crypto/keystore.js';
-import { openLibraryDatabase } from '../db/database.js';
+import type { SafeStorageLike } from '../crypto/keystore.js';
 import { createEmitter } from '../../shared/ipc/registry.js';
 import { events } from '../../shared/ipc/channels.js';
 
@@ -77,45 +76,15 @@ export function createLibraryLifecycle(deps: LibraryLifecycleDeps): LibraryLifec
     exit: (code) => app.exit(code),
   });
 
-  // Staged-DB health check (ADR-0022 §4 step 3): the staged library must open
-  // with its EXISTING custody. Missing custody files are a failed copy —
-  // KeyStore.open would mint fresh keys into them, so refuse first.
-  const verifyOpenable = (dir: string): Promise<void> => {
-    for (const rel of ['master.key', 'keys.json', 'library.db']) {
-      if (!existsSync(path.join(dir, rel))) {
-        return Promise.reject(new RelocationError('verification-failed', `staged library is missing ${rel}`));
-      }
-    }
-    try {
-      const keyStore = KeyStore.open({ safeStorage: deps.safeStorage(), dataDir: dir });
-      try {
-        const dbKey = keyStore.resolver()(1);
-        if (dbKey === undefined) throw new RelocationError('verification-failed', 'staged key store has no KEY #1');
-        const db = openLibraryDatabase({ path: path.join(dir, 'library.db'), dbKey });
-        db.close();
-      } finally {
-        keyStore.close();
-      }
-    } catch (error) {
-      return Promise.reject(
-        error instanceof RelocationError
-          ? error
-          : new RelocationError(
-              'verification-failed',
-              `staged library failed to open with existing custody: ${error instanceof Error ? error.message : String(error)}`,
-            ),
-      );
-    }
-    return Promise.resolve();
-  };
-
   // Journals live in the profile root so recovery still runs when the
-  // destination volume is unplugged (ADR-0022 §2).
+  // destination volume is unplugged (ADR-0022 §2). The staged-custody probe
+  // lives in relocation-verify.ts (covered; skips app-locked OVLK custody —
+  // PR #553 review).
   const engineDeps = (): RelocationDeps => ({
     journals: new RelocationJournalStore(path.join(app.getPath('userData'), 'relocations')),
     registry: deps.registryRuntime.getRegistry(),
     instanceId: deps.instanceId,
-    verifyOpenable,
+    verifyOpenable: (dir) => verifyStagedLibrary(deps.safeStorage, dir),
   });
 
   const emitProgress = createEmitter(events.relocationProgress, (name, payload) => {
