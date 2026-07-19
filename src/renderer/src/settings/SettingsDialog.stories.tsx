@@ -459,7 +459,7 @@ export const ContentOwnsScrolling: Story = {
     const pane = body.getByTestId('settings-pane');
     const nav = body.getByRole('navigation', { name: 'Settings sections' });
     const dialogBody = pane.parentElement?.parentElement;
-    if (dialogBody === null) throw new Error('settings dialog body missing');
+    if (dialogBody === null || dialogBody === undefined) throw new Error('settings dialog body missing');
 
     await expect(getComputedStyle(dialogBody).overflowY).toBe('hidden');
     await expect(getComputedStyle(pane).overflowY).toBe('auto');
