@@ -169,6 +169,30 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       await refusal(h, 'unsupported-filesystem');
     });
 
+    test('a foreign directory at the staging path is refused and never deleted (PR #552 review)', async () => {
+      const h = harness();
+      const foreign = stagingPathFor(h.destDir);
+      mkdirSync(foreign, { recursive: true });
+      writeFileSync(join(foreign, 'somebody-elses-data'), 'precious', 'utf8');
+      await refusal(h, 'destination-not-empty');
+      assert.equal(readFileSync(join(foreign, 'somebody-elses-data'), 'utf8'), 'precious', 'foreign directory untouched');
+    });
+
+    test('a registered library at the staging path is refused', async () => {
+      const h = harness();
+      const otherDir = stagingPathFor(h.destDir);
+      mkdirSync(otherDir, { recursive: true });
+      h.registry.register({ id: ULID_B, name: 'Other', path: otherDir, createdAt: NOW().toISOString(), lastOpenedAt: null });
+      await refusal(h, 'destination-registered');
+    });
+
+    test('a file at the destination path is an invalid destination', async () => {
+      const h = harness();
+      writeFileSync(h.destDir, 'not a folder', 'utf8');
+      await refusal(h, 'invalid-destination');
+      assert.equal(readFileSync(h.destDir, 'utf8'), 'not a folder', 'file untouched');
+    });
+
     test('a library locked by another live instance refuses to move', async () => {
       const h = harness();
       writeFileSync(
@@ -207,6 +231,44 @@ describe('library relocation engine (#483, ADR-0022)', () => {
     );
     assert.ok(!existsSync(stagingPathFor(h.destDir)), 'staging discarded');
     assert.ok(!existsSync(h.destDir), 'no destination library appears');
+    assertSourceIntactAndAuthoritative(h);
+  });
+
+  test("abandoned staging debris carrying this library's marker is replaced", async () => {
+    const h = harness();
+    const debris = stagingPathFor(h.destDir);
+    mkdirSync(debris, { recursive: true });
+    writeFileSync(
+      join(debris, RELOCATION_MARKER_FILENAME),
+      JSON.stringify({ version: 1, libraryId: ULID_A, nonce: 'stale-nonce' }),
+      'utf8',
+    );
+    writeFileSync(join(debris, 'half-copied.db'), 'junk', 'utf8');
+
+    const result = await relocateLibrary(h.deps, { libraryId: ULID_A, destDir: h.destDir });
+    assert.equal(result.outcome, 'moved');
+    assert.ok(!existsSync(join(h.destDir, 'half-copied.db')), 'debris was replaced, not merged');
+    assert.equal(h.registry.get(ULID_A)?.path, h.destDir);
+  });
+
+  test('content appearing in the destination during the copy is refused at activation, never deleted (PR #552 review)', async () => {
+    const h = harness();
+    const plant = (phase: string, items: number, total: number): void => {
+      if (phase === 'copying' && items === total && !existsSync(h.destDir)) {
+        mkdirSync(h.destDir, { recursive: true });
+        writeFileSync(join(h.destDir, 'arrived-mid-copy'), 'sync tool output', 'utf8');
+      }
+    };
+    await assert.rejects(
+      relocateLibrary(h.deps, { libraryId: ULID_A, destDir: h.destDir, onProgress: (p) => plant(p.phase, p.copiedItems, p.totalItems) }),
+      (error: unknown) => {
+        assert.ok(error instanceof RelocationError);
+        assert.equal(error.reason, 'destination-not-empty');
+        return true;
+      },
+    );
+    assert.equal(readFileSync(join(h.destDir, 'arrived-mid-copy'), 'utf8'), 'sync tool output', 'late-arriving content preserved');
+    assert.ok(!existsSync(stagingPathFor(h.destDir)), 'our staging discarded');
     assertSourceIntactAndAuthoritative(h);
   });
 

@@ -1,6 +1,16 @@
 import { createHash } from 'node:crypto';
-import { accessSync, constants, createReadStream, createWriteStream, existsSync, readFileSync, statSync, statfsSync } from 'node:fs';
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  accessSync,
+  constants,
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  statSync,
+  statfsSync,
+} from 'node:fs';
+import { mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -171,6 +181,25 @@ function throwIfCancelled(signal: AbortSignal | undefined): void {
   if (signal?.aborted === true) throw new RelocationError('cancelled', 'relocation cancelled');
 }
 
+/** Clears the destination slot with a non-recursive remove, so content that
+ * appeared after preflight is refused, never deleted — preflight's emptiness
+ * check is stale by activation time on a long copy. */
+async function removeIfEmptyDir(dir: string): Promise<void> {
+  try {
+    await rmdir(dir);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return;
+    if (code === 'ENOTEMPTY' || code === 'EEXIST') {
+      throw new RelocationError('destination-not-empty', `${dir} gained content during the move — refusing to overwrite`);
+    }
+    if (code === 'ENOTDIR') {
+      throw new RelocationError('invalid-destination', `${dir} exists and is not a folder`);
+    }
+    throw error;
+  }
+}
+
 interface Preflight {
   readonly sourceDir: string;
   readonly destDir: string;
@@ -184,21 +213,46 @@ async function preflight(deps: RelocationDeps, entry: LibraryEntry, destDirRaw: 
   const destDir = path.resolve(destDirRaw);
   const destParent = path.dirname(destDir);
 
+  const stagingDir = stagingPathFor(destDir);
   const inside = (parent: string, child: string): boolean => child === parent || child.startsWith(parent + path.sep);
   if (inside(sourceDir, destDir) || inside(destDir, sourceDir)) {
     throw new RelocationError('invalid-destination', 'destination must be outside the library it moves');
   }
   for (const registered of deps.registry.list()) {
+    if (registered.id === entry.id) continue;
     const registeredPath = path.resolve(registered.path);
-    if (registered.id !== entry.id && (inside(registeredPath, destDir) || inside(destDir, registeredPath))) {
+    if (inside(registeredPath, destDir) || inside(destDir, registeredPath)) {
       throw new RelocationError('destination-registered', `destination is the registered library "${registered.name}"`);
     }
+    if (inside(registeredPath, stagingDir) || inside(stagingDir, registeredPath)) {
+      throw new RelocationError('destination-registered', `staging path is the registered library "${registered.name}"`);
+    }
   }
-  if (existsSync(destDir) && (await readdir(destDir)).length > 0) {
-    throw new RelocationError('destination-not-empty', 'destination folder is not empty — never overwrite or merge (ADR-0022 §5)');
+  if (existsSync(destDir)) {
+    const destStat = lstatSync(destDir);
+    if (!destStat.isDirectory()) {
+      throw new RelocationError('invalid-destination', 'destination exists and is not a folder');
+    }
+    if ((await readdir(destDir)).length > 0) {
+      throw new RelocationError('destination-not-empty', 'destination folder is not empty — never overwrite or merge (ADR-0022 §5)');
+    }
+  }
+  // The staging path is claimed only when it is provably ours: a directory
+  // there carrying another library's marker — or no marker and any content —
+  // is somebody's data, and the marker, not the name, defines staging
+  // (ADR-0022 §3).
+  if (
+    existsSync(stagingDir) &&
+    readMarker(stagingDir)?.libraryId !== entry.id &&
+    (!lstatSync(stagingDir).isDirectory() || (await readdir(stagingDir)).length > 0)
+  ) {
+    throw new RelocationError(
+      'destination-not-empty',
+      `a directory already occupies the staging path ${stagingDir} and is not this library's relocation staging`,
+    );
   }
   try {
-    accessSync(destParent, constants.W_OK);
+    accessSync(destParent, constants.W_OK | constants.X_OK);
   } catch {
     throw new RelocationError('destination-not-writable', `cannot write to ${destParent}`);
   }
@@ -303,9 +357,16 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
 
     // Any failure before the registry commit: discard staging, clear the
     // journal, leave the source untouched and registered (ADR-0022 §4).
+    // Discard removes only what the marker proves is this attempt's staging
+    // (or an empty shell we created before the marker landed) — a refusal
+    // must never turn around and delete the directory it refused to touch.
     const discardAndRethrow = async (error: unknown): Promise<never> => {
       if (plan.mode === 'copy') {
-        await ops.rmrf(journal.stagingPath).catch(() => undefined);
+        if (readMarker(journal.stagingPath)?.nonce === journal.nonce) {
+          await ops.rmrf(journal.stagingPath).catch(() => undefined);
+        } else {
+          await removeIfEmptyDir(journal.stagingPath).catch(() => undefined);
+        }
       } else {
         await rm(path.join(plan.sourceDir, RELOCATION_MARKER_FILENAME), { force: true }).catch(() => undefined);
       }
@@ -315,7 +376,15 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
 
     try {
       if (plan.mode === 'copy') {
-        await ops.rmrf(journal.stagingPath); // marker-bound debris from an abandoned attempt
+        // Marker-bound debris from an abandoned attempt for THIS library is
+        // replaced; anything else at the staging path survives — non-recursive
+        // removal refuses occupied directories (re-checked here because
+        // preflight's view can be stale).
+        if (readMarker(journal.stagingPath)?.libraryId === entry.id) {
+          await ops.rmrf(journal.stagingPath);
+        } else {
+          await removeIfEmptyDir(journal.stagingPath);
+        }
         await mkdir(journal.stagingPath, { recursive: true });
         await writeMarker(journal.stagingPath, marker);
 
@@ -335,13 +404,13 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
         deps.journals.advance(journal, 'verified');
 
         throwIfCancelled(options.signal);
-        if (existsSync(plan.destDir)) await ops.rmrf(plan.destDir); // preflight proved it empty
+        await removeIfEmptyDir(plan.destDir); // refuses content that appeared since preflight
         await ops.rename(journal.stagingPath, plan.destDir);
       } else {
         await writeMarker(plan.sourceDir, marker);
         deps.journals.advance(journal, 'verified'); // rename is all-or-nothing; intent recorded, nothing to verify byte-wise
         throwIfCancelled(options.signal);
-        if (existsSync(plan.destDir)) await ops.rmrf(plan.destDir);
+        await removeIfEmptyDir(plan.destDir);
         await ops.rename(plan.sourceDir, plan.destDir);
       }
     } catch (error) {
