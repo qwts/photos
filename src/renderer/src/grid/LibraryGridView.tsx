@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { DragEvent, ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import type { AlbumSummary, PhotoRecord } from '../../../shared/library/types.js';
 import { useFormats } from '../i18n/use-formats.js';
@@ -17,6 +18,21 @@ import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
 import { PHOTO_PURGE_AUTHORIZATION } from '../../../shared/destructive-actions.js';
 import { trashRetentionLabel } from '../../../shared/library/trash.js';
 
+const messages = defineMessages({
+  trashPolicy: {
+    id: 'library.trash.retentionPolicy',
+    defaultMessage: 'Items in Trash are deleted permanently after 30 days.',
+  },
+  purgedWithCloudRetry: {
+    id: 'library.trash.purge.partial',
+    defaultMessage: 'Deleted permanently: {purged} local; {remoteFailures} cloud pending retry',
+  },
+  purged: {
+    id: 'library.trash.purge.complete',
+    defaultMessage: 'Deleted {count, plural, one {# photo} other {# photos}} permanently',
+  },
+});
+
 // Library view (#76/#77): PhotoTile or ListRow over the #74 engine, thumbs
 // via the #75 protocol, empty state per the mock. Totals: sidebar counts
 // size the plane for unfiltered sets; under query/chips the plane tracks the
@@ -33,6 +49,7 @@ export function LibraryGridView({
   readonly onOffload: (photoIds: readonly string[], clearSelection?: boolean) => void;
   readonly onTransfer: (entry: 'selection' | 'lightbox', photoIds: readonly string[]) => void;
 }): ReactElement {
+  const intl = useIntl();
   const { formatCount } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -78,7 +95,7 @@ export function LibraryGridView({
   if (total === 0) {
     return (
       <>
-        {inTrash ? <div className="ovl-trash-policy">Items in Trash are deleted permanently after 30 days.</div> : null}
+        {inTrash ? <div className="ovl-trash-policy">{intl.formatMessage(messages.trashPolicy)}</div> : null}
         <div className={`ovl-empty${inTrash ? ' ovl-empty--inset' : ''}`} data-testid="empty-state">
           <Icon name="image-off" size={28} color="var(--text-faint)" />
           <div className="ovl-empty__title">Nothing matches</div>
@@ -145,7 +162,7 @@ export function LibraryGridView({
 
   return (
     <>
-      {inTrash ? <div className="ovl-trash-policy">Items in Trash are deleted permanently after 30 days.</div> : null}
+      {inTrash ? <div className="ovl-trash-policy">{intl.formatMessage(messages.trashPolicy)}</div> : null}
       <VirtualGrid
         photos={state.photos}
         total={total}
@@ -258,10 +275,13 @@ export function LibraryGridView({
                       ? // Honest partial result: local copies are gone, some
                         // remote copies are orphaned (audited for retry).
                         {
-                          title: `Deleted permanently: ${formatCount(purged)} local; ${formatCount(remoteFailures)} cloud pending retry`,
+                          title: intl.formatMessage(messages.purgedWithCloudRetry, {
+                            purged: formatCount(purged),
+                            remoteFailures: formatCount(remoteFailures),
+                          }),
                           tone: 'amber',
                         }
-                      : { title: `Deleted ${formatCount(purged)} ${purged === 1 ? 'photo' : 'photos'} permanently`, tone: 'neutral' },
+                      : { title: intl.formatMessage(messages.purged, { count: purged }), tone: 'neutral' },
                 });
               });
           }}

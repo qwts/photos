@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
-import { useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
@@ -7,13 +7,64 @@ import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 type DiagnosticReport = Awaited<ReturnType<typeof window.overlook.diagnostics.list>>['reports'][number];
 
+const messages = defineMessages({
+  off: { id: 'settings.diagnostics.off', defaultMessage: 'Diagnostics are off' },
+  review: { id: 'settings.diagnostics.review', defaultMessage: 'Review reports…' },
+  readFailed: { id: 'settings.diagnostics.readFailed', defaultMessage: 'Local reports could not be read.' },
+  pending: {
+    id: 'settings.diagnostics.pending',
+    defaultMessage: '{count, plural, one {# pending local report} other {# pending local reports}}',
+  },
+  cleared: { id: 'settings.diagnostics.cleared', defaultMessage: 'Diagnostic report cleared.' },
+  alreadyGone: { id: 'settings.diagnostics.alreadyGone', defaultMessage: 'That report was already gone.' },
+  clearFailed: { id: 'settings.diagnostics.clearFailed', defaultMessage: 'The diagnostic report could not be cleared.' },
+  clearedMany: {
+    id: 'settings.diagnostics.clearedMany',
+    defaultMessage: '{count, plural, one {# diagnostic report cleared.} other {# diagnostic reports cleared.}}',
+  },
+  clearManyFailed: { id: 'settings.diagnostics.clearManyFailed', defaultMessage: 'Local reports could not be cleared.' },
+  exported: {
+    id: 'settings.diagnostics.exported',
+    defaultMessage: '{count, plural, one {# report exported.} other {# reports exported.}}',
+  },
+  exportCanceled: { id: 'settings.diagnostics.exportCanceled', defaultMessage: 'Export canceled.' },
+  exportFailed: { id: 'settings.diagnostics.exportFailed', defaultMessage: 'Local reports could not be exported.' },
+  title: { id: 'settings.diagnostics.title', defaultMessage: 'Review diagnostics' },
+  exportAction: { id: 'settings.diagnostics.exportAction', defaultMessage: 'Export JSONL…' },
+  done: { id: 'settings.diagnostics.done', defaultMessage: 'Done' },
+  privacy: {
+    id: 'settings.diagnostics.privacy',
+    defaultMessage: 'These exact allowlisted payloads remain encrypted on this device. Nothing is sent.',
+  },
+  empty: { id: 'settings.diagnostics.empty', defaultMessage: 'No reports are waiting locally.' },
+  clearReportAction: { id: 'settings.diagnostics.clearReportAction', defaultMessage: 'Clear report…' },
+  clearManyTitle: {
+    id: 'settings.diagnostics.clearManyTitle',
+    defaultMessage: 'Clear {count, plural, one {# diagnostic report} other {# diagnostic reports}}?',
+  },
+  clearOneTitle: { id: 'settings.diagnostics.clearOneTitle', defaultMessage: 'Clear diagnostic report?' },
+  cancel: { id: 'settings.diagnostics.cancel', defaultMessage: 'Cancel' },
+  clearReport: { id: 'settings.diagnostics.clearReport', defaultMessage: 'Clear report' },
+  clearManyCopy: {
+    id: 'settings.diagnostics.clearManyCopy',
+    defaultMessage: 'This removes all {count} encrypted diagnostic reports stored on this device.',
+  },
+  clearOneCopy: {
+    id: 'settings.diagnostics.clearOneCopy',
+    defaultMessage: 'This removes this encrypted diagnostic report from this device.',
+  },
+  cannotUndo: { id: 'settings.diagnostics.cannotUndo', defaultMessage: 'This cannot be undone.' },
+  nothingSent: { id: 'settings.diagnostics.nothingSent', defaultMessage: 'Nothing was sent.' },
+});
+
 export function DiagnosticsControls({ enabled }: { readonly enabled: boolean }): ReactElement {
+  const intl = useIntl();
   if (!enabled) {
     return (
       <div className="ovl-settings__diagnostics">
-        <span className="ovl-diagnostics__status">Diagnostics are off</span>
+        <span className="ovl-diagnostics__status">{intl.formatMessage(messages.off)}</span>
         <Button size="sm" variant="ghost" disabled>
-          Review reports…
+          {intl.formatMessage(messages.review)}
         </Button>
       </div>
     );
@@ -22,6 +73,7 @@ export function DiagnosticsControls({ enabled }: { readonly enabled: boolean }):
 }
 
 function EnabledDiagnosticsControls(): ReactElement {
+  const intl = useIntl();
   const [reports, setReports] = useState<DiagnosticReport[] | null>(null);
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -32,9 +84,9 @@ function EnabledDiagnosticsControls(): ReactElement {
       setReports(result.reports);
       setNotice(null);
     } catch {
-      setNotice('Local reports could not be read.');
+      setNotice(intl.formatMessage(messages.readFailed));
     }
-  }, []);
+  }, [intl]);
 
   useEffect(() => {
     let active = true;
@@ -44,18 +96,18 @@ function EnabledDiagnosticsControls(): ReactElement {
         if (active) setReports(result.reports);
       })
       .catch(() => {
-        if (active) setNotice('Local reports could not be read.');
+        if (active) setNotice(intl.formatMessage(messages.readFailed));
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [intl]);
 
   const pending = reports?.length ?? 0;
   return (
     <div className="ovl-settings__diagnostics">
       <span className="ovl-diagnostics__status" aria-live="polite">
-        {`${pending} pending local ${pending === 1 ? 'report' : 'reports'}`}
+        {intl.formatMessage(messages.pending, { count: pending })}
       </span>
       <Button
         size="sm"
@@ -65,7 +117,7 @@ function EnabledDiagnosticsControls(): ReactElement {
           void refresh();
         }}
       >
-        Review reports…
+        {intl.formatMessage(messages.review)}
       </Button>
       <DiagnosticsReviewDialog
         open={open}
@@ -95,58 +147,60 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
     try {
       const { deleted } = await window.overlook.diagnostics.delete({ eventId });
       if (deleted) onReports(reports.filter((report) => report.eventId !== eventId));
-      onNotice(deleted ? 'Diagnostic report cleared.' : 'That report was already gone.');
+      onNotice(intl.formatMessage(deleted ? messages.cleared : messages.alreadyGone));
     } catch {
-      onNotice('The diagnostic report could not be cleared.');
+      onNotice(intl.formatMessage(messages.clearFailed));
     }
   };
   const purge = async (): Promise<void> => {
     try {
       const { deleted } = await window.overlook.diagnostics.purge();
       onReports([]);
-      onNotice(`${deleted} diagnostic ${deleted === 1 ? 'report' : 'reports'} cleared.`);
+      onNotice(intl.formatMessage(messages.clearedMany, { count: deleted }));
     } catch {
-      onNotice('Local reports could not be cleared.');
+      onNotice(intl.formatMessage(messages.clearManyFailed));
     }
   };
   const exportReports = async (): Promise<void> => {
     try {
       const result = await window.overlook.diagnostics.export({ eventIds: reports.map((report) => report.eventId) });
-      onNotice(result.exported ? `${result.count} ${result.count === 1 ? 'report' : 'reports'} exported.` : 'Export canceled.');
+      onNotice(
+        result.exported ? intl.formatMessage(messages.exported, { count: result.count }) : intl.formatMessage(messages.exportCanceled),
+      );
     } catch {
-      onNotice('Local reports could not be exported.');
+      onNotice(intl.formatMessage(messages.exportFailed));
     }
   };
 
   return (
     <Dialog
       open={open}
-      title="Review diagnostics"
+      title={intl.formatMessage(messages.title)}
       icon="shield-check"
       width={640}
       onClose={onClose}
       footer={
         <>
           <Button variant="ghost" icon="download" onClick={() => void exportReports()}>
-            Export JSONL…
+            {intl.formatMessage(messages.exportAction)}
           </Button>
           <Button variant="danger" icon="trash-2" disabled={reports.length === 0} onClick={() => setConfirming('all')}>
             {destructiveActions.clearDiagnostics.label}…
           </Button>
           <Button variant="primary" onClick={onClose}>
-            Done
+            {intl.formatMessage(messages.done)}
           </Button>
         </>
       }
     >
-      <p>These exact allowlisted payloads remain encrypted on this device. Nothing is sent.</p>
+      <p>{intl.formatMessage(messages.privacy)}</p>
       {notice === null ? null : (
         <p className="ovl-diagnostics__notice" role="status">
           {notice}
         </p>
       )}
       {reports.length === 0 ? (
-        <p>No reports are waiting locally.</p>
+        <p>{intl.formatMessage(messages.empty)}</p>
       ) : (
         <div className="ovl-diagnostics__list">
           {reports.map((report) => (
@@ -157,7 +211,7 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
                   <span>{intl.formatDate(report.capturedAt, { dateStyle: 'medium', timeStyle: 'short' })}</span>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => setConfirming(report)}>
-                  Clear report…
+                  {intl.formatMessage(messages.clearReportAction)}
                 </Button>
               </header>
               <pre>{report.payload}</pre>
@@ -169,8 +223,8 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
         open={confirming !== null}
         title={
           confirming === 'all'
-            ? `Clear ${reports.length} diagnostic ${reports.length === 1 ? 'report' : 'reports'}?`
-            : 'Clear diagnostic report?'
+            ? intl.formatMessage(messages.clearManyTitle, { count: reports.length })
+            : intl.formatMessage(messages.clearOneTitle)
         }
         icon="trash-2"
         width={440}
@@ -178,7 +232,7 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirming(null)}>
-              Cancel
+              {intl.formatMessage(messages.cancel)}
             </Button>
             <Button
               variant="danger"
@@ -189,18 +243,20 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
                 else if (target !== null) void remove(target.eventId);
               }}
             >
-              {confirming === 'all' ? destructiveActions.clearDiagnostics.label : 'Clear report'}
+              {confirming === 'all' ? destructiveActions.clearDiagnostics.label : intl.formatMessage(messages.clearReport)}
             </Button>
           </>
         }
       >
         <p>
           {confirming === 'all'
-            ? `This removes all ${reports.length} encrypted diagnostic reports stored on this device.`
-            : 'This removes this encrypted diagnostic report from this device.'}{' '}
-          This cannot be undone.
+            ? intl.formatMessage(messages.clearManyCopy, { count: reports.length })
+            : intl.formatMessage(messages.clearOneCopy)}{' '}
+          {intl.formatMessage(messages.cannotUndo)}
         </p>
-        <p>{destructiveActions.clearDiagnostics.survival} Nothing was sent.</p>
+        <p>
+          {destructiveActions.clearDiagnostics.survival} {intl.formatMessage(messages.nothingSent)}
+        </p>
       </Dialog>
     </Dialog>
   );
