@@ -221,6 +221,7 @@ export const NavigationPreservesViewIntentAndCloseResets: Story = {
     const landscape = canvas.getByRole('img', { name: 'IMG_4028.JPG' });
     await waitFor(() => expect(landscape).toHaveProperty('naturalWidth', 1280));
     await userEvent.click(canvas.getByRole('button', { name: 'Zoom in (+)' }));
+    await waitFor(() => expect(landscape.getBoundingClientRect().height).toBeGreaterThan(viewport.getBoundingClientRect().height));
     await fireEvent.wheel(landscape, { deltaY: 5000 });
     await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
     await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
