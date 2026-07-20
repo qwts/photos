@@ -244,12 +244,16 @@ test('protected albums: no-leak restart, session relock, credential recovery, li
     await assertLockedWithoutLeak(page, protectedNames);
 
     await unlockProtected(page, ALBUM_PASSWORD);
-    await page.locator('.ovl-protected-route .ovl-grid__cell').first().getByRole('button').focus();
+    const protectedOpen = page
+      .locator('.ovl-protected-route .ovl-grid__cell')
+      .first()
+      .getByRole('button', { name: /^Open /u });
+    await protectedOpen.focus();
     await page.keyboard.press('Enter');
     const lightbox = page.getByRole('dialog', { name: new RegExp(`Viewing ${protectedNames[0]}`, 'u') });
     await expect(lightbox).toBeFocused();
     await page.keyboard.press('Escape');
-    await expect(page.locator('.ovl-protected-route .ovl-grid__cell').first().getByRole('button')).toBeFocused();
+    await expect(protectedOpen).toBeFocused();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 600, height: 500 });
     await expect(page.getByRole('heading', { name: 'Private originals' })).toBeVisible();

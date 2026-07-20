@@ -224,7 +224,10 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
     // local rows are born dirty) — the favorite must INCREMENT this.
     await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
     // Photo 1 (IMG_4028.JPG) is not a favorite.
-    await expect(page.locator('.ovl-grid__cell').nth(1).locator('.ovl-tile__star')).toHaveCount(0);
+    await expect(page.locator('.ovl-grid__cell').nth(1).getByRole('button', { name: 'Add to Favorites' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
 
     // Favorite it from the lightbox.
     await page.locator('.ovl-grid__cell').nth(1).click();
@@ -237,9 +240,12 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
     // …the lightbox star goes active…
     await expect(lightbox.getByRole('button', { name: 'Favorite' })).toHaveClass(/ovl-icon-button--active/);
 
-    // …and back in the grid the tile star appeared — no reload happened.
+    // …and back in the grid the tile toggle is pressed — no reload happened.
     await page.keyboard.press('Escape');
-    await expect(page.locator('.ovl-grid__cell').nth(1).locator('.ovl-tile__star')).toHaveCount(1);
+    await expect(page.locator('.ovl-grid__cell').nth(1).getByRole('button', { name: 'Remove from Favorites' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   } finally {
     await app.close();
   }
