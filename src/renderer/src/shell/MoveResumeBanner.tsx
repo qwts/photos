@@ -16,16 +16,25 @@ const messages = defineMessages({
     id: 'libmove.banner.pending',
     defaultMessage: 'A finished library move still has its original in place. Both copies are verified — finishing removes the original.',
   },
+  interrupted: {
+    id: 'libmove.banner.interrupted',
+    defaultMessage: 'A library move was interrupted. Discard the staged copy, or resume after its existing files are verified.',
+  },
+  notResumable: {
+    id: 'libmove.banner.notResumable',
+    defaultMessage: 'The staged copy cannot be verified for resume. The original library is still authoritative.',
+  },
+  resume: { id: 'libmove.banner.resume', defaultMessage: 'Resume' },
+  discard: { id: 'libmove.banner.discard', defaultMessage: 'Discard staged copy' },
+  actionFailed: { id: 'libmove.banner.actionFailed', defaultMessage: 'The recovery action could not be completed.' },
   finishCleanup: { id: 'libmove.banner.finishCleanup', defaultMessage: 'Finish cleanup' },
   dismiss: { id: 'libmove.banner.dismiss', defaultMessage: 'Dismiss' },
   paths: { id: 'libmove.banner.paths', defaultMessage: '{from} → {to}' },
 });
 
-// Relocation resume banner (#483, ADR-0022 §2). Startup recovery already
-// settled every pre-commit journal (discard) and rolled forward committed
-// crashes — what can still be pending at runtime is exactly two things:
-// a committed move whose source cleanup failed (both copies verified,
-// finish it here), and a corrupt journal (surfaced, never guessed at).
+// Relocation resume banner (#559, ADR-0022 §2). Pre-commit copy staging stays
+// inert until the user explicitly resumes or discards it. Committed cleanup
+// and corrupt journals remain visible here too.
 
 type PendingMove = Awaited<ReturnType<typeof window.overlook.libraries.pendingMoves>>['pending'][number];
 
@@ -33,20 +42,52 @@ export function MoveResumeBanner(): ReactElement | null {
   const intl = useIntl();
   const [pending, setPending] = useState<readonly PendingMove[]>([]);
   const [dismissed, setDismissed] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ readonly libraryId: string; readonly detail: string } | null>(null);
 
   useEffect(() => {
     void window.overlook.libraries
       .pendingMoves()
-      .then(({ pending: entries }) => setPending(entries.filter((entry) => entry.corrupt || entry.state === 'committed')))
+      .then(({ pending: entries }) => setPending(entries.filter((entry) => entry.corrupt || entry.state !== 'cleaned')))
       .catch(() => undefined);
   }, []);
 
   if (dismissed || pending.length === 0) return null;
 
   const finishCleanup = (entry: PendingMove): void => {
-    void window.overlook.libraries.finishMoveCleanup({ id: entry.libraryId }).then(() => {
-      setPending((previous) => previous.filter((candidate) => candidate.libraryId !== entry.libraryId));
-    });
+    setBusyId(entry.libraryId);
+    setFailure(null);
+    void window.overlook.libraries
+      .finishMoveCleanup({ id: entry.libraryId })
+      .then(() => setPending((previous) => previous.filter((candidate) => candidate.libraryId !== entry.libraryId)))
+      .catch(() => setFailure({ libraryId: entry.libraryId, detail: intl.formatMessage(messages.actionFailed) }))
+      .finally(() => setBusyId(null));
+  };
+
+  const resume = (entry: PendingMove): void => {
+    setBusyId(entry.libraryId);
+    setFailure(null);
+    void window.overlook.libraries
+      .resumeMove({ id: entry.libraryId })
+      .then((result) => {
+        if (result.ok) {
+          setPending((previous) => previous.filter((candidate) => candidate.libraryId !== entry.libraryId));
+        } else {
+          setFailure({ libraryId: entry.libraryId, detail: result.detail });
+        }
+      })
+      .catch(() => setFailure({ libraryId: entry.libraryId, detail: intl.formatMessage(messages.actionFailed) }))
+      .finally(() => setBusyId(null));
+  };
+
+  const discard = (entry: PendingMove): void => {
+    setBusyId(entry.libraryId);
+    setFailure(null);
+    void window.overlook.libraries
+      .discardMove({ id: entry.libraryId })
+      .then(() => setPending((previous) => previous.filter((candidate) => candidate.libraryId !== entry.libraryId)))
+      .catch(() => setFailure({ libraryId: entry.libraryId, detail: intl.formatMessage(messages.actionFailed) }))
+      .finally(() => setBusyId(null));
   };
 
   return (
@@ -58,17 +99,44 @@ export function MoveResumeBanner(): ReactElement | null {
             <span className="ovl-movebanner__copy">
               <FormattedMessage {...messages.corrupt} />
             </span>
-          ) : (
+          ) : entry.state === 'committed' ? (
             <>
               <span className="ovl-movebanner__copy">
                 <FormattedMessage {...messages.pending} />
                 <span className="mono-data ovl-movebanner__paths">
                   <FormattedMessage {...messages.paths} values={{ from: entry.sourcePath, to: entry.destPath }} />
                 </span>
+                {failure?.libraryId === entry.libraryId ? <span className="ovl-libmove__error-detail">{failure.detail}</span> : null}
               </span>
-              <Button size="sm" onClick={() => finishCleanup(entry)} data-testid="move-banner-cleanup">
+              <Button size="sm" disabled={busyId !== null} onClick={() => finishCleanup(entry)} data-testid="move-banner-cleanup">
                 <FormattedMessage {...messages.finishCleanup} />
               </Button>
+            </>
+          ) : (
+            <>
+              <span className="ovl-movebanner__copy">
+                <FormattedMessage {...(entry.resumable ? messages.interrupted : messages.notResumable)} />
+                <span className="mono-data ovl-movebanner__paths">
+                  <FormattedMessage {...messages.paths} values={{ from: entry.sourcePath, to: entry.destPath }} />
+                </span>
+                {failure?.libraryId === entry.libraryId ? <span className="ovl-libmove__error-detail">{failure.detail}</span> : null}
+              </span>
+              <span className="ovl-movebanner__actions">
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={busyId !== null}
+                  onClick={() => discard(entry)}
+                  data-testid="move-banner-discard"
+                >
+                  <FormattedMessage {...messages.discard} />
+                </Button>
+                {entry.resumable ? (
+                  <Button size="sm" disabled={busyId !== null} onClick={() => resume(entry)} data-testid="move-banner-resume">
+                    <FormattedMessage {...messages.resume} />
+                  </Button>
+                ) : null}
+              </span>
             </>
           )}
         </div>

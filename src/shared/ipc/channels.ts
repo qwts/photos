@@ -5,7 +5,7 @@ import { libraryDescriptorSchema, libraryIdSchema } from '../library/registry.js
 import {
   relocationFailureReasonSchema,
   relocationModeSchema,
-  relocationOutcomeSchema,
+  relocationMoveResponseSchema,
   relocationStateSchema,
 } from '../library/relocation.js';
 import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
@@ -741,19 +741,7 @@ export const channels = {
   libraryRelocationMove: defineChannel(
     'library-relocation:move',
     z.object({ id: libraryIdSchema, destPath: z.string().min(1) }),
-    z.discriminatedUnion('ok', [
-      z.object({
-        ok: z.literal(true),
-        outcome: relocationOutcomeSchema,
-        mode: relocationModeSchema,
-        items: z.number().int().nonnegative(),
-        bytes: z.number().int().nonnegative(),
-        /** Both verified locations — cleanup-pending renders them (#483 acceptance 10). */
-        sourcePath: z.string(),
-        destPath: z.string(),
-      }),
-      z.object({ ok: z.literal(false), reason: relocationFailureReasonSchema, detail: z.string() }),
-    ]),
+    relocationMoveResponseSchema,
   ),
   /** Cancel the in-flight move for a library — honored at file boundaries,
    * only ever before the registry commit (ADR-0022 §4). */
@@ -761,6 +749,14 @@ export const channels = {
     'library-relocation:cancel',
     z.object({ id: libraryIdSchema }),
     z.object({ cancelled: z.boolean() }),
+  ),
+  /** Explicitly resumes a marker-bound pre-commit copy journal. */
+  libraryRelocationResume: defineChannel('library-relocation:resume', z.object({ id: libraryIdSchema }), relocationMoveResponseSchema),
+  /** Discards only staging bound to the live pre-commit journal. */
+  libraryRelocationDiscard: defineChannel(
+    'library-relocation:discard',
+    z.object({ id: libraryIdSchema }),
+    z.object({ result: z.enum(['discarded', 'nothing-pending']) }),
   ),
   /** Dry-run preflight for the wizard's Review step (#483): resolves the
    * method chip (rename vs copy), space meter, and the ADR-0017 §5 network
@@ -802,6 +798,7 @@ export const channels = {
           sourcePath: z.string().nullable(),
           destPath: z.string().nullable(),
           corrupt: z.boolean(),
+          resumable: z.boolean(),
         }),
       ),
     }),

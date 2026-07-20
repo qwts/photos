@@ -35,9 +35,11 @@ The order of operations is built for zero data loss:
    This is the single moment the move "happens."
 4. **Clean up** — only after the commit does the original get removed.
 
-Kill the app, unplug the disk, or hit Cancel at any point **before** step 3
-and the original library is untouched and still registered; the partial copy
-is discarded on the next launch. If step 4 fails (for example the source disk
+Kill the app or unplug the disk at any point **before** step 3 and the original
+library is untouched and still registered. On the next launch, Overlook shows
+both paths and lets you resume after re-verifying every staged file, or discard
+the staged copy. Cancel explicitly discards the staged attempt. If step 4 fails
+(for example the source disk
 disconnected), you end up with **two verified copies** — never zero — and
 Overlook shows both locations and offers **Finish cleanup** to complete the
 removal safely. It never guesses which copy to delete.
@@ -69,9 +71,12 @@ move: the move itself always holds at least one verified copy.
 Every move writes a journal in the profile before it does anything. On
 launch, Overlook settles these journals first:
 
-- A move interrupted **before** the commit: the staged copy is discarded
-  (recognized by its marker file — Overlook never deletes a folder it cannot
-  prove is its own staging) and the original stays active.
+- A move interrupted **before** the commit: marker-bound staging stays inert
+  and the original stays active. The recovery banner shows both paths and
+  offers **Discard staged copy** by default or **Resume**. Resume re-checks each
+  existing file by relative path, size, and SHA-256, then copies only missing
+  or incomplete files. Overlook never deletes a folder it cannot prove is its
+  own staging.
 - A crash caught **at** the commit boundary: the journal and registry agree
   on what happened and the move is completed or rolled back accordingly.
 - A committed move whose cleanup did not finish: a banner offers **Finish

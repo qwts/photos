@@ -9,10 +9,12 @@ import { join } from 'node:path';
 import { LibraryRegistry, LibraryRegistryError } from '../../src/main/library/library-registry.js';
 import {
   RelocationError,
+  discardRelocation,
   finishRelocationCleanup,
   probeRelocation,
   recoverRelocations,
   relocateLibrary,
+  resumeRelocation,
   stagingPathFor,
   type RelocationDeps,
 } from '../../src/main/library/relocation-engine.js';
@@ -338,7 +340,7 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       });
     const marker = JSON.stringify({ version: 1, libraryId: ULID_A, nonce: 'test-nonce' });
 
-    test('pre-commit copy crash: staging discarded, source untouched', async () => {
+    test('pre-commit copy crash: marker-bound staging is preserved for an explicit choice', async () => {
       const h = harness();
       journalFor(h, 'copying');
       mkdirSync(stagingPathFor(h.destDir), { recursive: true });
@@ -346,12 +348,13 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       writeFileSync(join(stagingPathFor(h.destDir), 'library.db'), 'partial', 'utf8');
 
       const reports = await recoverRelocations(h.deps);
-      assert.deepEqual(reports, [{ libraryId: ULID_A, action: 'discarded' }]);
-      assert.ok(!existsSync(stagingPathFor(h.destDir)));
-      assertSourceIntactAndAuthoritative(h);
+      assert.deepEqual(reports, [{ libraryId: ULID_A, action: 'resume-available' }]);
+      assert.ok(existsSync(stagingPathFor(h.destDir)));
+      assert.equal(h.registry.get(ULID_A)?.path, h.sourceDir);
+      assert.equal(h.journals.load(ULID_A)?.state, 'copying');
     });
 
-    test('crash between activation rename and commit: marker-bound destination is still staging — discarded', async () => {
+    test('crash between activation rename and commit: marker-bound destination remains resumable staging', async () => {
       const h = harness();
       journalFor(h, 'verified');
       mkdirSync(h.destDir, { recursive: true });
@@ -359,9 +362,9 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       writeFileSync(join(h.destDir, 'library-id'), `${ULID_A}\n`, 'utf8');
 
       const reports = await recoverRelocations(h.deps);
-      assert.deepEqual(reports, [{ libraryId: ULID_A, action: 'discarded' }]);
-      assert.ok(!existsSync(h.destDir), 'marker-bound destination removed');
-      assertSourceIntactAndAuthoritative(h);
+      assert.deepEqual(reports, [{ libraryId: ULID_A, action: 'resume-available' }]);
+      assert.ok(existsSync(h.destDir), 'marker-bound destination preserved');
+      assert.equal(h.registry.get(ULID_A)?.path, h.sourceDir);
     });
 
     test('a destination WITHOUT our marker is never deleted, whatever the journal claims', async () => {
@@ -371,8 +374,70 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       writeFileSync(join(h.destDir, 'precious-user-data'), 'irreplaceable', 'utf8');
 
       const reports = await recoverRelocations(h.deps);
-      assert.equal(reports[0]?.action, 'discarded');
+      assert.equal(reports[0]?.action, 'inconsistent');
       assert.equal(readFileSync(join(h.destDir, 'precious-user-data'), 'utf8'), 'irreplaceable', 'unmarked directory untouched');
+      assert.equal(h.registry.get(ULID_A)?.path, h.sourceDir);
+      assert.equal(h.journals.load(ULID_A)?.state, 'verified');
+    });
+
+    test('Discard removes only marker-bound staging and clears the pre-commit journal', async () => {
+      const h = harness();
+      journalFor(h, 'copying');
+      mkdirSync(stagingPathFor(h.destDir), { recursive: true });
+      writeFileSync(join(stagingPathFor(h.destDir), RELOCATION_MARKER_FILENAME), marker, 'utf8');
+      writeFileSync(join(stagingPathFor(h.destDir), 'library.db'), 'partial', 'utf8');
+
+      assert.equal(await discardRelocation(h.deps, ULID_A), 'discarded');
+      assert.ok(!existsSync(stagingPathFor(h.destDir)));
+      assertSourceIntactAndAuthoritative(h);
+    });
+
+    test('Resume reuses verified files, replaces partial files, and copies only the remainder', async () => {
+      const h = harness();
+      journalFor(h, 'copying');
+      const staging = stagingPathFor(h.destDir);
+      mkdirSync(join(staging, 'blobs/aa'), { recursive: true });
+      writeFileSync(join(staging, RELOCATION_MARKER_FILENAME), marker, 'utf8');
+      writeFileSync(join(staging, 'library-id'), LIB_FILES['library-id'] ?? '', 'utf8');
+      writeFileSync(join(staging, 'library.db'), 'partial', 'utf8');
+      writeFileSync(join(staging, 'settings.json'), '{"sortOrder":"oldest"}', 'utf8');
+      writeFileSync(join(staging, 'blobs/aa/aabbcc'), LIB_FILES['blobs/aa/aabbcc'] ?? '', 'utf8');
+      const copying: number[] = [];
+
+      const result = await resumeRelocation(h.deps, {
+        libraryId: ULID_A,
+        onProgress: (progress) => {
+          if (progress.phase === 'copying') copying.push(progress.copiedItems);
+        },
+      });
+
+      assert.equal(copying[0], 2, 'two exact staged files were reused before copying resumed');
+      assert.equal(result.outcome, 'moved');
+      assert.equal(readFileSync(join(h.destDir, 'library.db'), 'utf8'), LIB_FILES['library.db']);
+      assert.equal(readFileSync(join(h.destDir, 'settings.json'), 'utf8'), LIB_FILES['settings.json']);
+      assert.ok(!existsSync(h.sourceDir));
+      assert.equal(h.registry.get(ULID_A)?.path, h.destDir);
+    });
+
+    test('cancelling a resumed copy uses the same pre-commit discard recovery as a fresh move', async () => {
+      const h = harness();
+      journalFor(h, 'copying');
+      const staging = stagingPathFor(h.destDir);
+      mkdirSync(staging, { recursive: true });
+      writeFileSync(join(staging, RELOCATION_MARKER_FILENAME), marker, 'utf8');
+      const controller = new AbortController();
+
+      await assert.rejects(
+        resumeRelocation(h.deps, {
+          libraryId: ULID_A,
+          signal: controller.signal,
+          onProgress: (progress) => {
+            if (progress.phase === 'copying' && progress.copiedItems === 1) controller.abort();
+          },
+        }),
+        (error: unknown) => error instanceof RelocationError && error.reason === 'cancelled',
+      );
+      assert.ok(!existsSync(staging));
       assertSourceIntactAndAuthoritative(h);
     });
 

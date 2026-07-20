@@ -11,6 +11,7 @@ import { RelocationJournalStore } from '../../src/main/library/relocation-journa
 import { RelocationRuntime, type RelocationRuntimeOptions } from '../../src/main/library/relocation-runtime.js';
 import { channels } from '../../src/shared/ipc/channels.js';
 import { wrapHandler } from '../../src/shared/ipc/registry.js';
+import { RELOCATION_MARKER_FILENAME } from '../../src/shared/library/relocation.js';
 
 // #483 / ADR-0022 §4 runtime wrapper: the active-library move runs the
 // switch-shaped sequence and ALWAYS reactivates (the registry decides where
@@ -59,6 +60,18 @@ function harness(overrides: Partial<RelocationRuntimeOptions> = {}, active = fal
       calls.push('relocate');
       deps.registry.updatePath(options.libraryId, options.destDir);
       return Promise.resolve({ outcome: 'moved' as const, mode: 'copy' as const, items: 5, bytes: 100 });
+    },
+    resume: (deps, options) => {
+      calls.push('resume');
+      const journal = deps.journals.load(options.libraryId);
+      assert.ok(journal);
+      deps.registry.updatePath(options.libraryId, journal.destPath);
+      deps.journals.clear(options.libraryId);
+      return Promise.resolve({ outcome: 'moved' as const, mode: 'copy' as const, items: 3, bytes: 60 });
+    },
+    discard: (_deps, id) => {
+      calls.push(`discard:${id}`);
+      return Promise.resolve('discarded' as const);
     },
     ...overrides,
   });
@@ -220,9 +233,42 @@ describe('relocation runtime (#483, ADR-0022 §4)', () => {
 
     const pending = h.runtime.pending().sort((a, b) => (a.libraryId < b.libraryId ? -1 : 1));
     assert.deepEqual(pending, [
-      { libraryId: ULID_A, state: 'committed', sourcePath: '/a', destPath: '/b', corrupt: false },
-      { libraryId: ULID_B, state: null, sourcePath: null, destPath: null, corrupt: true },
+      { libraryId: ULID_A, state: 'committed', sourcePath: '/a', destPath: '/b', corrupt: false, resumable: false },
+      { libraryId: ULID_B, state: null, sourcePath: null, destPath: null, corrupt: true, resumable: false },
     ]);
+  });
+
+  test('resume uses the move slot and active-library teardown/reactivation; discard stays destination-only', async () => {
+    const h = harness({}, true);
+    const destPath = join(h.root, 'new-home');
+    const stagingPath = `${destPath}.relocate-staging`;
+    h.journals.save({
+      version: 1,
+      libraryId: ULID_A,
+      nonce: 'resume-nonce',
+      sourcePath: join(h.root, 'lib-a'),
+      destPath,
+      stagingPath,
+      mode: 'copy',
+      state: 'copying',
+      startedAt: NOW().toISOString(),
+    });
+    mkdirSync(stagingPath, { recursive: true });
+    writeFileSync(
+      join(stagingPath, RELOCATION_MARKER_FILENAME),
+      JSON.stringify({ version: 1, libraryId: ULID_A, nonce: 'resume-nonce' }),
+      'utf8',
+    );
+
+    assert.equal(h.runtime.pending()[0]?.resumable, true);
+    const outcome = await h.runtime.resume(ULID_A);
+    assert.ok(outcome.ok);
+    assert.deepEqual(h.calls, ['close', 'resume', `reactivate:${ULID_A}`]);
+    assert.equal(outcome.sourcePath, join(h.root, 'lib-a'));
+    assert.equal(outcome.destPath, destPath);
+
+    assert.equal(await h.runtime.discard(ULID_A), 'discarded');
+    assert.equal(h.calls.at(-1), `discard:${ULID_A}`);
   });
 
   test('EXIT CRITERIA: responses round-trip the zod channel contracts', async () => {
@@ -244,5 +290,11 @@ describe('relocation runtime (#483, ADR-0022 §4)', () => {
     assert.deepEqual(pending, { pending: [] });
     const cancel = await wrapHandler(channels.libraryRelocationCancel, ({ id }) => ({ cancelled: h.runtime.cancel(id) }))({ id: ULID_A });
     assert.deepEqual(cancel, { cancelled: false });
+    const discarded = await wrapHandler(channels.libraryRelocationDiscard, ({ id }) =>
+      h.runtime.discard(id).then((result) => ({ result })),
+    )({
+      id: ULID_A,
+    });
+    assert.deepEqual(discarded, { result: 'discarded' });
   });
 });

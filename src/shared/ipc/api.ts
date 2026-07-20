@@ -157,6 +157,10 @@ export interface OverlookApi {
       request: Req<typeof channels.libraryRelocationPreflight>,
     ) => Promise<Res<typeof channels.libraryRelocationPreflight>>;
     readonly cancelMove: (request: Req<typeof channels.libraryRelocationCancel>) => Promise<Res<typeof channels.libraryRelocationCancel>>;
+    readonly resumeMove: (request: Req<typeof channels.libraryRelocationResume>) => Promise<Res<typeof channels.libraryRelocationResume>>;
+    readonly discardMove: (
+      request: Req<typeof channels.libraryRelocationDiscard>,
+    ) => Promise<Res<typeof channels.libraryRelocationDiscard>>;
     readonly finishMoveCleanup: (
       request: Req<typeof channels.libraryRelocationFinishCleanup>,
     ) => Promise<Res<typeof channels.libraryRelocationFinishCleanup>>;
