@@ -158,7 +158,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         setStats(loaded);
         // Seed the backup state (#79); pushes keep it live afterwards.
         dispatch({ type: 'pendingCount/set', count: loaded.pending });
-        // Real stamp (#104): "JUST NOW" / "2H AGO" from the ledger, "NEVER"
+        // Real stamp (#104): locale-aware relative time from the ledger, or "NEVER"
         // before the first verified backup.
         dispatch({
           type: 'backupLabel/set',

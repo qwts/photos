@@ -48,7 +48,7 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
     await page.keyboard.press('i');
     const inspector = page.getByRole('complementary', { name: 'Inspector' });
     await expect(inspector).toBeVisible();
-    await expect(inspector).toContainText('RAW');
+    await expect(inspector).toContainText('raw');
     await expect(inspector).toContainText('FUJIFILM X-T5');
     await expect(inspector).toContainText('1280×838 · 1.1 MP');
     await expect(inspector).toContainText('AES-256-GCM · KEY #1');
@@ -222,7 +222,7 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
 
     // Seed 4 starts with exactly one dirty row (photo 0 is 'local', and
     // local rows are born dirty) — the favorite must INCREMENT this.
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → Local mock');
     // Photo 1 (IMG_4028.JPG) is not a favorite.
     await expect(page.locator('.ovl-grid__cell').nth(1).getByRole('button', { name: 'Add to Favorites' })).toHaveAttribute(
       'aria-pressed',
@@ -236,7 +236,7 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
     await lightbox.getByRole('button', { name: 'Favorite' }).click();
 
     // Ledger dirties → the StatusBar count increments, exactly…
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → Local mock');
     // …the lightbox star goes active…
     await expect(lightbox.getByRole('button', { name: 'Favorite' })).toHaveClass(/ovl-icon-button--active/);
 

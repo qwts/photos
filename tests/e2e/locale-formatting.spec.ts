@@ -11,14 +11,14 @@ test('composed chrome formats values with the main-resolved locale', async () =>
       OVERLOOK_USER_DATA: userData,
       OVERLOOK_SEED_SYNTHETIC: '2000',
       OVERLOOK_INSECURE_KEYSTORE: '1',
-      OVERLOOK_LOCALE: 'de',
+      OVERLOOK_LOCALE: 'en-DE',
     },
   });
   try {
     const page = await app.firstWindow();
     await expect(page.getByTestId('virtual-grid')).toBeVisible();
     await expect(page.getByTestId('statusbar-left')).toContainText('2.000 PHOTOS ·');
-    await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en-DE');
   } finally {
     await app.close();
   }

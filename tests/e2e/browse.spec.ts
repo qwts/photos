@@ -150,13 +150,13 @@ test('chrome truth: statusbar, backup button and card reflect pending state', as
   const { app, page } = await launchSeeded();
   try {
     await expect(page.getByTestId('statusbar-left')).toContainText('12 PHOTOS ·');
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 4 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 4 → Local mock');
     await expect(page.getByTestId('backup-card')).toContainText('Library encrypted');
     // The card shows the real storage split (#108); the progress bar only
     // renders during an active run. The full run choreography lives in
     // backup.spec.ts.
     await expect(page.getByTestId('backup-card')).toContainText('ON DISK');
-    await expect(page.getByTestId('backup-card')).toContainText('OFFLOAD (LOCAL MOCK)');
+    await expect(page.getByTestId('backup-card')).toContainText('OFFLOAD (Local mock)');
     const backup = page.getByRole('button', { name: 'Back up' });
     await expect(backup).toBeEnabled();
   } finally {
