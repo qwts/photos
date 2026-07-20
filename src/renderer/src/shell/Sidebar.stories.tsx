@@ -107,7 +107,7 @@ export const Expanded: Story = {
     await expect(canvas.getByText('Offloaded')).toBeVisible();
     await expect(canvas.getByTestId('backup-card')).toBeVisible();
     await expect(canvas.getByText('1.2 TB ON DISK')).toBeVisible();
-    const offloadRow = await canvas.findByText('380 GB OFFLOAD (GOOGLE DRIVE)');
+    const offloadRow = await canvas.findByText('380 GB OFFLOAD (Google Drive)');
     await expect(offloadRow).toBeVisible();
     await expect(window.getComputedStyle(offloadRow).whiteSpace).toBe('nowrap');
     const storage = offloadRow.parentElement;

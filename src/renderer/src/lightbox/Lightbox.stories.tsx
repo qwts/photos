@@ -163,7 +163,7 @@ export const RawPreviewBadge: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('PREVIEW')).toBeVisible();
-    await expect(canvas.getByText(/IMG_4021\.RAF — 2026-06-12/u)).toBeVisible();
+    await expect(canvas.getByText(/IMG_4021\.RAF — Jun 12, 2026/u)).toBeVisible();
   },
 };
 

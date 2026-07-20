@@ -53,17 +53,17 @@ export const RafFavorite: Story = {
   args: { photo: PHOTO, providerLabel: 'Local mock' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('RAW')).toBeVisible();
+    await expect(canvas.getByText('raw')).toBeVisible();
     await expect(canvas.getByText('Encrypted')).toBeVisible();
     await expect(canvas.getByText('Favorite')).toBeVisible();
-    await expect(canvas.getByText('2026-06-12 · LISBON')).toBeVisible();
+    await expect(canvas.getByText('Jun 12, 2026 · Lisbon')).toBeVisible();
     // Interpunct-joined mono values per the copy rules.
     await expect(canvas.getByText('ƒ/1.4 · 1/250S · ISO 200')).toBeVisible();
     await expect(canvas.getByText('6240×4160 · 26.0 MP')).toBeVisible();
-    await expect(canvas.getByText('2026-07-02 · SD CARD')).toBeVisible();
+    await expect(canvas.getByText('Jul 2, 2026 · SD card')).toBeVisible();
     // Real key metadata + the honest synced copy (no fabricated timestamp).
     await expect(canvas.getByText('AES-256-GCM · KEY #2')).toBeVisible();
-    await expect(canvas.getByText('ENCRYPTED · LOCAL MOCK')).toBeVisible();
+    await expect(canvas.getByText('ENCRYPTED · Local mock')).toBeVisible();
   },
 };
 
@@ -91,7 +91,7 @@ export const MetadataLite: Story = {
     await expect(canvas.queryByText('Camera')).toBeNull();
     await expect(canvas.queryByText('Exposure')).toBeNull();
     await expect(canvas.queryByText('Favorite')).toBeNull();
-    await expect(canvas.getByText('JPEG')).toBeVisible();
+    await expect(canvas.getByText('jpeg')).toBeVisible();
     await expect(canvas.getByText('LOCAL ONLY — NOT BACKED UP')).toBeVisible();
   },
 };

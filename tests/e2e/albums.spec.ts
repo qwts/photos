@@ -42,7 +42,7 @@ test('albums: inline create, live counts, album-as-source grid filter', async ()
     );
     expect(added.added).toBe(2);
     await expect(albumRow).toContainText('2');
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → Local mock');
 
     // Album as active source: the grid narrows to the two members.
     await albumRow.click();
@@ -159,7 +159,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await expect(albumButton('Road selects')).toHaveClass(/ovl-siderow--active/u);
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(4);
     await expect(page.getByRole('button', { name: 'Actions for Road selects' })).toBeFocused();
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 4 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 4 → Local mock');
     await page.getByRole('button', { name: 'Back up' }).click();
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
 
@@ -175,7 +175,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(3);
     await expect(roadRow).toContainText('3');
     await expect(pill).toHaveCount(0);
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → Local mock');
     await expect(page.getByRole('button', { name: /Recently deleted/u })).toContainText('0');
 
     await page.getByRole('button', { name: 'Back up' }).click();
@@ -194,7 +194,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(1);
     await expect(roadRow).toContainText('1');
     await expect(pill).toHaveCount(0);
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → Local mock');
 
     // Deleting the active populated album removes memberships only, returns
     // to All Photos, restores stable focus, and keeps all four originals.

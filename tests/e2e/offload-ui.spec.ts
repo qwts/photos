@@ -38,7 +38,7 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
     await page.getByTestId('virtual-grid').waitFor();
     await firstCell.locator('.ovl-tile__img').waitFor();
     await page.getByRole('button', { name: 'Back up' }).click();
-    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · JUST NOW', { timeout: 20_000 });
+    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · now', { timeout: 20_000 });
 
     // Minimum-width selection layout keeps Offload visible and moves the
     // secondary actions into the keyboard-accessible overflow.

@@ -112,8 +112,8 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     // misleading backed-up states anywhere.
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Back up' })).toBeHidden();
-    await expect(page.getByTestId('sync-state')).toContainText('LOCAL MOCK NOT CONNECTED');
-    await expect(page.getByTestId('backup-card')).not.toContainText('LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('Local mock NOT CONNECTED');
+    await expect(page.getByTestId('backup-card')).toContainText('not connected');
     // The sidebar's Connect link is the path back — it opens Settings.
     await page.getByTestId('sidebar-connect').click();
     await expect(page.getByTestId('settings-dialog')).toBeVisible();

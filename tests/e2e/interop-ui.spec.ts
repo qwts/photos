@@ -28,7 +28,7 @@ test('selection opens an honest blocked transfer review without changing selecti
     await selection.getByRole('button', { name: 'Transfer & Sync' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Move to Image Trail' });
-    await expect(dialog).toContainText('SELECTION · QUEUED');
+    await expect(dialog).toContainText('selection · queued');
     await expect(dialog).toContainText('No interop provider');
     await expect(dialog).toContainText('0 / 1 · 0 acknowledged · 0 finalized');
     await expect(dialog.getByRole('button', { name: 'Start move' })).toBeDisabled();
@@ -51,7 +51,7 @@ test('Settings and lightbox entries preserve their underlying surfaces', async (
     await settings.getByRole('button', { name: 'Open Transfer & Sync' }).click();
 
     const settingsTransfer = page.getByRole('dialog', { name: 'Move to Image Trail' });
-    await expect(settingsTransfer).toContainText('SETTINGS · QUEUED');
+    await expect(settingsTransfer).toContainText('settings · queued');
     await settingsTransfer.locator('.ovl-dialog__footer').getByRole('button', { name: 'Close' }).click();
     await expect(settings).toBeVisible();
     await page.keyboard.press('Escape');
@@ -60,7 +60,7 @@ test('Settings and lightbox entries preserve their underlying surfaces', async (
     const lightbox = page.getByTestId('lightbox');
     await lightbox.getByRole('button', { name: 'Transfer & Sync' }).click();
     const lightboxTransfer = page.getByRole('dialog', { name: 'Move to Image Trail' });
-    await expect(lightboxTransfer).toContainText('LIGHTBOX · QUEUED');
+    await expect(lightboxTransfer).toContainText('lightbox · queued');
     await lightboxTransfer.locator('.ovl-dialog__footer').getByRole('button', { name: 'Close' }).click();
     await expect(lightbox).toBeVisible();
   } finally {
@@ -79,7 +79,7 @@ test('album actions open an album-scoped transfer review and preserve the active
     await page.getByRole('menuitem', { name: 'Transfer & Sync…' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Move to Image Trail' });
-    await expect(dialog).toContainText('ALBUM · QUEUED');
+    await expect(dialog).toContainText('album · queued');
     await expect(dialog).toContainText('0 / 1 · 0 acknowledged · 0 finalized');
     await dialog.locator('.ovl-dialog__footer').getByRole('button', { name: 'Close' }).click();
     await expect(albumSource).toHaveClass(/ovl-siderow--active/u);

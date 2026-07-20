@@ -13,10 +13,10 @@ function remoteBlobFiles(userData: string): string[] {
 }
 
 // #108 exit criteria (amended by #266): the full visual choreography of a
-// mock-provider backup run — amber → green flip, live counts, "JUST NOW"
+// mock-provider backup run — amber → green flip, live counts, "now"
 // reset, and the button LEAVING at pendingCount 0 (an idle affordance
 // misstates that there is work; it returns when a change dirties a row).
-test('backup choreography: amber → green, JUST NOW reset, button hides at 0', async () => {
+test('backup choreography: amber → green, now reset, button hides at 0', async () => {
   const userData = mkE2eTmpDir('overlook-e2e-backup-');
   const app = await electron.launch({
     args: ['.'],
@@ -34,18 +34,18 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
 
     // Seed 4 starts with one born-dirty local row: amber state, live count,
     // enabled button, storage split on the card.
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → Local mock');
     const backupButton = page.getByRole('button', { name: 'Back up' });
     await expect(backupButton).toBeEnabled();
     await expect(page.getByTestId('backup-card')).toContainText('ON DISK');
-    await expect(page.getByTestId('backup-card')).toContainText('0 B OFFLOAD (LOCAL MOCK)');
+    await expect(page.getByTestId('backup-card')).toContainText('0 byte OFFLOAD (Local mock)');
 
     // Trigger: the mock's toast pair around the run…
     await backupButton.click();
     await expect(page.getByRole('status')).toContainText('BACKUP COMPLETE', { timeout: 20_000 });
 
     // …then the green flip with the freshly stamped label…
-    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · JUST NOW');
+    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · now');
     // …and the button leaves at pendingCount 0 (#266)…
     await expect(backupButton).toBeHidden();
     // …returning the moment an edit creates work again…
@@ -57,7 +57,7 @@ test('backup choreography: amber → green, JUST NOW reset, button hides at 0', 
     // …and with auto-backup on (the default), the edit drains ITSELF: the
     // debounced trigger (#267) runs quietly — no manual click — and the
     // indicator + button leave together. Before #267 this sat at
-    // "ENCRYPTING 1 → LOCAL MOCK" forever.
+    // "ENCRYPTING 1 → Local mock" forever.
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
     await expect(backupButton).toBeHidden();
   } finally {
@@ -148,18 +148,18 @@ test('edit re-dirties after a backup; offload → temporary lightbox stream roun
     await page.locator('.ovl-tile__img').first().waitFor();
 
     await page.getByRole('button', { name: 'Back up' }).click();
-    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · JUST NOW', { timeout: 20_000 });
+    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · now', { timeout: 20_000 });
 
     // Edit → amber returns with the exact count.
     await page.locator('.ovl-grid__cell').nth(1).click();
     await page.getByTestId('lightbox').getByRole('button', { name: 'Favorite' }).click();
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → LOCAL MOCK');
+    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → Local mock');
     await page.keyboard.press('Escape');
 
     // Offload photo 0 (synced + clean): the card split shifts.
     const offloaded = await page.evaluate<{ offloaded: number }>(`window.overlook.backup.offload({ photoIds: ['01J8SEEDPHOTO0000'] })`);
     expect(offloaded.offloaded).toBe(1);
-    await expect(page.getByTestId('backup-card')).not.toContainText('0 B OFFLOAD (LOCAL MOCK)');
+    await expect(page.getByTestId('backup-card')).not.toContainText('0 byte OFFLOAD (Local mock)');
     const firstTile = page.locator('.ovl-grid__cell').first();
     await expect(firstTile.getByRole('img', { name: 'Offloaded to cloud' })).toBeVisible();
 
