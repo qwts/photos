@@ -133,14 +133,41 @@
   border-color: transparent;
 }
 
-.ovl-tile__star {
+.ovl-tile__favorite {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 0;
+  right: 0;
+  width: var(--interactive-target-min);
+  height: var(--interactive-target-min);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--tile-star-fg);
   filter: drop-shadow(0 1px 2px oklch(0 0 0 / 0.6));
-  pointer-events: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
   z-index: 2;
+}
+
+.ovl-tile:hover .ovl-tile__favorite,
+.ovl-tile:focus-within .ovl-tile__favorite,
+.ovl-tile__favorite--active,
+.ovl-tile__favorite:focus-visible {
+  opacity: 1;
+}
+
+.ovl-tile__favorite:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: -2px;
+}
+
+@media (hover: none) {
+  .ovl-tile__favorite {
+    opacity: 1;
+  }
 }
 
 .ovl-tile__status {

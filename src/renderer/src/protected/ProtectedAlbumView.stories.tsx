@@ -83,6 +83,15 @@ export const SessionUnlockedWithRealPhotos: Story = {
     const tile = canvas.getByRole('button', { name: 'Open flower-landscape.jpg' });
     const thumbnail = tile.parentElement?.querySelector('.ovl-tile__img');
     await expect(thumbnail).toHaveAttribute('src', flower);
+    const removeFavorite = canvas.getByRole('button', { name: 'Remove from Favorites' });
+    await expect(removeFavorite).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(removeFavorite);
+    await waitFor(() =>
+      expect(within(tile.parentElement ?? canvasElement).getByRole('button', { name: 'Add to Favorites' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      ),
+    );
     await userEvent.click(tile);
     const lightbox = canvas.getByRole('dialog', { name: 'Viewing flower-landscape.jpg' });
     await expect(within(lightbox).getByRole('img')).toHaveAttribute('src', flower);

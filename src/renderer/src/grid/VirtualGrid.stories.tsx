@@ -69,6 +69,7 @@ export const TileClickVsSelectCircle: Story = {
             src={THUMBS[Number(record.id.slice(1)) % THUMBS.length] ?? landscapePhoto}
             alt={record.fileName}
             favorite={record.favorite}
+            onToggleFavorite={fn()}
             status={record.syncState}
             onClick={() => {
               onOpen(record.id);

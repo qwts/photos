@@ -28,12 +28,12 @@ function Matrix(): ReactElement {
     >
       {STATUSES.map((status) => (
         <div key={status} style={{ aspectRatio: '1' }}>
-          <PhotoTile src={realPhoto} alt={status} status={status} />
+          <PhotoTile src={realPhoto} alt={status} status={status} onToggleFavorite={fn()} />
         </div>
       ))}
       {STATUSES.map((status) => (
         <div key={`sel-${status}`} style={{ aspectRatio: '1' }}>
-          <PhotoTile src={realPhoto} alt={`${status} selected`} status={status} selected favorite />
+          <PhotoTile src={realPhoto} alt={`${status} selected`} status={status} selected favorite onToggleFavorite={fn()} />
         </div>
       ))}
     </div>
@@ -51,6 +51,8 @@ export const ClickTargetsAreIndependent: Story = {
     status: 'synced',
     onClick: fn(),
     onToggleSelect: fn(),
+    favorite: true,
+    onToggleFavorite: fn(),
     onContextAction: fn(),
   },
   render: (args) => (
@@ -67,6 +69,13 @@ export const ClickTargetsAreIndependent: Story = {
     await userEvent.click(select);
     await expect(args.onToggleSelect).toHaveBeenCalledOnce();
     await expect(args.onClick).not.toHaveBeenCalled();
+    const favorite = canvas.getByRole('button', { name: 'Remove from Favorites' });
+    await expect(favorite).toHaveAttribute('aria-pressed', 'true');
+    await expect(favorite.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
+    await expect(favorite.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
+    await userEvent.click(favorite);
+    await expect(args.onToggleFavorite).toHaveBeenCalledOnce();
+    await expect(args.onClick).not.toHaveBeenCalled();
     // Tile click opens without toggling selection.
     const openButton = canvas.getByRole('button', { name: 'Open IMG_4021.RAF' });
     const selectButton = canvas.getByRole('button', { name: 'Select' });
@@ -77,6 +86,7 @@ export const ClickTargetsAreIndependent: Story = {
     await userEvent.click(openButton);
     await expect(args.onClick).toHaveBeenCalledOnce();
     await expect(args.onToggleSelect).toHaveBeenCalledOnce();
+    await expect(args.onToggleFavorite).toHaveBeenCalledOnce();
 
     openButton.focus();
     await userEvent.keyboard(' ');

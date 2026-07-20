@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { DragEvent, ReactElement } from 'react';
 
 import type { AlbumSummary, PhotoRecord } from '../../../shared/library/types.js';
@@ -40,6 +40,30 @@ export function LibraryGridView({
   // user confirmed (PR #220 review).
   const [purgeIds, setPurgeIds] = useState<readonly string[] | null>(null);
   const [contextPhoto, setContextPhoto] = useState<{ readonly photo: PhotoRecord; readonly x: number; readonly y: number } | null>(null);
+  const favoritePendingRef = useRef<ReadonlySet<string>>(new Set());
+  const [favoritePending, setFavoritePending] = useState<ReadonlySet<string>>(() => new Set());
+
+  const toggleFavorite = (photo: PhotoRecord): void => {
+    if (favoritePendingRef.current.has(photo.id)) return;
+    const pending = new Set(favoritePendingRef.current);
+    pending.add(photo.id);
+    favoritePendingRef.current = pending;
+    setFavoritePending(pending);
+    void window.overlook.library
+      .toggleFavorite({ id: photo.id })
+      .then(({ pendingCount }) => {
+        dispatch({ type: 'pendingCount/set', count: pendingCount });
+      })
+      .catch(() => {
+        dispatch({ type: 'toast/shown', toast: { title: `COULDN'T UPDATE FAVORITE — ${photo.fileName}`, tone: 'red' } });
+      })
+      .finally(() => {
+        const remaining = new Set(favoritePendingRef.current);
+        remaining.delete(photo.id);
+        favoritePendingRef.current = remaining;
+        setFavoritePending(remaining);
+      });
+  };
 
   // An active album narrows like query/chips do (#117): the sidebar count
   // sized for the source no longer applies — track the loaded set instead.
@@ -78,6 +102,8 @@ export function LibraryGridView({
         onToggleSelect={() => {
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
+        onToggleFavorite={() => toggleFavorite(photo)}
+        favoritePending={favoritePending.has(photo.id)}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
@@ -96,6 +122,8 @@ export function LibraryGridView({
         onToggleSelect={() => {
           dispatch({ type: 'selection/toggled', photoId: photo.id });
         }}
+        onToggleFavorite={() => toggleFavorite(photo)}
+        favoritePending={favoritePending.has(photo.id)}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}

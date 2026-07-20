@@ -1,8 +1,6 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
 
-import type { OverlookApi } from '../../src/shared/ipc/api.js';
-
 import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 // M04 acceptance flows (#82) against the deterministic seeded profile —
@@ -122,11 +120,11 @@ test('sidebar: source switching refilters; counts live-update on mutation', asyn
     await page.getByRole('button', { name: 'All Photos 12' }).click();
     await expect(grid.locator('.ovl-grid__cell')).toHaveCount(12);
 
-    await page.evaluate(async () => {
-      // type-coverage:ignore-next-line
-      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
-      await overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' });
-    });
+    const addedPhoto = page.getByRole('button', { name: 'Open IMG_4028.JPG' }).locator('..');
+    const addFavorite = addedPhoto.getByRole('button', { name: 'Add to Favorites' });
+    await expect(addFavorite).toHaveAttribute('aria-pressed', 'false');
+    await addFavorite.click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Favorites 3' })).toBeVisible();
 
     // PR #167/#169 review: the VISIBLE page refreshes on mutation too —
@@ -134,11 +132,13 @@ test('sidebar: source switching refilters; counts live-update on mutation', asyn
     // sidebar count.
     await page.getByRole('button', { name: 'Favorites 3' }).click();
     await expect(grid.locator('.ovl-grid__cell')).toHaveCount(3);
-    await page.evaluate(async () => {
-      // type-coverage:ignore-next-line
-      const overlook = (globalThis as unknown as { overlook: OverlookApi }).overlook;
-      await overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' });
-    });
+    const removeFavorite = page
+      .getByRole('button', { name: 'Open IMG_4028.JPG' })
+      .locator('..')
+      .getByRole('button', { name: 'Remove from Favorites' });
+    await expect(removeFavorite).toHaveAttribute('aria-pressed', 'true');
+    await removeFavorite.focus();
+    await page.keyboard.press('Enter');
     await expect(grid.locator('.ovl-grid__cell')).toHaveCount(2);
     await expect(page.getByRole('button', { name: 'Favorites 2' })).toBeVisible();
   } finally {

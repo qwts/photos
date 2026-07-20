@@ -33,6 +33,8 @@ export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedA
   const [generation, setGeneration] = useState(0);
   const relockedRef = useRef(false);
   const requestRef = useRef(0);
+  const favoritePendingRef = useRef<ReadonlySet<string>>(new Set());
+  const [favoritePending, setFavoritePending] = useState<ReadonlySet<string>>(() => new Set());
   const requestKey = `${albumId}\0${query}\0${generation}`;
   const loading = loadedKey !== requestKey || loadingMore;
 
@@ -148,6 +150,26 @@ export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedA
                 favorite={photo.favorite}
                 showStatus={false}
                 onClick={() => setFocusedId(photo.id)}
+                favoritePending={favoritePending.has(photo.id)}
+                onToggleFavorite={() => {
+                  if (favoritePendingRef.current.has(photo.id)) return;
+                  const pending = new Set(favoritePendingRef.current);
+                  pending.add(photo.id);
+                  favoritePendingRef.current = pending;
+                  setFavoritePending(pending);
+                  void window.overlook.protectedAlbums
+                    .toggleFavorite({ albumId, photoId: photo.id })
+                    .then(({ favorite }) => {
+                      setPhotos((current) => current.map((item) => (item.id === photo.id ? { ...item, favorite } : item)));
+                    })
+                    .catch(unavailable)
+                    .finally(() => {
+                      const remaining = new Set(favoritePendingRef.current);
+                      remaining.delete(photo.id);
+                      favoritePendingRef.current = remaining;
+                      setFavoritePending(remaining);
+                    });
+                }}
               />
             )}
           />
