@@ -57,6 +57,16 @@ export function useDialogPresence(open: boolean, onClose: (() => void) | undefin
     if (panel !== null && !panel.contains(active)) panel.focus();
   }, [open, panelRef]);
 
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel === null) return;
+    if (closing) panel.setAttribute('inert', '');
+    else panel.removeAttribute('inert');
+    return () => {
+      panel.removeAttribute('inert');
+    };
+  }, [closing, panelRef]);
+
   useEffect(
     () => () => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
