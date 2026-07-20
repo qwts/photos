@@ -125,7 +125,7 @@
 }
 
 .ovl-lightbox__zoom {
-  left: calc(50% + 88px);
+  inset-inline-start: calc(50% + 88px);
   translate: 0 0;
 }
 
@@ -151,7 +151,7 @@
 .ovl-lightbox__preview {
   position: absolute;
   top: calc(64px + var(--space-2));
-  right: var(--space-3);
+  inset-inline-end: var(--space-3);
   color: var(--text-faint);
   font: var(--type-meta);
   letter-spacing: 0.04em;
@@ -283,6 +283,7 @@
 
 @container (max-width: 720px) {
   .ovl-lightbox__zoom {
+    inset-inline-start: auto;
     left: 50%;
     translate: -50% -82px;
   }
@@ -309,5 +310,5 @@
 /* Inspector docked (#94): the overlay yields the right rail so the truth
  * panel sits beside the photo, exactly like the mock's flex row. */
 .ovl-lightbox--docked {
-  right: var(--inspector-w);
+  inset-inline-end: var(--inspector-w);
 }

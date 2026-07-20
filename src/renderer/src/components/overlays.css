@@ -131,7 +131,7 @@
 
 .ovl-toast-host {
   position: absolute;
-  right: var(--space-6);
+  inset-inline-end: var(--space-6);
   bottom: var(--space-6);
   z-index: 300;
   display: flex;

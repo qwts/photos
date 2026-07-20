@@ -58,6 +58,8 @@ import {
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 
+import './icon.css';
+
 // The design system's fixed icon vocabulary (DS readme §ICONOGRAPHY) — using
 // any other glyph is a type error, not a review comment. No emoji, no icon
 // fonts, no ad-hoc SVGs, no CDN: lucide-react is bundled and tree-shaken.
@@ -121,6 +123,17 @@ export const ICON_NAMES = [
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
+
+/** Directional navigation glyphs mirror in RTL. Physical operations such as
+ * rotate and flip are deliberately excluded (ADR-0020 §5). */
+export const RTL_MIRRORED_ICON_NAMES = [
+  'arrow-left',
+  'chevron-left',
+  'chevron-right',
+  'panel-left-close',
+  'panel-left-open',
+] as const satisfies readonly IconName[];
+const RTL_MIRRORED_ICONS = new Set<IconName>(RTL_MIRRORED_ICON_NAMES);
 
 // `satisfies` proves every vocabulary name has a glyph and no extras exist.
 const ICONS = {
@@ -202,5 +215,15 @@ export interface IconProps {
 
 export function Icon({ name, size = 16, color = 'currentColor', strokeWidth = 1.75 }: IconProps): ReactElement {
   const Glyph = ICONS[name];
-  return <Glyph size={size} strokeWidth={strokeWidth} color={color} aria-hidden style={{ flex: 'none' }} />;
+  return (
+    <Glyph
+      className={RTL_MIRRORED_ICONS.has(name) ? 'ovl-icon--mirror-rtl' : undefined}
+      data-icon-name={name}
+      size={size}
+      strokeWidth={strokeWidth}
+      color={color}
+      aria-hidden
+      style={{ flex: 'none' }}
+    />
+  );
 }

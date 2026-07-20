@@ -44,6 +44,14 @@ test('language setting applies live and propagates RTL direction without restart
     await expect(page.locator('html')).toHaveAttribute('lang', 'en-XB');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('button', { name: /⟪.*⟫/u }).first()).toBeVisible();
+    const tilePositions = await page
+      .locator('.ovl-grid__cell')
+      .evaluateAll((tiles) =>
+        tiles
+          .slice(0, 2)
+          .map((tile) => (tile as unknown as { getBoundingClientRect(): { readonly left: number } }).getBoundingClientRect().left),
+      );
+    expect(tilePositions[0]).toBeGreaterThan(tilePositions[1] ?? Number.POSITIVE_INFINITY);
 
     await page.evaluate(`window.overlook.settings.set({ patch: { language: 'en' } })`);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');

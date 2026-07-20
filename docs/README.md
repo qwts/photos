@@ -23,6 +23,7 @@ existing links resolve — never add content there.
 ## Canonical Documentation Groups
 
 - [Testing Strategy](./Testing-Strategy.md) — test lanes, coverage floors, when each lane must grow
+- [Localization Workflow](./Localization.md) — adding and reviewing catalogs, pseudo-locales, and RTL evidence
 - [Architecture Decision Records](./adr/Architecture-Decision-Records.md) — ADR index + template
 - [Deterministic Reviewed Sync acceptance](./acceptance/Acceptance-Test-Deterministic-Reviewed-Sync.md) — replay, conflict, tombstone, and restart evidence
 - [Security Review M11](./Security-Review-M11.md) — crypto/IPC/plaintext audit (#129) + accepted deviations

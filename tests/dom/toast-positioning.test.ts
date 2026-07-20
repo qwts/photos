@@ -7,7 +7,7 @@ afterEach(() => {
   document.head.replaceChildren();
 });
 
-test('shell toast positioning wins when generic host CSS loads later (#536)', () => {
+test('shell toast inline-end positioning wins when generic host CSS loads later (#536, #405)', () => {
   const tokens = document.createElement('style');
   tokens.textContent = `:root {
     --space-4: 16px;
@@ -27,7 +27,7 @@ test('shell toast positioning wins when generic host CSS loads later (#536)', ()
   document.body.append(host);
 
   const style = getComputedStyle(host);
-  assert.equal(style.right, '16px');
+  assert.equal(style.insetInlineEnd, '16px');
   assert.equal(style.bottom, 'calc(28px + 32px + 32px)');
   assert.equal(style.zIndex, '10');
 });

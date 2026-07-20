@@ -120,6 +120,27 @@ export const Expanded: Story = {
   },
 };
 
+export const RightToLeft: Story = {
+  globals: { locale: 'en-XB' },
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(canvasElement.ownerDocument.documentElement).toHaveAttribute('dir', 'rtl'));
+    const sidebar = canvasElement.querySelector('.ovl-sidebar');
+    await expect(sidebar).not.toBeNull();
+    const hostBounds = canvasElement.getBoundingClientRect();
+    const sidebarBounds = sidebar?.getBoundingClientRect();
+    await expect(sidebarBounds?.right).toBeCloseTo(hostBounds.right, 0);
+    const collapseIcon = canvasElement.querySelector<SVGElement>('[data-icon-name="panel-left-close"]');
+    await expect(collapseIcon).not.toBeNull();
+    await expect(window.getComputedStyle(collapseIcon as SVGElement).transform).not.toBe('none');
+  },
+};
+
 export const CollapseAndExpand: Story = {
   loaders: [
     () => {

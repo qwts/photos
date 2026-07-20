@@ -574,6 +574,15 @@ export const GeneralSection: Story = {
     await userEvent.click(body.getByRole('radio', { name: 'Name' }));
     await waitFor(() => expect(body.getByRole('radio', { name: 'Name' })).toBeChecked());
 
+    // Language uses the persisted profile setting and keeps system default as
+    // the explicit null choice. A change is applied without closing Settings.
+    const language = body.getByRole('combobox', { name: 'Language' });
+    await expect(language).toHaveValue('');
+    await userEvent.selectOptions(language, 'en');
+    await waitFor(() => expect(language).toHaveValue('en'));
+    await userEvent.selectOptions(language, '');
+    await waitFor(() => expect(language).toHaveValue(''));
+
     // Appearance: dark on, Light rendered but disabled, hint present.
     await expect(body.getByRole('radio', { name: 'Dark' })).toBeChecked();
     await expect(body.getByRole('radio', { name: 'Light' })).toBeDisabled();

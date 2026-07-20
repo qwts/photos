@@ -4,6 +4,7 @@ import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import type { MessageDescriptor } from 'react-intl';
 
 import { useFormats } from '../i18n/use-formats.js';
+import { directionOf } from '../../../shared/i18n/locales.js';
 import type { AlbumSummary, LibraryStats, SourceCounts, SourceFilter } from '../../../shared/library/types.js';
 import { Icon, type IconName } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
@@ -83,6 +84,7 @@ function SideRow({
   onOpenActions,
   statusLabel,
 }: SideRowProps): ReactElement {
+  const direction = directionOf(useIntl().locale);
   const { formatCount } = useFormats();
   const detail = statusLabel ?? (count === null ? null : formatCount(count));
   const hint = detail === null ? label : `${label} · ${detail}`;
@@ -111,7 +113,7 @@ function SideRow({
               if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
                 event.preventDefault();
                 const bounds = event.currentTarget.getBoundingClientRect();
-                onOpenActions({ x: bounds.right + 4, y: bounds.top }, event.currentTarget);
+                onOpenActions({ x: direction === 'rtl' ? bounds.left - 214 : bounds.right + 4, y: bounds.top }, event.currentTarget);
               }
             }
       }
@@ -124,9 +126,9 @@ function SideRow({
     </button>
   );
   // The rail keeps every destination reachable: the hidden label (and count)
-  // move into a right-side tooltip, unclipped by the nav's own overflow.
+  // move into an inline-end tooltip, unclipped by the nav's own overflow.
   return collapsed ? (
-    <Tooltip label={hint} side="right">
+    <Tooltip label={hint} side={direction === 'rtl' ? 'left' : 'right'}>
       {row}
     </Tooltip>
   ) : (
@@ -155,6 +157,8 @@ export interface SidebarProps {
 // live aggregate bar while a backup runs (#108), and the mono storage line.
 export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbums = [], onProtectedOpen }: SidebarProps): ReactElement {
   const intl = useIntl();
+  const direction = directionOf(intl.locale);
+  const inlineEndSide = direction === 'rtl' ? 'left' : 'right';
   const { formatBytes, formatCount } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -206,7 +210,7 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
   return (
     <nav className={`ovl-sidebar${collapsed ? ' ovl-sidebar--collapsed' : ''}`} aria-label={intl.formatMessage(messages.nav)}>
       <div className="ovl-sidebar__toggle-row">
-        <Tooltip label={intl.formatMessage(collapsed ? messages.expand : messages.collapse)} side="right">
+        <Tooltip label={intl.formatMessage(collapsed ? messages.expand : messages.collapse)} side={inlineEndSide}>
           <button
             type="button"
             className="ovl-sidebar__toggle"
@@ -319,7 +323,7 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
               onClick={(event) => {
                 const bounds = event.currentTarget.getBoundingClientRect();
                 albumActionOriginRef.current = event.currentTarget;
-                setAlbumMenu({ album, x: bounds.right - 190, y: bounds.bottom + 4 });
+                setAlbumMenu({ album, x: direction === 'rtl' ? bounds.left : bounds.right - 190, y: bounds.bottom + 4 });
               }}
             >
               <Icon name="sliders-horizontal" size={12} />
@@ -429,7 +433,7 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
               ? intl.formatMessage({ id: 'sidebar.encrypted.backingUp', defaultMessage: 'Library encrypted · backing up' })
               : intl.formatMessage(messages.encrypted)
           }
-          side="right"
+          side={inlineEndSide}
         >
           <button
             type="button"
