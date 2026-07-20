@@ -254,6 +254,10 @@
         {
           "type": "unit-dom",
           "path": "tests/lightbox/lightbox-geometry.test.ts"
+        },
+        {
+          "type": "manual",
+          "reason": "Issue #499 visual parity uses the immutable 924x540 design/handoff/references/06-lightbox-default-contain.png source plus the measured HandoffTransformToolbar story and docs/acceptance/acceptance-test-full-display-image.md for side-by-side, Inspector, 200% zoom, focus-state, and reduced-motion review."
         }
       ]
     },
