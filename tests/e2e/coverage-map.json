@@ -1065,8 +1065,12 @@
           "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
         },
         {
+          "type": "unit-dom",
+          "path": "tests/dom/lightbox-drag-region.test.ts"
+        },
+        {
           "type": "manual",
-          "reason": "The #270 drag-region carve-out has no honest automated assertion (native drag interception; computed style normalizes either way) - owner-verified in the packaged app."
+          "reason": "The #270/#577 CSS region contracts and toolbar actions are automated, but native OS drag interception cannot be synthesized honestly - owner verifies window movement in the packaged app."
         }
       ]
     },

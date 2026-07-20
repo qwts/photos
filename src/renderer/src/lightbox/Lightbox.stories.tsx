@@ -75,6 +75,7 @@ const meta: Meta<typeof Lightbox> = {
     inspectorOpen: false,
     onToggleInspector: fn(),
     onExport: fn(),
+    onTransfer: fn(),
     onOffload: fn(),
     onRepairDimensions: fn(),
     onDelete: fn(),
@@ -131,6 +132,29 @@ export const CloseButton: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Close (Esc)' }));
     await expect(args.onClose).toHaveBeenCalled();
+  },
+};
+
+export const ToolbarButtonsRemainInteractive: Story = {
+  args: { photo: { ...PHOTO, syncState: 'synced' } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Back to library (Esc)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Favorite' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Export' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Transfer & Sync' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Offload original' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Inspector (I)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Delete' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Close (Esc)' }));
+
+    await expect(args.onClose).toHaveBeenCalledTimes(2);
+    await expect(args.onToggleFavorite).toHaveBeenCalledTimes(1);
+    await expect(args.onExport).toHaveBeenCalledTimes(1);
+    await expect(args.onTransfer).toHaveBeenCalledTimes(1);
+    await expect(args.onOffload).toHaveBeenCalledTimes(1);
+    await expect(args.onToggleInspector).toHaveBeenCalledTimes(1);
+    await expect(args.onDelete).toHaveBeenCalledTimes(1);
   },
 };
 
