@@ -1,5 +1,15 @@
 # photos
 
+## 0.35.0
+
+### Minor Changes
+
+- 71ffe34: Hide every lightbox overlay when the displayed image or empty full-view space is clicked, and wake the controls on pointer, keyboard, or focus activity.
+
+### Patch Changes
+
+- b048589: Keep Settings at a stable bounded size while provider data loads, scroll only its active content pane, and animate dialog entry and exit with reduced-motion support.
+
 ## 0.34.2
 
 ### Patch Changes
