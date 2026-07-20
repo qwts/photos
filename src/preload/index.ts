@@ -186,6 +186,8 @@ const overlook: OverlookApi = {
     move: createInvoker(channels.libraryRelocationMove, invokeTransport),
     probeMove: createInvoker(channels.libraryRelocationPreflight, invokeTransport),
     cancelMove: createInvoker(channels.libraryRelocationCancel, invokeTransport),
+    resumeMove: createInvoker(channels.libraryRelocationResume, invokeTransport),
+    discardMove: createInvoker(channels.libraryRelocationDiscard, invokeTransport),
     finishMoveCleanup: createInvoker(channels.libraryRelocationFinishCleanup, invokeTransport),
     pendingMoves: async () => libraryRelocationPending({}),
     onMoveProgress: createSubscriber(events.relocationProgress, subscribeTransport),

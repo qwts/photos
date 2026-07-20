@@ -136,7 +136,12 @@ export function createLibraryLifecycle(deps: LibraryLifecycleDeps): LibraryLifec
   const settleRelocationJournals = async (): Promise<void> => {
     try {
       for (const report of await recoverRelocations(engineDeps())) {
-        if (report.action !== 'cleanup-finished' && report.action !== 'discarded' && report.action !== 'commit-completed') {
+        if (
+          report.action !== 'cleanup-finished' &&
+          report.action !== 'discarded' &&
+          report.action !== 'commit-completed' &&
+          report.action !== 'resume-available'
+        ) {
           console.error('[overlook] relocation recovery', report.libraryId, report.action, report.detail ?? '');
         }
       }

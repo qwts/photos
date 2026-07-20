@@ -110,7 +110,7 @@ test('ACCEPTANCE: the ACTIVE library moves (copy mode), reopens from the destina
   }
 });
 
-test('ACCEPTANCE: a crash at every §4 boundary leaves exactly one authoritative, usable library (#483 acceptance 6)', async () => {
+test('ACCEPTANCE: pre-commit crashes offer verified resume; post-commit recovery finishes automatically (#483/#559)', async () => {
   test.setTimeout(300_000);
   for (const point of ['after-copy', 'after-verify', 'after-activate', 'after-commit'] as const) {
     const userData = mkE2eTmpDir(`overlook-e2e-reloc-crash-${point}-`);
@@ -126,10 +126,9 @@ test('ACCEPTANCE: a crash at every §4 boundary leaves exactly one authoritative
     await moveLibrary(page, secondId, dest);
     await exited;
 
-    // Relaunch clean: startup recovery settles the journal before anything
-    // opens (ADR-0022 §2). Pre-commit faults leave the SOURCE authoritative
-    // with destination-side staging discarded; the post-commit fault leaves
-    // the DESTINATION authoritative with the source cleaned up.
+    // Relaunch clean: pre-commit copy staging stays inert and explicit; the
+    // source remains authoritative until Resume re-verifies and commits it.
+    // The post-commit fault still finishes cleanup automatically.
     const app = await launch(userData);
     try {
       const relaunched = await app.firstWindow();
@@ -138,7 +137,17 @@ test('ACCEPTANCE: a crash at every §4 boundary leaves exactly one authoritative
       const preCommit = point !== 'after-commit';
       expect(after?.path).toBe(preCommit ? sourcePath : dest);
       expect(existsSync(preCommit ? sourcePath : dest)).toBe(true);
-      expect(existsSync(preCommit ? dest : sourcePath)).toBe(false);
+      if (preCommit) {
+        await expect(relaunched.getByTestId('move-resume-banner')).toBeVisible();
+        await expect(relaunched.getByText(`${sourcePath} → ${dest}`)).toBeVisible();
+        await relaunched.getByTestId('move-banner-resume').click();
+        await expect(relaunched.getByTestId('move-resume-banner')).toBeHidden();
+        expect(await libraryPath(relaunched, secondId)).toMatchObject({ path: dest });
+        expect(existsSync(sourcePath)).toBe(false);
+        expect(existsSync(dest)).toBe(true);
+      } else {
+        expect(existsSync(sourcePath)).toBe(false);
+      }
       expect(existsSync(`${dest}.relocate-staging`)).toBe(false);
     } finally {
       await app.close();

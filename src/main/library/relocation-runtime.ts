@@ -1,8 +1,11 @@
 import {
+  discardRelocation,
   RelocationError,
   finishRelocationCleanup,
+  isRelocationResumable,
   probeRelocation,
   relocateLibrary,
+  resumeRelocation,
   type RelocationDeps,
   type RelocationProbe,
 } from './relocation-engine.js';
@@ -35,6 +38,7 @@ export interface RelocationPendingEntry {
   readonly sourcePath: string | null;
   readonly destPath: string | null;
   readonly corrupt: boolean;
+  readonly resumable: boolean;
 }
 
 export interface RelocationRuntimeOptions {
@@ -54,6 +58,8 @@ export interface RelocationRuntimeOptions {
   readonly emitProgress: (payload: RelocationProgress & { libraryId: string }) => void;
   /** Test seams; default to the real engine. */
   readonly relocate?: typeof relocateLibrary;
+  readonly resume?: typeof resumeRelocation;
+  readonly discard?: typeof discardRelocation;
   readonly finishCleanup?: typeof finishRelocationCleanup;
 }
 
@@ -136,6 +142,51 @@ export class RelocationRuntime {
     return true;
   }
 
+  async resume(id: string): Promise<RelocationMoveOutcome> {
+    if (this.running !== null) {
+      return { ok: false, reason: 'move-in-progress', detail: `a move is already running for library ${this.running.id}` };
+    }
+    const entry = this.options.engineDeps.registry.get(id);
+    const journal = this.options.engineDeps.journals.load(id);
+    if (entry === undefined || journal === null) return { ok: false, reason: 'io-error', detail: `library ${id} has no resumable move` };
+    const isActive = this.options.active.openLibraryId() === id;
+    if (isActive) {
+      const lockState = this.options.active.lockState();
+      if (lockState !== undefined && lockState !== 'unconfigured-unlocked' && lockState !== 'unlocked') {
+        return { ok: false, reason: 'app-locked', detail: 'unlock the library before resuming its move' };
+      }
+      if (this.options.active.providerBusy()) {
+        return { ok: false, reason: 'provider-busy', detail: 'backup or restore work is in flight' };
+      }
+    }
+
+    const controller = new AbortController();
+    this.running = { id, controller };
+    try {
+      if (isActive) await this.options.active.closeLibrary();
+      try {
+        const result = await (this.options.resume ?? resumeRelocation)(this.options.engineDeps, {
+          libraryId: id,
+          signal: controller.signal,
+          onProgress: (progress) => this.options.emitProgress({ ...progress, libraryId: id }),
+        });
+        return { ok: true, ...result, sourcePath: journal.sourcePath, destPath: journal.destPath };
+      } catch (error) {
+        if (error instanceof RelocationError) return { ok: false, reason: error.reason, detail: error.message };
+        throw error;
+      } finally {
+        if (isActive) await this.options.active.reactivate(id);
+      }
+    } finally {
+      this.running = null;
+    }
+  }
+
+  async discard(id: string): Promise<'discarded' | 'nothing-pending'> {
+    if (this.running?.id === id) return 'nothing-pending';
+    return (this.options.discard ?? discardRelocation)(this.options.engineDeps, id);
+  }
+
   async finishCleanup(id: string): Promise<'cleaned' | 'nothing-pending'> {
     return (this.options.finishCleanup ?? finishRelocationCleanup)(this.options.engineDeps, id);
   }
@@ -150,7 +201,7 @@ export class RelocationRuntime {
   pending(): RelocationPendingEntry[] {
     return this.options.engineDeps.journals.list().map((item) => {
       if (item.journal instanceof Error) {
-        return { libraryId: item.libraryId, state: null, sourcePath: null, destPath: null, corrupt: true };
+        return { libraryId: item.libraryId, state: null, sourcePath: null, destPath: null, corrupt: true, resumable: false };
       }
       return {
         libraryId: item.libraryId,
@@ -158,6 +209,7 @@ export class RelocationRuntime {
         sourcePath: item.journal.sourcePath,
         destPath: item.journal.destPath,
         corrupt: false,
+        resumable: isRelocationResumable(item.journal),
       };
     });
   }

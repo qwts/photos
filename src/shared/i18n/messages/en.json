@@ -17,8 +17,14 @@
   "libmove.badge.waiting": {
     "defaultMessage": "Waiting"
   },
+  "libmove.banner.actionFailed": {
+    "defaultMessage": "The recovery action could not be completed."
+  },
   "libmove.banner.corrupt": {
     "defaultMessage": "A library move journal is damaged. Nothing was changed — both locations are untouched."
+  },
+  "libmove.banner.discard": {
+    "defaultMessage": "Discard staged copy"
   },
   "libmove.banner.dismiss": {
     "defaultMessage": "Dismiss"
@@ -26,11 +32,20 @@
   "libmove.banner.finishCleanup": {
     "defaultMessage": "Finish cleanup"
   },
+  "libmove.banner.interrupted": {
+    "defaultMessage": "A library move was interrupted. Discard the staged copy, or resume after its existing files are verified."
+  },
+  "libmove.banner.notResumable": {
+    "defaultMessage": "The staged copy cannot be verified for resume. The original library is still authoritative."
+  },
   "libmove.banner.paths": {
     "defaultMessage": "{from} → {to}"
   },
   "libmove.banner.pending": {
     "defaultMessage": "A finished library move still has its original in place. Both copies are verified — finishing removes the original."
+  },
+  "libmove.banner.resume": {
+    "defaultMessage": "Resume"
   },
   "libmove.error.didNotReport": {
     "defaultMessage": "The move did not report back."

@@ -81,6 +81,19 @@ export type RelocationFailureReason = z.infer<typeof relocationFailureReasonSche
 export const relocationOutcomeSchema = z.enum(['moved', 'moved-cleanup-pending']);
 export type RelocationOutcome = z.infer<typeof relocationOutcomeSchema>;
 
+export const relocationMoveResponseSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    outcome: relocationOutcomeSchema,
+    mode: relocationModeSchema,
+    items: z.number().int().nonnegative(),
+    bytes: z.number().int().nonnegative(),
+    sourcePath: z.string(),
+    destPath: z.string(),
+  }),
+  z.object({ ok: z.literal(false), reason: relocationFailureReasonSchema, detail: z.string() }),
+]);
+
 export interface RelocationResult {
   readonly outcome: RelocationOutcome;
   readonly mode: RelocationMode;

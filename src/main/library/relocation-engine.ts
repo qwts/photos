@@ -108,6 +108,12 @@ export interface RelocateOptions {
   readonly onProgress?: (progress: RelocationProgress) => void;
 }
 
+export interface ResumeRelocationOptions {
+  readonly libraryId: string;
+  readonly signal?: AbortSignal;
+  readonly onProgress?: (progress: RelocationProgress) => void;
+}
+
 const defaultRmrf = (target: string): Promise<void> => rm(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
 
 function opsOf(deps: RelocationDeps): { rename: typeof rename; rmrf: (target: string) => Promise<void> } {
@@ -335,6 +341,107 @@ async function verifyStaging(
   await deps.verifyOpenable?.(stagingDir);
 }
 
+interface CopyProgress {
+  readonly digests: Map<string, string>;
+  readonly copiedItems: number;
+  readonly copiedBytes: number;
+}
+
+async function inspectStagedFiles(
+  sourceDir: string,
+  stagingDir: string,
+  files: readonly SourceFile[],
+  signal: AbortSignal | undefined,
+): Promise<CopyProgress> {
+  const sourceByPath = new Map(files.map((file) => [file.rel, file]));
+  const staged = await walkSource(stagingDir);
+  const digests = new Map<string, string>();
+  let copiedItems = 0;
+  let copiedBytes = 0;
+
+  for (const stagedFile of staged) {
+    throwIfCancelled(signal);
+    const sourceFile = sourceByPath.get(stagedFile.rel);
+    if (sourceFile === undefined) {
+      throw new RelocationError('verification-failed', `unexpected staged file: ${stagedFile.rel}`);
+    }
+    const stagedPath = path.join(stagingDir, stagedFile.rel);
+    if (stagedFile.size !== sourceFile.size) {
+      await rm(stagedPath, { force: true });
+      continue;
+    }
+    const sourceDigest = await hashFile(path.join(sourceDir, sourceFile.rel));
+    if ((await hashFile(stagedPath)) !== sourceDigest) {
+      await rm(stagedPath, { force: true });
+      continue;
+    }
+    digests.set(stagedFile.rel, sourceDigest);
+    copiedItems += 1;
+    copiedBytes += sourceFile.size;
+  }
+  return { digests, copiedItems, copiedBytes };
+}
+
+async function copyAndVerify(
+  deps: RelocationDeps,
+  journal: RelocationJournal,
+  files: readonly SourceFile[],
+  totalBytes: number,
+  options: ResumeRelocationOptions,
+  initial: CopyProgress,
+  stagingDir = journal.stagingPath,
+): Promise<void> {
+  const totals = { totalItems: files.length, totalBytes };
+  const digests = initial.digests;
+  let copiedItems = initial.copiedItems;
+  let copiedBytes = initial.copiedBytes;
+  const emit = (progress: RelocationProgress): void => options.onProgress?.(progress);
+
+  emit({ phase: 'copying', copiedItems, copiedBytes, ...totals });
+  for (const file of files) {
+    if (digests.has(file.rel)) continue;
+    throwIfCancelled(options.signal);
+    digests.set(file.rel, await copyFileHashed(path.join(journal.sourcePath, file.rel), path.join(stagingDir, file.rel)));
+    copiedItems += 1;
+    copiedBytes += file.size;
+    emit({ phase: 'copying', copiedItems, copiedBytes, ...totals });
+  }
+  faultPoint(deps, 'after-copy');
+  await verifyStaging(deps, stagingDir, journal.libraryId, files, digests, options.signal, (done) =>
+    emit({ phase: 'verifying', copiedItems: done, copiedBytes, ...totals }),
+  );
+  if (journal.state === 'copying') deps.journals.advance(journal, 'verified');
+  faultPoint(deps, 'after-verify');
+}
+
+async function commitAndCleanup(
+  deps: RelocationDeps,
+  journal: RelocationJournal,
+  totals: { readonly totalItems: number; readonly totalBytes: number },
+  emit: (progress: RelocationProgress) => void,
+): Promise<RelocationResult> {
+  const ops = opsOf(deps);
+  emit({ phase: 'committing', copiedItems: totals.totalItems, copiedBytes: totals.totalBytes, ...totals });
+  deps.registry.updatePath(journal.libraryId, journal.destPath);
+  deps.journals.advance(journal, 'committed');
+  faultPoint(deps, 'after-commit');
+  await rm(path.join(journal.destPath, RELOCATION_MARKER_FILENAME), { force: true });
+  await rm(lockPath(journal.destPath), { force: true });
+
+  const result = { mode: journal.mode, items: totals.totalItems, bytes: totals.totalBytes };
+  if (journal.mode === 'copy') {
+    emit({ phase: 'cleaning', copiedItems: totals.totalItems, copiedBytes: totals.totalBytes, ...totals });
+    try {
+      await ops.rmrf(journal.sourcePath);
+    } catch {
+      return { outcome: 'moved-cleanup-pending', ...result };
+    }
+  }
+  deps.journals.advance(journal, 'cleaned');
+  deps.journals.clear(journal.libraryId);
+  return { outcome: 'moved', ...result };
+}
+
 /** Moves an inactive, unlocked library per ADR-0022 §4. The caller owns
  * quiescing an ACTIVE library first (teardown → this → reopen). */
 export async function relocateLibrary(deps: RelocationDeps, options: RelocateOptions): Promise<RelocationResult> {
@@ -403,22 +510,11 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
         await mkdir(journal.stagingPath, { recursive: true });
         await writeMarker(journal.stagingPath, marker);
 
-        const digests = new Map<string, string>();
-        let copiedItems = 0;
-        let copiedBytes = 0;
-        for (const file of plan.files) {
-          throwIfCancelled(options.signal);
-          digests.set(file.rel, await copyFileHashed(path.join(plan.sourceDir, file.rel), path.join(journal.stagingPath, file.rel)));
-          copiedItems += 1;
-          copiedBytes += file.size;
-          emit({ phase: 'copying', copiedItems, copiedBytes, ...totals });
-        }
-        faultPoint(deps, 'after-copy');
-        await verifyStaging(deps, journal.stagingPath, entry.id, plan.files, digests, options.signal, (done) =>
-          emit({ phase: 'verifying', copiedItems: done, copiedBytes, ...totals }),
-        );
-        deps.journals.advance(journal, 'verified');
-        faultPoint(deps, 'after-verify');
+        await copyAndVerify(deps, journal, plan.files, plan.totalBytes, options, {
+          digests: new Map(),
+          copiedItems: 0,
+          copiedBytes: 0,
+        });
 
         throwIfCancelled(options.signal);
         await removeIfEmptyDir(plan.destDir); // refuses content that appeared since preflight
@@ -441,30 +537,98 @@ export async function relocateLibrary(deps: RelocationDeps, options: RelocateOpt
     // Commit point (ADR-0022 §4 step 5): before this line the source is
     // authoritative; after it, the destination is. Recovery treats the
     // registry as the arbiter for a crash inside this sequence.
-    emit({ phase: 'committing', copiedItems: totals.totalItems, copiedBytes: totals.totalBytes, ...totals });
-    deps.registry.updatePath(entry.id, plan.destDir);
-    deps.journals.advance(journal, 'committed');
-    faultPoint(deps, 'after-commit');
-    await rm(path.join(plan.destDir, RELOCATION_MARKER_FILENAME), { force: true });
-    await rm(lockPath(plan.destDir), { force: true }); // rename mode: our own lock traveled with the directory
-
-    const result = { mode: plan.mode, items: totals.totalItems, bytes: totals.totalBytes };
-    if (plan.mode === 'copy') {
-      emit({ phase: 'cleaning', copiedItems: totals.totalItems, copiedBytes: totals.totalBytes, ...totals });
-      try {
-        await ops.rmrf(plan.sourceDir);
-      } catch {
-        // The one sanctioned two-copies end state: both verified, journal
-        // stays 'committed', retry finishes cleanup. Never guess.
-        return { outcome: 'moved-cleanup-pending', ...result };
-      }
-    }
-    deps.journals.advance(journal, 'cleaned');
-    deps.journals.clear(entry.id);
-    return { outcome: 'moved', ...result };
+    return await commitAndCleanup(deps, journal, totals, emit);
   } finally {
     release();
   }
+}
+
+function markerMatchesJournal(dir: string, journal: RelocationJournal): boolean {
+  const marker = readMarker(dir);
+  return marker !== null && marker.libraryId === journal.libraryId && marker.nonce === journal.nonce;
+}
+
+function resumableDirectory(journal: RelocationJournal): string | null {
+  if (existsSync(journal.stagingPath) && markerMatchesJournal(journal.stagingPath, journal)) return journal.stagingPath;
+  if (existsSync(journal.destPath) && markerMatchesJournal(journal.destPath, journal)) return journal.destPath;
+  return null;
+}
+
+export function isRelocationResumable(journal: RelocationJournal): boolean {
+  return journal.mode === 'copy' && (journal.state === 'copying' || journal.state === 'verified') && resumableDirectory(journal) !== null;
+}
+
+/** Explicitly resumes marker-bound copy staging. Already-staged files are
+ * trusted only after path, size, and SHA-256 agree with the authoritative
+ * source; incomplete or changed files are copied again. */
+export async function resumeRelocation(deps: RelocationDeps, options: ResumeRelocationOptions): Promise<RelocationResult> {
+  const journal = deps.journals.load(options.libraryId);
+  if (journal === null || journal.mode !== 'copy' || (journal.state !== 'copying' && journal.state !== 'verified')) {
+    throw new RelocationError('io-error', `library ${options.libraryId} has no resumable move`);
+  }
+  const entry = deps.registry.get(options.libraryId);
+  if (entry === undefined || path.resolve(entry.path) !== path.resolve(journal.sourcePath)) {
+    throw new RelocationError('verification-failed', 'the registry no longer points at the journal source');
+  }
+  const stagingDir = resumableDirectory(journal);
+  if (stagingDir === null) throw new RelocationError('verification-failed', 'no marker-bound staging directory exists');
+
+  let release: () => void;
+  try {
+    release = acquireLibraryLock(path.resolve(journal.sourcePath), deps.instanceId, deps.lockOptions);
+  } catch (error) {
+    if (error instanceof LibraryLockError) throw new RelocationError('locked', error.message);
+    throw error;
+  }
+
+  try {
+    const emit = (progress: RelocationProgress): void => options.onProgress?.(progress);
+    emit({ phase: 'preflight', copiedItems: 0, totalItems: 0, copiedBytes: 0, totalBytes: 0 });
+    const files = await walkSource(journal.sourcePath);
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    const existing = await inspectStagedFiles(journal.sourcePath, stagingDir, files, options.signal);
+    const remainingBytes = totalBytes - existing.copiedBytes;
+    const requiredBytes = remainingBytes === 0 ? 0 : remainingBytes + SCRATCH_BYTES;
+    const free = (deps.freeBytes ?? defaultFreeBytes)(path.dirname(journal.destPath));
+    if (free < requiredBytes) {
+      throw new RelocationError(
+        'insufficient-space',
+        `need ${String(requiredBytes)} bytes free to resume, destination has ${String(free)}`,
+      );
+    }
+
+    try {
+      await copyAndVerify(deps, journal, files, totalBytes, options, existing, stagingDir);
+      throwIfCancelled(options.signal);
+      if (path.resolve(stagingDir) !== path.resolve(journal.destPath)) {
+        await removeIfEmptyDir(journal.destPath);
+        await opsOf(deps).rename(stagingDir, journal.destPath);
+        faultPoint(deps, 'after-activate');
+      }
+    } catch (error) {
+      await discardRelocation(deps, options.libraryId);
+      throw error instanceof RelocationError
+        ? error
+        : new RelocationError('io-error', error instanceof Error ? error.message : String(error));
+    }
+    return await commitAndCleanup(deps, journal, { totalItems: files.length, totalBytes }, emit);
+  } finally {
+    release();
+  }
+}
+
+/** Discards only directories still bound to the live pre-commit journal. The
+ * authoritative source and any unmarked/mismatched path are never touched. */
+export async function discardRelocation(deps: RelocationDeps, libraryId: string): Promise<'discarded' | 'nothing-pending'> {
+  const journal = deps.journals.load(libraryId);
+  if (journal === null || journal.mode !== 'copy' || (journal.state !== 'copying' && journal.state !== 'verified')) {
+    return 'nothing-pending';
+  }
+  const ops = opsOf(deps);
+  if (existsSync(journal.stagingPath) && markerMatchesJournal(journal.stagingPath, journal)) await ops.rmrf(journal.stagingPath);
+  if (existsSync(journal.destPath) && markerMatchesJournal(journal.destPath, journal)) await ops.rmrf(journal.destPath);
+  deps.journals.clear(libraryId);
+  return 'discarded';
 }
 
 export type RelocationProbe =
@@ -520,7 +684,8 @@ export async function finishRelocationCleanup(deps: RelocationDeps, libraryId: s
   return 'cleaned';
 }
 
-export type RecoveryAction = 'discarded' | 'commit-completed' | 'cleanup-finished' | 'cleanup-pending' | 'corrupt-journal' | 'inconsistent';
+export type RecoveryAction =
+  'resume-available' | 'discarded' | 'commit-completed' | 'cleanup-finished' | 'cleanup-pending' | 'corrupt-journal' | 'inconsistent';
 
 export interface RecoveryReport {
   readonly libraryId: string;
@@ -528,9 +693,9 @@ export interface RecoveryReport {
   readonly detail?: string;
 }
 
-/** Startup recovery (ADR-0022 §2): acts only on what journals record. Pre-
- * commit interruptions discard staging (resume arrives with the wizard
- * slice); post-commit interruptions finish cleanup. Disk state matching no
+/** Startup recovery (ADR-0022 §2): acts only on what journals record. Valid
+ * pre-commit copy staging is preserved for an explicit resume-or-discard
+ * choice; post-commit interruptions finish cleanup. Disk state matching no
  * journal is never touched. */
 export async function recoverRelocations(deps: RelocationDeps): Promise<RecoveryReport[]> {
   const reports: RecoveryReport[] = [];
@@ -545,12 +710,7 @@ export async function recoverRelocations(deps: RelocationDeps): Promise<Recovery
 }
 
 async function recoverOne(deps: RelocationDeps, journal: RelocationJournal): Promise<RecoveryReport> {
-  const ops = opsOf(deps);
   const { libraryId } = journal;
-  const markerMatches = (dir: string): boolean => {
-    const marker = readMarker(dir);
-    return marker !== null && marker.libraryId === libraryId && marker.nonce === journal.nonce;
-  };
   const registryAtDest = path.resolve(deps.registry.get(libraryId)?.path ?? '') === path.resolve(journal.destPath);
 
   if (journal.state === 'cleaned') {
@@ -570,19 +730,11 @@ async function recoverOne(deps: RelocationDeps, journal: RelocationJournal): Pro
     }
   }
 
-  // Pre-commit: the source is authoritative. Discard destination-side state,
-  // but only state the marker proves is ours (ADR-0022 §3).
+  // Pre-commit copy staging remains inert until the user explicitly chooses
+  // Resume or Discard. The marker+journal binding is the only resume signal.
   if (journal.mode === 'copy') {
-    if (existsSync(journal.stagingPath) && markerMatches(journal.stagingPath)) {
-      await ops.rmrf(journal.stagingPath);
-    }
-    if (existsSync(journal.destPath) && markerMatches(journal.destPath)) {
-      // Crash between activation rename and commit: still marker-bound, still
-      // staging, and the source is intact — discard.
-      await ops.rmrf(journal.destPath);
-    }
-    deps.journals.clear(libraryId);
-    return { libraryId, action: 'discarded' };
+    if (resumableDirectory(journal) !== null) return { libraryId, action: 'resume-available' };
+    return { libraryId, action: 'inconsistent', detail: 'no marker-bound staging directory exists' };
   }
 
   // Rename mode: exactly one directory holds the library.
@@ -591,7 +743,7 @@ async function recoverOne(deps: RelocationDeps, journal: RelocationJournal): Pro
     deps.journals.clear(libraryId);
     return { libraryId, action: 'discarded' };
   }
-  if (existsSync(journal.destPath) && markerMatches(journal.destPath)) {
+  if (existsSync(journal.destPath) && markerMatchesJournal(journal.destPath, journal)) {
     // The rename happened; only one copy exists, so the journal rolls the
     // commit forward (ADR-0022 §4 — the journal wins).
     const destId = (await readFile(path.join(journal.destPath, 'library-id'), 'utf8').catch(() => '')).trim();
