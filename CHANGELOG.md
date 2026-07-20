@@ -1,5 +1,11 @@
 # photos
 
+## 0.36.2
+
+### Patch Changes
+
+- a06f851: Keep full-resolution lightbox transitions stable with delayed loading feedback, decode-gated display, and explicit failure states.
+
 ## 0.36.1
 
 ### Patch Changes
