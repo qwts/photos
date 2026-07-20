@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 
 import './phototile.css';
 import type { PreviewFailureReason } from '../../../shared/library/preview.js';
+import { FavoriteButton } from './FavoriteButton';
 import { Icon } from './Icon';
 import { PhotoOpenButton } from './PhotoOpenButton';
 import { previewFailureLabel } from './previewFailureLabel';
@@ -20,6 +21,9 @@ export interface PhotoTileProps {
   readonly onClick?: () => void;
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect?: () => void;
+  /** Toggles Favorite (star only) — never opens or selects. */
+  readonly onToggleFavorite?: () => void;
+  readonly favoritePending?: boolean;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
@@ -47,6 +51,8 @@ export function PhotoTile({
   previewFailure,
   onClick,
   onToggleSelect,
+  onToggleFavorite,
+  favoritePending = false,
   onContextAction,
   onDragStart,
   onDragEnd,
@@ -101,11 +107,9 @@ export function PhotoTile({
           {selected ? <Icon name="check" size={12} strokeWidth={3} /> : null}
         </button>
       )}
-      {favorite ? (
-        <span className="ovl-tile__star">
-          <Icon name="star" size={13} strokeWidth={2} />
-        </span>
-      ) : null}
+      {onToggleFavorite === undefined ? null : (
+        <FavoriteButton favorite={favorite} pending={favoritePending} className="ovl-tile__favorite" onToggle={onToggleFavorite} />
+      )}
       {showStatus && status !== 'local' ? (
         <span className="ovl-tile__status">
           <StatusGlyph state={status} size={18} />

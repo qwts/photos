@@ -4,6 +4,7 @@ import './list.css';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import { Icon } from '../components/Icon';
+import { FavoriteButton } from '../components/FavoriteButton';
 import { PhotoOpenButton } from '../components/PhotoOpenButton';
 import { StatusGlyph } from '../components/StatusGlyph';
 
@@ -27,6 +28,9 @@ export interface ListRowProps {
   readonly onOpen: () => void;
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect: () => void;
+  /** Toggles Favorite (star only) — never opens or selects. */
+  readonly onToggleFavorite: () => void;
+  readonly favoritePending?: boolean;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
@@ -41,6 +45,8 @@ export function ListRow({
   selected,
   onOpen,
   onToggleSelect,
+  onToggleFavorite,
+  favoritePending = false,
   onContextAction,
   onDragStart,
   onDragEnd,
@@ -89,7 +95,7 @@ export function ListRow({
       </div>
       <div className="ovl-listrow__camera mono-data">{photo.camera ?? '—'}</div>
       <div className="ovl-listrow__size mono-data">{formatMb(photo.bytes)}</div>
-      {photo.favorite ? <Icon name="star" size={13} color="var(--text-muted)" /> : <span className="ovl-listrow__star-gap" />}
+      <FavoriteButton favorite={photo.favorite} pending={favoritePending} className="ovl-listrow__favorite" onToggle={onToggleFavorite} />
       <span className="ovl-listrow__status">
         <StatusGlyph state={photo.syncState} size={16} />
       </span>

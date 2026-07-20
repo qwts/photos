@@ -50,11 +50,18 @@ function Matrix(): ReactElement {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: 'var(--space-3)', maxWidth: 720 }}>
       {STATES.map((syncState, index) => (
         <div key={syncState} style={{ height: 52 }}>
-          <ListRow photo={photo(index, syncState, index === 0)} src={realPhoto} selected={false} onOpen={fn()} onToggleSelect={fn()} />
+          <ListRow
+            photo={photo(index, syncState, index === 0)}
+            src={realPhoto}
+            selected={false}
+            onOpen={fn()}
+            onToggleSelect={fn()}
+            onToggleFavorite={fn()}
+          />
         </div>
       ))}
       <div style={{ height: 52 }}>
-        <ListRow photo={photo(9, 'synced', true)} src={realPhoto} selected onOpen={fn()} onToggleSelect={fn()} />
+        <ListRow photo={photo(9, 'synced', true)} src={realPhoto} selected onOpen={fn()} onToggleSelect={fn()} onToggleFavorite={fn()} />
       </div>
     </div>
   );
@@ -66,6 +73,7 @@ export const StateMatrix: Story = {
 
 const onOpen = fn();
 const onToggle = fn();
+const onToggleFavorite = fn();
 const onContextAction = fn();
 
 // Same contract as PhotoTile (#77): the circle toggles without opening.
@@ -78,6 +86,7 @@ export const ClickTargetsAreIndependent: Story = {
         selected={false}
         onOpen={onOpen}
         onToggleSelect={onToggle}
+        onToggleFavorite={onToggleFavorite}
         onContextAction={onContextAction}
       />
     </div>
@@ -93,6 +102,13 @@ export const ClickTargetsAreIndependent: Story = {
     await expect(circle.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
     await userEvent.click(circle);
     await expect(onToggle).toHaveBeenCalledTimes(1);
+    await expect(onOpen).not.toHaveBeenCalled();
+    const favorite = canvas.getByRole('button', { name: 'Add to Favorites' });
+    await expect(favorite).toHaveAttribute('aria-pressed', 'false');
+    await expect(favorite.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
+    await expect(favorite.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
+    await userEvent.click(favorite);
+    await expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     await expect(onOpen).not.toHaveBeenCalled();
     await userEvent.click(row);
     await expect(onOpen).toHaveBeenCalledTimes(1);
