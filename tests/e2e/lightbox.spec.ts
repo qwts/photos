@@ -116,6 +116,8 @@ async function exerciseFillPersistence(page: Page, viewport: Locator, image: Loc
   await expect(viewport).toHaveAttribute('data-mode', 'fill');
   await expectLandscapeHeightFill(viewport, image);
   await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByTestId('lightbox')).toContainText('IMG_4021.JPG');
   await image.dblclick();
   await expect(viewport).toHaveAttribute('data-mode', 'fit');
 }
