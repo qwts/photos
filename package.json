@@ -72,6 +72,7 @@
     "test:stories:ci": "node scripts/run-guarded.mjs --label test:stories:ci --rss-mb 12288 --timeout-s 1800 -- npm run test:stories:ci:inner",
     "seed:dev": "OVERLOOK_SEED=96 electron-vite dev",
     "seed:perf": "OVERLOOK_SEED_SYNTHETIC=200000 electron-vite dev",
+    "benchmark:cold-storage": "node scripts/benchmark-cold-storage.mjs",
     "postinstall": "node scripts/ensure-electron-binary.mjs && electron-builder install-app-deps"
   },
   "devDependencies": {
