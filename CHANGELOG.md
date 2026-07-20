@@ -1,5 +1,12 @@
 # photos
 
+## 0.35.3
+
+### Patch Changes
+
+- 726d997: Make lightbox Fill consistently use window width for portraits and window height for landscapes.
+- 95d99f8: Show pending library moves as blocked during the move Review step.
+
 ## 0.35.2
 
 ### Patch Changes
