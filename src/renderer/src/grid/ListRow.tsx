@@ -1,4 +1,4 @@
-import type { DragEvent, ReactElement } from 'react';
+import type { DragEvent, KeyboardEvent, ReactElement } from 'react';
 
 import './list.css';
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -25,6 +25,10 @@ export interface ListRowProps {
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
+  readonly tabIndex?: 0 | -1 | undefined;
+  readonly gridFocusTarget?: true | undefined;
+  readonly onFocus?: (() => void) | undefined;
+  readonly onKeyDown?: ((event: KeyboardEvent<HTMLButtonElement>) => void) | undefined;
 }
 
 // Dense 52px row (#77) — the mock's ListRow: same selection contract as
@@ -42,6 +46,10 @@ export function ListRow({
   onContextAction,
   onDragStart,
   onDragEnd,
+  tabIndex,
+  gridFocusTarget,
+  onFocus,
+  onKeyDown,
 }: ListRowProps): ReactElement {
   const { formatBytes, formatCalendarDate } = useFormats();
   return (
@@ -53,6 +61,10 @@ export function ListRow({
         onContextAction={onContextAction}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
+        tabIndex={tabIndex}
+        gridFocusTarget={gridFocusTarget}
+        onFocus={onFocus}
+        onKeyDown={onKeyDown}
       />
       <button
         type="button"

@@ -1,4 +1,4 @@
-import type { DragEvent, ReactElement } from 'react';
+import type { DragEvent, KeyboardEvent, ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import { directionOf } from '../../../shared/i18n/locales.js';
@@ -10,9 +10,24 @@ export interface PhotoOpenButtonProps {
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
+  readonly tabIndex?: 0 | -1 | undefined;
+  readonly gridFocusTarget?: true | undefined;
+  readonly onFocus?: (() => void) | undefined;
+  readonly onKeyDown?: ((event: KeyboardEvent<HTMLButtonElement>) => void) | undefined;
 }
 
-export function PhotoOpenButton({ label, className, onOpen, onContextAction, onDragStart, onDragEnd }: PhotoOpenButtonProps): ReactElement {
+export function PhotoOpenButton({
+  label,
+  className,
+  onOpen,
+  onContextAction,
+  onDragStart,
+  onDragEnd,
+  tabIndex,
+  gridFocusTarget,
+  onFocus,
+  onKeyDown,
+}: PhotoOpenButtonProps): ReactElement {
   const direction = directionOf(useIntl().locale);
   return (
     <button
@@ -20,10 +35,13 @@ export function PhotoOpenButton({ label, className, onOpen, onContextAction, onD
       aria-label={label}
       aria-haspopup={onContextAction === undefined ? undefined : 'menu'}
       className={className}
+      tabIndex={tabIndex}
+      data-grid-focus-target={gridFocusTarget}
       draggable={onDragStart !== undefined}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={onOpen}
+      onFocus={onFocus}
       onContextMenu={
         onContextAction === undefined
           ? undefined
@@ -33,13 +51,15 @@ export function PhotoOpenButton({ label, className, onOpen, onContextAction, onD
             }
       }
       onKeyDown={
-        onContextAction === undefined
+        onContextAction === undefined && onKeyDown === undefined
           ? undefined
           : (event) => {
+              onKeyDown?.(event);
+              if (event.defaultPrevented) return;
               if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
                 event.preventDefault();
                 const bounds = event.currentTarget.getBoundingClientRect();
-                onContextAction({ x: direction === 'rtl' ? bounds.left - 224 : bounds.right + 4, y: bounds.top });
+                onContextAction?.({ x: direction === 'rtl' ? bounds.left - 224 : bounds.right + 4, y: bounds.top });
               }
             }
       }

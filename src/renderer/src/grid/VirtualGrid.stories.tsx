@@ -53,6 +53,8 @@ const PHOTOS = Array.from({ length: 60 }, (_, index) => photo(index));
 
 const onOpen = fn();
 const onToggle = fn();
+const onKeyboardOpen = fn();
+const onKeyboardSelection = fn();
 
 // #76 exit criteria: interaction tests for tile click vs select-circle AT
 // THE GRID LEVEL — the events must survive the engine's absolute-positioned
@@ -65,7 +67,7 @@ export const TileClickVsSelectCircle: Story = {
         total={PHOTOS.length}
         zoom={140}
         onNeedMore={fn()}
-        renderTile={(record) => (
+        renderTile={(record, _size, keyboard) => (
           <PhotoTile
             src={THUMBS[Number(record.id.slice(1)) % THUMBS.length] ?? landscapePhoto}
             alt={record.fileName}
@@ -78,8 +80,13 @@ export const TileClickVsSelectCircle: Story = {
             onToggleSelect={() => {
               onToggle(record.id);
             }}
+            {...keyboard}
           />
         )}
+        onKeyboardOpen={(record) => {
+          onKeyboardOpen(record.id);
+        }}
+        onKeyboardSelection={onKeyboardSelection}
       />
     </div>
   ),
@@ -93,6 +100,20 @@ export const TileClickVsSelectCircle: Story = {
     await expect(onOpen).not.toHaveBeenCalled();
     await userEvent.click(tile);
     await expect(onOpen).toHaveBeenCalledWith('P0');
+
+    tile.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    const second = canvas.getByRole('button', { name: 'Open IMG_1.JPG' });
+    await expect(second).toHaveFocus();
+    await expect(tile).toHaveAttribute('tabindex', '-1');
+    await expect(second).toHaveAttribute('tabindex', '0');
+
+    await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    const third = canvas.getByRole('button', { name: 'Open IMG_2.JPG' });
+    await expect(third).toHaveFocus();
+    await expect(onKeyboardSelection).toHaveBeenCalledWith(['P1', 'P2'], 'replace');
+    await userEvent.keyboard('{Enter}');
+    await expect(onKeyboardOpen).toHaveBeenCalledWith('P2');
   },
 };
 

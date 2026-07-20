@@ -1,4 +1,85 @@
 {
+  "commands.app.search.focus": {
+    "defaultMessage": "Focus search"
+  },
+  "commands.grid.focus.down": {
+    "defaultMessage": "Move focus down"
+  },
+  "commands.grid.focus.end": {
+    "defaultMessage": "Move to row end"
+  },
+  "commands.grid.focus.home": {
+    "defaultMessage": "Move to row start"
+  },
+  "commands.grid.focus.left": {
+    "defaultMessage": "Move focus left"
+  },
+  "commands.grid.focus.pageDown": {
+    "defaultMessage": "Move down one page"
+  },
+  "commands.grid.focus.pageUp": {
+    "defaultMessage": "Move up one page"
+  },
+  "commands.grid.focus.right": {
+    "defaultMessage": "Move focus right"
+  },
+  "commands.grid.focus.up": {
+    "defaultMessage": "Move focus up"
+  },
+  "commands.help.intro": {
+    "defaultMessage": "Available in the current view"
+  },
+  "commands.help.shortcuts": {
+    "defaultMessage": "Keyboard shortcuts"
+  },
+  "commands.help.title": {
+    "defaultMessage": "Keyboard shortcuts"
+  },
+  "commands.photo.favorite.toggle": {
+    "defaultMessage": "Toggle favorite"
+  },
+  "commands.photo.trash": {
+    "defaultMessage": "Move photo to Trash"
+  },
+  "commands.selection.clear": {
+    "defaultMessage": "Clear selection"
+  },
+  "commands.selection.selectAll": {
+    "defaultMessage": "Select all photos"
+  },
+  "commands.view.inspector.toggle": {
+    "defaultMessage": "Show or hide Inspector"
+  },
+  "commands.view.lightbox.close": {
+    "defaultMessage": "Exit lightbox"
+  },
+  "commands.view.lightbox.flipHorizontal": {
+    "defaultMessage": "Flip horizontally"
+  },
+  "commands.view.lightbox.next": {
+    "defaultMessage": "Next photo"
+  },
+  "commands.view.lightbox.orientationReset": {
+    "defaultMessage": "Reset orientation"
+  },
+  "commands.view.lightbox.previous": {
+    "defaultMessage": "Previous photo"
+  },
+  "commands.view.lightbox.rotateLeft": {
+    "defaultMessage": "Rotate left"
+  },
+  "commands.view.lightbox.rotateRight": {
+    "defaultMessage": "Rotate right"
+  },
+  "commands.view.lightbox.zoomIn": {
+    "defaultMessage": "Zoom in"
+  },
+  "commands.view.lightbox.zoomOut": {
+    "defaultMessage": "Zoom out"
+  },
+  "commands.view.lightbox.zoomReset": {
+    "defaultMessage": "Reset zoom"
+  },
   "favorite.add": {
     "defaultMessage": "Add to Favorites"
   },

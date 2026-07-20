@@ -14,6 +14,7 @@ import {
 } from '../../../shared/library/grid-layout.js';
 import { createFrameMonitor } from './frame-monitor';
 import { directionOf } from '../../../shared/i18n/locales.js';
+import { useGridKeyboard } from './use-grid-keyboard';
 
 const GRID_GAP = 4; // must equal --grid-gap (spacing tokens)
 const LIST_ROW_HEIGHT = 52; // mock ListRow height
@@ -35,7 +36,14 @@ export interface VirtualGridProps<Photo extends { readonly id: string }> {
   /** Ask the data layer for the next cursor page (idempotent under spam). */
   readonly onNeedMore: () => void;
   /** Tile renderer — #74 ships a placeholder; #76 swaps in PhotoTile. */
-  readonly renderTile?: ((photo: Photo, size: number) => ReactNode) | undefined;
+  readonly renderTile?: ((photo: Photo, size: number, keyboard: VirtualGridItemKeyboard) => ReactNode) | undefined;
+  readonly onKeyboardOpen?: ((photo: Photo) => void) | undefined;
+  readonly onKeyboardSelection?: ((photoIds: readonly string[], mode: 'replace' | 'toggle') => void) | undefined;
+}
+
+export interface VirtualGridItemKeyboard {
+  readonly tabIndex: 0 | -1;
+  readonly gridFocusTarget: true;
 }
 
 // Windowed rendering engine (#74): absolute-positioned tiles over an exact
@@ -49,6 +57,8 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
   topInset = false,
   onNeedMore,
   renderTile,
+  onKeyboardOpen,
+  onKeyboardSelection,
 }: VirtualGridProps<Photo>): ReactElement {
   const direction = directionOf(useIntl().locale);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -130,6 +140,17 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
 
   const range = visibleRange(layout, scrollTop, viewport.height, OVERSCAN_ROWS);
 
+  const activeFocusedIndex = useGridKeyboard({
+    containerRef,
+    photos,
+    layout,
+    viewportHeight: viewport.height,
+    direction,
+    onOpen: onKeyboardOpen,
+    onSelection: onKeyboardSelection,
+    onScrollPositionChange: setScrollTop,
+  });
+
   // Data windowing: request the next cursor page as the window nears the
   // loaded frontier. The parent guards in-flight/stale requests.
   useEffect(() => {
@@ -148,10 +169,14 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
         key={index}
         className="ovl-grid__cell"
         data-index={index}
+        data-grid-index={index}
         style={{ transform: `translate(${left}px, ${top}px)`, width: layout.cellWidth, height: layout.tileSize }}
       >
         {photo !== undefined && renderTile !== undefined ? (
-          renderTile(photo, layout.tileSize)
+          renderTile(photo, layout.tileSize, {
+            tabIndex: activeFocusedIndex === index ? 0 : -1,
+            gridFocusTarget: true,
+          })
         ) : (
           <div className={`ovl-grid__placeholder${photo === undefined ? ' ovl-grid__placeholder--loading' : ''}`} />
         )}
@@ -160,7 +185,16 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
   }
 
   return (
-    <div ref={containerRef} className={`ovl-grid${topInset ? ' ovl-grid--inset' : ''}`} data-testid="virtual-grid" onScroll={onScroll}>
+    <div
+      ref={containerRef}
+      id="photo-grid"
+      role="region"
+      aria-label="Photos"
+      tabIndex={-1}
+      className={`ovl-grid${topInset ? ' ovl-grid--inset' : ''}`}
+      data-testid="virtual-grid"
+      onScroll={onScroll}
+    >
       <div className="ovl-grid__plane" style={{ height: layout.totalHeight }}>
         {tiles}
       </div>

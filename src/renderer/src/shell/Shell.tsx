@@ -15,7 +15,7 @@ import { ImportDialog } from '../import/ImportDialog';
 import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
-import { useGlobalKeys } from '../state/use-global-keys';
+import { commandPlatform, useCommandDispatcher } from '../state/use-command-dispatcher';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
 import { LibrarySwitcher } from './LibrarySwitcher';
 import { MoveResumeBanner } from './MoveResumeBanner';
@@ -29,6 +29,8 @@ import { blockedInteropWorkflow, type InteropEntryContext } from '../interop/vis
 import { ProtectedAlbumUnlockDialog } from '../protected/ProtectedAlbumUnlockDialog';
 import { ProtectedAlbumView } from '../protected/ProtectedAlbumView';
 import { createBoundedExternalDropReporter, installExternalFileDropBoundary } from './external-file-drop';
+import { ShortcutHelp } from '../commands/ShortcutHelp';
+import type { CommandSurface } from '../../../shared/commands/registry.js';
 
 function mergeDropPaths(current: readonly string[] | null, incoming: readonly string[]): readonly string[] {
   return [...new Set([...(current ?? []), ...incoming])];
@@ -44,7 +46,8 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   const state = useAppState();
   const dispatch = useAppDispatch();
   const offload = useOffloadWorkflow();
-  useGlobalKeys();
+  const [shortcutSurface, setShortcutSurface] = useState<CommandSurface | null>(null);
+  useCommandDispatcher(platform, setShortcutSurface);
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
   // Window drag-and-drop (#237): dropped photo paths pre-seed the dialog's
@@ -313,6 +316,9 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
     // portals outside this subtree. The toolbar Import button remains the
     // non-drag equivalent required by SC 2.5.7.
     <div className="ovl-shell">
+      <a className="ovl-skip-link" href="#photo-grid">
+        Skip to photos
+      </a>
       {dragging ? (
         <div className="ovl-shell__dropOverlay">
           <div className="ovl-shell__dropCard">
@@ -412,6 +418,13 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
           }}
         />
       ) : null}
+      {shortcutSurface === null ? null : (
+        <ShortcutHelp
+          context={{ surface: shortcutSurface, dialogOpen: false, editable: false, platform: commandPlatform(platform) }}
+          platform={commandPlatform(platform)}
+          onClose={() => setShortcutSurface(null)}
+        />
+      )}
       {unlockAlbumId === null ? null : (
         <ProtectedAlbumUnlockDialog
           key={unlockAlbumId}
@@ -452,6 +465,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         }
         return (
           <Lightbox
+            platform={platform}
             photo={current}
             onClose={() => {
               dispatch({ type: 'lightbox/closed' });

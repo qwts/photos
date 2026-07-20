@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement, SyntheticEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
+import { resolveCommand } from '../../../shared/commands/registry.js';
+import { commandPlatform } from '../state/use-command-dispatcher';
 
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { Button } from '../components/Button';
@@ -40,6 +42,7 @@ const messages = defineMessages({
 type ImageLoadStage = 'loading' | 'decoded' | 'error';
 
 interface LightboxViewportProps {
+  readonly platform: string;
   readonly requestKey: string;
   readonly photo: PhotoRecord;
   readonly viewIntent: LightboxViewIntent;
@@ -73,6 +76,7 @@ function wheelPixels(value: number, mode: number, viewportAxis: number): number 
 }
 
 export function LightboxViewport({
+  platform,
   requestKey,
   photo,
   viewIntent,
@@ -203,34 +207,40 @@ export function LightboxViewport({
         onActivity();
         return;
       }
-      if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
-        zoomBy(KEYBOARD_ZOOM_STEP);
-      } else if (event.key === '-' || event.key === '_') {
-        event.preventDefault();
-        zoomBy(1 / KEYBOARD_ZOOM_STEP);
-      } else if (event.key === '0') {
-        event.preventDefault();
-        resetView();
-      } else if (event.key === '[') {
-        event.preventDefault();
-        rotateBy(-1);
-      } else if (event.key === ']') {
-        event.preventDefault();
-        rotateBy(1);
-      } else if (event.key === '\\') {
-        event.preventDefault();
-        flipHorizontal();
-      } else if (event.key.toLowerCase() === 'r') {
-        event.preventDefault();
-        resetOrientation();
-      }
+      const command = resolveCommand(event, {
+        surface: 'lightbox',
+        dialogOpen: modalOpen,
+        editable: inField,
+        platform: commandPlatform(platform),
+      });
+      if (command?.id === 'view.lightbox.zoomIn') zoomBy(KEYBOARD_ZOOM_STEP);
+      else if (command?.id === 'view.lightbox.zoomOut') zoomBy(1 / KEYBOARD_ZOOM_STEP);
+      else if (command?.id === 'view.lightbox.zoomReset') resetView();
+      else if (command?.id === 'view.lightbox.rotateLeft') rotateBy(-1);
+      else if (command?.id === 'view.lightbox.rotateRight') rotateBy(1);
+      else if (command?.id === 'view.lightbox.flipHorizontal') flipHorizontal();
+      else if (command?.id === 'view.lightbox.orientationReset') resetOrientation();
+      else return;
+      event.preventDefault();
     };
     window.addEventListener('keydown', onKeyDown, { capture: true });
     return () => {
       window.removeEventListener('keydown', onKeyDown, { capture: true });
     };
-  }, [fitted, flipHorizontal, mode, onActivity, onViewIntentChange, resetOrientation, resetView, rotateBy, transform, viewport, zoomBy]);
+  }, [
+    fitted,
+    flipHorizontal,
+    mode,
+    onActivity,
+    onViewIntentChange,
+    platform,
+    resetOrientation,
+    resetView,
+    rotateBy,
+    transform,
+    viewport,
+    zoomBy,
+  ]);
 
   const toggleFill = (): void => {
     if (mode === 'fill') {

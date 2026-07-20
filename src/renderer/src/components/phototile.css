@@ -38,6 +38,10 @@
   box-shadow: var(--tile-selected-ring);
 }
 
+.ovl-tile:focus-within {
+  box-shadow: var(--focus-ring);
+}
+
 .ovl-tile__img {
   width: 100%;
   height: 100%;
