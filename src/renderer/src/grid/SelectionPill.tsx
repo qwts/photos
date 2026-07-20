@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { AlbumPicker } from './AlbumPicker';
 import type { AlbumSummary } from '../../../shared/library/types.js';
+import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 export interface SelectionPillProps {
   readonly count: number;
@@ -14,10 +15,9 @@ export interface SelectionPillProps {
   readonly onExport?: (() => void) | undefined;
   readonly onOffload?: (() => void) | undefined;
   readonly onTransfer?: (() => void) | undefined;
-  /** Soft-deletes the selection (#120) — "Delete" per the language rules
-   * because the photos leave the library view (restorable in trash). */
+  /** Soft-deletes the selection (#120) into reversible Trash custody. */
   readonly onDelete?: (() => void) | undefined;
-  /** Inside Recently deleted the pill flips to restore mode (#120). */
+  /** Inside Trash the pill flips to restore mode (#120). */
   readonly onRestore?: (() => void) | undefined;
   /** Adds the selection to the picked album (#118). */
   readonly onAddToAlbum?: ((album: AlbumSummary) => void) | undefined;
@@ -28,7 +28,7 @@ export interface SelectionPillProps {
 }
 
 // Floating selection pill (#78) — the mock's bottom-center bar. Export
-// (#100), Delete/Restore/purge (#120/#121), and Add to album (#118) live.
+// (#100), Trash/restore/purge (#120/#121), and Add to album (#118) live.
 export function SelectionPill({
   count,
   onClear,
@@ -42,6 +42,7 @@ export function SelectionPill({
   onPurge,
 }: SelectionPillProps): ReactElement {
   const { formatCount } = useFormats();
+  const actions = destructiveActions;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   return (
@@ -60,14 +61,14 @@ export function SelectionPill({
         ) : null}
         <span className="ovl-pill__count mono-data">{formatCount(count)} SELECTED</span>
         {onRestore !== undefined ? (
-          // Trash mode: Restore is the headline; Delete is the destructive
+          // Trash mode: restore is the headline; purge is the destructive
           // purge behind #121's confirm ceremony.
           <>
             <Button size="sm" variant="secondary" icon="refresh-cw" onClick={onRestore}>
-              Restore
+              {actions.restorePhotosFromTrash.label}
             </Button>
             <Button size="sm" variant="danger" icon="trash-2" onClick={onPurge}>
-              Delete
+              {actions.deletePhotosPermanently.label}
             </Button>
           </>
         ) : (
@@ -94,11 +95,11 @@ export function SelectionPill({
               </Button>
               {onRemoveFromAlbum === undefined ? (
                 <Button size="sm" variant="danger" icon="trash-2" onClick={onDelete}>
-                  Delete
+                  {actions.movePhotosToTrash.label}
                 </Button>
               ) : (
                 <Button size="sm" variant="secondary" icon="x" onClick={onRemoveFromAlbum}>
-                  Remove from album
+                  {actions.removePhotosFromAlbum.label}
                 </Button>
               )}
             </div>
@@ -124,11 +125,11 @@ export function SelectionPill({
                   </button>
                   {onRemoveFromAlbum === undefined ? (
                     <button type="button" role="menuitem" className="ovl-pill__menuDanger" onClick={onDelete}>
-                      Delete
+                      {actions.movePhotosToTrash.label}
                     </button>
                   ) : (
                     <button type="button" role="menuitem" onClick={onRemoveFromAlbum}>
-                      Remove from album
+                      {actions.removePhotosFromAlbum.label}
                     </button>
                   )}
                 </div>

@@ -542,7 +542,10 @@ export const PrivacySection: Story = {
     await expect(body.getByText('Nothing is sent.', { exact: false })).toBeVisible();
     await userEvent.click(body.getByRole('button', { name: 'Export JSONL…' }));
     await expect(body.getByText('1 report exported.')).toBeVisible();
-    await userEvent.click(body.getByRole('button', { name: 'Delete' }));
+    await userEvent.click(body.getByRole('button', { name: 'Clear report…' }));
+    const clearConfirmation = body.getByRole('dialog', { name: 'Clear diagnostic report?' });
+    await expect(clearConfirmation).toHaveTextContent('This cannot be undone.');
+    await userEvent.click(within(clearConfirmation).getByRole('button', { name: 'Clear report' }));
     await expect(body.getByText('No reports are waiting locally.')).toBeVisible();
     await userEvent.click(body.getByRole('button', { name: 'Done' }));
   },

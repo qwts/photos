@@ -164,7 +164,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
 
     // Active-album selection uses neutral membership language. It removes
-    // one row and clears its selection without touching Recently deleted.
+    // one row and clears its selection without touching Trash.
     const firstCell = page.locator('.ovl-grid__cell').first();
     await firstCell.hover();
     await firstCell.locator('.ovl-tile__select').click();
@@ -176,7 +176,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await expect(roadRow).toContainText('3');
     await expect(pill).toHaveCount(0);
     await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → Local mock');
-    await expect(page.getByRole('button', { name: /Recently deleted/u })).toContainText('0');
+    await expect(page.getByRole('button', { name: /Trash/u })).toContainText('0');
 
     await page.getByRole('button', { name: 'Back up' }).click();
     await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
@@ -209,7 +209,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await expect(allPhotos).toBeFocused();
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(4);
     await expect(roadRow).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /Recently deleted/u })).toContainText('0');
+    await expect(page.getByRole('button', { name: /Trash/u })).toContainText('0');
     const libraryStats = await page.evaluate<{ photos: number }>('window.overlook.library.stats()');
     expect(libraryStats.photos).toBe(4);
 

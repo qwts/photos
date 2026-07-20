@@ -79,7 +79,7 @@ async function exerciseListAndRail(page: Page): Promise<void> {
   await expect(albumButton(page, 'Drop inbox')).toContainText('4');
 
   await page.evaluate(`window.overlook.library.delete({ photoIds: ['01J8SEEDPHOTO0006'] })`);
-  await page.getByRole('button', { name: /Recently deleted/u }).click();
+  await page.getByRole('button', { name: /Trash/u }).click();
   await expect(photo(page, 'IMG_4063.JPG')).toHaveAttribute('draggable', 'false');
   await expect(albumButton(page, 'Drop inbox')).toContainText('4');
   await page.getByRole('button', { name: /All Photos/u }).click();

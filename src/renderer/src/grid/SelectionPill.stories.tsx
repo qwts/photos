@@ -45,7 +45,7 @@ type Story = StoryObj<typeof SelectionPill>;
 const onClear = fn();
 
 // #78 exit criteria: counts render with thousands separators; Export (#100),
-// Delete (#120), and Add to album (#118) are live; clear-× works.
+// Move to Trash (#120), and Add to album (#118) are live; clear-× works.
 export const ThousandsSeparatorAndClear: Story = {
   args: { count: 12_345, onClear, onDelete: fn(), onAddToAlbum: fn(), onOffload: fn() },
   play: async ({ canvasElement, args }) => {
@@ -55,7 +55,7 @@ export const ThousandsSeparatorAndClear: Story = {
     await expect(canvas.getByRole('button', { name: /Add to album/ })).toBeEnabled();
     await userEvent.click(canvas.getByRole('button', { name: /Offload/ }));
     await expect(args.onOffload).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole('button', { name: /Delete/ }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Move to Trash' }));
     await expect(args.onDelete).toHaveBeenCalledTimes(1);
     await userEvent.click(canvas.getByRole('button', { name: 'Clear selection' }));
     await expect(onClear).toHaveBeenCalledTimes(1);
@@ -70,22 +70,22 @@ export const ActiveAlbumMode: Story = {
   args: { count: 3, onClear: fn(), onDelete: fn(), onAddToAlbum: fn(), onRemoveFromAlbum: fn() },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.queryByRole('button', { name: 'Delete' })).toBeNull();
+    await expect(canvas.queryByRole('button', { name: 'Move to Trash' })).toBeNull();
     await userEvent.click(canvas.getByRole('button', { name: 'Remove from album' }));
     await expect(args.onRemoveFromAlbum).toHaveBeenCalledTimes(1);
   },
 };
 
-// Trash mode (#120/#121): Restore is the headline; the red Delete opens
+// Trash mode (#120/#121): Restore is the headline; permanent deletion opens
 // the purge ceremony; Export leaves.
 export const TrashRestoreMode: Story = {
   args: { count: 2, onClear: fn(), onRestore: fn(), onPurge: fn() },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByRole('button', { name: /Export/ })).toBeNull();
-    await userEvent.click(canvas.getByRole('button', { name: /Restore/ }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Restore from Trash' }));
     await expect(args.onRestore).toHaveBeenCalledTimes(1);
-    await userEvent.click(canvas.getByRole('button', { name: /Delete/ }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Delete permanently…' }));
     await expect(args.onPurge).toHaveBeenCalledTimes(1);
   },
 };

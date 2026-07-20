@@ -31,6 +31,7 @@ export interface VirtualGridProps<Photo extends { readonly id: string }> {
   readonly zoom: number;
   /** 'grid' (default) or the dense single-column 'list' mode (#77). */
   readonly mode?: 'grid' | 'list' | undefined;
+  readonly topInset?: boolean | undefined;
   /** Ask the data layer for the next cursor page (idempotent under spam). */
   readonly onNeedMore: () => void;
   /** Tile renderer — #74 ships a placeholder; #76 swaps in PhotoTile. */
@@ -45,6 +46,7 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
   total,
   zoom,
   mode = 'grid',
+  topInset = false,
   onNeedMore,
   renderTile,
 }: VirtualGridProps<Photo>): ReactElement {
@@ -158,7 +160,7 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
   }
 
   return (
-    <div ref={containerRef} className="ovl-grid" data-testid="virtual-grid" onScroll={onScroll}>
+    <div ref={containerRef} className={`ovl-grid${topInset ? ' ovl-grid--inset' : ''}`} data-testid="virtual-grid" onScroll={onScroll}>
       <div className="ovl-grid__plane" style={{ height: layout.totalHeight }}>
         {tiles}
       </div>

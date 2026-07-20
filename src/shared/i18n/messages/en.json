@@ -321,7 +321,7 @@
     "defaultMessage": "Connection failed. Try again."
   },
   "settings.storage.disconnect.action": {
-    "defaultMessage": "Disconnect {name}"
+    "defaultMessage": "Disconnect provider"
   },
   "settings.storage.disconnect.cancel": {
     "defaultMessage": "Cancel"
@@ -414,7 +414,7 @@
     "defaultMessage": "All Photos"
   },
   "sidebar.source.deleted": {
-    "defaultMessage": "Recently deleted"
+    "defaultMessage": "Trash"
   },
   "sidebar.source.favorites": {
     "defaultMessage": "Favorites"

@@ -4,6 +4,7 @@ import type { AlbumSummary } from '../../../shared/library/types.js';
 import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
+import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 export function RenameAlbumDialog({
   album,
@@ -98,7 +99,7 @@ export function DeleteAlbumDialog({
   return (
     <Dialog
       open
-      title="Delete album"
+      title={destructiveActions.deleteAlbum.label}
       icon="trash-2"
       {...(deleting ? {} : { onClose })}
       footer={
@@ -107,14 +108,14 @@ export function DeleteAlbumDialog({
             Cancel
           </Button>
           <Button variant="danger" onClick={remove} disabled={deleting}>
-            {deleting ? 'Deleting…' : 'Delete album'}
+            {deleting ? 'Deleting…' : destructiveActions.deleteAlbum.label}
           </Button>
         </>
       }
     >
       <p>Delete “{album.name}”?</p>
       <p className="ovl-album-dialog__safe-copy">
-        Only the album and its memberships are removed. All {formatCount(album.count)} {noun} in your library.
+        {destructiveActions.deleteAlbum.survival} All {formatCount(album.count)} {noun} in your library.
       </p>
       {error === null ? null : (
         <div className="ovl-album-dialog__error" role="alert">

@@ -1,5 +1,6 @@
 import { ProviderError, type StorageProvider } from '../backup/provider.js';
 import type { PhotoRecord } from '../../shared/library/types.js';
+import { TRASH_RETENTION_DAYS } from '../../shared/library/trash.js';
 
 // Permanent purge (#121): the one truly destructive path, done with
 // ceremony. Repair-friendly order per the issue: DB row FIRST (nothing ever
@@ -9,7 +10,7 @@ import type { PhotoRecord } from '../../shared/library/types.js';
 // having data. Retention: soft-deleted rows auto-purge after 30 days — a
 // fixed constant until a settings control is designed (recorded).
 
-export const PURGE_RETENTION_DAYS = 30;
+export { TRASH_RETENTION_DAYS as PURGE_RETENTION_DAYS } from '../../shared/library/trash.js';
 
 const REMOTE_ATTEMPTS = 3;
 const REMOTE_BACKOFF_MS = 500;
@@ -89,7 +90,7 @@ export class PurgeService {
 
   /** The retention sweep (#121): everything older than the window goes. */
   async purgeExpired(signal?: AbortSignal): Promise<PurgeSummary> {
-    const cutoff = new Date(this.deps.now() - PURGE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(this.deps.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const expired = this.deps.repo.expiredDeleted(cutoff);
     if (expired.length === 0) {
       return { purged: 0, skipped: 0, remoteFailures: 0 };

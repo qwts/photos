@@ -17,6 +17,7 @@ export interface PhotoTileProps {
   readonly status?: SyncState;
   readonly showStatus?: boolean;
   readonly previewFailure?: PreviewFailureReason | null;
+  readonly retentionLabel?: string | undefined;
   /** Opens the photo (tile body). */
   readonly onClick?: () => void;
   /** Toggles selection (circle only) — never opens. */
@@ -49,6 +50,7 @@ export function PhotoTile({
   status = 'local',
   showStatus = true,
   previewFailure,
+  retentionLabel,
   onClick,
   onToggleSelect,
   onToggleFavorite,
@@ -115,6 +117,7 @@ export function PhotoTile({
           <StatusGlyph state={status} size={18} />
         </span>
       ) : null}
+      {retentionLabel === undefined ? null : <span className="ovl-tile__retention mono-data">{retentionLabel}</span>}
     </div>
   );
 }

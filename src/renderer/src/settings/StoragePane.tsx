@@ -14,6 +14,7 @@ import { Field } from './Field';
 import { OffloadedStorage } from './OffloadedStorage';
 import type { AppSettings } from '../../../shared/settings/settings.js';
 import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
+import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 // Storage & Backup section (#114, updated by #239, #254): the provider
 // connection card + backup knobs. Disconnected now HIDES the backup-specific
@@ -53,7 +54,7 @@ const messages = defineMessages({
   },
   disconnectTitle: { id: 'settings.storage.disconnect.title', defaultMessage: 'Disconnect {name}?' },
   cancel: { id: 'settings.storage.disconnect.cancel', defaultMessage: 'Cancel' },
-  disconnectProvider: { id: 'settings.storage.disconnect.action', defaultMessage: 'Disconnect {name}' },
+  disconnectProvider: { id: 'settings.storage.disconnect.action', defaultMessage: 'Disconnect provider' },
   disconnectCopy: {
     id: 'settings.storage.disconnect.copy',
     defaultMessage: 'This removes this device’s saved {name} authorization.',
@@ -243,7 +244,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
                 : connection === 'error'
                   ? 'Try again'
                   : connected
-                    ? 'Disconnect'
+                    ? destructiveActions.disconnectProvider.label
                     : `Connect ${name}`}
         </Button>
       </div>
@@ -260,7 +261,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
               {intl.formatMessage(messages.cancel)}
             </Button>
             <Button disabled={disconnecting} onClick={() => changeConnection('disconnect')}>
-              {disconnecting ? intl.formatMessage(messages.disconnecting) : intl.formatMessage(messages.disconnectProvider, { name })}
+              {disconnecting ? intl.formatMessage(messages.disconnecting) : intl.formatMessage(messages.disconnectProvider)}
             </Button>
           </>
         }

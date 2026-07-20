@@ -404,7 +404,7 @@ export class PhotosRepository {
     return changed !== undefined;
   }
 
-  /** Soft delete (#120): rows move to Recently deleted, restorable — no
+  /** Soft delete (#120): rows move to Trash, restorable — no
    * blob, ledger, or membership changes (purge is #121's ceremony).
    * Deleted rows leave pendingCount via the JOIN there. */
   softDelete(photoIds: readonly string[]): string[] {
@@ -428,7 +428,7 @@ export class PhotosRepository {
     })();
   }
 
-  /** Restore from Recently deleted: favorite/EXIF/ledger status come back
+  /** Restore from Trash: favorite/EXIF/ledger status come back
    * untouched; the row re-dirties so the next manifest includes it again. */
   restore(photoIds: readonly string[]): string[] {
     return this.db.transaction(() => {
@@ -685,7 +685,7 @@ export class PhotosRepository {
       photoId,
     );
     if (gone === undefined) {
-      throw new Error(`photo ${photoId} is not in Recently deleted`);
+      throw new Error(`photo ${photoId} is not in Trash`);
     }
   }
 

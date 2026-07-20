@@ -10,6 +10,24 @@
   background: var(--gray-0);
 }
 
+.ovl-grid--inset {
+  top: 36px;
+}
+
+.ovl-trash-policy {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-1);
+  background: var(--gray-1);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .ovl-grid__plane {
   position: relative;
 }
@@ -41,6 +59,10 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
+}
+
+.ovl-empty--inset {
+  top: 36px;
 }
 
 .ovl-empty__title {

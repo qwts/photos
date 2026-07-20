@@ -39,7 +39,7 @@ const messages = defineMessages({
   sourceFavorites: { id: 'sidebar.source.favorites', defaultMessage: 'Favorites' },
   sourceRecent: { id: 'sidebar.source.recent', defaultMessage: 'Recent imports' },
   sourceOffloaded: { id: 'sidebar.source.offloaded', defaultMessage: 'Offloaded' },
-  sourceDeleted: { id: 'sidebar.source.deleted', defaultMessage: 'Recently deleted' },
+  sourceDeleted: { id: 'sidebar.source.deleted', defaultMessage: 'Trash' },
 });
 
 const SOURCES: readonly { key: SourceFilter; icon: IconName; label: MessageDescriptor }[] = [

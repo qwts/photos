@@ -21,6 +21,7 @@ export interface ListRowProps {
   /** Toggles Favorite (star only) — never opens or selects. */
   readonly onToggleFavorite: () => void;
   readonly favoritePending?: boolean;
+  readonly retentionLabel?: string | undefined;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
@@ -37,6 +38,7 @@ export function ListRow({
   onToggleSelect,
   onToggleFavorite,
   favoritePending = false,
+  retentionLabel,
   onContextAction,
   onDragStart,
   onDragEnd,
@@ -81,7 +83,7 @@ export function ListRow({
           {photo.fileName}
         </div>
         <div className="ovl-listrow__meta mono-data">
-          {photo.place ?? '—'} · {photo.takenAt === null ? '—' : formatCalendarDate(photo.takenAt)}
+          {retentionLabel ?? `${photo.place ?? '—'} · ${photo.takenAt === null ? '—' : formatCalendarDate(photo.takenAt)}`}
         </div>
       </div>
       <div className="ovl-listrow__camera mono-data">{photo.camera ?? '—'}</div>
