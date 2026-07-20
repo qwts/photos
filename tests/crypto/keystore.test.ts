@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -67,6 +67,23 @@ describe('KeyStore lifecycle', () => {
     const reserveReopened = reopened.currentKey().reserveNoncePrefix;
     assert.ok(reserveReopened !== undefined);
     assert.ok(reserveReopened().readBigUInt64BE() > 1n);
+  });
+
+  test('does not advance the in-memory reservation when persistence fails', () => {
+    const dataDir = tempDir();
+    const store = KeyStore.open({ safeStorage: fakeSafeStorage(0x5a), dataDir });
+    const reserve = store.currentKey().reserveNoncePrefix;
+    assert.ok(reserve !== undefined);
+    const temporaryKeysPath = join(dataDir, 'keys.json.tmp');
+    mkdirSync(temporaryKeysPath);
+
+    assert.throws(() => reserve(), /EISDIR|directory/u);
+    rmSync(temporaryKeysPath, { recursive: true });
+    assert.equal(reserve().readBigUInt64BE(), 0n);
+    const persisted = JSON.parse(readFileSync(join(dataDir, 'keys.json'), 'utf8')) as {
+      keys: { nonceHighWater: string }[];
+    };
+    assert.equal(persisted.keys[0]?.nonceHighWater, '1024');
   });
 
   test('migrates legacy key records to a nonzero nonce range', () => {

@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
+import { existsSync } from 'node:fs';
 import { mkdir, rename, rm, statfs, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { addAbortSignal } from 'node:stream';
@@ -6,7 +7,7 @@ import { buffer } from 'node:stream/consumers';
 
 import { BlobStore, BlobStoreError } from '../blobs/blob-store.js';
 import { ProtectedBlobStore, ProtectedBlobStoreError } from '../blobs/protected-blob-store.js';
-import type { SafeStorageLike } from '../crypto/keystore.js';
+import { KeyStore, type SafeStorageLike } from '../crypto/keystore.js';
 import { installRecoveredMaster } from '../crypto/recovery.js';
 import { openLibraryDatabase } from '../db/database.js';
 import { PhotosRepository } from '../db/photos-repository.js';
@@ -137,9 +138,14 @@ export class RestoreEngine {
     await protectedStore.init();
     checkpoint = await this.restoreBlobs(paths, store, discovery, candidate, checkpoint, request.signal);
     checkpoint = await this.restoreProtectedBlobs(paths, protectedStore, candidate, checkpoint, request.signal);
-    await this.restoreThumbnails(paths, store, discovery, candidate, checkpoint, request.signal);
-    this.emit('rebuilding', 0, candidate.manifest.photos.length, null);
-    await this.rebuildCatalog(paths, store, protectedStore, discovery, candidate, request.masterKey);
+    const recoveredKeys = await this.prepareRecoveredCustody(paths, discovery, candidate, request.masterKey);
+    try {
+      await this.restoreThumbnails(paths, store, recoveredKeys, discovery, candidate, checkpoint, request.signal);
+      this.emit('rebuilding', 0, candidate.manifest.photos.length, null);
+      await this.rebuildCatalog(paths, store, protectedStore, discovery, candidate);
+    } finally {
+      recoveredKeys.close();
+    }
     assertNotAborted(request.signal);
     this.emit('activating', 0, 1, null);
     await this.deps.beforeActivate?.();
@@ -271,6 +277,7 @@ export class RestoreEngine {
   private async restoreThumbnails(
     paths: RestorePaths,
     store: BlobStore,
+    recoveredKeys: KeyStore,
     discovery: RestoreDiscovery,
     candidate: RestoreCandidate,
     checkpoint: RestoreCheckpoint,
@@ -289,7 +296,7 @@ export class RestoreEngine {
     this.emit('rebuilding', done, candidate.manifest.photos.length, null);
     for (const photo of candidate.manifest.photos.filter((item) => !completed.has(item.id))) {
       assertNotAborted(signal);
-      await this.generateThumbnails(thumbnails, store, discovery, photo, signal);
+      await this.generateThumbnails(thumbnails, store, recoveredKeys, discovery, photo, signal);
       completed.add(photo.id);
       done += 1;
       checkpoint = { ...checkpoint, completedThumbnailIds: [...completed] };
@@ -302,12 +309,11 @@ export class RestoreEngine {
   private async generateThumbnails(
     thumbnails: Pick<ThumbnailService, 'generateFor'>,
     store: BlobStore,
+    recoveredKeys: KeyStore,
     discovery: RestoreDiscovery,
     photo: BackupManifestPhotoV2,
     signal?: AbortSignal,
   ): Promise<void> {
-    const key = discovery.resolveKey(photo.keyId);
-    if (key === undefined) throw new RestoreError('wrong-key', `photo key ${String(photo.keyId)} is unavailable`);
     const plaintext = await buffer(
       signal === undefined
         ? store.getStream(photo.contentHash, discovery.resolveKey, photo.id)
@@ -318,7 +324,7 @@ export class RestoreEngine {
         photoId: photo.id,
         bytes: plaintext,
         contentHash: photo.contentHash,
-        key: { id: photo.keyId, key },
+        key: recoveredKeys.currentKey(),
         fileKind: photo.fileKind,
         signal,
       });
@@ -327,25 +333,35 @@ export class RestoreEngine {
     }
   }
 
+  private async prepareRecoveredCustody(
+    paths: RestorePaths,
+    discovery: RestoreDiscovery,
+    candidate: RestoreCandidate,
+    masterKey: Buffer,
+  ): Promise<KeyStore> {
+    const libraryIdPath = join(paths.stagingDir, 'library-id');
+    await writeFile(`${libraryIdPath}.tmp`, candidate.manifest.libraryId);
+    await rename(`${libraryIdPath}.tmp`, libraryIdPath);
+    const keysPath = join(paths.stagingDir, 'keys.json');
+    if (!existsSync(keysPath)) {
+      const temporaryKeysPath = `${keysPath}.tmp`;
+      await writeFile(temporaryKeysPath, JSON.stringify({ version: 1, keys: discovery.bootstrap.keys }, null, 2));
+      await rename(temporaryKeysPath, keysPath);
+    }
+    const installed = installRecoveredMaster(paths.stagingDir, this.deps.safeStorage, masterKey);
+    if (installed !== 'installed' && installed !== 'already-installed') {
+      throw new RestoreError('wrong-key', `recovered master installation failed: ${installed}`);
+    }
+    return KeyStore.open({ safeStorage: this.deps.safeStorage, dataDir: paths.stagingDir });
+  }
+
   private async rebuildCatalog(
     paths: RestorePaths,
     store: BlobStore,
     protectedStore: ProtectedBlobStore,
     discovery: RestoreDiscovery,
     candidate: RestoreCandidate,
-    masterKey: Buffer,
   ): Promise<void> {
-    const libraryIdPath = join(paths.stagingDir, 'library-id');
-    await writeFile(`${libraryIdPath}.tmp`, candidate.manifest.libraryId);
-    await rename(`${libraryIdPath}.tmp`, libraryIdPath);
-    const keysPath = join(paths.stagingDir, 'keys.json');
-    const temporaryKeysPath = `${keysPath}.tmp`;
-    await writeFile(temporaryKeysPath, JSON.stringify({ version: 1, keys: discovery.bootstrap.keys }, null, 2));
-    await rename(temporaryKeysPath, keysPath);
-    const installed = installRecoveredMaster(paths.stagingDir, this.deps.safeStorage, masterKey);
-    if (installed !== 'installed' && installed !== 'already-installed') {
-      throw new RestoreError('wrong-key', `recovered master installation failed: ${installed}`);
-    }
     const dbKey = discovery.resolveKey(1);
     if (dbKey === undefined) throw new RestoreError('wrong-key', 'recovery bootstrap does not contain database key #1');
     const dbPath = join(paths.stagingDir, 'library.db');
