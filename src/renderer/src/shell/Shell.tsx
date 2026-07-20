@@ -194,7 +194,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
       offCompleted();
       offProtectedChanged();
     };
-  }, [dispatch, refreshProtected]);
+  }, [dispatch, formatRelativeTime, refreshProtected]);
 
   // Settings truth (#113): seed the reducer's sortOrder from the store and
   // follow changed pushes — a sort change in the dialog re-orders the grid
@@ -270,7 +270,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
         });
       }
     });
-  }, [dispatch]);
+  }, [dispatch, formatCount]);
 
   // Neighbor prefetch (#91/#93): whenever the lightbox photo changes, warm
   // both adjacent frames so ←/→ (clicks OR keys) never stall.
