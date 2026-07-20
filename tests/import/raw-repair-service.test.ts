@@ -44,6 +44,7 @@ function raw(overrides: Partial<PhotoRecord> = {}): PhotoRecord {
     keyId: 1,
     deletedAt: null,
     previewFailure: null,
+    dimensionStatus: 'legacy',
     syncState: 'local',
     ...overrides,
   };
@@ -53,6 +54,7 @@ describe('RAW repair service (#368)', () => {
   test('repairs metadata and encrypted derivatives in place, then zeroizes plaintext', async () => {
     const bytes = Buffer.from('decrypted raw original');
     let repairedMetadata: ExtractedMetadata | undefined;
+    let repairedDimensions: readonly [number, number] | undefined;
     const changed: string[][] = [];
     const service = new RawRepairService({
       candidates: () => [raw()],
@@ -64,13 +66,18 @@ describe('RAW repair service (#368)', () => {
         repairedMetadata = metadata;
         return true;
       },
+      repairGeneratedDimensions: (_id, width, height) => {
+        repairedDimensions = [width, height];
+        return true;
+      },
+      setDimensionStatus: () => false,
       setPreviewFailure: () => false,
       changed: (ids) => changed.push([...ids]),
       yieldTurn: () => Promise.resolve(),
     });
 
     assert.deepEqual(await service.repair(), { scanned: 1, repaired: 1, failed: 0, skipped: 0 });
-    assert.deepEqual({ width: repairedMetadata?.width, height: repairedMetadata?.height }, { width: 8256, height: 5504 });
+    assert.deepEqual(repairedDimensions, [8256, 5504]);
     assert.equal(repairedMetadata?.camera, 'Nikon Z8');
     assert.deepEqual(changed, [['RAW1']]);
     assert.deepEqual(bytes, Buffer.alloc(bytes.length));
@@ -79,7 +86,7 @@ describe('RAW repair service (#368)', () => {
   test('complete records with authenticated derivatives do not decrypt originals', async () => {
     let loads = 0;
     const service = new RawRepairService({
-      candidates: () => [raw({ width: 700, height: 525 })],
+      candidates: () => [raw({ width: 700, height: 525, dimensionStatus: 'verified' })],
       validThumbs: () => Promise.resolve(true),
       loadOriginal: () => {
         loads += 1;
@@ -88,6 +95,8 @@ describe('RAW repair service (#368)', () => {
       extractMetadata: () => Promise.resolve(EMPTY),
       regenerate: () => Promise.resolve({ generated: false, width: null, height: null }),
       repairMetadata: () => false,
+      repairGeneratedDimensions: () => false,
+      setDimensionStatus: () => false,
       setPreviewFailure: () => false,
       changed: () => undefined,
     });
@@ -104,6 +113,8 @@ describe('RAW repair service (#368)', () => {
       extractMetadata: () => Promise.resolve(EMPTY),
       regenerate: () => Promise.resolve({ generated: true, width: 700, height: 525 }),
       repairMetadata: () => true,
+      repairGeneratedDimensions: () => true,
+      setDimensionStatus: () => false,
       setPreviewFailure: () => false,
       changed: (ids) => changed.push([...ids]),
       yieldTurn: () => Promise.resolve(),
@@ -122,26 +133,38 @@ describe('RAW repair service (#368)', () => {
       extractMetadata: () => Promise.resolve(EMPTY),
       regenerate: () => Promise.resolve({ generated: false, width: null, height: null }),
       repairMetadata: () => false,
+      repairGeneratedDimensions: () => false,
+      setDimensionStatus: () => true,
       setPreviewFailure: () => false,
       changed: () => undefined,
       yieldTurn: () => Promise.resolve(),
     });
-    assert.deepEqual(await service.repair(), { scanned: 1, repaired: 0, failed: 1, skipped: 0 });
+    assert.deepEqual(await service.repair(), { scanned: 1, repaired: 1, failed: 1, skipped: 0 });
     assert.deepEqual(bytes, Buffer.alloc(bytes.length), 'only the in-memory plaintext is wiped');
   });
 
   test('HEIC repair persists a typed failure and clears it after derivatives validate (#487)', async () => {
     const failures: Array<PhotoRecord['previewFailure']> = [];
     let valid = false;
-    const photo = raw({ fileKind: 'heic', fileName: 'legacy.heic', width: 4032, height: 3024, previewFailure: 'corrupt' });
     const makeService = (): RawRepairService =>
       new RawRepairService({
-        candidates: () => [photo],
+        candidates: () => [
+          raw({
+            fileKind: 'heic',
+            fileName: 'legacy.heic',
+            width: 4032,
+            height: 3024,
+            previewFailure: 'corrupt',
+            dimensionStatus: valid ? 'unavailable' : 'legacy',
+          }),
+        ],
         validThumbs: () => Promise.resolve(valid),
         loadOriginal: () => Promise.resolve(Buffer.from('heic')),
         extractMetadata: () => Promise.resolve(EMPTY),
         regenerate: () => Promise.resolve({ generated: false, width: null, height: null, failure: 'unsupported-codec' }),
         repairMetadata: () => false,
+        repairGeneratedDimensions: () => false,
+        setDimensionStatus: () => true,
         setPreviewFailure: (_id, failure) => {
           failures.push(failure);
           return true;
@@ -151,7 +174,7 @@ describe('RAW repair service (#368)', () => {
       });
 
     const service = makeService();
-    assert.deepEqual(await service.repair(), { scanned: 1, repaired: 0, failed: 1, skipped: 0 });
+    assert.deepEqual(await service.repair(), { scanned: 1, repaired: 1, failed: 1, skipped: 0 });
     valid = true;
     const retry = makeService();
     assert.deepEqual(await retry.repair(), { scanned: 1, repaired: 1, failed: 0, skipped: 0 });
@@ -166,6 +189,8 @@ describe('RAW repair service (#368)', () => {
       extractMetadata: () => Promise.resolve(EMPTY),
       regenerate: () => Promise.resolve({ generated: false, width: null, height: null }),
       repairMetadata: () => false,
+      repairGeneratedDimensions: () => false,
+      setDimensionStatus: () => false,
       setPreviewFailure: () => false,
       changed: () => undefined,
     });

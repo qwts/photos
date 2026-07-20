@@ -495,6 +495,20 @@ const SCHEMA_V11: Migration = {
   },
 };
 
+const SCHEMA_V12: Migration = {
+  version: 12,
+  name: 'dimension-verification-status',
+  // #500: decoder-vs-metadata comparison is local integrity/repair state.
+  // Existing rows are rechecked lazily; backup manifests remain unchanged.
+  up(db) {
+    db.exec(`
+      ALTER TABLE photos ADD COLUMN dimension_status TEXT NOT NULL DEFAULT 'legacy' CHECK (
+        dimension_status IN ('legacy', 'verified', 'metadata-mismatch', 'unavailable')
+      );
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -507,6 +521,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V9,
   SCHEMA_V10,
   SCHEMA_V11,
+  SCHEMA_V12,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */

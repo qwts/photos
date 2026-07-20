@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buffer } from 'node:stream/consumers';
+import sharp from 'sharp';
 
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
 import { ThumbnailPool } from '../../src/main/import/thumbnail-pool.js';
@@ -42,6 +43,18 @@ describe('thumbnail pipeline (#86)', () => {
     assert.ok(isWebp(result?.mid), 'mid is WebP');
     assert.equal(result?.width, 1280);
     assert.equal(result?.height, 838);
+  });
+
+  test('reported dimensions match orientation-normalized derivative pixels (#500)', async () => {
+    const oriented = await sharp({
+      create: { width: 30, height: 20, channels: 3, background: '#d33' },
+    })
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer();
+    const result = await pool.generate(oriented);
+    assert.ok(result !== null && !('failure' in result));
+    assert.deepEqual({ width: result.width, height: result.height }, { width: 20, height: 30 });
   });
 
   test('EXIT CRITERIA: RAF resolves the embedded preview first', async () => {

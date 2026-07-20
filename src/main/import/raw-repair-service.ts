@@ -16,6 +16,8 @@ export interface RawRepairServiceOptions {
   readonly extractMetadata: (bytes: Buffer, fileKind: PhotoRecord['fileKind']) => Promise<ExtractedMetadata>;
   readonly regenerate: (photo: PhotoRecord, bytes: Buffer, signal: AbortSignal) => Promise<ThumbnailOutcome>;
   readonly repairMetadata: (photoId: string, metadata: ExtractedMetadata) => boolean;
+  readonly repairGeneratedDimensions: (photoId: string, width: number, height: number) => boolean;
+  readonly setDimensionStatus: (photoId: string, status: PhotoRecord['dimensionStatus']) => boolean;
   readonly setPreviewFailure: (photoId: string, failure: PhotoRecord['previewFailure']) => boolean;
   readonly changed: (photoIds: readonly string[]) => void;
   readonly yieldTurn?: (() => Promise<void>) | undefined;
@@ -46,7 +48,7 @@ export class RawRepairService {
       let bytes: Buffer | null = null;
       try {
         const thumbsReady = await this.options.validThumbs(photo);
-        if (thumbsReady && photo.width > 0 && photo.height > 0) {
+        if (thumbsReady && photo.width > 0 && photo.height > 0 && photo.dimensionStatus !== 'legacy') {
           if (this.options.setPreviewFailure(photo.id, null)) {
             repaired += 1;
             changed.push(photo.id);
@@ -63,23 +65,24 @@ export class RawRepairService {
         const metadata = await this.options.extractMetadata(bytes, photo.fileKind);
         if (this.controller.signal.aborted) break;
         let outcome: ThumbnailOutcome | null = null;
-        if (!thumbsReady) {
+        const needsDimensionRepair = photo.dimensionStatus === 'legacy' || photo.width <= 0 || photo.height <= 0;
+        if (!thumbsReady || needsDimensionRepair) {
           outcome = await this.options.regenerate(photo, bytes, this.controller.signal);
         }
         if (this.controller.signal.aborted) break;
-        const repairedMetadata = this.options.repairMetadata(photo.id, {
-          ...metadata,
-          width: photo.fileKind === 'heic' ? (outcome?.width ?? metadata.width) : (metadata.width ?? outcome?.width ?? null),
-          height: photo.fileKind === 'heic' ? (outcome?.height ?? metadata.height) : (metadata.height ?? outcome?.height ?? null),
-        });
-        const repairedThumbs = !thumbsReady && outcome?.generated === true;
+        const repairedMetadata = this.options.repairMetadata(photo.id, metadata);
+        const repairedDimensions =
+          outcome?.width !== null && outcome?.width !== undefined && outcome.height !== null
+            ? this.options.repairGeneratedDimensions(photo.id, outcome.width, outcome.height)
+            : this.options.setDimensionStatus(photo.id, 'unavailable');
+        const repairedThumbs = (!thumbsReady || needsDimensionRepair) && outcome?.generated === true;
         const failure =
           photo.fileKind === 'heic' && !thumbsReady && outcome?.generated !== true ? (outcome?.failure ?? 'decode-failed') : null;
         const failureChanged = this.options.setPreviewFailure(photo.id, failure);
-        if (repairedMetadata || repairedThumbs) {
+        if (repairedMetadata || repairedDimensions || repairedThumbs) {
           repaired += 1;
         }
-        if (repairedMetadata || repairedThumbs || failureChanged) {
+        if (repairedMetadata || repairedDimensions || repairedThumbs || failureChanged) {
           changed.push(photo.id);
         }
         if (!thumbsReady && outcome?.generated !== true) failed += 1;

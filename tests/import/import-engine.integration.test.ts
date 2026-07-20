@@ -92,6 +92,7 @@ describe('import engine integration (#87)', () => {
           rows.set(id, { ...photo, width, height });
           return true;
         },
+        setDimensionStatus: () => false,
         setPreviewFailure: () => false,
       },
       blobs: store,

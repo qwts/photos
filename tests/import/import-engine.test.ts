@@ -74,6 +74,7 @@ function harness(overrides?: Partial<ImportEngineDeps>) {
         rows.set(id, { ...photo, width, height });
         return true;
       },
+      setDimensionStatus: () => false,
       setPreviewFailure: () => false,
     },
     blobs: {

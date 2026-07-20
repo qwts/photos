@@ -44,6 +44,7 @@ function photo(index: number): PhotoRecord {
     keyId: 1,
     deletedAt: null,
     previewFailure: null,
+    dimensionStatus: 'verified',
     syncState: 'synced',
   };
 }

@@ -6,6 +6,7 @@ import type { BackupManifestPhotoV2, BackupManifestSnapshot, RestorableBackupMan
 import type { WrappedKeyRecord } from '../crypto/keystore.js';
 import type { ExtractedMetadata } from '../import/exif.js';
 import type { PreviewFailureReason } from '../../shared/library/preview.js';
+import type { DimensionStatus } from '../../shared/library/types.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
 import type {
@@ -46,6 +47,7 @@ interface PhotoRow {
   key_id: number;
   deleted_at: string | null;
   preview_failure: string | null;
+  dimension_status: string;
   sync_state: string | null;
   sort_key: string | number;
 }
@@ -75,6 +77,7 @@ function toRecord(row: PhotoRow): PhotoRecord {
     keyId: row.key_id,
     deletedAt: row.deleted_at,
     previewFailure: row.preview_failure as PreviewFailureReason | null,
+    dimensionStatus: row.dimension_status as DimensionStatus,
     // New rows always get a ledger row; LEFT JOIN keeps reads total anyway.
     syncState: (row.sync_state ?? 'local') as PhotoRecord['syncState'],
   };
@@ -311,25 +314,46 @@ export class PhotosRepository {
     })();
   }
 
-  /** Derivative decode is authoritative for HEIC's applied orientation. Other
-   * formats keep the legacy fill-only repair contract. */
+  /** A successful pixel decode is authoritative across every decodable format.
+   * A disagreement is retained as local integrity state for the Inspector. */
   repairGeneratedDimensions(photoId: string, width: number, height: number): boolean {
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+      throw new RangeError('photo dimensions must be positive safe integers');
+    }
     const current = this.get(photoId);
     if (current === undefined) return false;
-    if (current.fileKind !== 'heic') return this.repairDimensions(photoId, width, height);
-    if (current.width === width && current.height === height) return false;
-    run(this.db, 'UPDATE photos SET width = ?, height = ? WHERE id = ? AND file_kind = ?', width, height, photoId, 'heic');
-    markDirty(this.db, photoId);
+    const hasMetadataDimensions = current.width > 0 && current.height > 0;
+    const status: DimensionStatus =
+      current.dimensionStatus === 'metadata-mismatch' || (hasMetadataDimensions && (current.width !== width || current.height !== height))
+        ? 'metadata-mismatch'
+        : 'verified';
+    const dimensionsChanged = current.width !== width || current.height !== height;
+    if (!dimensionsChanged && current.dimensionStatus === status) return false;
+    run(this.db, 'UPDATE photos SET width = ?, height = ?, dimension_status = ? WHERE id = ?', width, height, status, photoId);
+    if (dimensionsChanged) markDirty(this.db, photoId);
     return true;
   }
 
-  /** Live, locally readable RAW/HEIC rows eligible for background preview repair.
-   * Offloaded originals are never downloaded implicitly by maintenance. */
+  /** Marks a file whose pixels could not be decoded; local-only diagnostic state. */
+  setDimensionStatus(photoId: string, status: DimensionStatus): boolean {
+    const changed = queryGet<{ id: string }>(
+      this.db,
+      `UPDATE photos SET dimension_status = @status
+       WHERE id = @id AND dimension_status IS NOT @status
+       RETURNING id`,
+      { id: photoId, status },
+    );
+    return changed !== undefined;
+  }
+
+  /** Live, locally readable rows needing one format-neutral dimension check,
+   * plus RAW/HEIC rows eligible for background preview repair. */
   previewRepairCandidates(): readonly PhotoRecord[] {
     return queryAll<PhotoRow>(
       this.db,
       `${SELECT}
-       WHERE p.deleted_at IS NULL AND p.file_kind IN ('raw', 'heic')
+       WHERE p.deleted_at IS NULL
+         AND (p.dimension_status = 'legacy' AND p.file_kind IN ('jpeg', 'png', 'raw', 'heic') OR p.file_kind IN ('raw', 'heic'))
          AND COALESCE(l.status, 'local') <> 'offloaded'
        ORDER BY p.imported_at, p.id`,
     ).map(toRecord);
@@ -341,18 +365,8 @@ export class PhotosRepository {
     const current = this.get(photoId);
     if (current === undefined || (current.fileKind !== 'raw' && current.fileKind !== 'heic')) return false;
     const next = {
-      width:
-        current.fileKind === 'heic'
-          ? (metadata.width ?? current.width)
-          : current.width <= 0
-            ? (metadata.width ?? current.width)
-            : current.width,
-      height:
-        current.fileKind === 'heic'
-          ? (metadata.height ?? current.height)
-          : current.height <= 0
-            ? (metadata.height ?? current.height)
-            : current.height,
+      width: current.width,
+      height: current.height,
       camera: current.camera ?? metadata.camera,
       lens: current.lens ?? metadata.lens,
       iso: current.iso ?? metadata.iso,
@@ -753,7 +767,7 @@ export class PhotosRepository {
       const recoverable = `(p.deleted_at IS NULL OR (p.deleted_at IS NOT NULL AND l.status IN ('synced', 'offloaded')))`;
       const photos = queryAll<PhotoRow>(this.db, `${select('date')} WHERE ${recoverable} ORDER BY p.imported_at, p.id`).map(
         (row): BackupManifestPhotoV2 => {
-          const { previewFailure: _previewFailure, syncState: _syncState, ...photo } = toRecord(row);
+          const { previewFailure: _previewFailure, dimensionStatus: _dimensionStatus, syncState: _syncState, ...photo } = toRecord(row);
           return {
             ...photo,
             blobPath: `blobs/${photo.contentHash.slice(0, 2)}/${photo.contentHash}`,

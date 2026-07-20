@@ -2,7 +2,7 @@ import type { PhotoRecord } from './types.js';
 
 /** Renderer-visible protected metadata. Domain equality and library-key
  * fields stay in main even after album authorization. */
-export type ProtectedPhotoRecord = Omit<PhotoRecord, 'contentHash' | 'keyId' | 'previewFailure' | 'syncState'>;
+export type ProtectedPhotoRecord = Omit<PhotoRecord, 'contentHash' | 'keyId' | 'previewFailure' | 'dimensionStatus' | 'syncState'>;
 
 export interface ProtectedAlbumOpaqueSummary {
   readonly id: string;

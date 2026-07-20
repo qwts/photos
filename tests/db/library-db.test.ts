@@ -108,7 +108,7 @@ describe('migrations', () => {
     const versions = queryAll<{ version: number }>(db, 'SELECT version FROM schema_migrations');
     assert.deepEqual(
       versions.map((row) => row.version),
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     );
     db.close();
   });
@@ -224,18 +224,18 @@ describe('migrations', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const order: number[] = [];
     const extra = [
+      { version: 14, name: 'fourteen', up: () => order.push(14) },
       { version: 13, name: 'thirteen', up: () => order.push(13) },
-      { version: 12, name: 'twelve', up: () => order.push(12) },
     ];
     assert.equal(migrate(db, [...MIGRATIONS, ...extra]), 2);
-    assert.deepEqual(order, [12, 13]);
+    assert.deepEqual(order, [13, 14]);
     db.close();
   });
 
   test('a failing migration rolls back and records nothing', () => {
     const db = openLibraryDatabase({ path: tempDbPath(), dbKey: DB_KEY });
     const bad = {
-      version: 12,
+      version: 13,
       name: 'bad',
       up: (d: Database.Database) => {
         d.exec('CREATE TABLE half_done (a TEXT)');
@@ -244,7 +244,7 @@ describe('migrations', () => {
     };
     assert.throws(() => migrate(db, [...MIGRATIONS, bad]), /boom/);
     assert.equal(queryGet<{ n: number }>(db, `SELECT count(*) AS n FROM sqlite_master WHERE name = 'half_done'`)?.n, 0);
-    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 11);
+    assert.equal(queryGet<{ v: number }>(db, 'SELECT max(version) AS v FROM schema_migrations')?.v, 12);
     db.close();
   });
 });
@@ -264,6 +264,7 @@ describe('PhotosRepository', () => {
     assert.equal(stored.place, 'Kyoto');
     assert.equal(stored.favorite, false);
     assert.equal(stored.keyId, 1);
+    assert.equal(stored.dimensionStatus, 'legacy');
     const ledger = queryGet<{ status: string; dirty: number }>(db, 'SELECT status, dirty FROM sync_ledger WHERE photo_id = ?', photo.id);
     assert.deepEqual(ledger, { status: 'local', dirty: 1 });
     db.close();
@@ -296,6 +297,7 @@ describe('PhotosRepository', () => {
 
     assert.equal(repo.repairGeneratedDimensions(heic.id, 3024, 4032), true);
     assert.deepEqual({ width: repo.get(heic.id)?.width, height: repo.get(heic.id)?.height }, { width: 3024, height: 4032 });
+    assert.equal(repo.get(heic.id)?.dimensionStatus, 'metadata-mismatch');
     assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', heic.id)?.dirty, 1);
     assert.equal(repo.repairGeneratedDimensions(heic.id, 3024, 4032), false);
     db.close();
@@ -317,8 +319,27 @@ describe('PhotosRepository', () => {
         { width: repo.get(photo.id)?.width, height: repo.get(photo.id)?.height },
         { width: photo.height, height: photo.width },
       );
+      assert.equal(repo.get(photo.id)?.dimensionStatus, 'metadata-mismatch');
       assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', photo.id)?.dirty, 1);
     }
+    db.close();
+  });
+
+  test('matching dimensions verify quietly and dimension diagnostics stay local (#500)', () => {
+    const { db, repo } = openSeeded();
+    const matching = samplePhoto({ fileKind: 'jpeg', width: 1200, height: 800 });
+    const unavailable = samplePhoto({ fileKind: 'png', width: 640, height: 480 });
+    repo.insert(matching);
+    repo.insert(unavailable);
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+
+    assert.equal(repo.repairGeneratedDimensions(matching.id, 1200, 800), true);
+    assert.equal(repo.get(matching.id)?.dimensionStatus, 'verified');
+    assert.equal(repo.setDimensionStatus(unavailable.id, 'unavailable'), true);
+    assert.equal(repo.get(unavailable.id)?.dimensionStatus, 'unavailable');
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', matching.id)?.dirty, 0);
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', unavailable.id)?.dirty, 0);
+    assert.throws(() => repo.repairGeneratedDimensions(matching.id, 0, 800), /positive safe integers/);
     db.close();
   });
 
@@ -335,7 +356,7 @@ describe('PhotosRepository', () => {
 
     assert.deepEqual(
       repo.previewRepairCandidates().map(({ id }) => id),
-      [affected.id, trusted.id, heic.id],
+      [affected.id, trusted.id, jpeg.id, heic.id],
     );
     assert.equal(
       repo.repairPreviewMetadata(affected.id, {
@@ -355,7 +376,7 @@ describe('PhotosRepository', () => {
     );
     assert.deepEqual(
       { width: repo.get(affected.id)?.width, height: repo.get(affected.id)?.height, camera: repo.get(affected.id)?.camera },
-      { width: 8256, height: 5504, camera: 'Nikon Z8' },
+      { width: 0, height: 0, camera: 'Nikon Z8' },
     );
     assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', affected.id)?.dirty, 1);
 

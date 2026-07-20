@@ -9,6 +9,9 @@ export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'other';
 /** sync_ledger.status vocabulary (ADR-0005; 'error' added by #104). */
 export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offloaded' | 'error';
 
+/** Local comparison between embedded metadata and a successful pixel decode. */
+export type DimensionStatus = 'legacy' | 'verified' | 'metadata-mismatch' | 'unavailable';
+
 export interface PhotoRecord {
   readonly id: string;
   readonly fileName: string;
@@ -34,11 +37,13 @@ export interface PhotoRecord {
   readonly deletedAt: string | null;
   /** Local derivative/display state; originals and backup manifests remain authoritative. */
   readonly previewFailure: PreviewFailureReason | null;
+  /** Local integrity hint; metadata-mismatch means the original may have corrupt metadata. */
+  readonly dimensionStatus: DimensionStatus;
   /** From the sync_ledger join; new rows start 'local'. */
   readonly syncState: SyncStatus;
 }
 
-export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'previewFailure' | 'syncState'> & {
+export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'previewFailure' | 'dimensionStatus' | 'syncState'> & {
   readonly favorite?: boolean;
 };
 
