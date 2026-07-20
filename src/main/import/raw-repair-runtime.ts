@@ -41,6 +41,8 @@ export function createRawRepairRuntime(options: RawRepairRuntimeOptions): RawRep
         signal,
       }),
     repairMetadata: (photoId, metadata) => options.repo.repairPreviewMetadata(photoId, metadata),
+    repairGeneratedDimensions: (photoId, width, height) => options.repo.repairGeneratedDimensions(photoId, width, height),
+    setDimensionStatus: (photoId, status) => options.repo.setDimensionStatus(photoId, status),
     setPreviewFailure: (photoId, failure) => options.repo.setPreviewFailure(photoId, failure),
     changed: options.changed,
   });

@@ -39,6 +39,7 @@ function photo(index: number, syncState: SyncStatus, favorite = false): PhotoRec
     keyId: 1,
     deletedAt: null,
     previewFailure: null,
+    dimensionStatus: 'verified',
     syncState,
   };
 }

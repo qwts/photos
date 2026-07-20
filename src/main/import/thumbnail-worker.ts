@@ -2,6 +2,8 @@ import { parentPort } from 'node:worker_threads';
 
 import sharp from 'sharp';
 
+import { displayDimensions } from './display-dimensions.js';
+
 // Thumbnail worker (#86): decode → resize → WebP per ADR-0006, off the main
 // thread. Derivatives are sRGB and metadata-free — a thumbnail must never
 // leak the GPS track the original carries. Encryption happens back in main
@@ -42,9 +44,11 @@ async function derivative(bytes: Uint8Array, edge: number, quality: number): Pro
 
 async function makeDerivatives(bytes: Uint8Array): Promise<Omit<ThumbJobResponse, 'jobId' | 'ok' | 'error'>> {
   const meta = await sharp(bytes, { failOn: 'error' }).metadata();
+  const dimensions = displayDimensions(meta.width, meta.height, meta.orientation);
+  if (dimensions === null) throw new Error('decoded image has invalid dimensions');
   const thumb = await derivative(bytes, THUMB_EDGE, THUMB_QUALITY);
   const mid = await derivative(bytes, MID_EDGE, MID_QUALITY);
-  return { thumb, mid, width: meta.width, height: meta.height };
+  return { thumb, mid, ...dimensions };
 }
 
 parentPort?.on('message', (request: ThumbJobRequest) => {

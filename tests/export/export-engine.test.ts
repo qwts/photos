@@ -50,6 +50,7 @@ function fullRow(
     keyId: 1,
     deletedAt: null,
     previewFailure: null,
+    dimensionStatus: 'verified',
     syncState: 'local',
   };
 }

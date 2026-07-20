@@ -50,6 +50,7 @@ export function createImportRuntime(options: ImportRuntimeOptions): ImportRuntim
       get: (id) => options.repo.get(id),
       insert: (photo) => options.repo.insert(photo),
       repairGeneratedDimensions: (id, width, height) => options.repo.repairGeneratedDimensions(id, width, height),
+      setDimensionStatus: (id, status) => options.repo.setDimensionStatus(id, status),
       setPreviewFailure: (id, failure) => options.repo.setPreviewFailure(id, failure),
     },
     blobs: {

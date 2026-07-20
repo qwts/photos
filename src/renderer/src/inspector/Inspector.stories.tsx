@@ -31,6 +31,7 @@ const PHOTO: PhotoRecord = {
   keyId: 2,
   deletedAt: null,
   previewFailure: null,
+  dimensionStatus: 'verified',
   syncState: 'synced',
 };
 
@@ -64,6 +65,7 @@ export const RafFavorite: Story = {
     // Real key metadata + the honest synced copy (no fabricated timestamp).
     await expect(canvas.getByText('AES-256-GCM · KEY #2')).toBeVisible();
     await expect(canvas.getByText('ENCRYPTED · Local mock')).toBeVisible();
+    await expect(canvas.queryByText('DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA')).toBeNull();
   },
 };
 
@@ -102,6 +104,23 @@ export const UnknownDimensions: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText('Unknown — repair pending')).toBeVisible();
     await expect(canvas.queryByText('0×0 · 0.0 MP')).toBeNull();
+  },
+};
+
+export const PossiblyCorruptMetadata: Story = {
+  args: {
+    photo: {
+      ...PHOTO,
+      fileKind: 'jpeg',
+      fileName: 'metadata-mismatch.jpg',
+      dimensionStatus: 'metadata-mismatch',
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('Metadata')).toBeVisible();
+    await expect(canvas.getByText('DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA')).toBeVisible();
+    await expect(canvas.getByText('6240×4160 · 26.0 MP')).toBeVisible();
   },
 };
 

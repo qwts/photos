@@ -2,6 +2,7 @@ import exifr from 'exifr';
 
 import { embeddedJpegFromRaf } from './raf-preview.js';
 import { resolveRawPreview } from './raw-preview.js';
+import { displayDimensions } from './display-dimensions.js';
 import type { FileKind } from '../../shared/library/types.js';
 
 // EXIF extraction (#85) per ADR-0006's field set, robust to weird files:
@@ -120,9 +121,12 @@ export async function extractMetadata(bytes: Buffer, kind?: FileKind): Promise<E
   }
   const make = asText(parsed['Make']);
   const model = asText(parsed['Model']);
+  const metadataDimensions =
+    displayDimensions(parsed['ExifImageWidth'], parsed['ExifImageHeight'], parsed['Orientation']) ??
+    displayDimensions(parsed['ImageWidth'], parsed['ImageHeight'], parsed['Orientation']);
   return {
-    width: asFiniteNumber(parsed['ExifImageWidth']) ?? asFiniteNumber(parsed['ImageWidth']) ?? previewDimensions?.width ?? null,
-    height: asFiniteNumber(parsed['ExifImageHeight']) ?? asFiniteNumber(parsed['ImageHeight']) ?? previewDimensions?.height ?? null,
+    width: metadataDimensions?.width ?? previewDimensions?.width ?? null,
+    height: metadataDimensions?.height ?? previewDimensions?.height ?? null,
     // The mock's camera strings read "FUJIFILM X-T5" — make + model, deduped
     // when the model already leads with the make.
     camera: model === null ? make : make === null || model.toUpperCase().startsWith(make.toUpperCase()) ? model : `${make} ${model}`,

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { useFormats } from '../i18n/use-formats.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
@@ -22,6 +23,14 @@ const STATUS_TONE: Record<SyncStatus, string> = {
   error: 'var(--accent-red)',
 };
 
+const messages = defineMessages({
+  metadataLabel: { id: 'inspector.file.metadata', defaultMessage: 'Metadata' },
+  dimensionMismatch: {
+    id: 'inspector.file.dimensionMismatch',
+    defaultMessage: 'DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA',
+  },
+});
+
 function Section({ title, children }: { readonly title: string; readonly children: ReactElement | (ReactElement | null)[] }): ReactElement {
   return (
     <div className="ovl-inspector__section">
@@ -38,6 +47,7 @@ export interface InspectorProps {
 }
 
 export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): ReactElement {
+  const intl = useIntl();
   const { formatBytes, formatCalendarDate } = useFormats();
   if (photo === null) {
     return (
@@ -96,6 +106,13 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
       </Section>
       <Section title="File">
         <MetadataRow label="Dimensions" value={dimensions} />
+        {photo.dimensionStatus === 'metadata-mismatch' ? (
+          <MetadataRow
+            label={intl.formatMessage(messages.metadataLabel)}
+            value={intl.formatMessage(messages.dimensionMismatch)}
+            tone="var(--accent-amber)"
+          />
+        ) : null}
         <MetadataRow label="Size" value={formatBytes(photo.bytes)} />
         <MetadataRow label="Imported" value={`${formatCalendarDate(photo.importedAt)} · ${photo.importSource}`} />
       </Section>

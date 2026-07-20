@@ -1,8 +1,7 @@
 import sharp from 'sharp';
-import type { Metadata } from 'sharp';
-
 import { decodeRawWithNative } from './raw-preview-native.js';
 import { embeddedJpegFromRaf, looksLikeJpeg } from './raf-preview.js';
+import { displayDimensions } from './display-dimensions.js';
 
 export interface RawPreview {
   readonly bytes: Buffer;
@@ -28,17 +27,10 @@ function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;
 }
 
-function displayDimensions(metadata: Metadata): { readonly width: number; readonly height: number } | null {
-  if (metadata.width === undefined || metadata.height === undefined || metadata.width <= 0 || metadata.height <= 0) return null;
-  return metadata.orientation !== undefined && metadata.orientation >= 5 && metadata.orientation <= 8
-    ? { width: metadata.height, height: metadata.width }
-    : { width: metadata.width, height: metadata.height };
-}
-
 async function inspect(candidate: Buffer): Promise<{ readonly width: number; readonly height: number } | null> {
   try {
     const metadata = await sharp(candidate, { failOn: 'error' }).metadata();
-    return displayDimensions(metadata);
+    return displayDimensions(metadata.width, metadata.height, metadata.orientation);
   } catch {
     return null;
   }

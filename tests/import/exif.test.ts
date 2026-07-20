@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { extractMetadata } from '../../src/main/import/exif.js';
+import { displayDimensions } from '../../src/main/import/display-dimensions.js';
 
 const FIXTURES = join(import.meta.dirname, '../../../tests/fixtures/exif');
 
@@ -13,6 +14,14 @@ function fixture(name: string): Buffer {
 }
 
 describe('EXIF extraction (#85)', () => {
+  test('display dimensions reject implausible metadata and apply EXIF orientation (#500)', () => {
+    assert.deepEqual(displayDimensions(4032, 3024, 6), { width: 3024, height: 4032 });
+    assert.deepEqual(displayDimensions(4032, 3024, 1), { width: 4032, height: 3024 });
+    assert.equal(displayDimensions(0, 3024), null);
+    assert.equal(displayDimensions(1.5, 2), null);
+    assert.equal(displayDimensions(Number.MAX_SAFE_INTEGER + 1, 2), null);
+  });
+
   test('EXIT CRITERIA: full EXIF JPEG yields the ADR-0006 field set', async () => {
     const meta = await extractMetadata(fixture('exif-full.jpg'));
     assert.equal(meta.width, 1280);
