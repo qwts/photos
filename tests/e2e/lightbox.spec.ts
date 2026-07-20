@@ -146,9 +146,13 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   await page.keyboard.press('+');
   await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.keyboard.press('0');
+  await expect(viewport).toHaveAttribute('data-mode', 'fit');
   await page.keyboard.press(']');
+  await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
   await page.keyboard.press('Backslash');
+  await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
   await page.keyboard.press('+');
+  await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.mouse.wheel(0, 5000);
   await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeLessThan(0);
   const carriedPanY = Number(await viewport.getAttribute('data-pan-y'));
