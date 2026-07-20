@@ -97,18 +97,7 @@ async function exerciseOrientationControls(page: Page, viewport: Locator): Promi
 async function exerciseFillPersistence(page: Page, viewport: Locator, image: Locator): Promise<void> {
   await image.dblclick();
   await expect(viewport).toHaveAttribute('data-mode', 'fill');
-  const fillViewportBounds = await viewport.boundingBox();
-  const fillImageBounds = await image.boundingBox();
-  expect(fillViewportBounds).not.toBeNull();
-  expect(fillImageBounds).not.toBeNull();
-  expect(fillImageBounds?.width ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.width ?? 0) - 1);
-  expect(fillImageBounds?.height ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.height ?? 0) - 1);
-
-  const verticalOverflow = ((fillImageBounds?.height ?? 0) - (fillViewportBounds?.height ?? 0)) / 2;
-  await page.mouse.wheel(0, 5000);
-  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(-verticalOverflow, 0);
-  await page.mouse.wheel(0, -10000);
-  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(verticalOverflow, 0);
+  await expectLandscapeHeightFill(viewport, image);
 
   await page.keyboard.press('i');
   await expect(viewport).toHaveAttribute('data-mode', 'fill');
@@ -116,26 +105,28 @@ async function exerciseFillPersistence(page: Page, viewport: Locator, image: Loc
     .poll(async () => {
       const viewportBounds = await viewport.boundingBox();
       const imageBounds = await image.boundingBox();
-      return Math.min((imageBounds?.width ?? 0) - (viewportBounds?.width ?? 0), (imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0));
+      return Math.abs((imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0));
     })
-    .toBeGreaterThanOrEqual(-1);
+    .toBeLessThanOrEqual(1);
   await page.keyboard.press('i');
 
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
   await expect(viewport).toHaveAttribute('data-mode', 'fill');
+  await expectLandscapeHeightFill(viewport, image);
+  await page.keyboard.press('ArrowLeft');
+  await image.dblclick();
+  await expect(viewport).toHaveAttribute('data-mode', 'fit');
+}
+
+async function expectLandscapeHeightFill(viewport: Locator, image: Locator): Promise<void> {
   await expect
     .poll(async () => {
       const viewportBounds = await viewport.boundingBox();
       const imageBounds = await image.boundingBox();
-      const horizontal = (imageBounds?.width ?? 0) - (viewportBounds?.width ?? 0);
-      const vertical = Math.abs((imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0));
-      return horizontal > 1 && vertical <= 1;
+      return Math.abs((imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0));
     })
-    .toBe(true);
-  await page.keyboard.press('ArrowLeft');
-  await image.dblclick();
-  await expect(viewport).toHaveAttribute('data-mode', 'fit');
+    .toBeLessThanOrEqual(1);
 }
 
 async function exerciseCustomTransformPersistence(page: Page, viewport: Locator): Promise<void> {

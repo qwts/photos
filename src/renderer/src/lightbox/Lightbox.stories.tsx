@@ -190,10 +190,11 @@ export const PortraitFillZoomAndReset: Story = {
 };
 
 export const LandscapeFillCoversWidescreenAndPans: Story = {
+  args: { photo: { ...PHOTO, width: 2100, height: 700, fileName: 'PANORAMA.JPG' } },
   parameters: { lightboxHeight: 540 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const image = canvas.getByRole('img', { name: 'IMG_4028.JPG' });
+    const image = canvas.getByRole('img', { name: 'PANORAMA.JPG' });
     const viewport = canvas.getByTestId('lightbox-viewport');
     await waitFor(() => expect(image).toHaveProperty('naturalWidth', 1280));
     await userEvent.dblClick(image);
@@ -201,13 +202,14 @@ export const LandscapeFillCoversWidescreenAndPans: Story = {
     await waitFor(async () => {
       const viewportBounds = viewport.getBoundingClientRect();
       const imageBounds = image.getBoundingClientRect();
-      await expect(imageBounds.width).toBeGreaterThanOrEqual(viewportBounds.width - 1);
-      await expect(imageBounds.height).toBeGreaterThanOrEqual(viewportBounds.height - 1);
+      await expect(imageBounds.width).toBeGreaterThan(viewportBounds.width + 1);
+      await expect(Math.abs(imageBounds.height - viewportBounds.height)).toBeLessThanOrEqual(1);
     });
-    await fireEvent.wheel(image, { deltaY: 5000 });
-    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
-    await fireEvent.wheel(image, { deltaY: -10000 });
-    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeGreaterThan(0));
+    await fireEvent.wheel(image, { deltaX: 5000 });
+    await waitFor(() => expect(Number(viewport.dataset['panX'])).toBeLessThan(0));
+    await expect(viewport).toHaveAttribute('data-pan-y', '0.0');
+    await fireEvent.wheel(image, { deltaX: -10000 });
+    await waitFor(() => expect(Number(viewport.dataset['panX'])).toBeGreaterThan(0));
   },
 };
 

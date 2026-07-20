@@ -41,8 +41,9 @@ Electron coverage; it does not replace the separate keyboard-pan work in #449.
    - a portrait fills edge to edge horizontally and scrolls only vertically;
    - a landscape fills edge to edge vertically and scrolls only horizontally.
 5. Pan to an edge and navigate again. Confirm Fill recomputes for each aspect
-   ratio while retaining a useful normalized focal direction. At no point may
-   both axes require scrolling.
+   ratio while retaining a useful normalized focal direction. A photo close to
+   the window's aspect ratio may need no scrolling; it must never require both
+   axes.
 6. Dock and undock Inspector, then resize the window. Confirm the transform
    reclamps and every image continues to cover the required viewport axes.
 7. Rotate or flip one photo, then navigate. Confirm orientation resets for the
