@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { mkE2eTmpDir } from './support/tmp-dir.js';
 
@@ -76,7 +77,98 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
   }
 });
 
-test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#307)', async () => {
+async function exerciseOrientationControls(page: Page, viewport: Locator): Promise<void> {
+  const toolbar = page.getByRole('toolbar', { name: 'Image orientation controls' });
+  await expect(toolbar).toBeVisible();
+  await toolbar.getByRole('button', { name: 'Rotate right (])' }).click();
+  await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+  await toolbar.getByRole('button', { name: 'Flip horizontal (Backslash)' }).click();
+  await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
+  await page.keyboard.press('r');
+  await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+  await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
+  await page.keyboard.press('+');
+  await page.keyboard.press(']');
+  await toolbar.getByRole('button', { name: 'Reset orientation (R)' }).click();
+  await expect(viewport).toHaveAttribute('data-zoom', '1.250');
+  await page.keyboard.press('0');
+}
+
+async function exerciseFillPersistence(page: Page, viewport: Locator, image: Locator): Promise<void> {
+  await image.dblclick();
+  await expect(viewport).toHaveAttribute('data-mode', 'fill');
+  const fillViewportBounds = await viewport.boundingBox();
+  const fillImageBounds = await image.boundingBox();
+  expect(fillViewportBounds).not.toBeNull();
+  expect(fillImageBounds).not.toBeNull();
+  expect(fillImageBounds?.width ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.width ?? 0) - 1);
+  expect(fillImageBounds?.height ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.height ?? 0) - 1);
+
+  const verticalOverflow = ((fillImageBounds?.height ?? 0) - (fillViewportBounds?.height ?? 0)) / 2;
+  await page.mouse.wheel(0, 5000);
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(-verticalOverflow, 0);
+  await page.mouse.wheel(0, -10000);
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(verticalOverflow, 0);
+
+  await page.keyboard.press('i');
+  await expect(viewport).toHaveAttribute('data-mode', 'fill');
+  await expect
+    .poll(async () => {
+      const viewportBounds = await viewport.boundingBox();
+      const imageBounds = await image.boundingBox();
+      return Math.min((imageBounds?.width ?? 0) - (viewportBounds?.width ?? 0), (imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0));
+    })
+    .toBeGreaterThanOrEqual(-1);
+  await page.keyboard.press('i');
+
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
+  await expect(viewport).toHaveAttribute('data-mode', 'fill');
+  await expect
+    .poll(async () => {
+      const viewportBounds = await viewport.boundingBox();
+      const imageBounds = await image.boundingBox();
+      const horizontal = (imageBounds?.width ?? 0) - (viewportBounds?.width ?? 0);
+      const vertical = Math.abs((imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0));
+      return horizontal > 1 && vertical <= 1;
+    })
+    .toBe(true);
+  await page.keyboard.press('ArrowLeft');
+  await image.dblclick();
+  await expect(viewport).toHaveAttribute('data-mode', 'fit');
+}
+
+async function exerciseCustomTransformPersistence(page: Page, viewport: Locator): Promise<void> {
+  const bounds = await viewport.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.move((bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.25, (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.25);
+  await page.keyboard.down('Alt');
+  await page.mouse.wheel(0, -600);
+  await page.keyboard.up('Alt');
+  await expect.poll(async () => Number(await viewport.getAttribute('data-zoom'))).toBeGreaterThan(2);
+  await page.mouse.wheel(900, 700);
+  await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-x')))).toBeGreaterThan(0);
+  await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-y')))).toBeGreaterThan(0);
+
+  await page.keyboard.press('0');
+  await page.keyboard.press('+');
+  await expect(viewport).toHaveAttribute('data-zoom', '1.250');
+  await page.keyboard.press('0');
+  await page.keyboard.press(']');
+  await page.keyboard.press('Backslash');
+  await page.keyboard.press('+');
+  await page.mouse.wheel(0, 5000);
+  const carriedPanY = Number(await viewport.getAttribute('data-pan-y'));
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
+  await expect(viewport).toHaveAttribute('data-mode', 'custom');
+  await expect(viewport).toHaveAttribute('data-zoom', '1.250');
+  expect(Math.sign(Number(await viewport.getAttribute('data-pan-y')))).toBe(Math.sign(carriedPanY));
+  await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+  await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
+}
+
+test('lightbox transform: fill, focal zoom, clamped pan, and navigation persistence (#307, #501)', async () => {
   const userData = mkE2eTmpDir('overlook-e2e-lightbox-transform-');
   const app = await electron.launch({
     args: ['.'],
@@ -95,86 +187,16 @@ test('lightbox transform: fill, focal zoom, clamped pan, and lifecycle reset (#3
 
     const viewport = page.getByTestId('lightbox-viewport');
     const image = viewport.getByRole('img');
-    const orientationToolbar = page.getByRole('toolbar', { name: 'Image orientation controls' });
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
-    await expect(orientationToolbar).toBeVisible();
+    await exerciseOrientationControls(page, viewport);
+    await exerciseFillPersistence(page, viewport, image);
+    await exerciseCustomTransformPersistence(page, viewport);
 
-    await orientationToolbar.getByRole('button', { name: 'Rotate right (])' }).click();
-    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
-    await orientationToolbar.getByRole('button', { name: 'Flip horizontal (Backslash)' }).click();
-    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
-    await page.keyboard.press('r');
-    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
-    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
-
-    await page.keyboard.press('+');
-    await page.keyboard.press(']');
-    await orientationToolbar.getByRole('button', { name: 'Reset orientation (R)' }).click();
-    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
-    await expect(viewport).toHaveAttribute('data-zoom', '1.250');
-    await page.keyboard.press('0');
-
-    await image.dblclick();
-    await expect(viewport).toHaveAttribute('data-mode', 'fill');
-    const fillViewportBounds = await viewport.boundingBox();
-    const fillImageBounds = await image.boundingBox();
-    expect(fillViewportBounds).not.toBeNull();
-    expect(fillImageBounds).not.toBeNull();
-    expect(fillImageBounds?.width ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.width ?? 0) - 1);
-    expect(fillImageBounds?.height ?? 0).toBeGreaterThanOrEqual((fillViewportBounds?.height ?? 0) - 1);
-
-    const verticalOverflow = ((fillImageBounds?.height ?? 0) - (fillViewportBounds?.height ?? 0)) / 2;
-    await page.mouse.wheel(0, 5000);
-    await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(-verticalOverflow, 0);
-    await page.mouse.wheel(0, -10000);
-    await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeCloseTo(verticalOverflow, 0);
-
-    await page.keyboard.press('i');
-    await expect(viewport).toHaveAttribute('data-mode', 'fill');
-    await expect
-      .poll(async () => {
-        const viewportBounds = await viewport.boundingBox();
-        const imageBounds = await image.boundingBox();
-        return Math.min(
-          (imageBounds?.width ?? 0) - (viewportBounds?.width ?? 0),
-          (imageBounds?.height ?? 0) - (viewportBounds?.height ?? 0),
-        );
-      })
-      .toBeGreaterThanOrEqual(-1);
-    await page.keyboard.press('i');
-    await expect(viewport).toHaveAttribute('data-mode', 'fill');
-
-    await image.dblclick();
-    await expect(viewport).toHaveAttribute('data-mode', 'fit');
-
-    const bounds = await viewport.boundingBox();
-    expect(bounds).not.toBeNull();
-    await page.mouse.move((bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.25, (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.25);
-    await page.keyboard.down('Alt');
-    await page.mouse.wheel(0, -600);
-    await page.keyboard.up('Alt');
-    await expect.poll(async () => Number(await viewport.getAttribute('data-zoom'))).toBeGreaterThan(2);
-
-    await page.mouse.wheel(900, 700);
-    await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-x')))).toBeGreaterThan(0);
-    await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-y')))).toBeGreaterThan(0);
-
-    await page.keyboard.press('0');
-    await page.keyboard.press('+');
-    await expect(viewport).toHaveAttribute('data-zoom', '1.250');
-    await page.keyboard.press('0');
-    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
-
-    await page.keyboard.press(']');
-    await page.keyboard.press('Backslash');
-    await page.keyboard.press('+');
-    await page.keyboard.press('ArrowRight');
-    await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
+    await page.keyboard.press('Escape');
+    await page.locator('.ovl-grid__cell').first().click();
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
-    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
-    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
   } finally {
     await app.close();
   }

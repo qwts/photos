@@ -33,6 +33,7 @@ existing links resolve — never add content there.
 - [Manual Test — M18 Cloud Disaster Recovery](./acceptance/Manual-Test-M18-Cloud-Disaster-Recovery.md) — isolated owner-run pCloud procedure
 - [Accessibility Audit — WCAG 2.2 AA (July 2026)](./Accessibility-Audit-2026-07.md) — baseline, severity ranking, accepted exceptions (#398)
 - [Manual Test — VoiceOver](./acceptance/Manual-Test-A11y-VoiceOver.md) — the screen-reader half the axe gates cannot cover
+- [Full-display image acceptance](./acceptance/acceptance-test-full-display-image.md) — image-first chrome, transform persistence, and reset boundaries
 - [Overlook Library Format v1](./Library-Format-v1.md) — the on-disk format: layout, key hierarchy, envelope, recovery file, SQLCipher parameters
 - [Spike — Multi-Platform Port](./Spike-Multi-Platform-Port.md) — iOS/iPadOS/tvOS/visionOS/Android/Windows feasibility; findings only, no decision
 

@@ -14,12 +14,20 @@ export interface LightboxTransform extends LightboxPoint {
 
 export type LightboxZoomMode = 'fit' | 'fill' | 'custom';
 
+export interface LightboxViewIntent {
+  readonly mode: LightboxZoomMode;
+  readonly zoom: number;
+  readonly panX: number;
+  readonly panY: number;
+}
+
 export interface LightboxOrientation {
   readonly quarterTurns: 0 | 1 | 2 | 3;
   readonly flipped: boolean;
 }
 
 export const DEFAULT_ORIENTATION: LightboxOrientation = { quarterTurns: 0, flipped: false };
+export const DEFAULT_VIEW_INTENT: LightboxViewIntent = { mode: 'fit', zoom: 1, panX: 0, panY: 0 };
 
 export const ZOOM_MIN = 0.25;
 export const ZOOM_MAX = 8;
@@ -74,6 +82,39 @@ export function clampTransform(transform: LightboxTransform, fitted: LightboxSiz
     zoom,
     x: clamp(transform.x, -maximumX, maximumX),
     y: clamp(transform.y, -maximumY, maximumY),
+  };
+}
+
+export function viewIntentToTransform(intent: LightboxViewIntent, image: LightboxSize, viewport: LightboxSize): LightboxTransform {
+  const fitted = fitSize(image, viewport);
+  const zoom = intent.mode === 'fill' ? fillZoom(image, viewport) : intent.zoom;
+  const maximumX = Math.max(0, (fitted.width * zoom - viewport.width) / 2);
+  const maximumY = Math.max(0, (fitted.height * zoom - viewport.height) / 2);
+  return clampTransform(
+    {
+      zoom,
+      x: clamp(intent.panX, -1, 1) * maximumX,
+      y: clamp(intent.panY, -1, 1) * maximumY,
+    },
+    fitted,
+    viewport,
+  );
+}
+
+export function transformToViewIntent(
+  transform: LightboxTransform,
+  mode: LightboxZoomMode,
+  fitted: LightboxSize,
+  viewport: LightboxSize,
+): LightboxViewIntent {
+  const clamped = clampTransform(transform, fitted, viewport);
+  const maximumX = Math.max(0, (fitted.width * clamped.zoom - viewport.width) / 2);
+  const maximumY = Math.max(0, (fitted.height * clamped.zoom - viewport.height) / 2);
+  return {
+    mode,
+    zoom: clamped.zoom,
+    panX: maximumX === 0 ? 0 : clamped.x / maximumX,
+    panY: maximumY === 0 ? 0 : clamped.y / maximumY,
   };
 }
 

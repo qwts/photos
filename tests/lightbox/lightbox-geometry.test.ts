@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 
 import {
   DEFAULT_ORIENTATION,
+  DEFAULT_VIEW_INTENT,
   ZOOM_MAX,
   ZOOM_MIN,
   fillZoom,
@@ -11,6 +12,8 @@ import {
   panBy,
   resizeTransform,
   rotateOrientation,
+  transformToViewIntent,
+  viewIntentToTransform,
   zoomAround,
 } from '../../src/renderer/src/lightbox/geometry.js';
 
@@ -71,7 +74,43 @@ describe('lightbox transform geometry (#307)', () => {
       y: -150,
     });
   });
+});
 
+describe('lightbox navigation view intent (#501)', () => {
+  test('view intent preserves zoom and normalized focal position across aspect ratios (#501)', () => {
+    const viewport = { width: 800, height: 600 };
+    const landscapeFit = fitSize({ width: 1600, height: 900 }, viewport);
+    const intent = transformToViewIntent({ zoom: 2, x: 300, y: -150 }, 'custom', landscapeFit, viewport);
+
+    assert.deepEqual(intent, { mode: 'custom', zoom: 2, panX: 0.75, panY: -1 });
+    assert.deepEqual(viewIntentToTransform(intent, { width: 900, height: 1600 }, viewport), {
+      zoom: 2,
+      x: 0,
+      y: -300,
+    });
+    assert.deepEqual(viewIntentToTransform(DEFAULT_VIEW_INTENT, { width: 900, height: 1600 }, viewport), {
+      zoom: 1,
+      x: 0,
+      y: 0,
+    });
+  });
+
+  test('Fill intent recomputes edge-to-edge scale with one overflow axis per photo (#501)', () => {
+    const viewport = { width: 800, height: 600 };
+    const intent = { ...DEFAULT_VIEW_INTENT, mode: 'fill' as const, panX: 1, panY: -1 };
+    const portrait = viewIntentToTransform(intent, { width: 900, height: 1600 }, viewport);
+    const landscape = viewIntentToTransform(intent, { width: 1600, height: 900 }, viewport);
+
+    assertClose(portrait.zoom, 800 / 337.5);
+    assert.equal(portrait.x, 0, 'portrait fills width and cannot scroll horizontally');
+    assert.ok(portrait.y < 0, 'portrait scrolls vertically');
+    assertClose(landscape.zoom, 600 / 450);
+    assert.ok(landscape.x > 0, 'landscape scrolls horizontally');
+    assert.equal(landscape.y, 0, 'landscape fills height and cannot scroll vertically');
+  });
+});
+
+describe('lightbox orientation geometry (#307)', () => {
   test('quarter turns swap fit axes and normalize after a complete rotation', () => {
     const clockwise = rotateOrientation(DEFAULT_ORIENTATION, 1);
     assert.deepEqual(clockwise, { quarterTurns: 1, flipped: false });
