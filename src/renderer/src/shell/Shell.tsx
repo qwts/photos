@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import { FormattedMessage } from 'react-intl';
 
 import './shell.css';
 import { useFormats } from '../i18n/use-formats.js';
@@ -317,7 +318,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
     // non-drag equivalent required by SC 2.5.7.
     <div className="ovl-shell">
       <a className="ovl-skip-link" href="#photo-grid">
-        Skip to photos
+        <FormattedMessage id="shell.skipToPhotos" defaultMessage="Skip to photos" />
       </a>
       {dragging ? (
         <div className="ovl-shell__dropOverlay">

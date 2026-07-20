@@ -60,7 +60,8 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
   onKeyboardOpen,
   onKeyboardSelection,
 }: VirtualGridProps<Photo>): ReactElement {
-  const direction = directionOf(useIntl().locale);
+  const intl = useIntl();
+  const direction = directionOf(intl.locale);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);
@@ -189,7 +190,7 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
       ref={containerRef}
       id="photo-grid"
       role="region"
-      aria-label="Photos"
+      aria-label={intl.formatMessage({ id: 'grid.regionLabel', defaultMessage: 'Photos' })}
       tabIndex={-1}
       className={`ovl-grid${topInset ? ' ovl-grid--inset' : ''}`}
       data-testid="virtual-grid"
