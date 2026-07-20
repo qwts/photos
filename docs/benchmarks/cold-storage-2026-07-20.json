@@ -11,9 +11,7 @@
     "zstd": "*** Zstandard CLI (64-bit) v1.5.7, by Yann Collet ***"
   },
   "fixturePolicy": {
-    "excluded": [
-      "tests/fixtures/exif/corrupt.jpg"
-    ],
+    "excluded": ["tests/fixtures/exif/corrupt.jpg"],
     "note": "Checked-in licensed fixtures only; exact duplicate copies are excluded because the BlobStore already deduplicates by plaintext SHA-256."
   },
   "corpora": {
@@ -25,17 +23,9 @@
       "tests/fixtures/exif/exif-full.jpg",
       "tests/fixtures/exif/exif-stripped.jpg"
     ],
-    "heic": [
-      "tests/fixtures/heic/iphone-13-pro.heic",
-      "tests/fixtures/heic/iphone-xr.heic"
-    ],
-    "raw": [
-      "tests/fixtures/exif/sample.raf"
-    ],
-    "sidecar": [
-      "tests/fixtures/photos/manifest.json",
-      "tests/fixtures/heic/provenance.json"
-    ],
+    "heic": ["tests/fixtures/heic/iphone-13-pro.heic", "tests/fixtures/heic/iphone-xr.heic"],
+    "raw": ["tests/fixtures/exif/sample.raf"],
+    "sidecar": ["tests/fixtures/photos/manifest.json", "tests/fixtures/heic/provenance.json"],
     "mixed": [
       "tests/fixtures/photos/flower-landscape.jpg",
       "tests/fixtures/photos/street-city.jpg",
