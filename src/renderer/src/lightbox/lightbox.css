@@ -131,6 +131,7 @@
 }
 
 .ovl-lightbox__top {
+  -webkit-app-region: drag;
   position: absolute;
   top: 0;
   left: 0;
@@ -143,11 +144,10 @@
   background: linear-gradient(to bottom, oklch(0.1 0.005 250 / 0.75), transparent);
 }
 
-/* The top row overlays the TitleBar's 30px OS drag strip, and Electron drag
- * regions swallow real clicks regardless of stacking — without this carve-out
- * only the sub-titlebar sliver of each button is clickable (#270). Scoped to
- * chrome-on so a hidden row hands window dragging back. */
-.ovl-lightbox__top.ovl-lightbox__chrome--on {
+/* Electron drag regions swallow real clicks regardless of stacking. Keep the
+ * visible button islands interactive while the title and blank row space drag
+ * the window; hidden chrome leaves the entire row draggable (#270, #577). */
+.ovl-lightbox__top.ovl-lightbox__chrome--on > button {
   -webkit-app-region: no-drag;
 }
 
