@@ -1,5 +1,11 @@
 # photos
 
+## 0.35.4
+
+### Patch Changes
+
+- 7f191c5: Make gallery favorite stars accessible controls that update favorite state without opening or selecting the photo.
+
 ## 0.35.3
 
 ### Patch Changes
