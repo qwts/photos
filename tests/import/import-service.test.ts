@@ -39,7 +39,7 @@ describe('import service serialization (#87)', () => {
       peak = Math.max(peak, active);
       await new Promise((resolve) => setTimeout(resolve, 20));
       active -= 1;
-      return { imported: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] };
+      return { imported: 0, moved: 0, retained: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] };
     };
     const engine = {
       importFiles: enter,
@@ -61,7 +61,7 @@ describe('import service serialization (#87)', () => {
         if (calls === 1) {
           return Promise.reject(new Error('first batch dies'));
         }
-        return Promise.resolve({ imported: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] });
+        return Promise.resolve({ imported: 0, moved: 0, retained: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] });
       },
       resume: () => Promise.resolve(null),
     } as unknown as ImportEngine;
@@ -175,6 +175,95 @@ describe('import service serialization (#87)', () => {
   });
 });
 
+describe('local folder and dropped Move policy (#489)', () => {
+  const fresh = {
+    path: '/source/a.jpg',
+    fileName: 'a.jpg',
+    kind: 'jpeg' as const,
+    bytes: 4,
+    contentHash: 'a'.repeat(64),
+    isNew: true,
+  };
+  const existing = {
+    ...fresh,
+    path: '/source/duplicate.jpg',
+    fileName: 'duplicate.jpg',
+    contentHash: 'b'.repeat(64),
+    isNew: false,
+  };
+  const scan = {
+    summary: { total: 2, newCount: 1, newBytes: 4, newRaw: 0, newJpg: 1, newOther: 0 },
+    files: [fresh, existing],
+  };
+
+  test('a selected local folder reaches the verified Move engine without pretending to be removable', async () => {
+    const calls: Array<{ mode: string; source: string; paths: readonly string[] }> = [];
+    const engine = {
+      importFiles: (files: readonly { path: string }[], mode: string, source: string) => {
+        calls.push({ mode, source, paths: files.map((file) => file.path) });
+        return Promise.resolve({ imported: 1, moved: 1, retained: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: ['P1'] });
+      },
+    } as unknown as ImportEngine;
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, engine, () => undefined, {
+      source: () => Promise.resolve(scan),
+      files: () => Promise.resolve(scan),
+    });
+
+    const summary = await service.run('/source', 'move');
+
+    assert.deepEqual(calls, [{ mode: 'move', source: '/source', paths: ['/source/a.jpg'] }]);
+    assert.deepEqual(
+      { imported: summary.imported, moved: summary.moved, retained: summary.retained, duplicates: summary.duplicates },
+      { imported: 1, moved: 1, retained: 1, duplicates: 1 },
+    );
+  });
+
+  test('mixed dropped paths preserve the requested mode and never pass enclosing folders to deletion', async () => {
+    const calls: Array<{ mode: string; source: string; paths: readonly string[] }> = [];
+    const engine = {
+      importFiles: (files: readonly { path: string }[], mode: string, source: string) => {
+        calls.push({ mode, source, paths: files.map((file) => file.path) });
+        return Promise.resolve({ imported: 1, moved: 1, retained: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: ['P1'] });
+      },
+    } as unknown as ImportEngine;
+    const service = new ImportService(fakeRepo(), IDLE_EVENTS, engine, () => undefined, {
+      source: () => Promise.resolve(scan),
+      files: () => Promise.resolve(scan),
+    });
+
+    const summary = await service.runFiles(['/source', '/other/b.jpg'], 'move');
+
+    assert.deepEqual(calls, [{ mode: 'move', source: 'dropped', paths: ['/source/a.jpg'] }]);
+    assert.deepEqual(
+      { moved: summary.moved, retained: summary.retained, duplicates: summary.duplicates },
+      { moved: 1, retained: 1, duplicates: 1 },
+    );
+  });
+
+  test('Move rejects admitted files inside the active library before the engine runs', async () => {
+    let calls = 0;
+    const engine = {
+      importFiles: () => {
+        calls += 1;
+        return Promise.resolve({ imported: 0, moved: 0, retained: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] });
+      },
+    } as unknown as ImportEngine;
+    const inside = { ...scan, files: [{ ...fresh, path: '/library/exports/a.jpg' }] };
+    const service = new ImportService(
+      fakeRepo(),
+      IDLE_EVENTS,
+      engine,
+      () => undefined,
+      { source: () => Promise.resolve(inside), files: () => Promise.resolve(inside) },
+      undefined,
+      '/library',
+    );
+
+    await assert.rejects(service.run('/library/exports', 'move'), /inside the active library/u);
+    assert.equal(calls, 0);
+  });
+});
+
 describe('import service fixture source is injector-gated (#129 F1)', () => {
   const engine = { importFiles: () => Promise.resolve(null), resume: () => Promise.resolve(null) } as unknown as ImportEngine;
 
@@ -248,7 +337,7 @@ describe('Google Drive import service (#465)', () => {
     const engine = {
       importFiles: (files: readonly { fileName: string }[], mode: string, source: string, _signal: AbortSignal, cleanupPath?: string) => {
         calls.push({ source, mode, names: files.map((file) => file.fileName), cleanupPath });
-        return Promise.resolve({ imported: 1, duplicates: 0, failed: 0, cancelled: 0, photoIds: ['P1'] });
+        return Promise.resolve({ imported: 1, moved: 0, retained: 1, duplicates: 0, failed: 0, cancelled: 0, photoIds: ['P1'] });
       },
       resume: () => Promise.resolve(null),
     } as unknown as ImportEngine;

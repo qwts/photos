@@ -452,7 +452,14 @@ export function registerImportHandlers(
     wrapHandler(channels.importGoogleDriveRun, async ({ selectionId }) => {
       const summary = await getService().runGoogleDrive(selectionId);
       if (summary.imported > 0) onImported?.();
-      return { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed, cancelled: summary.cancelled };
+      return {
+        imported: summary.imported,
+        moved: summary.moved,
+        retained: summary.retained,
+        duplicates: summary.duplicates,
+        failed: summary.failed,
+        cancelled: summary.cancelled,
+      };
     })(request),
   );
   ipcMain.handle(channels.importGoogleDriveDiscard.name, (_event, request: unknown) =>
@@ -469,15 +476,22 @@ export function registerImportHandlers(
   );
   ipcMain.handle(channels.importRun.name, (_event, request: unknown) =>
     wrapHandler(channels.importRun, async ({ path, files, mode }) => {
-      // The zod refinement guarantees exactly one of path/files, and that a
-      // files run is copy-only (#237).
-      const summary = files !== undefined ? await getService().runFiles(files) : await getService().run(path ?? '', mode);
+      // The zod refinement guarantees exactly one of path/files. Both paths
+      // use the engine's verified per-file Move boundary (#489).
+      const summary = files !== undefined ? await getService().runFiles(files, mode) : await getService().run(path ?? '', mode);
       // The auto-backup-on-import subscription seam (#105/#111): fires only
       // when the batch actually landed photos.
       if (summary.imported > 0) {
         onImported?.();
       }
-      return { imported: summary.imported, duplicates: summary.duplicates, failed: summary.failed, cancelled: summary.cancelled };
+      return {
+        imported: summary.imported,
+        moved: summary.moved,
+        retained: summary.retained,
+        duplicates: summary.duplicates,
+        failed: summary.failed,
+        cancelled: summary.cancelled,
+      };
     })(request),
   );
   ipcMain.handle(channels.importCancel.name, (_event, request: unknown) =>

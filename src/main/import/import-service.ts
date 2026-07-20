@@ -1,3 +1,5 @@
+import { isAbsolute, relative, resolve } from 'node:path';
+
 import {
   defaultVolumeListerDeps,
   folderSource,
@@ -65,7 +67,21 @@ export class ImportService {
     private readonly fixtureSource: () => string | undefined = () => undefined,
     private readonly scanners: ImportScanners = defaultScanners,
     private readonly googleDrive?: GoogleDriveImportSource,
+    private readonly libraryRoot?: string,
   ) {}
+
+  private assertMoveOutsideLibrary(files: readonly { readonly path: string }[], mode: ImportMode): void {
+    if (mode !== 'move' || this.libraryRoot === undefined) return;
+    const root = resolve(this.libraryRoot);
+    if (
+      files.some((file) => {
+        const relation = relative(root, resolve(file.path));
+        return relation === '' || (!relation.startsWith('..') && !isAbsolute(relation));
+      })
+    ) {
+      throw new Error('Move sources cannot be inside the active library');
+    }
+  }
 
   private trackScan<T>(scan: (signal: AbortSignal) => Promise<T>, controller = new AbortController()): Promise<T> {
     if (this.closed) return Promise.reject(new Error('import service is closed'));
@@ -128,16 +144,6 @@ export class ImportService {
 
   /** Runs a batch over the source's NEW files (fresh scan → engine). */
   async run(path: string, mode: ImportMode): Promise<ImportSummary> {
-    if (mode === 'move') {
-      // Pipeline-layer enforcement (#237): Move deletes sources after
-      // verification, so it is only ever offered for removable volumes —
-      // a folder or dropped import must never delete a user's own files,
-      // even if a caller bypasses the dialog's forced-Copy UI.
-      const sources = await this.listSources();
-      if (!sources.some((candidate) => candidate.kind === 'volume' && candidate.path === path)) {
-        throw new Error('Move is only available for removable volumes');
-      }
-    }
     return this.serialize(async () => {
       const controller = new AbortController();
       this.controller = controller;
@@ -152,7 +158,10 @@ export class ImportService {
           controller.signal,
         );
         const fresh = files.filter((file) => file.isNew).map(({ path: filePath, fileName, kind }) => ({ path: filePath, fileName, kind }));
-        const summary = await this.engine.importFiles(fresh, mode, path, controller.signal);
+        this.assertMoveOutsideLibrary(fresh, mode);
+        const existing = files.length - fresh.length;
+        const result = await this.engine.importFiles(fresh, mode, path, controller.signal);
+        const summary = { ...result, duplicates: result.duplicates + existing, retained: result.retained + existing };
         if (summary.photoIds.length > 0) {
           this.events.imported(summary.photoIds);
         }
@@ -163,9 +172,9 @@ export class ImportService {
     });
   }
 
-  /** Dropped-file batch (#237): explicit paths, always copy — the window
-   * drop can never delete a user's own files. */
-  async runFiles(paths: readonly string[]): Promise<ImportSummary> {
+  /** Dropped files/folders share the same verified per-file Move boundary as
+   * selected folders. Expansion never deletes a directory or sibling. */
+  async runFiles(paths: readonly string[], mode: ImportMode): Promise<ImportSummary> {
     return this.serialize(async () => {
       const controller = new AbortController();
       this.controller = controller;
@@ -177,7 +186,10 @@ export class ImportService {
           controller.signal,
         );
         const fresh = files.filter((file) => file.isNew).map(({ path: filePath, fileName, kind }) => ({ path: filePath, fileName, kind }));
-        const summary = await this.engine.importFiles(fresh, 'copy', 'dropped', controller.signal);
+        this.assertMoveOutsideLibrary(fresh, mode);
+        const existing = files.length - fresh.length;
+        const result = await this.engine.importFiles(fresh, mode, 'dropped', controller.signal);
+        const summary = { ...result, duplicates: result.duplicates + existing, retained: result.retained + existing };
         if (summary.photoIds.length > 0) {
           this.events.imported(summary.photoIds);
         }

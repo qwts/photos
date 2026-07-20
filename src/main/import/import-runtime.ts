@@ -72,7 +72,15 @@ export function createImportRuntime(options: ImportRuntimeOptions): ImportRuntim
     events: options.events,
     cleanupSource: (path) => options.googleDrive.cleanupRoot(path),
   });
-  const service = new ImportService(options.repo, options.events, engine, options.fixtureSource, undefined, options.googleDrive);
+  const service = new ImportService(
+    options.repo,
+    options.events,
+    engine,
+    options.fixtureSource,
+    undefined,
+    options.googleDrive,
+    options.dataDir,
+  );
   void journal
     .read()
     .then(async (manifest) => {

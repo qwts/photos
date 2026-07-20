@@ -177,6 +177,7 @@ describe('import engine (#87)', () => {
     const good = addSource(world, 'good.jpg', jpeg);
     const summary = await world.engine().importFiles([good], 'move', '/card');
     assert.equal(summary.imported, 1);
+    assert.deepEqual({ moved: summary.moved, retained: summary.retained }, { moved: 1, retained: 0 });
     assert.equal(world.sources.has(good.path), false, 'verified move removes the source');
 
     // Now a world whose store never verifies: the file fails, source stays.
@@ -191,8 +192,23 @@ describe('import engine (#87)', () => {
     // The row committed before verification, so the photo IS imported; the
     // journal stays so cleanup retries on resume — and the source survives.
     assert.equal(badSummary.imported, 1);
+    assert.deepEqual({ moved: badSummary.moved, retained: badSummary.retained }, { moved: 0, retained: 1 });
     assert.equal(broken.sources.has(bad.path), true, 'unverified source must NEVER be deleted');
     assert.notEqual(broken.journalRaw(), null, 'unfinished cleanup keeps the journal');
+  });
+
+  test('#489: a source permission failure reports imported-but-retained and keeps the cleanup journal', async () => {
+    const world = harness({ deleteFile: () => Promise.reject(new Error('EACCES')) });
+    const source = addSource(world, 'read-only.jpg', jpeg);
+
+    const summary = await world.engine().importFiles([source], 'move', '/folder');
+
+    assert.deepEqual(
+      { imported: summary.imported, moved: summary.moved, retained: summary.retained, failed: summary.failed },
+      { imported: 1, moved: 0, retained: 1, failed: 0 },
+    );
+    assert.equal(world.sources.has(source.path), true);
+    assert.notEqual(world.journalRaw(), null);
   });
 
   test('a per-file failure is isolated; the batch continues', async () => {

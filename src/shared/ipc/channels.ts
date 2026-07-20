@@ -110,6 +110,8 @@ const googleDrivePickFailureSchema = z.enum([
 
 const importRunSummarySchema = z.object({
   imported: z.number().int().nonnegative(),
+  moved: z.number().int().nonnegative(),
+  retained: z.number().int().nonnegative(),
   duplicates: z.number().int().nonnegative(),
   failed: z.number().int().nonnegative(),
   cancelled: z.number().int().nonnegative(),
@@ -507,10 +509,8 @@ export const channels = {
   // Renderer readiness handshake for queued OS/Finder open-file batches.
   // Content admission keeps queued paths sealed behind app lock.
   importExternalReady: defineChannel('import:external-ready', z.object({}), z.object({})),
-  // Import engine (#87, extended by #237): run a batch — a source path
-  // (copy or move) or an explicit dropped-file list (always copy: Move is
-  // enforced volume-only at the service layer so a user's own files are
-  // never deleted).
+  // Import engine (#87, extended by #237/#489): source paths and explicit
+  // dropped entries both use the journaled verify-before-delete Move path.
   importRun: defineChannel(
     'import:run',
     z
@@ -521,9 +521,6 @@ export const channels = {
       })
       .refine((run) => (run.path === undefined) !== (run.files === undefined), {
         message: 'exactly one of path or files',
-      })
-      .refine((run) => run.files === undefined || run.mode === 'copy', {
-        message: 'dropped-file imports always copy',
       }),
     importRunSummarySchema,
   ),
