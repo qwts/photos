@@ -54,12 +54,11 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
     await page.keyboard.press('i');
     await expect(inspector).toBeHidden();
 
-    // NOTE on #270: the top row carves itself out of the TitleBar's OS drag
-    // region via -webkit-app-region: no-drag (lightbox.css). Drag
-    // interception is native and synthetic clicks bypass it, and the
-    // computed style string normalizes to 'no-drag' either way — there is
-    // no honest automated assertion; the fix is owner-verified in the
-    // packaged app. This click DOES prove the button wiring:
+    // NOTE on #270/#577: the top row is the OS drag region and its visible
+    // buttons carve themselves back to no-drag (lightbox.css). Native window
+    // movement cannot be synthesized here; the CSS contract has a source-level
+    // test and the packaged app remains the movement check. This click proves
+    // the composed close-button wiring:
 
     // The explicit ✕ closes back to the gallery (#269)…
     await page.getByRole('button', { name: 'Close (Esc)' }).click();
