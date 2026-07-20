@@ -130,7 +130,7 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     // tile can also match a half-decoded previous source under load, and
     // select-all reads state.photos (the "Delete 2 photos" screenshot).
     await expect(page.locator('.ovl-tile__img')).toHaveCount(1);
-    await expect(page.locator('.ovl-tile__img').first()).toHaveAttribute('alt', target?.fileName ?? '');
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(`Open ${target?.fileName ?? ''}`);
     await page.keyboard.press('ControlOrMeta+a');
     await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
 

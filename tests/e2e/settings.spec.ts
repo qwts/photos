@@ -66,9 +66,9 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     // size, so 'size' falls to its id-DESC tiebreak — the first tile flips
     // from the newest-by-date (IMG_4021.RAF) to the highest id (IMG_4028).
     await page.getByRole('button', { name: 'General' }).click();
-    await expect(page.locator('.ovl-tile__img').first()).toHaveAttribute('alt', 'IMG_4021.RAF');
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4021.RAF');
     await page.getByRole('radio', { name: 'Size' }).click();
-    await expect(page.locator('.ovl-tile__img').first()).toHaveAttribute('alt', 'IMG_4028.JPG');
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4028.JPG');
     // The locked controls render per the pattern: Light disabled, thumbs on.
     await expect(page.getByRole('radio', { name: 'Light' })).toBeDisabled();
     await expect(page.getByRole('switch')).toBeDisabled();

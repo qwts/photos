@@ -81,7 +81,8 @@ export const SessionUnlockedWithRealPhotos: Story = {
     await waitFor(() => expect(canvas.getByText('Kyoto Spring')).toBeVisible());
     await expect(canvas.getByText('4 photos')).toBeVisible();
     const tile = canvas.getByRole('button', { name: 'Open flower-landscape.jpg' });
-    await expect(within(tile).getByRole('img')).toHaveAttribute('src', flower);
+    const thumbnail = tile.parentElement?.querySelector('.ovl-tile__img');
+    await expect(thumbnail).toHaveAttribute('src', flower);
     await userEvent.click(tile);
     const lightbox = canvas.getByRole('dialog', { name: 'Viewing flower-landscape.jpg' });
     await expect(within(lightbox).getByRole('img')).toHaveAttribute('src', flower);
