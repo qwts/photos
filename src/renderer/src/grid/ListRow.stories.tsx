@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fireEvent, fn, userEvent, within } from 'storybook/test';
 
 import realPhoto from '../../../../design/handoff/assets/thumbs/t02.png';
 import type { PhotoRecord, SyncStatus } from '../../../shared/library/types.js';
@@ -66,18 +66,27 @@ export const StateMatrix: Story = {
 
 const onOpen = fn();
 const onToggle = fn();
+const onContextAction = fn();
 
 // Same contract as PhotoTile (#77): the circle toggles without opening.
 export const ClickTargetsAreIndependent: Story = {
   render: () => (
     <div style={{ height: 52, maxWidth: 720, padding: 'var(--space-3)' }}>
-      <ListRow photo={photo(0, 'synced')} src={realPhoto} selected={false} onOpen={onOpen} onToggleSelect={onToggle} />
+      <ListRow
+        photo={photo(0, 'synced')}
+        src={realPhoto}
+        selected={false}
+        onOpen={onOpen}
+        onToggleSelect={onToggle}
+        onContextAction={onContextAction}
+      />
     </div>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const row = await canvas.findByRole('button', { name: 'Open IMG_4021.JPG' });
-    const circle = within(row).getByRole('button', { name: 'Select' });
+    const circle = canvas.getByRole('button', { name: 'Select' });
+    await expect(row).not.toContainElement(circle);
     await expect(circle.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
     await expect(circle.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
     await userEvent.click(circle);
@@ -85,5 +94,13 @@ export const ClickTargetsAreIndependent: Story = {
     await expect(onOpen).not.toHaveBeenCalled();
     await userEvent.click(row);
     await expect(onOpen).toHaveBeenCalledTimes(1);
+
+    row.focus();
+    await userEvent.keyboard('{Space}');
+    await userEvent.keyboard('{Enter}');
+    await expect(onOpen).toHaveBeenCalledTimes(3);
+
+    await fireEvent.keyDown(row, { key: 'ContextMenu' });
+    await expect(onContextAction).toHaveBeenCalledOnce();
   },
 };
