@@ -217,7 +217,7 @@
         },
         {
           "type": "manual",
-          "reason": "docs/acceptance/acceptance-test-full-display-image.md covers physical macOS trackpad inertia, image-first chrome, cross-aspect-ratio focal continuity, Inspector geometry, and reset boundaries that Playwright cannot reproduce faithfully."
+          "reason": "docs/acceptance/acceptance-test-full-display-image.md covers the portrait-width/landscape-height Fill matrix, physical macOS trackpad inertia, image-first chrome, cross-aspect-ratio focal continuity, Inspector geometry, and reset boundaries that Playwright cannot reproduce faithfully."
         }
       ]
     },
