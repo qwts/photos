@@ -1,5 +1,16 @@
 # photos
 
+## 0.37.0
+
+### Minor Changes
+
+- 0fa40c3: Add a persisted language setting that applies locale and text direction live without restarting Overlook.
+
+### Patch Changes
+
+- 517b22b: Use orientation-normalized decoded dimensions for supported images and flag EXIF mismatches as possibly corrupt metadata in the Inspector.
+- 0b68fb6: Standardize Trash, restore, and permanent-delete language; add the 30-day retention countdown; and require main-process authorization for irreversible photo purge.
+
 ## 0.36.4
 
 ### Patch Changes
