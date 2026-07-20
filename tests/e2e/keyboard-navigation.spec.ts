@@ -38,6 +38,8 @@ test('keyboard-only browse, search, selection, help, and lightbox tour (#399)', 
     const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
     await expect(help).toContainText('Move focus right');
     await expect(help).toContainText('Select all photos');
+    await page.keyboard.press('i');
+    await expect(page.getByRole('complementary', { name: 'Inspector' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
     await expect(focusTargets.nth(2)).toBeFocused();

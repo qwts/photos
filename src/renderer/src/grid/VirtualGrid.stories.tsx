@@ -112,8 +112,10 @@ export const TileClickVsSelectCircle: Story = {
     const third = canvas.getByRole('button', { name: 'Open IMG_2.JPG' });
     await expect(third).toHaveFocus();
     await expect(onKeyboardSelection).toHaveBeenCalledWith(['P1', 'P2'], 'replace');
+    await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    await expect(onKeyboardSelection).toHaveBeenCalledWith(['P1', 'P2', 'P3'], 'replace');
     await userEvent.keyboard('{Enter}');
-    await expect(onKeyboardOpen).toHaveBeenCalledWith('P2');
+    await expect(onKeyboardOpen).toHaveBeenCalledWith('P3');
   },
 };
 
