@@ -89,8 +89,8 @@ test('remove from list is registry-only in the UI: reassurance copy, row gone, f
 
     await page.getByTestId('library-trigger').click();
     await expect(page.getByTestId('library-list')).toContainText('Scratch');
-    await page.getByRole('button', { name: 'Remove Scratch from list' }).click();
-    await expect(page.getByText('Nothing is deleted. Your encrypted files stay on disk.')).toBeVisible();
+    await page.getByRole('button', { name: 'Remove library from list: Scratch' }).click();
+    await expect(page.getByText('The library files stay on disk and can be opened again.')).toBeVisible();
     await page.getByTestId('remove-confirm').click();
 
     // Back on the list without the row; the directory survives on disk.
