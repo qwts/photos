@@ -215,6 +215,29 @@ describe('relocation runtime (#483, ADR-0022 §4)', () => {
     assert.deepEqual(h.calls, [], 'no teardown, no reactivation, no reload');
   });
 
+  test('a pending journal blocks a fresh move before active teardown', async () => {
+    const h = harness({}, true);
+    h.journals.save({
+      version: 1,
+      libraryId: ULID_A,
+      nonce: 'resume-nonce',
+      sourcePath: join(h.root, 'lib-a'),
+      destPath: join(h.root, 'old-destination'),
+      stagingPath: join(h.root, 'old-destination.relocate-staging'),
+      mode: 'copy',
+      state: 'copying',
+      startedAt: NOW().toISOString(),
+    });
+
+    const outcome = await h.runtime.move(ULID_A, join(h.root, 'new-destination'));
+
+    assert.ok(!outcome.ok);
+    assert.equal(outcome.reason, 'move-in-progress');
+    assert.match(outcome.detail, /resume or discard it first/);
+    assert.deepEqual(h.calls, [], 'pending move is refused before teardown or relocation');
+    assert.equal(h.journals.load(ULID_A)?.destPath, join(h.root, 'old-destination'));
+  });
+
   test('pending() surfaces journals — corrupt ones with null fields, never guessed at', () => {
     const h = harness();
     h.journals.save({

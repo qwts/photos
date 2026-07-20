@@ -354,6 +354,28 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       assert.equal(h.journals.load(ULID_A)?.state, 'copying');
     });
 
+    test('a fresh engine move cannot overwrite a pending resume journal', async () => {
+      const h = harness();
+      journalFor(h, 'copying');
+      const staging = stagingPathFor(h.destDir);
+      mkdirSync(staging, { recursive: true });
+      writeFileSync(join(staging, RELOCATION_MARKER_FILENAME), marker, 'utf8');
+      writeFileSync(join(staging, 'library.db'), 'partial', 'utf8');
+      const originalJournal = h.journals.load(ULID_A);
+
+      await assert.rejects(
+        relocateLibrary(h.deps, { libraryId: ULID_A, destDir: join(h.root, 'different-destination') }),
+        (error: unknown) => {
+          assert.ok(error instanceof RelocationError);
+          assert.equal(error.reason, 'move-in-progress');
+          return true;
+        },
+      );
+
+      assert.deepEqual(h.journals.load(ULID_A), originalJournal, 'live journal remains authoritative');
+      assert.equal(readFileSync(join(staging, 'library.db'), 'utf8'), 'partial', 'marker-bound staging is preserved');
+    });
+
     test('crash between activation rename and commit: marker-bound destination remains resumable staging', async () => {
       const h = harness();
       journalFor(h, 'verified');
