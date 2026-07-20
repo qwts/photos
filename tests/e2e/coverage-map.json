@@ -116,6 +116,24 @@
       ]
     },
     {
+      "id": "m04-gallery-favorite-toggle",
+      "wiki": "User-Story-M04-Library-browsing",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/browse.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "paths": [
+            "src/renderer/src/components/PhotoTile.stories.tsx",
+            "src/renderer/src/grid/ListRow.stories.tsx",
+            "src/renderer/src/protected/ProtectedAlbumView.stories.tsx"
+          ]
+        }
+      ]
+    },
+    {
       "id": "m04-chrome-status-truth",
       "wiki": "User-Story-M04-Library-browsing",
       "coverage": [
