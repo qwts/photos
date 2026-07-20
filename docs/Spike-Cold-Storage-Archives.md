@@ -20,7 +20,7 @@ bytes, recovery, random access, deduplication, and acceptable restore cost?
 
 No with the current library contract. ZIP, tar+zstd, and a format-aware ZIP all
 made the representative OVLK ciphertext corpus larger by 0.08–0.09%. The best
-plaintext upper bound, tar+zstd, saved only 5.82% on the mixed corpus before
+plaintext upper bound, tar+zstd, saved only 5.83% on the mixed corpus before
 encryption. Reaching even that smaller result in production would require a new
 container encrypted as a unit, which would replace Overlook's per-photo
 authentication, content addressing, random access, backup verification, and
@@ -124,7 +124,7 @@ Positive savings means a smaller archive. Negative savings means growth.
 | Representation | Method           | Input bytes | Archive bytes | Savings |   Pack | Unpack | Peak RSS |
 | -------------- | ---------------- | ----------: | ------------: | ------: | -----: | -----: | -------: |
 | Plaintext      | ZIP Deflate 9    |   3,175,945 |     3,158,759 |   0.54% | ~70 ms | ~24 ms |  ~2.5 MB |
-| Plaintext      | tar + zstd 3     |   3,175,945 |     2,990,840 |   5.82% | ~24 ms | ~21 ms |   ~12 MB |
+| Plaintext      | tar + zstd 3     |   3,175,945 |     2,990,840 |   5.83% | ~24 ms | ~21 ms |   ~12 MB |
 | Plaintext      | format-aware ZIP |   3,175,945 |     3,171,218 |   0.15% | ~24 ms | ~23 ms |  ~2.5 MB |
 | OVLK envelope  | ZIP Deflate 9    |   3,176,407 |     3,179,317 |  -0.09% | ~64 ms | ~22 ms |  ~2.5 MB |
 | OVLK envelope  | tar + zstd 3     |   3,176,407 |     3,178,831 |  -0.08% | ~25 ms | ~21 ms |   ~12 MB |
@@ -163,7 +163,7 @@ verification after extraction.
 ### Plaintext packed before encryption
 
 This is the only placement where cross-file compression can work, and the probe
-still found only 5.82% on mixed data. It would require a new authenticated
+still found only 5.83% on mixed data. It would require a new authenticated
 container, key/AAD version, index, restore reader, migration, partial extraction
 cache, cancellation journal, and repair tool. One member update changes the
 container ciphertext from that point forward and defeats the current
