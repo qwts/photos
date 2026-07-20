@@ -41,6 +41,19 @@ dimensions, orientation, `taken_at`, GPS lat/lon. If exifr's coverage gaps
 (exotic maker notes) start losing fields we actually display, swapping the
 extractor is a patch-level change behind the import pipeline's interface.
 
+**Dimension authority and integrity (amended 2026-07-20, #500).** Stored
+dimensions describe the pixels after EXIF orientation is applied. Metadata
+claims must be positive safe integers, but a successful decoder result is the
+authoritative display value for every supported format. When a valid EXIF or
+container claim disagrees with that decoded value, Overlook keeps the original
+unchanged, stores the decoded dimensions, and records local-only
+`metadata-mismatch` state. The Inspector exposes that state as a possibly
+corrupt-metadata warning; matching claims stay quiet. Existing local JPEG,
+PNG, RAW, and HEIC rows receive one background verification pass. Offloaded
+originals are never downloaded implicitly for this repair, and verification
+state is excluded from disaster-recovery manifests so restored originals are
+checked again on their new device.
+
 **GPS → place (privacy stance, v1):** store coordinates in the DB (encrypted
 at rest); display a place name **only** when the file's own metadata carries
 one as text. **No network reverse-geocoding** — a privacy-first app does not
