@@ -1,5 +1,11 @@
 # photos
 
+## 0.37.1
+
+### Patch Changes
+
+- 359c48f: Add a library-scoped Off, 7, 30, or 90-day Trash retention setting with a 30-day default.
+
 ## 0.37.0
 
 ### Minor Changes
