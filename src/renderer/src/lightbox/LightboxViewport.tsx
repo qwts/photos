@@ -291,25 +291,18 @@ export function LightboxViewport({
         aria-label="Image orientation controls"
         style={{ top: toolbarTop }}
       >
-        <IconButton
-          icon="refresh-cw"
-          size="sm"
-          label="Reset orientation (R)"
-          aria-keyshortcuts="R"
-          disabled={orientation.quarterTurns === 0 && !orientation.flipped}
-          onClick={resetOrientation}
-        />
+        <IconButton icon="refresh-cw" size="md" label="Reset orientation (R)" aria-keyshortcuts="R" onClick={resetOrientation} />
         <IconButton
           icon="flip-horizontal-2"
-          size="sm"
+          size="md"
           label="Flip horizontal (Backslash)"
           aria-keyshortcuts="\\"
           active={orientation.flipped}
           onClick={flipHorizontal}
         />
         <span className="ovl-lightbox__orientation-divider" role="separator" aria-orientation="vertical" />
-        <IconButton icon="rotate-ccw" size="sm" label="Rotate left ([)" aria-keyshortcuts="[" onClick={() => rotateBy(-1)} />
-        <IconButton icon="rotate-cw" size="sm" label="Rotate right (])" aria-keyshortcuts="]" onClick={() => rotateBy(1)} />
+        <IconButton icon="rotate-ccw" size="md" label="Rotate left ([)" aria-keyshortcuts="[" onClick={() => rotateBy(-1)} />
+        <IconButton icon="rotate-cw" size="md" label="Rotate right (])" aria-keyshortcuts="]" onClick={() => rotateBy(1)} />
       </div>
       <div className={`ovl-lightbox__zoom ovl-lightbox__chrome${chromeClass}`} aria-label="Image zoom controls" style={{ top: toolbarTop }}>
         <IconButton icon="minus" size="sm" label="Zoom out (−)" onClick={() => zoomBy(1 / KEYBOARD_ZOOM_STEP)} />

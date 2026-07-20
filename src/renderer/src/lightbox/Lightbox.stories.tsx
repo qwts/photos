@@ -327,7 +327,7 @@ export const OrientationToolbar: Story = {
     const image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
     const resetOrientation = canvas.getByRole('button', { name: 'Reset orientation (R)' });
     await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
-    await expect(resetOrientation).toBeDisabled();
+    await expect(resetOrientation).toBeEnabled();
 
     await userEvent.click(canvas.getByRole('button', { name: 'Zoom in (+)' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
@@ -347,6 +347,43 @@ export const OrientationToolbar: Story = {
     await userEvent.keyboard('r');
     await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
     await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
+  },
+};
+
+// #499: measured from the supplied 924×540 handoff reference at
+// design/handoff/references/06-lightbox-default-contain.png. Geometry assertions
+// make spacing/placement drift fail without relying on platform font rasterization.
+export const HandoffTransformToolbar: Story = {
+  ...OrientationToolbar,
+  parameters: { lightboxWidth: 924, lightboxHeight: 540 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    const image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
+    const orientation = canvas.getByRole('toolbar', { name: 'Image orientation controls' });
+    const zoom = canvas.getByLabelText('Image zoom controls');
+    const controls = within(orientation).getAllByRole('button');
+    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
+
+    await waitFor(() => expect(Math.round(orientation.getBoundingClientRect().top - viewport.getBoundingClientRect().top)).toBe(448));
+    const viewportRect = viewport.getBoundingClientRect();
+    const orientationRect = orientation.getBoundingClientRect();
+    const zoomRect = zoom.getBoundingClientRect();
+    await expect(Math.round(viewportRect.width)).toBe(924);
+    await expect(Math.round(viewportRect.height)).toBe(540);
+    await expect(
+      Math.abs(orientationRect.left + orientationRect.width / 2 - (viewportRect.left + viewportRect.width / 2)),
+    ).toBeLessThanOrEqual(1);
+    await expect(Math.round(orientationRect.width)).toBe(155);
+    await expect(Math.round(orientationRect.height)).toBe(34);
+    await expect(Math.round(zoomRect.left - orientationRect.right)).toBe(11);
+    for (const control of controls) {
+      const rect = control.getBoundingClientRect();
+      await expect(Math.round(rect.width)).toBe(28);
+      await expect(Math.round(rect.height)).toBe(28);
+    }
+    await expect(getComputedStyle(orientation).borderRadius).toBe('6px');
+    await expect(getComputedStyle(orientation).boxShadow).not.toBe('none');
   },
 };
 

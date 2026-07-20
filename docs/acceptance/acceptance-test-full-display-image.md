@@ -2,6 +2,7 @@
 
 Issues: [#501](https://github.com/qwts/photos/issues/501),
 [#513](https://github.com/qwts/photos/issues/513),
+[#499](https://github.com/qwts/photos/issues/499),
 [#449](https://github.com/qwts/photos/issues/449)
 
 ## Purpose
@@ -27,6 +28,20 @@ Electron coverage; it does not replace the separate keyboard-pan work in #449.
 3. Move the pointer or focus a control by keyboard. Confirm the chrome returns.
 4. Double-click the image. Confirm Fill activates without the single-click
    gesture hiding the controls before the double-click completes.
+
+## Transform-toolbar visual parity
+
+Use `design/handoff/references/06-lightbox-default-contain.png` as the source
+reference at its native 924×540 viewport. Confirm the orientation toolbar:
+
+1. remains horizontally centered and sits 448px from the viewport top;
+2. uses a 155×34px tokenized surface with the handoff shadow and 6px radius;
+3. preserves four 28×28px controls, the separator, and an 11px gap before the
+   separate zoom surface;
+4. keeps the same geometry with Inspector undocked, then stacks without overlap
+   at the 600px compact fixture and at 200% application zoom;
+5. fades and wakes with the rest of the lightbox chrome, while hover, pressed,
+   disabled, and keyboard-focus states remain visible.
 
 ## Transform persistence
 
@@ -74,6 +89,7 @@ Electron coverage; it does not replace the separate keyboard-pan work in #449.
 - `tests/lightbox/lightbox-geometry.test.ts`
 - `src/renderer/src/lightbox/Lightbox.stories.tsx`
 - `tests/e2e/lightbox.spec.ts`
+- `design/handoff/references/06-lightbox-default-contain.png`
 - Acceptance ledger entry `m06-lightbox-transform`
 
 ## Required gates
