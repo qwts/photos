@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement, SyntheticEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { fullUrl } from '../../../shared/library/full-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -28,6 +28,16 @@ import {
 const HINT_STORAGE_KEY = 'overlook.lightbox-gestures-seen';
 const HINT_MS = 5500;
 const KEYBOARD_ZOOM_STEP = 1.25;
+const LOADING_INDICATOR_DELAY_MS = 180;
+
+const messages = defineMessages({
+  loading: {
+    id: 'lightbox.image.loading',
+    defaultMessage: 'Loading full-resolution image…',
+  },
+});
+
+type ImageLoadStage = 'loading' | 'decoded' | 'error';
 
 interface LightboxViewportProps {
   readonly photo: PhotoRecord;
@@ -78,7 +88,10 @@ export function LightboxViewport({
   const [orientation, setOrientation] = useState<LightboxOrientation>(DEFAULT_ORIENTATION);
   const [showHint, setShowHint] = useState(shouldShowHint);
   const [decoded, setDecoded] = useState<LightboxSize | null>(null);
-  const [decodeFailed, setDecodeFailed] = useState(false);
+  const source = imageSrc ?? fullUrl(photo.id);
+  const requestKey = `${photo.id}:${suppressRehydrate ? 'synced' : photo.syncState}:${source}`;
+  const [loadStage, setLoadStage] = useState<ImageLoadStage>('loading');
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const image = useMemo(() => decoded ?? { width: photo.width, height: photo.height }, [decoded, photo.height, photo.width]);
   const orientedImage = useMemo(() => orientedSize(image, orientation), [image, orientation]);
   const fitted = fitSize(orientedImage, viewport);
@@ -87,6 +100,16 @@ export function LightboxViewport({
   const elementSize = orientedSize(fitted, orientation);
   const toolbarTop = Math.max(64, Math.min((viewport.height + fitted.height) / 2 - 8, viewport.height - 92));
   const chromeClass = chromeVisible ? ' ovl-lightbox__chrome--on' : '';
+
+  useEffect(() => {
+    if (loadStage !== 'loading') return;
+    const timer = window.setTimeout(() => {
+      setShowLoadingIndicator(true);
+    }, LOADING_INDICATOR_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [loadStage]);
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -221,18 +244,30 @@ export function LightboxViewport({
   };
 
   useEffect(() => {
-    if (decodeFailed) onViewIntentChange(DEFAULT_VIEW_INTENT);
-  }, [decodeFailed, onViewIntentChange]);
+    if (loadStage === 'error') onViewIntentChange(DEFAULT_VIEW_INTENT);
+  }, [loadStage, onViewIntentChange]);
 
   const onImageLoad = (event: SyntheticEvent<HTMLImageElement>): void => {
-    const width = event.currentTarget.naturalWidth;
-    const height = event.currentTarget.naturalHeight;
-    if (width <= 0 || height <= 0) return;
-    setDecodeFailed(false);
-    if (photo.width <= 0 || photo.height <= 0) {
-      setDecoded({ width, height });
-      onDimensionsResolved(width, height);
-    }
+    const element = event.currentTarget;
+    void element
+      .decode()
+      .then(() => {
+        if (!element.isConnected) return;
+        const width = element.naturalWidth;
+        const height = element.naturalHeight;
+        if (width <= 0 || height <= 0) {
+          setLoadStage('error');
+          return;
+        }
+        if (photo.width <= 0 || photo.height <= 0) {
+          setDecoded({ width, height });
+          onDimensionsResolved(width, height);
+        }
+        setLoadStage('decoded');
+      })
+      .catch(() => {
+        if (element.isConnected) setLoadStage('error');
+      });
   };
 
   return (
@@ -248,7 +283,9 @@ export function LightboxViewport({
       data-image-height={image.height}
       data-orientation-turns={orientation.quarterTurns}
       data-orientation-flipped={orientation.flipped ? 'true' : 'false'}
-      data-unavailable={decodeFailed ? 'true' : 'false'}
+      data-load-state={loadStage}
+      data-unavailable={loadStage === 'error' ? 'true' : 'false'}
+      aria-busy={loadStage === 'loading'}
     >
       {/* The rule fires on this <img> because of `onDoubleClick` (and the onLoad/onError
           lifecycle handlers), NOT `onWheel` — wheel is in no jsx-a11y handler set, so this
@@ -259,10 +296,11 @@ export function LightboxViewport({
           that the image legitimately carries pointer + lifecycle handlers. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <img
-        key={`${photo.id}-${suppressRehydrate ? 'synced' : photo.syncState}`}
-        className="ovl-lightbox__img"
-        src={imageSrc ?? fullUrl(photo.id)}
+        key={requestKey}
+        className={`ovl-lightbox__img${loadStage === 'decoded' ? ' ovl-lightbox__img--decoded' : ''}`}
+        src={source}
         alt={photo.fileName}
+        data-request-key={requestKey}
         data-orientation={photo.width >= photo.height ? 'landscape' : 'portrait'}
         draggable={false}
         style={{
@@ -271,11 +309,17 @@ export function LightboxViewport({
           transform: `translate3d(${String(transform.x)}px, ${String(transform.y)}px, 0) scale(${String(transform.zoom)}) scaleX(${orientation.flipped ? '-1' : '1'}) rotate(${String(orientation.quarterTurns * 90)}deg)`,
         }}
         onLoad={onImageLoad}
-        onError={() => setDecodeFailed(true)}
+        onError={() => setLoadStage('error')}
         onDoubleClick={toggleFill}
         onWheel={onWheel}
       />
-      {decodeFailed ? (
+      {loadStage === 'loading' && showLoadingIndicator ? (
+        <div className="ovl-lightbox__loading mono-data" role="status" aria-live="polite">
+          <span className="ovl-lightbox__loading-spinner" aria-hidden="true" />
+          {intl.formatMessage(messages.loading)}
+        </div>
+      ) : null}
+      {loadStage === 'error' ? (
         <div className="ovl-lightbox__unavailable mono-data" role="status">
           {previewFailureLabel(intl, photo.previewFailure)}
         </div>

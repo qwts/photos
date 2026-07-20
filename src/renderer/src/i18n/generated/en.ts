@@ -78,6 +78,7 @@ export const en: Readonly<Record<string, string>> = {
   "libswitch.move.one": "Move {name}…",
   "libswitch.move.select": "Select {name} to move",
   "libswitch.move.selected": "Move {count} selected…",
+  "lightbox.image.loading": "Loading full-resolution image…",
   "preview.unavailable": "PREVIEW UNAVAILABLE",
   "preview.unavailable.corrupt": "PREVIEW UNAVAILABLE — FILE IS CORRUPT",
   "preview.unavailable.decodeFailed": "PREVIEW UNAVAILABLE — IMAGE DECODE FAILED",
