@@ -1,5 +1,16 @@
 # photos
 
+## 0.38.0
+
+### Minor Changes
+
+- bc7d79a: Add context-aware keyboard commands, shortcut help, roving photo-grid navigation, and complete lightbox keyboard controls.
+- 3281b34: Allow local-folder and dropped-file imports to Move originals after explicit consent and verified encrypted custody, with exact moved and retained outcomes.
+
+### Patch Changes
+
+- 5cddf43: Require fresh Move consent after a local import folder is cleared or replaced.
+
 ## 0.37.1
 
 ### Patch Changes
