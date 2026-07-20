@@ -810,7 +810,7 @@ void externalOpen.whenReady().then(async () => {
   const lock = getAppLockController();
   await lock.initialize();
   externalOpen.followAuthorization(lock);
-  registerIpcHandlers();
+  registerIpcHandlers(() => getSettingsStore().get().language);
   registerRelocationHandlers(getRelocationRuntime);
   registerAppLockIpc({
     controller: lock,

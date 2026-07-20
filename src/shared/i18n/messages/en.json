@@ -272,6 +272,15 @@
   "settings.general.appearance.light": {
     "defaultMessage": "Light"
   },
+  "settings.general.language": {
+    "defaultMessage": "Language"
+  },
+  "settings.general.language.hint": {
+    "defaultMessage": "Changes apply immediately. System default follows your operating-system language."
+  },
+  "settings.general.language.system": {
+    "defaultMessage": "System default"
+  },
   "settings.general.sort.date": {
     "defaultMessage": "Date"
   },

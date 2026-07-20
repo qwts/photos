@@ -61,10 +61,11 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
 
   test('profile settings follow the user while library settings remain isolated', () => {
     const h = harness();
-    h.store.set({ appearance: 'light', shareDiagnostics: true, sortOrder: 'name' });
+    h.store.set({ appearance: 'light', language: 'en-XB', shareDiagnostics: true, sortOrder: 'name' });
     h.switchTo('library-b');
 
     assert.equal(h.store.get().appearance, 'light');
+    assert.equal(h.store.get().language, 'en-XB');
     assert.equal(h.store.get().shareDiagnostics, true);
     assert.equal(h.store.get().diagnosticsConsentVersion, 1);
     assert.equal(h.store.get().sortOrder, 'date');
@@ -108,6 +109,7 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
     assert.equal(store.get().providerId, 'pcloud');
     assert.deepEqual(JSON.parse(readFileSync(profileFilePath, 'utf8')), {
       appearance: 'light',
+      language: null,
       shareDiagnostics: false,
       diagnosticsConsentVersion: 0,
     });

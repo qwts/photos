@@ -23,3 +23,32 @@ test('composed chrome formats values with the main-resolved locale', async () =>
     await app.close();
   }
 });
+
+test('language setting applies live and propagates RTL direction without restart', async () => {
+  const userData = mkE2eTmpDir('overlook-e2e-language-');
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '2',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByTestId('virtual-grid')).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+
+    await page.evaluate(`window.overlook.settings.set({ patch: { language: 'en-XB' } })`);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en-XB');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(page.getByRole('button', { name: /⟪.*⟫/u }).first()).toBeVisible();
+
+    await page.evaluate(`window.overlook.settings.set({ patch: { language: 'en' } })`);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+  } finally {
+    await app.close();
+  }
+});

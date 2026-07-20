@@ -94,6 +94,22 @@
   flex: none;
 }
 
+.ovl-settings__select {
+  min-width: 148px;
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  background: var(--gray-2);
+  color: var(--text-body);
+  font: inherit;
+}
+
+.ovl-settings__select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .ovl-settings__provider {
   display: flex;
   align-items: center;

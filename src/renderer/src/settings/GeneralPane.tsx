@@ -4,6 +4,7 @@ import { defineMessages, useIntl } from 'react-intl';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
 import { Field } from './Field';
+import { SHIPPED_LOCALES } from '../../../shared/i18n/locales.js';
 import type { AppSettings } from '../../../shared/settings/settings.js';
 
 // General section (#113): sort order drives the grid query live; appearance
@@ -16,6 +17,12 @@ const messages = defineMessages({
   sortDate: { id: 'settings.general.sort.date', defaultMessage: 'Date' },
   sortName: { id: 'settings.general.sort.name', defaultMessage: 'Name' },
   sortSize: { id: 'settings.general.sort.size', defaultMessage: 'Size' },
+  language: { id: 'settings.general.language', defaultMessage: 'Language' },
+  languageHint: {
+    id: 'settings.general.language.hint',
+    defaultMessage: 'Changes apply immediately. System default follows your operating-system language.',
+  },
+  systemLanguage: { id: 'settings.general.language.system', defaultMessage: 'System default' },
   appearance: { id: 'settings.general.appearance', defaultMessage: 'Appearance' },
   appearanceHint: {
     id: 'settings.general.appearance.hint',
@@ -32,7 +39,7 @@ const messages = defineMessages({
 
 export interface GeneralPaneProps {
   readonly settings: AppSettings;
-  readonly onPatch: (patch: Partial<Pick<AppSettings, 'sortOrder' | 'appearance'>>) => void;
+  readonly onPatch: (patch: Partial<Pick<AppSettings, 'sortOrder' | 'language' | 'appearance'>>) => void;
 }
 
 export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactElement {
@@ -52,6 +59,23 @@ export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactEleme
             onPatch({ sortOrder });
           }}
         />
+      </Field>
+      <Field label={intl.formatMessage(messages.language)} hint={intl.formatMessage(messages.languageHint)}>
+        <select
+          className="ovl-settings__select"
+          aria-label={intl.formatMessage(messages.language)}
+          value={settings.language ?? ''}
+          onChange={(event) => {
+            onPatch({ language: event.target.value === '' ? null : event.target.value });
+          }}
+        >
+          <option value="">{intl.formatMessage(messages.systemLanguage)}</option>
+          {SHIPPED_LOCALES.map((locale) => (
+            <option key={locale} value={locale}>
+              {intl.formatDisplayName(locale, { type: 'language' }) ?? locale}
+            </option>
+          ))}
+        </select>
       </Field>
       <Field label={intl.formatMessage(messages.appearance)} hint={intl.formatMessage(messages.appearanceHint)}>
         <Segmented

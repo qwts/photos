@@ -94,4 +94,15 @@ describe('locale model: resolveRuntimeLocale (OVERLOOK_LOCALE pin)', () => {
     // A regional variant of a NON-shipped language still falls through.
     assert.equal(resolveRuntimeLocale({ pinned: 'de-DE', packaged: false, osLocale: 'ja-JP' }), SOURCE_LOCALE);
   });
+
+  test('an explicit language wins over the OS locale and supports dev-only pseudo locales', () => {
+    assert.equal(resolveRuntimeLocale({ packaged: false, language: 'en-XB', osLocale: 'en-US' }), 'en-XB');
+    assert.equal(resolveRuntimeLocale({ packaged: false, language: 'en', osLocale: 'de-DE' }), 'en');
+    assert.equal(resolveRuntimeLocale({ packaged: false, language: null, osLocale: 'en-US' }), 'en');
+  });
+
+  test('packaged builds reject pseudo or unknown language settings', () => {
+    assert.equal(resolveRuntimeLocale({ packaged: true, language: 'en-XB', osLocale: 'en-US' }), 'en');
+    assert.equal(resolveRuntimeLocale({ packaged: true, language: 'zz-ZZ', osLocale: 'en-US' }), 'en');
+  });
 });

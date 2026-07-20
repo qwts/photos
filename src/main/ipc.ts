@@ -652,14 +652,14 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
   );
 }
 
-export function registerIpcHandlers(): void {
+export function registerIpcHandlers(getLanguage: () => string | null): void {
   const ping = validateHandler(channels.ping, ({ message }) => ({ echoed: message }));
   ipcMain.handle(channels.ping.name, (_event, request: unknown) => ping(request));
 
   const getPlatform = validateHandler(channels.getPlatform, () => ({ platform: process.platform }));
   ipcMain.handle(channels.getPlatform.name, (_event, request: unknown) => getPlatform(request));
 
-  const getLocale = validateHandler(channels.getLocale, () => ({ locale: resolveActiveLocale() }));
+  const getLocale = validateHandler(channels.getLocale, () => ({ locale: resolveActiveLocale(getLanguage()) }));
   ipcMain.handle(channels.getLocale.name, (_event, request: unknown) => getLocale(request));
 
   // Window controls need the calling window, so validation wraps a handler

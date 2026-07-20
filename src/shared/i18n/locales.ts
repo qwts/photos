@@ -83,9 +83,20 @@ const PINNABLE_LOCALES = new Set<string>([...SHIPPED_LOCALES, ...PSEUDO_LOCALES]
  * unit-tested without Electron; main's resolver is a thin wrapper that reads
  * `app`.
  */
-export function resolveRuntimeLocale(input: { pinned?: string | undefined; packaged: boolean; osLocale: string }): string {
+export function resolveRuntimeLocale(input: {
+  pinned?: string | undefined;
+  packaged: boolean;
+  language?: string | null | undefined;
+  osLocale: string;
+}): string {
   if (!input.packaged && input.pinned !== undefined && fallbackChain(input.pinned).some((tag) => PINNABLE_LOCALES.has(tag))) {
     return input.pinned;
+  }
+  if (input.language !== null && input.language !== undefined) {
+    const languageChain = fallbackChain(input.language);
+    const isPackagedPseudo = input.packaged && languageChain.some((tag) => PSEUDO_LOCALES.includes(tag as (typeof PSEUDO_LOCALES)[number]));
+    const selectableLocales = input.packaged ? new Set<string>(SHIPPED_LOCALES) : PINNABLE_LOCALES;
+    if (!isPackagedPseudo && languageChain.some((tag) => selectableLocales.has(tag))) return input.language;
   }
   return resolveLocale([input.osLocale]);
 }
