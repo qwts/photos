@@ -215,10 +215,10 @@ export const RemoveFromList: Story = {
     await waitFor(async () => {
       await expect(body.getByTestId('library-row-Alpha')).toBeVisible();
     });
-    await userEvent.click(body.getByRole('button', { name: 'Remove Field Archive from list' }));
+    await userEvent.click(body.getByRole('button', { name: 'Remove library from list: Field Archive' }));
     // Reassurance-forward: green safety copy, neutral (not red) action.
     await expect(body.getByRole('dialog', { name: 'Remove “Field Archive” from this list?' })).toBeVisible();
-    await expect(body.getByText('Nothing is deleted. Your encrypted files stay on disk.')).toBeVisible();
+    await expect(body.getByText('The library files stay on disk and can be opened again.')).toBeVisible();
     const confirm = body.getByTestId('remove-confirm');
     await expect(confirm).not.toHaveClass('ovl-button--danger');
     await userEvent.click(confirm);

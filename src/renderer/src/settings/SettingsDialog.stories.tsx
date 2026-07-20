@@ -338,19 +338,21 @@ export const DisconnectHidesBackupControls: Story = {
   ],
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
+    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect provider' })).toBeVisible());
     const card = body.getByTestId('provider-card');
-    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect provider' }));
     const confirmation = body.getByRole('dialog', { name: 'Disconnect Local mock?' });
     await expect(confirmation).toHaveTextContent('This removes this device’s saved Local mock authorization.');
     await expect(confirmation).toHaveTextContent('Encrypted data already stored in Local mock is not deleted.');
     await userEvent.click(within(confirmation).getByRole('button', { name: 'Cancel' }));
     await expect(card).toHaveTextContent('Connected');
     await expect((globalThis as unknown as StoryWindow).disconnectCalls).toBe(0);
+    await waitFor(() => expect(body.queryByRole('dialog', { name: 'Disconnect Local mock?' })).not.toBeInTheDocument());
 
-    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
-    await userEvent.click(body.getByRole('button', { name: 'Disconnect Local mock' }));
-    const pendingButtons = body.getAllByRole('button', { name: 'Disconnecting…' });
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect provider' }));
+    const reopenedConfirmation = await waitFor(() => body.getByRole('dialog', { name: 'Disconnect Local mock?' }));
+    await userEvent.click(within(reopenedConfirmation).getByRole('button', { name: 'Disconnect provider' }));
+    const pendingButtons = await waitFor(() => body.getAllByRole('button', { name: 'Disconnecting…' }));
     await expect(pendingButtons).toHaveLength(2);
     await expect(pendingButtons[0]).toBeDisabled();
     await expect(pendingButtons[1]).toBeDisabled();
@@ -390,9 +392,11 @@ export const DisconnectHidesBackupControls: Story = {
 export const ProviderSelectionAndUnknownQuota: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
-    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
-    await userEvent.click(body.getByRole('button', { name: 'Disconnect Local mock' }));
+    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect provider' })).toBeVisible());
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect provider' }));
+    await userEvent.click(
+      within(body.getByRole('dialog', { name: 'Disconnect Local mock?' })).getByRole('button', { name: 'Disconnect provider' }),
+    );
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Archive Cloud' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · STORAGE USAGE NOT REPORTED')).toBeVisible());
@@ -403,9 +407,11 @@ export const ProviderSelectionAndUnknownQuota: Story = {
 export const GoogleDriveSelection: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect' })).toBeVisible());
-    await userEvent.click(body.getByRole('button', { name: 'Disconnect' }));
-    await userEvent.click(body.getByRole('button', { name: 'Disconnect Local mock' }));
+    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect provider' })).toBeVisible());
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect provider' }));
+    await userEvent.click(
+      within(body.getByRole('dialog', { name: 'Disconnect Local mock?' })).getByRole('button', { name: 'Disconnect provider' }),
+    );
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Google Drive' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Google Drive' }));
     await waitFor(() => expect(body.getByText('THIS DEVICE · 42 GB / 100 GB USED')).toBeVisible());
