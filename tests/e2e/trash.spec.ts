@@ -65,6 +65,21 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Delete permanently…' })).toBeVisible();
     await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Export' })).toHaveCount(0);
 
+    // The library-scoped setting updates both policy surfaces live. Off keeps
+    // manual permanent deletion available; switching to 7 restarts the fuse.
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'General' }).click();
+    await page.getByRole('radio', { name: 'Off' }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Items in Trash are kept until you delete them permanently.')).toBeVisible();
+    await expect(page.getByText('Kept until deleted manually').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'General' }).click();
+    await page.getByRole('radio', { name: '7 days' }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Items in Trash are deleted permanently after 7 days.')).toBeVisible();
+    await expect(page.getByText('Deletes permanently in 7 days').first()).toBeVisible();
+
     // The in-trash lightbox offers no Move to Trash either (PR #218 review) —
     // an already-deleted row's action is Restore, purge is #121.
     await page.locator('.ovl-grid__cell').first().click();

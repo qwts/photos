@@ -872,6 +872,18 @@
         {
           "type": "storybook",
           "path": "src/renderer/src/grid/PurgeConfirm.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/settings.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/settings/settings-store.test.ts"
         }
       ]
     },

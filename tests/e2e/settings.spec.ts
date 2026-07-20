@@ -22,9 +22,12 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await page.getByTestId('virtual-grid').waitFor();
 
     // Fresh profile: the design defaults.
-    const defaults = await page.evaluate<{ settings: { sortOrder: string; bandwidthLimit: number } }>(`window.overlook.settings.get()`);
+    const defaults = await page.evaluate<{ settings: { sortOrder: string; bandwidthLimit: number; trashRetention: string } }>(
+      `window.overlook.settings.get()`,
+    );
     expect(defaults.settings.sortOrder).toBe('date');
     expect(defaults.settings.bandwidthLimit).toBe(100);
+    expect(defaults.settings.trashRetention).toBe('30');
 
     const providerCatalog = await page.evaluate<{
       defaultProviderId: string;
@@ -69,6 +72,10 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4021.RAF');
     await page.getByRole('radio', { name: 'Size' }).click();
     await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4028.JPG');
+    await expect(page.getByRole('radio', { name: '30 days' })).toBeChecked();
+    await page.getByRole('radio', { name: '7 days' }).click();
+    await expect(page.getByRole('radio', { name: '7 days' })).toBeChecked();
+    await expect.poll(async () => page.evaluate<string>(`window.overlook.settings.get().then((r) => r.settings.trashRetention)`)).toBe('7');
     // The locked controls render per the pattern: Light disabled, thumbs on.
     await expect(page.getByRole('radio', { name: 'Light' })).toBeDisabled();
     await expect(page.getByRole('switch')).toBeDisabled();

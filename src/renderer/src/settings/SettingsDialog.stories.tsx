@@ -592,6 +592,13 @@ export const GeneralSection: Story = {
     await userEvent.selectOptions(language, '');
     await waitFor(() => expect(language).toHaveValue(''));
 
+    // Retention is a live library setting with the bounded ADR-0023 choices.
+    await expect(body.getByRole('radio', { name: '30 days' })).toBeChecked();
+    await userEvent.click(body.getByRole('radio', { name: 'Off' }));
+    await waitFor(() => expect(body.getByRole('radio', { name: 'Off' })).toBeChecked());
+    await userEvent.click(body.getByRole('radio', { name: '90 days' }));
+    await waitFor(() => expect(body.getByRole('radio', { name: '90 days' })).toBeChecked());
+
     // Appearance: dark on, Light rendered but disabled, hint present.
     await expect(body.getByRole('radio', { name: 'Dark' })).toBeChecked();
     await expect(body.getByRole('radio', { name: 'Light' })).toBeDisabled();
