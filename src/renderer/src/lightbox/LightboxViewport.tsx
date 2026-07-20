@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement, SyntheticEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
-import { fullUrl } from '../../../shared/library/full-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
@@ -40,11 +39,11 @@ const messages = defineMessages({
 type ImageLoadStage = 'loading' | 'decoded' | 'error';
 
 interface LightboxViewportProps {
+  readonly requestKey: string;
   readonly photo: PhotoRecord;
   readonly viewIntent: LightboxViewIntent;
   readonly onViewIntentChange: (intent: LightboxViewIntent) => void;
-  readonly suppressRehydrate: boolean;
-  readonly imageSrc?: string | undefined;
+  readonly imageSrc: string;
   readonly chromeVisible: boolean;
   readonly onActivity: () => void;
   readonly onDimensionsResolved: (width: number, height: number) => void;
@@ -73,10 +72,10 @@ function wheelPixels(value: number, mode: number, viewportAxis: number): number 
 }
 
 export function LightboxViewport({
+  requestKey,
   photo,
   viewIntent,
   onViewIntentChange,
-  suppressRehydrate,
   imageSrc,
   chromeVisible,
   onActivity,
@@ -88,8 +87,7 @@ export function LightboxViewport({
   const [orientation, setOrientation] = useState<LightboxOrientation>(DEFAULT_ORIENTATION);
   const [showHint, setShowHint] = useState(shouldShowHint);
   const [decoded, setDecoded] = useState<LightboxSize | null>(null);
-  const source = imageSrc ?? fullUrl(photo.id);
-  const requestKey = `${photo.id}:${suppressRehydrate ? 'synced' : photo.syncState}:${source}`;
+  const source = imageSrc;
   const [loadStage, setLoadStage] = useState<ImageLoadStage>('loading');
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const image = useMemo(() => decoded ?? { width: photo.width, height: photo.height }, [decoded, photo.height, photo.width]);

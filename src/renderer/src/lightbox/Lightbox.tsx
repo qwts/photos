@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
+import { fullUrl } from '../../../shared/library/full-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { LightboxViewport } from './LightboxViewport';
 import { DEFAULT_VIEW_INTENT } from './geometry.js';
@@ -107,6 +108,9 @@ export function Lightbox({
   }, [offloaded, photo.id, suppressRehydrate]);
 
   const ephemeralStage = ephemeralState?.photoId === photo.id ? ephemeralState.stage : null;
+  const source = imageSrc ?? fullUrl(photo.id);
+  const sourceCustody = offloaded && !suppressRehydrate ? 'offloaded' : 'local';
+  const requestKey = `${photo.id}:${sourceCustody}:${source}`;
 
   const taken = photo.takenAt ?? photo.importedAt;
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
@@ -131,12 +135,12 @@ export function Lightbox({
       onBlurCapture={armTimer}
     >
       <LightboxViewport
-        key={`${photo.id}:${suppressRehydrate ? 'synced' : photo.syncState}:${imageSrc ?? ''}`}
+        key={requestKey}
+        requestKey={requestKey}
         photo={photo}
         viewIntent={viewIntent}
         onViewIntentChange={setViewIntent}
-        suppressRehydrate={suppressRehydrate}
-        imageSrc={imageSrc}
+        imageSrc={source}
         chromeVisible={chrome}
         onActivity={wakeChrome}
         onDimensionsResolved={onRepairDimensions}
