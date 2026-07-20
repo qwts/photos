@@ -117,7 +117,9 @@ export const ClickImageHidesChromeAndKeyboardWakes: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const surface = canvas.getByTestId('lightbox');
+    const viewport = canvas.getByTestId('lightbox-viewport');
     const image = canvas.getByRole('img', { name: PHOTO.fileName });
+    await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
     await userEvent.click(image);
     await expect(surface).toHaveAttribute('data-chrome', 'off');
     await expect(canvas.queryByText(/DOUBLE-CLICK TO FILL/u)).not.toBeInTheDocument();
@@ -177,7 +179,7 @@ export const PortraitFillZoomAndReset: Story = {
     const canvas = within(canvasElement);
     const image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
     const viewport = canvas.getByTestId('lightbox-viewport');
-    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
+    await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
     await userEvent.dblClick(image);
@@ -197,7 +199,7 @@ export const LandscapeFillCoversWidescreenAndPans: Story = {
     const canvas = within(canvasElement);
     const image = canvas.getByRole('img', { name: 'PANORAMA.JPG' });
     const viewport = canvas.getByTestId('lightbox-viewport');
-    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 1280));
+    await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
     await userEvent.dblClick(image);
     await expect(viewport).toHaveAttribute('data-mode', 'fill');
     await waitFor(async () => {
@@ -251,7 +253,7 @@ export const FillNavigationRecomputesOneAxisOverflow: Story = {
     const canvas = within(canvasElement);
     let viewport = canvas.getByTestId('lightbox-viewport');
     let image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
-    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
+    await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
     await userEvent.dblClick(image);
     await expect(viewport).toHaveAttribute('data-mode', 'fill');
     await expectOneAxisOverflow(viewport, image, 'vertical');
@@ -429,6 +431,34 @@ export const HandoffTransformToolbar: Story = {
     }
     await expect(getComputedStyle(orientation).borderRadius).toBe('6px');
     await expect(getComputedStyle(orientation).boxShadow).not.toBe('none');
+  },
+};
+
+function DurableSyncPatchHarness(args: LightboxProps): ReactElement {
+  const [syncState, setSyncState] = useState<PhotoRecord['syncState']>('local');
+  return (
+    <>
+      <button onClick={() => setSyncState((current) => (current === 'local' ? 'syncing' : 'synced'))}>Advance sync state</button>
+      <Lightbox {...args} photo={{ ...args.photo, syncState }} />
+    </>
+  );
+}
+
+export const DurableSyncPatchPreservesViewport: Story = {
+  render: (args) => <DurableSyncPatchHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
+    await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Advance sync state' }));
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+    await expect(viewport).toHaveAttribute('data-load-state', 'decoded');
+    await userEvent.click(canvas.getByRole('button', { name: 'Advance sync state' }));
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+    await expect(viewport).toHaveAttribute('data-load-state', 'decoded');
   },
 };
 
