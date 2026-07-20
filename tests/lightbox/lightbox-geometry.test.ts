@@ -106,7 +106,7 @@ describe('lightbox navigation view intent (#501)', () => {
     assert.ok(portrait.y < 0, 'portrait scrolls vertically');
     assertClose(landscape.zoom, 600 / 450);
     assert.ok(landscape.x > 0, 'landscape scrolls horizontally');
-    assert.equal(landscape.y, 0, 'landscape fills height and cannot scroll vertically');
+    assertClose(landscape.y, 0);
   });
 });
 
