@@ -31,6 +31,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0021](./ADR-0021-Opt-In-Crash-Diagnostics-Privacy-Boundary.md)       | Crash Diagnostics Privacy Boundary  | Accepted |
 | [ADR-0022](./ADR-0022-Library-Relocation-And-Registry-Path-Rewrite.md)    | Library Relocation & Path Rewrite   | Accepted |
 | [ADR-0023](./ADR-0023-Trash-Purge-And-Destructive-Action-Ceremony.md)     | Trash, Purge & Destructive Ceremony | Accepted |
+| [ADR-0024](./ADR-0024-Shared-Command-Registry-And-Application-Menu.md)    | Shared Command Registry & App Menu  | Accepted |
 
 ## Template
 

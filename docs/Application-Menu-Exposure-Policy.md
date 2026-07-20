@@ -1,0 +1,176 @@
+# Application Menu Exposure Policy
+
+This is the living command-exposure matrix for Overlook. It applies
+[ADR-0024](./adr/ADR-0024-Shared-Command-Registry-And-Application-Menu.md) to
+the native application menu, keyboard shortcuts, context menus, and gallery
+Quick Actions. Update this page whenever a command is added to or removed from
+one of those surfaces.
+
+## Current baseline
+
+Overlook does not yet install a native application menu. Renderer commands are
+owned by component callbacks, reducer actions, and the inline global keyboard
+listener in `src/renderer/src/state/use-global-keys.ts`. Context menus duplicate
+labels and handlers. The initial implementation issues therefore build the
+shared registry before projecting it into native or contextual surfaces.
+
+## Exposure test
+
+A command belongs in the native application menu only when all of these are
+true:
+
+1. **Platform convention or broad discoverability:** users reasonably look for
+   it in an application menu, or the menu is the canonical place to learn its
+   shortcut.
+2. **Stable meaning:** its label and result do not change with the hovered
+   object. A focused target may change, but the verb may not.
+3. **Deterministic target:** the command can name its target from the active
+   window, route, focus, or selection. Ambiguous multi-selection disables the
+   command with a reason; it never guesses.
+4. **Safe stale-state behavior:** the execution boundary revalidates lock,
+   library, selection, and operation state. Renderer-reported enablement is a
+   hint, not authorization.
+5. **Cross-surface parity:** toolbar, shortcut, context-menu, and native-menu
+   invocations use the same command ID and execution path.
+
+Frequency alone is not enough. A frequent but object-specific command belongs
+in a context menu or Quick Actions. A global but dangerous command still needs
+the ceremony required by
+[ADR-0023](./adr/ADR-0023-Trash-Purge-And-Destructive-Action-Ceremony.md).
+
+## Native menu hierarchy
+
+The first macOS menu uses conventional ordering and names. Windows and Linux
+move app-level items into **File**, **Tools**, and **Help** while preserving
+command IDs and shortcuts.
+
+| Menu         | Initial commands                                                                                                                            | Notes                                                                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overlook** | About Overlook; Settings…; Settings Sections (Storage & Backup, Transfer & Sync, Privacy & Diagnostics); Lock Now; Services; Hide/Show/Quit | Use Electron roles for standard OS commands. Settings is `Cmd+,` on macOS. Stable pane routes live in one submenu. Lock Now appears only when app lock is configured.                                   |
+| **File**     | Import Photos…; Export Selection…; Switch Library…                                                                                          | Export is disabled without an unambiguous focused photo or non-empty selection. Library creation, restore, and destructive removal stay in their dedicated flows.                                       |
+| **Edit**     | Undo/Redo; Cut/Copy/Paste; Select All                                                                                                       | Use OS roles for text editing. Application Select All is active only when focus is outside an editable field and a library collection owns focus.                                                       |
+| **View**     | All Photos; Favorites; Recent Imports; Trash; Show/Hide Inspector; Grid/List; Enter/Exit Lightbox                                           | Navigation commands are stable. Zoom and transform commands wait for the shortcut/command registry work in #399 and #510.                                                                               |
+| **Photo**    | Toggle Favorite; Add to Album…; Remove from Album; Export…; Move to Trash                                                                   | Visible only when the active route supports photos. Commands resolve the focused photo or the intentional selection and share handlers with contextual surfaces. Permanent deletion never appears here. |
+| **Window**   | Minimize; Zoom; Bring All to Front                                                                                                          | Electron/OS roles only. Multi-window targeting follows the focused Overlook window.                                                                                                                     |
+| **Help**     | Keyboard Shortcuts; Overlook Help; Privacy & Diagnostics                                                                                    | Help and shortcut discovery are non-sensitive. Privacy & Diagnostics routes to the Settings pane; diagnostic contents are never embedded in the menu.                                                   |
+
+The menu does not reproduce every sidebar destination, settings control, album
+operation, or background task. It exposes stable entry points and lets the
+destination surface retain its own contextual workflow.
+
+## Command exposure matrix
+
+`Native` means eligible for the application menu. `Context` includes toolbar,
+button, and object context-menu projections. `Quick` means eligible for the
+configurable Command-hover surface from #532 after that feature exists.
+
+| Command ID                   | Canonical label       | Target                        |  Native  |      Shortcut      | Context  |  Quick   | State and rationale                                                                                                 | Owner            |
+| ---------------------------- | --------------------- | ----------------------------- | :------: | :----------------: | :------: | :------: | ------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `app.settings.open`          | Settings…             | active window                 |   Yes    |      `Cmd+,`       |   Yes    |    No    | Opens General; allowed while locked without exposing library content.                                               | #531             |
+| `app.settings.open.storage`  | Storage & Backup      | active window                 |   Yes    |         No         |   Yes    |    No    | Stable direct route in the Settings Sections submenu.                                                               | #531             |
+| `app.settings.open.transfer` | Transfer & Sync       | active window                 |   Yes    |         No         |   Yes    |    No    | Stable direct route; active work controls destination state.                                                        | #531             |
+| `app.settings.open.privacy`  | Privacy & Diagnostics | active window                 |   Yes    |         No         |   Yes    |    No    | Safe route while locked; protected values remain behind the pane's authorization.                                   | #531             |
+| `app.lock.now`               | Lock Now              | application                   |   Yes    |  reviewed in #399  |   Yes    |    No    | Enabled only when configured and unlocked. Main process owns final authorization.                                   | #531             |
+| `library.switch`             | Switch Library…       | active window                 |   Yes    |  reviewed in #399  |   Yes    |    No    | Registry metadata is available while locked; opening protected content still requires unlock.                       | #531             |
+| `library.import`             | Import Photos…        | active library                |   Yes    |  reviewed in #399  |   Yes    |    No    | Disabled with no writable active library or during incompatible active work.                                        | #531             |
+| `library.export`             | Export Selection…     | focused photo/selection       |   Yes    |  reviewed in #399  |   Yes    |   Yes    | Disabled for empty or ambiguous targets and while locked.                                                           | #504, #532       |
+| `library.backup.run`         | Back Up Now           | active library                |    No    |         No         |   Yes    |    No    | State-heavy background action remains in the toolbar/settings; no idle menu noise.                                  | —                |
+| `library.source.all`         | All Photos            | active window                 |   Yes    |         No         |   Yes    |    No    | Stable navigation; closes incompatible overlays through the navigation contract.                                    | #531             |
+| `library.source.favorites`   | Favorites             | active window                 |   Yes    |         No         |   Yes    |    No    | Stable navigation, not the same command as toggling one photo's favorite state.                                     | #531             |
+| `library.source.recent`      | Recent Imports        | active window                 |   Yes    |         No         |   Yes    |    No    | Stable navigation.                                                                                                  | #531             |
+| `library.source.trash`       | Trash                 | active window                 |   Yes    |         No         |   Yes    |    No    | Uses ADR-0023 vocabulary; entering Trash is non-destructive.                                                        | #531, #534       |
+| `view.inspector.toggle`      | Show/Hide Inspector   | active window                 |   Yes    |        `I`         |   Yes    |    No    | Checked state follows the focused window; disabled on protected or incompatible routes.                             | #399, #531       |
+| `view.mode.grid`             | Grid                  | active window                 |   Yes    |  reviewed in #399  |   Yes    |    No    | Mutually exclusive checked state with List.                                                                         | #399, #531       |
+| `view.mode.list`             | List                  | active window                 |   Yes    |  reviewed in #399  |   Yes    |    No    | Mutually exclusive checked state with Grid.                                                                         | #399, #531       |
+| `view.lightbox.open`         | Open Photo            | focused photo                 |   Yes    | `Enter` after #399 |   Yes    |    No    | Enabled only for one deterministic target.                                                                          | #399             |
+| `view.lightbox.close`        | Exit Lightbox         | active window                 |   Yes    |       `Esc`        |   Yes    |    No    | Available only in lightbox; dialogs retain Escape first.                                                            | #399             |
+| `selection.selectAll`        | Select All            | focused collection            |   Yes    |      OS role       |   Yes    |    No    | Text inputs keep native Select All; collection scope comes from focus context.                                      | #399             |
+| `photo.favorite.toggle`      | Add/Remove Favorite   | focused photo/selection       |   Yes    |  reviewed in #399  |   Yes    |   Yes    | Label and checked/mixed state derive from the resolved target.                                                      | #504, #532       |
+| `photo.album.add`            | Add to Album…         | photo selection               |    No    |         No         |   Yes    |   Yes    | Requires object-specific destination UI; native Photo menu may add it only after registry projection proves stable. | #504, #532       |
+| `photo.album.remove`         | Remove from Album     | photo selection/current album |   Yes    |         No         |   Yes    |    No    | Visible only in an album route; never implies file deletion.                                                        | #504, #534       |
+| `photo.offload`              | Free Up Local Space…  | photo selection               |    No    |         No         |   Yes    |   Yes    | Storage/provider state is contextual and its preflight belongs in the existing workflow.                            | #504, #532       |
+| `photo.transfer`             | Transfer & Sync…      | photo selection               |    No    |         No         |   Yes    |   Yes    | Context and active transport state are too rich for the native menu.                                                | #504, #532       |
+| `photo.trash`                | Move to Trash         | photo selection               |   Yes    |  reviewed in #399  |   Yes    |   Yes    | Tier R; execution revalidates protection and ADR-0023 descriptors.                                                  | #504, #532, #534 |
+| `photo.deletePermanently`    | Delete Permanently…   | Trash selection               |    No    |         No         |   Yes    |    No    | Tier D is confined to Trash and its explicit ceremony. Never a Quick Action or generic Photo-menu item.             | #534             |
+| `trash.restore`              | Restore from Trash    | Trash selection               |    No    |         No         |   Yes    |    No    | Context-only inverse of Move to Trash.                                                                              | #504, #534       |
+| `trash.empty`                | Empty Trash…          | Trash                         |    No    |         No         |   Yes    |    No    | Tier D and collection-wide; keep it in the Trash surface with exact-count ceremony.                                 | #504, #534       |
+| `album.create`               | New Album…            | active library                |    No    |         No         |   Yes    |    No    | Sidebar/album context owns naming and validation.                                                                   | #504             |
+| `album.rename`               | Rename Album…         | album                         |    No    |         No         |   Yes    |    No    | Object-specific.                                                                                                    | #504             |
+| `album.delete`               | Delete Album…         | album                         |    No    |         No         |   Yes    |    No    | Tier M; contextual ceremony must say photos survive.                                                                | #504, #534       |
+| `photo.rotate.clockwise`     | Rotate Clockwise      | focused photo                 | deferred |      deferred      | deferred | deferred | Do not conflate transient lightbox transforms with persisted edits; #510 decides bindings after #399.               | #510             |
+| `photo.flip.horizontal`      | Flip Horizontal       | focused photo                 | deferred |      deferred      | deferred | deferred | Same boundary as rotate.                                                                                            | #510             |
+| `help.shortcuts`             | Keyboard Shortcuts    | active window                 |   Yes    |   `?` after #399   |   Yes    |    No    | Registry-generated overlay; unavailable until #399 replaces the inline key handler.                                 | #399, #531       |
+| `help.open`                  | Overlook Help         | application                   |   Yes    |         No         |   Yes    |    No    | No sensitive payload or telemetry side effect.                                                                      | #531             |
+
+An owner of `—` means the shipped contextual command needs no new issue from
+this spike. It still joins the registry when the registry foundation lands.
+
+## Registry and routing rules
+
+Each descriptor has a stable ID and declares:
+
+- localized label and optional checked-label pair;
+- owning feature and execution process;
+- target resolver (`application`, `window`, `route`, `focused-item`, or
+  `selection`);
+- allowed surfaces and optional platform restrictions;
+- default shortcut expressed as semantic modifiers plus a physical-key or
+  character policy;
+- enablement, checked/mixed state, and a user-readable disabled reason;
+- destructive tier/descriptor reference when ADR-0023 applies;
+- lock, library, modal, active-work, and multi-window requirements;
+- telemetry classification: none by default, event name only when separately
+  reviewed, never target names, paths, search text, or library metadata.
+
+Descriptors contain no React components, Electron objects, or service
+closures. Renderer and main-process adapters resolve context and invoke the
+same typed command execution boundary.
+
+Native menu state is a snapshot for presentation, not authority. Immediately
+before execution, the owning process resolves the current focused window and
+target again, checks lock and operation state, and refuses stale requests.
+When no window exists, only commands explicitly marked `createsWindow` may
+create one; routes are queued until renderer readiness and then delivered once.
+
+## Shortcut policy
+
+- Use Electron roles for OS-owned editing/window/application shortcuts.
+- Application shortcuts come from the registry; menu templates and the `?`
+  overlay never carry independent accelerator strings.
+- Prefer semantic `CmdOrCtrl` only when behavior is equivalent. Platform-only
+  conventions stay platform-only.
+- Character shortcuts use localized characters; position-dependent commands
+  declare a physical-code policy and are tested on non-US layouts.
+- Inputs, textareas, editable content, dialogs, and assistive-technology
+  commands win over image commands.
+- A duplicate active binding in the same context fails a registry test.
+
+## Extensions and growth
+
+Plugins and future features request a named slot such as `photo.afterExport`
+or `help.beforeSupport`; they do not provide arbitrary menu trees. Requests
+must use a registered command, declare supported platforms and context, and
+pass the same exposure test. Core ordering is stable, unknown slots are
+rejected, and the initial policy permits at most one contribution per plugin
+per top-level menu. No extension may contribute to OS roles, destructive
+authorization, lock/profile commands, or the application Quit section.
+
+## Implementation sequence
+
+1. [#399](https://github.com/qwts/photos/issues/399) creates the typed shared
+   registry, conflict tests, focus contexts, and registry-generated shortcut
+   help.
+2. [#531](https://github.com/qwts/photos/issues/531) projects eligible commands
+   into a native menu and implements the main-to-renderer route/state bridge.
+3. [#504](https://github.com/qwts/photos/issues/504) converts object context
+   menus to registry projections and completes the contextual action matrix.
+4. [#534](https://github.com/qwts/photos/issues/534) supplies ADR-0023
+   destructive descriptors and ceremonies before destructive projections are
+   enabled.
+5. [#532](https://github.com/qwts/photos/issues/532) consumes only commands
+   marked Quick-eligible; [#510](https://github.com/qwts/photos/issues/510)
+   adds transform commands after persisted/transient ownership is explicit.
+
+These existing issues cover the spike's implementation follow-ups without
+creating overlapping tickets. Each must link ADR-0024 and this matrix when it
+claims its slice.
