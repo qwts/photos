@@ -139,3 +139,29 @@ is weaker than the prose above, with the accepted position.
 - **DB key is pinned to KEY #1** (`index.ts`) independent of blob-write-key
   rotation — matches the "rotation only moves the blob write key" decision
   above; noted so the rotation story stays honest. Not a finding.
+
+## Nonce hardening implementation note
+
+Appended when [#229](https://github.com/qwts/photos/issues/229) implemented the
+hardening required by the accepted-deviation note above.
+
+- **Versioned library keys now use deterministic-unique prefixes.** `KeyStore`
+  owns a 64-bit monotonic prefix counter for each key and supplies the reserved
+  value to the unchanged envelope header. `createEncryptStream` still uses the
+  32-bit chunk index as the suffix, so every `(key, nonce)` pair is unique until
+  the 64-bit prefix space is exhausted. Existing random-prefix envelopes remain
+  readable without migration.
+- **Reservations are crash-safe ranges.** `keys.json` stores an exclusive
+  `nonceHighWater` decimal string. A process reserves 1,024 values and persists
+  the new bound before returning the first prefix. Restart begins at the bound,
+  intentionally skipping an unused tail rather than risking reuse. Exhaustion
+  fails closed and requires rotation.
+- **Recovery preserves the bound.** Backup manifest sealing consumes its prefix
+  before the recovery bootstrap snapshots the wrapped-key records. A restored
+  library therefore resumes strictly beyond every ordinary blob and manifest
+  nonce represented by that generation.
+- **Legacy keys cross a one-time boundary.** A record without nonce state is
+  assigned and persisted a random starting point in the upper half of the
+  64-bit space before its first new envelope. This preserves the negligible
+  one-time collision risk against its historical random prefixes, then removes
+  birthday growth for every subsequent write. Fresh keys begin at zero.
