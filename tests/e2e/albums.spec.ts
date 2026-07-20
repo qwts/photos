@@ -111,7 +111,9 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await openAlbumActions('Empty delete');
     await page.getByRole('menuitem', { name: 'Delete album…' }).click();
     const emptyDelete = page.getByRole('dialog', { name: 'Delete album' });
-    await expect(emptyDelete).toContainText('Only the album and its memberships are removed. All 0 photos stay in your library.');
+    await expect(emptyDelete).toContainText(
+      'Photos stay in the library; only the album and its membership are removed. All 0 photos stay in your library.',
+    );
     await emptyDelete.getByRole('button', { name: 'Delete album' }).click();
     await expect(page.getByRole('status')).toContainText('Deleted Empty delete · 0 photos kept');
     await expect(albumRow('Empty delete')).toHaveCount(0);
@@ -201,7 +203,9 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
     await openAlbumActions('Road selects');
     await page.getByRole('menuitem', { name: 'Delete album…' }).click();
     const populatedDelete = page.getByRole('dialog', { name: 'Delete album' });
-    await expect(populatedDelete).toContainText('Only the album and its memberships are removed. All 1 photo stays in your library.');
+    await expect(populatedDelete).toContainText(
+      'Photos stay in the library; only the album and its membership are removed. All 1 photo stays in your library.',
+    );
     await populatedDelete.getByRole('button', { name: 'Delete album' }).click();
     await expect(page.getByRole('status')).toContainText('Deleted Road selects · 1 photo kept');
     const allPhotos = page.getByRole('button', { name: /All Photos/u });
