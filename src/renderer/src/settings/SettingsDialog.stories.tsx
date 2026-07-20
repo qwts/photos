@@ -594,3 +594,34 @@ export const GeneralSection: Story = {
     await expect(body.getByText('The grid browses thumbnails, even offline. Cannot be disabled.')).toBeVisible();
   },
 };
+
+export const GeneralRightToLeft: Story = {
+  globals: { locale: 'en-XB' },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(() => expect(canvasElement.ownerDocument.documentElement).toHaveAttribute('dir', 'rtl'));
+    const dialog = body.getByRole('dialog');
+    const nav = body.getByRole('navigation');
+    const general = within(nav).getAllByRole('button')[0];
+    if (general === undefined) throw new Error('general settings navigation item missing');
+    await userEvent.click(general);
+    const pane = body.getByTestId('settings-pane');
+    await waitFor(() => expect(within(pane).getByRole('combobox')).toBeVisible());
+    await expect(nav.getBoundingClientRect().left).toBeGreaterThan(pane.getBoundingClientRect().left);
+    await expect(nav.getBoundingClientRect().right).toBeLessThanOrEqual(dialog.getBoundingClientRect().right);
+  },
+};
+
+export const GeneralExpandedPseudoLocale: Story = {
+  globals: { locale: 'en-XA' },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    const dialog = body.getByRole('dialog');
+    const nav = body.getByRole('navigation');
+    const general = within(nav).getAllByRole('button')[0];
+    if (general === undefined) throw new Error('general settings navigation item missing');
+    await userEvent.click(general);
+    await waitFor(() => expect(body.getByTestId('settings-pane')).toBeVisible());
+    await expect(dialog.scrollWidth).toBeLessThanOrEqual(dialog.clientWidth);
+  },
+};
