@@ -30,6 +30,8 @@ export interface WrappedKeyRecord extends KeyDisplay {
   /** base64(nonce | tag | ciphertext) — the 32 key bytes GCM-wrapped by the
    * master key with AAD = key id. */
   readonly wrappedKey: string;
+  /** Exclusive high-water mark for durably reserved 64-bit envelope prefixes. */
+  readonly nonceHighWater?: string | undefined;
 }
 
 export interface KeysFile {
@@ -39,6 +41,27 @@ export interface KeysFile {
 
 const MASTER_FILE = 'master.key';
 const KEYS_FILE = 'keys.json';
+const NONCE_PREFIX_LIMIT = 1n << 64n;
+const NONCE_RESERVATION_SIZE = 1024n;
+
+function parseNonceHighWater(value: string, keyId: number): bigint {
+  if (!/^(0|[1-9][0-9]*)$/u.test(value)) {
+    throw new KeyCustodyError(`key ${String(keyId)} nonce high-water mark is malformed`);
+  }
+  const parsed = BigInt(value);
+  if (parsed < 0n || parsed > NONCE_PREFIX_LIMIT) {
+    throw new KeyCustodyError(`key ${String(keyId)} nonce high-water mark is outside the 64-bit prefix space`);
+  }
+  return parsed;
+}
+
+function legacyNonceStart(): bigint {
+  const seed = randomBytes(8);
+  // Keep migrated keys in the upper half, away from new keys that begin at
+  // zero, while reserving at least 2^62 values before exhaustion.
+  seed[0] = ((seed[0] ?? 0) & 0x3f) | 0x80;
+  return seed.readBigUInt64BE();
+}
 
 function wrapKey(masterKey: Buffer, keyId: number, keyBytes: Buffer): string {
   const nonce = randomBytes(12);
@@ -103,6 +126,8 @@ export interface KeyStoreOptions {
 }
 
 export class KeyStore {
+  private readonly nextNonceByKey = new Map<number, bigint>();
+
   private constructor(
     private readonly options: KeyStoreOptions,
     private readonly masterKey: Buffer,
@@ -169,12 +194,24 @@ export class KeyStore {
         'the master key exists but no library keys were found; refusing to regenerate KEY #1 over an existing store (keys.json lost or corrupted)',
       );
     }
+    let migratedNonceState = false;
+    records = records.map((record) => {
+      if (record.nonceHighWater !== undefined) {
+        parseNonceHighWater(record.nonceHighWater, record.id);
+        return record;
+      }
+      migratedNonceState = true;
+      return { ...record, nonceHighWater: legacyNonceStart().toString() };
+    });
     const store = new KeyStore(options, masterKey, records, new Map());
     for (const record of records) {
       store.keys.set(record.id, unwrapKey(masterKey, record.id, record.wrappedKey));
+      store.nextNonceByKey.set(record.id, parseNonceHighWater(record.nonceHighWater ?? '0', record.id));
     }
     if (isFirstRun) {
       store.createKey();
+    } else if (migratedNonceState) {
+      store.persist();
     }
     return store;
   }
@@ -193,14 +230,49 @@ export class KeyStore {
       createdAt,
       status: 'active',
       wrappedKey: wrapKey(this.masterKey, id, keyBytes),
+      nonceHighWater: '0',
     };
     this.records = [
       ...this.records.map((existing) => (existing.status === 'active' ? { ...existing, status: 'retired' as const } : existing)),
       record,
     ];
     this.keys.set(id, keyBytes);
+    this.nextNonceByKey.set(id, 0n);
     this.persist();
-    return { id, key: keyBytes };
+    return this.envelopeKey(id, keyBytes);
+  }
+
+  private envelopeKey(id: number, key: Buffer): EnvelopeKey {
+    return { id, key, reserveNoncePrefix: () => this.reserveNoncePrefix(id) };
+  }
+
+  private reserveNoncePrefix(keyId: number): Buffer {
+    const next = this.nextNonceByKey.get(keyId);
+    if (next === undefined) {
+      throw new KeyCustodyError(`key ${String(keyId)} has no nonce reservation state`);
+    }
+    if (next >= NONCE_PREFIX_LIMIT) {
+      throw new KeyCustodyError(`key ${String(keyId)} exhausted its 64-bit nonce prefix space; rotate the library key`);
+    }
+    const index = this.records.findIndex((record) => record.id === keyId);
+    const record = this.records[index];
+    if (record === undefined) {
+      throw new KeyCustodyError(`key ${String(keyId)} has no custody record`);
+    }
+    const highWater = parseNonceHighWater(record.nonceHighWater ?? '0', keyId);
+    if (next >= highWater) {
+      const reservedUntil = next + NONCE_RESERVATION_SIZE > NONCE_PREFIX_LIMIT ? NONCE_PREFIX_LIMIT : next + NONCE_RESERVATION_SIZE;
+      this.records = this.records.map((existing) =>
+        existing.id === keyId ? { ...existing, nonceHighWater: reservedUntil.toString() } : existing,
+      );
+      // Persist the exclusive bound before returning any value in the range.
+      // A crash may skip values, but can never make one reusable.
+      this.persist();
+    }
+    const prefix = Buffer.alloc(8);
+    prefix.writeBigUInt64BE(next);
+    this.nextNonceByKey.set(keyId, next + 1n);
+    return prefix;
   }
 
   /** The write key — the newest active key (ADR-0004 rotation model). */
@@ -213,7 +285,7 @@ export class KeyStore {
     if (key === undefined) {
       throw new KeyCustodyError(`active key ${String(active.id)} is not unwrapped`);
     }
-    return { id: active.id, key };
+    return this.envelopeKey(active.id, key);
   }
 
   /** Resolver for decrypt streams — retired keys keep decrypting. */
@@ -249,5 +321,6 @@ export class KeyStore {
     this.masterKey.fill(0);
     for (const key of this.keys.values()) key.fill(0);
     this.keys.clear();
+    this.nextNonceByKey.clear();
   }
 }

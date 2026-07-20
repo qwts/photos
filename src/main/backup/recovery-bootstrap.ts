@@ -36,6 +36,10 @@ export const recoveryBootstrapSchema = z
           createdAt: isoTimestampSchema,
           status: z.enum(['active', 'retired']),
           wrappedKey: wrappedKeySchema,
+          nonceHighWater: z
+            .string()
+            .regex(/^(0|[1-9][0-9]*)$/u)
+            .optional(),
         }),
       )
       .min(1)

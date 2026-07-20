@@ -28,6 +28,25 @@ async function decrypt(envelope: Buffer, resolve: KeyResolver = RESOLVE, context
 }
 
 describe('envelope round-trips', () => {
+  test('uses a key-supplied monotonic nonce prefix', async () => {
+    let next = 7n;
+    const key: EnvelopeKey = {
+      ...KEY_1,
+      reserveNoncePrefix: () => {
+        const prefix = Buffer.alloc(8);
+        prefix.writeBigUInt64BE(next);
+        next += 1n;
+        return prefix;
+      },
+    };
+    const first = await encrypt(Buffer.from('first'), key);
+    const second = await encrypt(Buffer.from('second'), key);
+    assert.equal(first.subarray(9, 17).readBigUInt64BE(), 7n);
+    assert.equal(second.subarray(9, 17).readBigUInt64BE(), 8n);
+    assert.deepEqual(await decrypt(first), Buffer.from('first'));
+    assert.deepEqual(await decrypt(second), Buffer.from('second'));
+  });
+
   test('empty plaintext', async () => {
     const envelope = await encrypt(Buffer.alloc(0));
     assert.deepEqual(await decrypt(envelope), Buffer.alloc(0));
@@ -164,6 +183,13 @@ describe('envelope failure modes', () => {
     await assert.rejects(
       decrypt(envelope, () => randomBytes(16)),
       /AES-256 key must be 32 bytes/,
+    );
+  });
+
+  test('a key allocator returning a wrong-length nonce prefix is refused', () => {
+    assert.throws(
+      () => createEncryptStream({ ...KEY_1, reserveNoncePrefix: () => Buffer.alloc(7) }, CONTEXT),
+      /nonce prefix must be 8 bytes/u,
     );
   });
 
