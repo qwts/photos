@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { test, expect, _electron as electron } from '@playwright/test';
@@ -30,6 +30,44 @@ async function launch(destination: string, extraEnv: Record<string, string> = {}
   // Callers wait for their own start state (a seeded grid vs empty library).
   await page.getByRole('button', { name: 'Import', exact: true }).waitFor();
   return { app, page };
+}
+
+function jpegWithMismatchedExifDimensions(source: Buffer, width: number, height: number): Buffer {
+  const bytes = Buffer.from(source);
+  const exif = bytes.indexOf(Buffer.from('Exif\0\0', 'binary'));
+  if (exif < 0) throw new Error('fixture has no EXIF segment');
+  const tiff = exif + 6;
+  const littleEndian = bytes.toString('ascii', tiff, tiff + 2) === 'II';
+  const readU16 = (offset: number): number => (littleEndian ? bytes.readUInt16LE(offset) : bytes.readUInt16BE(offset));
+  const readU32 = (offset: number): number => (littleEndian ? bytes.readUInt32LE(offset) : bytes.readUInt32BE(offset));
+  const findEntry = (directory: number, tag: number): number => {
+    const entries = readU16(directory);
+    for (let index = 0; index < entries; index += 1) {
+      const entry = directory + 2 + index * 12;
+      if (readU16(entry) === tag) return entry;
+    }
+    throw new Error(`fixture has no EXIF tag ${String(tag)}`);
+  };
+  const ifd0 = tiff + readU32(tiff + 4);
+  const exifIfdPointer = findEntry(ifd0, 0x8769);
+  const exifIfd = tiff + readU32(exifIfdPointer + 8);
+  const writeDimension = (tag: number, value: number): void => {
+    const entry = findEntry(exifIfd, tag);
+    const type = readU16(entry + 2);
+    if (readU32(entry + 4) !== 1) throw new Error('fixture dimension tag is not scalar');
+    if (type === 3) {
+      if (littleEndian) bytes.writeUInt16LE(value, entry + 8);
+      else bytes.writeUInt16BE(value, entry + 8);
+    } else if (type === 4) {
+      if (littleEndian) bytes.writeUInt32LE(value, entry + 8);
+      else bytes.writeUInt32BE(value, entry + 8);
+    } else {
+      throw new Error(`unsupported EXIF dimension type ${String(type)}`);
+    }
+  };
+  writeDimension(0xa002, width);
+  writeDimension(0xa003, height);
+  return bytes;
 }
 
 test('select 3 → pill Export → run → 3 byte-faithful decrypted files on disk', async () => {
@@ -176,6 +214,33 @@ test('metadata-lite JPEG imports with decoded dimensions, renders, and exports b
     await page.getByRole('button', { name: 'Export 1 photo', exact: true }).click();
     await expect(page.getByText('1 photo exported and decrypted.')).toBeVisible({ timeout: 20_000 });
     expect(readFileSync(join(destination, 'exif-stripped.jpg'))).toEqual(readFileSync(source));
+  } finally {
+    await app.close();
+  }
+});
+
+test('EXIF dimension mismatch keeps decoded dimensions and warns in the Inspector (#500)', async () => {
+  const destination = mkE2eTmpDir('overlook-mismatch-export-');
+  const card = join(mkE2eTmpDir('overlook-mismatch-card-'), 'SDCARD');
+  mkdirSync(card);
+  const source = join(import.meta.dirname, '../fixtures/exif/exif-full.jpg');
+  writeFileSync(join(card, 'mismatched-exif.jpg'), jpegWithMismatchedExifDimensions(readFileSync(source), 640, 480));
+  const { app, page } = await launch(destination, { OVERLOOK_SEED: '0', OVERLOOK_IMPORT_SOURCE: card });
+  try {
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('button', { name: 'Import 1 photos' }).click();
+    await expect(page.getByText('All 1 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Show in library' }).click();
+
+    const row = await page.evaluate<{ width: number; height: number; dimensionStatus: string }>(
+      `window.overlook.library.page({ source: 'all', limit: 1 }).then((r) => ({ width: r.photos[0].width, height: r.photos[0].height, dimensionStatus: r.photos[0].dimensionStatus }))`,
+    );
+    expect(row).toEqual({ width: 1280, height: 838, dimensionStatus: 'metadata-mismatch' });
+    await page.getByRole('button', { name: 'Open mismatched-exif.jpg' }).click();
+    await page.keyboard.press('i');
+    const inspector = page.getByTestId('inspector');
+    await expect(inspector).toContainText('1280×838 · 1.1 MP');
+    await expect(inspector).toContainText('DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA');
   } finally {
     await app.close();
   }
