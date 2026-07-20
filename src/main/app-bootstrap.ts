@@ -1,5 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 
+import { requestNativeWindowAttention } from './e2e-window-visibility.js';
+
 // Profile-level single instance (ADR-0017 §5, #385): Electron scopes the
 // lock to userData, so isolated E2E harness profiles still run concurrently.
 // A second instance on the same profile hands off and exits; the first
@@ -11,8 +13,11 @@ export function registerSingleInstance(): void {
   app.on('second-instance', () => {
     const [win] = BrowserWindow.getAllWindows();
     if (win !== undefined) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
+      requestNativeWindowAttention(win, {
+        packaged: app.isPackaged,
+        harness: process.env['OVERLOOK_E2E'],
+        mode: process.env['OVERLOOK_E2E_WINDOW'],
+      });
     }
   });
 }

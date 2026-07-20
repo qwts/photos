@@ -1,11 +1,21 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { expect, test, _electron as electron, type Page } from '@playwright/test';
+import { expect, test, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 
 import { mkE2eTmpDir } from './support/tmp-dir.js';
 
 const FIXTURE = join(import.meta.dirname, '../fixtures/exif/exif-stripped.jpg');
+
+async function expectNativeAttentionMatchesHarness(app: ElectronApplication): Promise<void> {
+  const state = await app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    return { visible: win?.isVisible() ?? false, focused: win?.isFocused() ?? false };
+  });
+  const hidden = process.env['OVERLOOK_E2E_WINDOW'] === 'hidden';
+  expect(state.visible).toBe(!hidden);
+  if (hidden) expect(state.focused).toBe(false);
+}
 
 function makeFolder(count: number, nested = false): { readonly folder: string; readonly paths: readonly string[] } {
   const folder = join(mkE2eTmpDir('overlook-e2e-drop-'), 'photos');
@@ -144,6 +154,7 @@ test('P0 #406: 800 Finder paths route into one running window and one import bat
     await expect(page.getByRole('dialog', { name: 'Import photos' })).toBeVisible();
     await expect(page.getByText('800 photos ready to import')).toBeVisible({ timeout: 15_000 });
     expect(app.windows()).toHaveLength(1);
+    await expectNativeAttentionMatchesHarness(app);
   } finally {
     await app.close();
   }
@@ -167,6 +178,7 @@ test('P0 #406: a folder path recursively opens as one dropped import source', as
     await expect(page.getByText('3 photos ready to import')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Import 3 photos' })).toBeEnabled();
     expect(app.windows()).toHaveLength(1);
+    await expectNativeAttentionMatchesHarness(app);
   } finally {
     await app.close();
   }
