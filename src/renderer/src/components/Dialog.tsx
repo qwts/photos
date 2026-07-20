@@ -13,7 +13,7 @@ export interface DialogProps {
   readonly icon?: IconName;
   /** 420 (flow dialogs) or 640 (settings) per the design. */
   readonly width?: number;
-  readonly onClose?: () => void;
+  readonly onClose?: (() => void) | undefined;
   readonly bodyClassName?: string;
   readonly footer?: ReactNode;
   readonly children: ReactNode;
@@ -45,7 +45,6 @@ export function Dialog({ open, title, icon, width = 420, onClose, bodyClassName,
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        inert={closing ? true : undefined}
         tabIndex={-1}
         className={`ovl-dialog${closing ? ' ovl-dialog--closing' : ''}`}
         data-state={closing ? 'closing' : 'open'}
