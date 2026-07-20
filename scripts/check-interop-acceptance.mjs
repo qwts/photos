@@ -120,7 +120,7 @@ function validateManualCheck(check, requireManual, failures) {
   const label = nonEmptyString(check?.id) ? check.id : 'manual check';
   if (!['pending', 'verified'].includes(check?.status)) failures.push(`${label}: status must be pending or verified.`);
   if (!nonEmptyString(check?.runbook) || !check.runbook.startsWith('https://github.com/qwts/')) {
-    failures.push(`${label}: runbook must be a qwts GitHub wiki URL.`);
+    failures.push(`${label}: runbook must be a qwts GitHub URL.`);
   }
   if (check?.status === 'verified') {
     if (!nonEmptyString(check?.evidence?.url) || !check.evidence.url.startsWith('https://github.com/qwts/')) {
