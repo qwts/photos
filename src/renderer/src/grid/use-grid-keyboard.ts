@@ -31,7 +31,7 @@ interface GridKeyboardOptions<Photo extends { readonly id: string }> {
 }
 
 function gridIndex(target: EventTarget | null): number | null {
-  if (!(target instanceof Element)) return null;
+  if (!(target instanceof Element) || !target.matches('[data-grid-focus-target="true"]')) return null;
   const value = target.closest<HTMLElement>('[data-grid-index]')?.dataset['gridIndex'];
   if (value === undefined) return null;
   const index = Number(value);
@@ -96,6 +96,7 @@ export function useGridKeyboard<Photo extends { readonly id: string }>({
       }
     };
     const onKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (document.querySelector('[data-testid="lightbox"]') !== null) return;
       const index = gridIndex(event.target);
       const photo = index === null ? undefined : photos[index];
       if (index === null || photo === undefined) return;

@@ -31,7 +31,7 @@ export const GeneratedForGridContext: Story = {
     await expect(canvas.getByText('Select all photos')).toBeInTheDocument();
     await expect(canvas.getByText('⌘A')).toBeInTheDocument();
     await expect(canvas.queryByText('Next photo')).not.toBeInTheDocument();
-    await userEvent.keyboard('{Escape}');
-    await waitFor(async () => expect(canvas.queryByRole('dialog')).not.toBeInTheDocument());
+    await userEvent.click(canvas.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(canvas.queryByRole('dialog')).not.toBeInTheDocument());
   },
 };
