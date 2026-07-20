@@ -44,6 +44,10 @@ export interface ImportManifest {
 
 export interface ImportSummary {
   readonly imported: number;
+  /** Imported sources deleted after verified encrypted custody. */
+  readonly moved: number;
+  /** Sources intentionally left in place (Copy, duplicate, failed, or cancelled). */
+  readonly retained: number;
   readonly duplicates: number;
   readonly failed: number;
   /** User-cancelled remainder — never started, sources untouched (#88). */
@@ -180,8 +184,13 @@ export class ImportEngine {
         });
       }
     }
+    const imported = manifest.files.filter((file) => file.status === 'imported').length;
+    const moved =
+      manifest.mode === 'move' ? manifest.files.filter((file) => file.status === 'imported' && file.stage === 'done').length : 0;
     return {
-      imported: manifest.files.filter((file) => file.status === 'imported').length,
+      imported,
+      moved,
+      retained: manifest.files.length - moved,
       duplicates: manifest.files.filter((file) => file.status === 'duplicate').length,
       failed: manifest.files.filter((file) => file.status === 'failed').length,
       cancelled: manifest.files.filter((file) => file.status === 'cancelled').length,

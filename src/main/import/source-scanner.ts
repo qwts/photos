@@ -57,6 +57,12 @@ export interface SourceScannerDeps {
 
 /** Progress cadence: big cards report every N files, and always at the end. */
 const PROGRESS_EVERY = 25;
+const PACKAGE_DIRECTORY_SUFFIXES = ['.app', '.bundle', '.framework', '.photoslibrary', '.photolibrary', '.pkg'] as const;
+
+function isPackageDirectory(name: string): boolean {
+  const lower = name.toLocaleLowerCase('en-US');
+  return PACKAGE_DIRECTORY_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
 
 async function hashFile(path: string): Promise<string> {
   const hasher = createHash('sha256');
@@ -74,6 +80,7 @@ async function listMediaFiles(dir: string, signal?: AbortSignal): Promise<Import
   // the whole source-card scan (PR #174 review).
   let entries;
   try {
+    if ((await lstat(dir)).isSymbolicLink()) return found;
     entries = (await readdir(dir, { withFileTypes: true })).sort((left, right) => left.name.localeCompare(right.name));
   } catch {
     return found;
@@ -82,7 +89,7 @@ async function listMediaFiles(dir: string, signal?: AbortSignal): Promise<Import
     if (signal?.aborted === true) break;
     const entryPath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith('.')) {
+      if (!entry.name.startsWith('.') && !isPackageDirectory(entry.name)) {
         found.push(...(await listMediaFiles(entryPath, signal)));
       }
       continue;
@@ -131,7 +138,8 @@ export async function collectMediaCandidates(paths: readonly string[], signal?: 
     if (signal?.aborted === true) break;
     const absolute = resolve(droppedPath);
     try {
-      const info = await stat(absolute);
+      const info = await lstat(absolute);
+      if (info.isSymbolicLink()) continue;
       if (info.isDirectory()) {
         for (const candidate of await listMediaFiles(absolute, signal)) add(candidate);
       } else if (info.isFile()) {

@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createHash, randomBytes } from 'node:crypto';
-import { chmodSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -177,6 +177,25 @@ describe('dropped-file scan (#237)', () => {
       files.map(({ path }) => path).sort(),
       [direct, child].sort(),
       'folder expansion and explicit duplicates produce one candidate per path',
+    );
+  });
+
+  test('#489: symlinks and package directories are never expanded into Move candidates', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-drop-boundaries-'));
+    const outside = join(mkdtempSync(join(tmpdir(), 'overlook-drop-target-')), 'outside.jpg');
+    writeFileSync(outside, randomBytes(64));
+    symlinkSync(outside, join(root, 'linked.jpg'));
+    const photosLibrary = join(root, 'System.photoslibrary');
+    mkdirSync(photosLibrary);
+    writeFileSync(join(photosLibrary, 'hidden.jpg'), randomBytes(64));
+    const admitted = join(root, 'admitted.jpg');
+    writeFileSync(admitted, randomBytes(64));
+
+    const { files } = await scanFiles([root, join(root, 'linked.jpg')], { hasContentHash: () => false });
+
+    assert.deepEqual(
+      files.map((file) => file.path),
+      [admitted],
     );
   });
 });
