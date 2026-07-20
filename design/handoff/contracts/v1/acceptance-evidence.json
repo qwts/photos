@@ -309,25 +309,25 @@
     {
       "id": "released-products-bidirectional",
       "status": "pending",
-      "runbook": "https://github.com/qwts/photos/wiki/Interop-Closeout-Evidence",
+      "runbook": "https://github.com/qwts/photos/blob/main/docs/Interop-Closeout-Evidence.md",
       "evidence": null
     },
     {
       "id": "live-pcloud",
       "status": "pending",
-      "runbook": "https://github.com/qwts/photos/wiki/Interop-Closeout-Evidence",
+      "runbook": "https://github.com/qwts/photos/blob/main/docs/Interop-Closeout-Evidence.md",
       "evidence": null
     },
     {
       "id": "live-google-drive",
       "status": "pending",
-      "runbook": "https://github.com/qwts/photos/wiki/Interop-Closeout-Evidence",
+      "runbook": "https://github.com/qwts/photos/blob/main/docs/Interop-Closeout-Evidence.md",
       "evidence": null
     },
     {
       "id": "signed-icloud-native-host",
       "status": "pending",
-      "runbook": "https://github.com/qwts/photos/wiki/Interop-Closeout-Evidence",
+      "runbook": "https://github.com/qwts/photos/blob/main/docs/Interop-Closeout-Evidence.md",
       "evidence": null
     }
   ]
