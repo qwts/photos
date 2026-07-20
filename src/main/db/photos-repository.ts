@@ -320,18 +320,20 @@ export class PhotosRepository {
     if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
       throw new RangeError('photo dimensions must be positive safe integers');
     }
-    const current = this.get(photoId);
-    if (current === undefined) return false;
-    const hasMetadataDimensions = current.width > 0 && current.height > 0;
-    const status: DimensionStatus =
-      current.dimensionStatus === 'metadata-mismatch' || (hasMetadataDimensions && (current.width !== width || current.height !== height))
-        ? 'metadata-mismatch'
-        : 'verified';
-    const dimensionsChanged = current.width !== width || current.height !== height;
-    if (!dimensionsChanged && current.dimensionStatus === status) return false;
-    run(this.db, 'UPDATE photos SET width = ?, height = ?, dimension_status = ? WHERE id = ?', width, height, status, photoId);
-    if (dimensionsChanged) markDirty(this.db, photoId);
-    return true;
+    return this.db.transaction(() => {
+      const current = this.get(photoId);
+      if (current === undefined) return false;
+      const hasMetadataDimensions = current.width > 0 && current.height > 0;
+      const status: DimensionStatus =
+        current.dimensionStatus === 'metadata-mismatch' || (hasMetadataDimensions && (current.width !== width || current.height !== height))
+          ? 'metadata-mismatch'
+          : 'verified';
+      const dimensionsChanged = current.width !== width || current.height !== height;
+      if (!dimensionsChanged && current.dimensionStatus === status) return false;
+      run(this.db, 'UPDATE photos SET width = ?, height = ?, dimension_status = ? WHERE id = ?', width, height, status, photoId);
+      if (dimensionsChanged) markDirty(this.db, photoId);
+      return true;
+    })();
   }
 
   /** Marks a file whose pixels could not be decoded; local-only diagnostic state. */

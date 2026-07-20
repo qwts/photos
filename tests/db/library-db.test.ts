@@ -343,6 +343,33 @@ describe('PhotosRepository', () => {
     db.close();
   });
 
+  test('decoder dimension repair and manifest dirtying commit atomically (#500 review)', () => {
+    const { db, repo } = openSeeded();
+    const photo = samplePhoto({ fileKind: 'jpeg', width: 640, height: 480 });
+    repo.insert(photo);
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+    db.exec(`
+      CREATE TEMP TRIGGER fail_dimension_dirty
+      BEFORE UPDATE OF dirty ON sync_ledger
+      WHEN OLD.photo_id = '${photo.id}'
+      BEGIN
+        SELECT RAISE(ABORT, 'injected dirty failure');
+      END;
+    `);
+
+    assert.throws(() => repo.repairGeneratedDimensions(photo.id, 1280, 960), /injected dirty failure/);
+    assert.deepEqual(
+      {
+        width: repo.get(photo.id)?.width,
+        height: repo.get(photo.id)?.height,
+        dimensionStatus: repo.get(photo.id)?.dimensionStatus,
+      },
+      { width: 640, height: 480, dimensionStatus: 'legacy' },
+    );
+    assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', photo.id)?.dirty, 0);
+    db.close();
+  });
+
   test('preview repair candidates stay local and metadata repair fills only unknown values (#368, #487)', () => {
     const { db, repo } = openSeeded();
     const affected = samplePhoto({ width: 0, height: 0, camera: null, lens: null });
