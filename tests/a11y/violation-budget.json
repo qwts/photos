@@ -11,62 +11,6 @@
       "issues": [400]
     },
     {
-      "id": "app-sidebar--album-drop-states",
-      "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "rules": {
-        "target-size": 1
-      },
-      "issues": [415]
-    },
-    {
-      "id": "app-sidebar--album-management",
-      "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "rules": {
-        "target-size": 1
-      },
-      "issues": [415]
-    },
-    {
-      "id": "app-sidebar--collapse-and-expand",
-      "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "rules": {
-        "target-size": 1
-      },
-      "issues": [415]
-    },
-    {
-      "id": "app-sidebar--disconnected",
-      "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "rules": {
-        "target-size": 1
-      },
-      "issues": [415]
-    },
-    {
-      "id": "app-sidebar--expanded",
-      "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "rules": {
-        "target-size": 1
-      },
-      "issues": [415]
-    },
-    {
-      "id": "app-sidebar--locked-protected-album-leaks-nothing",
-      "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "rules": {
-        "target-size": 1
-      },
-      "issues": [415]
-    },
-    {
-      "id": "app-sidebar--offloaded-hidden-when-empty",
-      "story": "src/renderer/src/shell/Sidebar.stories.tsx",
-      "rules": {
-        "target-size": 1
-      },
-      "issues": [415]
-    },
-    {
       "id": "grid-listrow--click-targets-are-independent",
       "story": "src/renderer/src/grid/ListRow.stories.tsx",
       "rules": {
@@ -78,28 +22,25 @@
       "id": "grid-listrow--state-matrix",
       "story": "src/renderer/src/grid/ListRow.stories.tsx",
       "rules": {
-        "nested-interactive": 1,
-        "target-size": 1
+        "nested-interactive": 1
       },
-      "issues": [412, 415]
+      "issues": [412]
     },
     {
       "id": "grid-virtualgrid--tile-click-vs-select-circle",
       "story": "src/renderer/src/grid/VirtualGrid.stories.tsx",
       "rules": {
-        "nested-interactive": 1,
-        "target-size": 1
+        "nested-interactive": 1
       },
-      "issues": [412, 415]
+      "issues": [412]
     },
     {
       "id": "media-phototile--click-targets-are-independent",
       "story": "src/renderer/src/components/PhotoTile.stories.tsx",
       "rules": {
-        "nested-interactive": 1,
-        "target-size": 1
+        "nested-interactive": 1
       },
-      "issues": [412, 415]
+      "issues": [412]
     }
   ],
   "flows": [
@@ -107,19 +48,17 @@
       "id": "shell-grid",
       "spec": "tests/e2e/a11y.spec.ts",
       "rules": {
-        "nested-interactive": 1,
-        "target-size": 1
+        "nested-interactive": 1
       },
-      "issues": [412, 415]
+      "issues": [412]
     },
     {
       "id": "shell-inspector",
       "spec": "tests/e2e/a11y.spec.ts",
       "rules": {
-        "nested-interactive": 1,
-        "target-size": 1
+        "nested-interactive": 1
       },
-      "issues": [412, 415]
+      "issues": [412]
     },
     {
       "id": "shell-lightbox",
@@ -133,10 +72,9 @@
       "id": "shell-selection",
       "spec": "tests/e2e/a11y.spec.ts",
       "rules": {
-        "nested-interactive": 1,
-        "target-size": 1
+        "nested-interactive": 1
       },
-      "issues": [412, 415]
+      "issues": [412]
     },
     {
       "id": "shell-settings-dialog",

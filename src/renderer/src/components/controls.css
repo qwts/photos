@@ -98,6 +98,8 @@
 /* ---- IconButton ---- */
 .ovl-icon-button {
   display: inline-flex;
+  min-width: var(--interactive-target-min);
+  min-height: var(--interactive-target-min);
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-1);

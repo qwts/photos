@@ -58,8 +58,11 @@ export const ClickTargetsAreIndependent: Story = {
   ),
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
+    const select = canvas.getByRole('button', { name: 'Select' });
+    await expect(select.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
+    await expect(select.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
     // Circle click selects but never opens.
-    await userEvent.click(canvas.getByRole('button', { name: 'Select' }));
+    await userEvent.click(select);
     await expect(args.onToggleSelect).toHaveBeenCalledOnce();
     await expect(args.onClick).not.toHaveBeenCalled();
     // Tile click opens without toggling selection.

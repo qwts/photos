@@ -262,6 +262,11 @@
 
 .ovl-sidebar__gear {
   display: flex;
+  width: var(--interactive-target-min);
+  height: var(--interactive-target-min);
+  margin-inline: -6px;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   border: none;
   background: none;
