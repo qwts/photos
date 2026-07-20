@@ -6,6 +6,8 @@
 export const en: Readonly<Record<string, string>> = {
   "favorite.add": "Add to Favorites",
   "favorite.remove": "Remove from Favorites",
+  "inspector.file.dimensionMismatch": "DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA",
+  "inspector.file.metadata": "Metadata",
   "libmove.badge.active": "Moving…",
   "libmove.badge.cleanupPending": "Moved — cleanup pending",
   "libmove.badge.failed": "Failed",

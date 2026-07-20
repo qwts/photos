@@ -5,6 +5,12 @@
   "favorite.remove": {
     "defaultMessage": "Remove from Favorites"
   },
+  "inspector.file.dimensionMismatch": {
+    "defaultMessage": "DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA"
+  },
+  "inspector.file.metadata": {
+    "defaultMessage": "Metadata"
+  },
   "libmove.badge.active": {
     "defaultMessage": "Moving…"
   },
