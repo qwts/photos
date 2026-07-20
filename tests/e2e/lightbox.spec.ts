@@ -110,13 +110,13 @@ async function exerciseFillPersistence(page: Page, viewport: Locator, image: Loc
     .toBeLessThanOrEqual(1);
   await page.keyboard.press('i');
 
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('ArrowRight');
+  await page.getByRole('button', { name: 'Next (→)' }).click();
+  await page.getByRole('button', { name: 'Next (→)' }).click();
   await expect(page.getByTestId('lightbox')).toContainText('IMG_4035.JPG');
   await expect(viewport).toHaveAttribute('data-mode', 'fill');
   await expectLandscapeHeightFill(viewport, image);
-  await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('ArrowLeft');
+  await page.getByRole('button', { name: 'Previous (←)' }).click();
+  await page.getByRole('button', { name: 'Previous (←)' }).click();
   await expect(page.getByTestId('lightbox')).toContainText('IMG_4021.RAF');
   await image.dblclick();
   await expect(viewport).toHaveAttribute('data-mode', 'fit');
@@ -143,6 +143,13 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   await page.mouse.wheel(900, 700);
   await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-x')))).toBeGreaterThan(0);
   await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-y')))).toBeGreaterThan(0);
+
+  const fileName = await viewport.getByRole('img').getAttribute('alt');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  await expect(viewport.getByRole('img')).toHaveAttribute('alt', fileName ?? '');
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-x'))).toBeLessThan(0);
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeLessThan(0);
 
   await page.keyboard.press('0');
   await page.keyboard.press('+');

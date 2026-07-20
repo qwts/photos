@@ -10,7 +10,7 @@ Issues: [#501](https://github.com/qwts/photos/issues/501),
 Verify that full view keeps the photo visually dominant, preserves a useful
 zoom and focal position while navigating, and resets state at the correct
 session boundaries. This script complements automated geometry, Storybook, and
-Electron coverage; it does not replace the separate keyboard-pan work in #449.
+Electron coverage, including the keyboard-pan contract from #449.
 
 ## Setup
 
@@ -79,10 +79,15 @@ reference at its native 924×540 viewport. Confirm the orientation toolbar:
 
 1. At 200% application zoom, confirm every full-view control remains reachable
    and the image does not obscure focused controls.
-2. With reduced motion enabled, repeat navigation and reset. Confirm no
+2. Zoom until the image overflows both axes. Confirm all four Arrow keys pan in
+   their expected directions and stop at the image bounds without exposing blank
+   space.
+3. Reset to Fit. Confirm Left/Right return to Previous/Next photo navigation.
+   In Fill mode with one-axis overflow, confirm arrows pan on the overflowing
+   axis while Left/Right still navigate when horizontal panning is unavailable.
+4. With reduced motion enabled, repeat navigation and reset. Confirm no
    nonessential transform or chrome animation plays.
-3. Confirm all visible controls have keyboard focus states and accessible
-   names. Keyboard panning remains tracked by #449 until that issue lands.
+5. Confirm all visible controls have keyboard focus states and accessible names.
 
 ## Automated evidence
 

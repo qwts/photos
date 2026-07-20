@@ -27,6 +27,7 @@ import {
 const HINT_STORAGE_KEY = 'overlook.lightbox-gestures-seen';
 const HINT_MS = 5500;
 const KEYBOARD_ZOOM_STEP = 1.25;
+const KEYBOARD_PAN_STEP = 64;
 const LOADING_INDICATOR_DELAY_MS = 180;
 
 const messages = defineMessages({
@@ -182,6 +183,26 @@ export function LightboxViewport({
       const inField = event.target instanceof HTMLElement && event.target.closest('input, textarea, select') !== null;
       const modalOpen = document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
       if (inField || modalOpen || event.metaKey || event.ctrlKey || event.altKey) return;
+      const horizontalOverflow = fitted.width * transform.zoom > viewport.width + 1;
+      const verticalOverflow = fitted.height * transform.zoom > viewport.height + 1;
+      const panDelta =
+        event.key === 'ArrowLeft' && horizontalOverflow
+          ? { x: KEYBOARD_PAN_STEP, y: 0 }
+          : event.key === 'ArrowRight' && horizontalOverflow
+            ? { x: -KEYBOARD_PAN_STEP, y: 0 }
+            : event.key === 'ArrowUp' && verticalOverflow
+              ? { x: 0, y: KEYBOARD_PAN_STEP }
+              : event.key === 'ArrowDown' && verticalOverflow
+                ? { x: 0, y: -KEYBOARD_PAN_STEP }
+                : null;
+      if (panDelta !== null) {
+        event.preventDefault();
+        const next = panBy(transform, panDelta, fitted, viewport);
+        onViewIntentChange(transformToViewIntent(next, mode, fitted, viewport));
+        setShowHint(false);
+        onActivity();
+        return;
+      }
       if (event.key === '+' || event.key === '=') {
         event.preventDefault();
         zoomBy(KEYBOARD_ZOOM_STEP);
@@ -205,11 +226,11 @@ export function LightboxViewport({
         resetOrientation();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, { capture: true });
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onKeyDown, { capture: true });
     };
-  }, [flipHorizontal, resetOrientation, resetView, rotateBy, zoomBy]);
+  }, [fitted, flipHorizontal, mode, onActivity, onViewIntentChange, resetOrientation, resetView, rotateBy, transform, viewport, zoomBy]);
 
   const toggleFill = (): void => {
     if (mode === 'fill') {
@@ -286,12 +307,9 @@ export function LightboxViewport({
       aria-busy={loadStage === 'loading'}
     >
       {/* The rule fires on this <img> because of `onDoubleClick` (and the onLoad/onError
-          lifecycle handlers), NOT `onWheel` — wheel is in no jsx-a11y handler set, so this
-          disable does NOT and cannot guard the wheel-only-pan debt. That debt (a keyboard
-          user can zoom but not pan a zoomed photo — SC 2.1.1) is real and owned by #449,
-          but it is tracked by the issue and the audit, not by this line; the E2E/manual
-          lanes are what would catch its regression. This disable is only acknowledging
-          that the image legitimately carries pointer + lifecycle handlers. */}
+          lifecycle handlers), not `onWheel`, which is in no jsx-a11y handler set. Keyboard
+          pan is provided by the viewport-level Arrow key handler; this disable acknowledges
+          only that the image legitimately carries pointer and lifecycle handlers. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <img
         key={requestKey}
@@ -324,7 +342,7 @@ export function LightboxViewport({
       ) : null}
       {showHint && chromeVisible ? (
         <div className="ovl-lightbox__gesture-hint mono-data" role="status">
-          DOUBLE-CLICK TO FILL · OPTION + SCROLL TO ZOOM · SCROLL TO PAN
+          DOUBLE-CLICK TO FILL · OPTION + SCROLL TO ZOOM · SCROLL OR ARROWS TO PAN
         </div>
       ) : null}
       <div
