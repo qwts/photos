@@ -1220,6 +1220,10 @@
           "path": "src/renderer/src/shell/MoveLibraryDialog.stories.tsx"
         },
         {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/MoveResumeBanner.stories.tsx"
+        },
+        {
           "type": "unit-dom",
           "paths": [
             "tests/library/relocation.test.ts",
