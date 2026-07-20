@@ -10,6 +10,8 @@ export const CURRENT_DIAGNOSTICS_CONSENT_VERSION = 1 as const;
 
 export const settingsSchema = z.object({
   sortOrder: z.enum(['date', 'name', 'size']),
+  /** Explicit UI language; null follows the operating-system locale. */
+  language: z.string().min(1).nullable(),
   /** 'light' exists in the schema but ships disabled — the DS has no light
    * theme yet (recorded on the epic). */
   appearance: z.enum(['dark', 'light']),
@@ -42,6 +44,7 @@ export type SettingsPatch = z.output<typeof settingsPatchSchema>;
 /** ADR-0017 §6: these preferences follow the app profile, not a library. */
 export const profileSettingsSchema = settingsSchema.pick({
   appearance: true,
+  language: true,
   shareDiagnostics: true,
   diagnosticsConsentVersion: true,
 });
@@ -49,6 +52,7 @@ export const profileSettingsSchema = settingsSchema.pick({
 /** ADR-0017 §6: these policies belong to exactly one library directory. */
 export const librarySettingsSchema = settingsSchema.omit({
   appearance: true,
+  language: true,
   shareDiagnostics: true,
   diagnosticsConsentVersion: true,
 });
@@ -58,6 +62,7 @@ export type LibrarySettings = z.output<typeof librarySettingsSchema>;
 
 export const defaultSettings: AppSettings = {
   sortOrder: 'date',
+  language: null,
   appearance: 'dark',
   thumbnailsOnImport: true,
   autoBackupOnImport: true,
@@ -74,6 +79,7 @@ export const defaultSettings: AppSettings = {
 
 export const defaultProfileSettings: ProfileSettings = {
   appearance: defaultSettings.appearance,
+  language: defaultSettings.language,
   shareDiagnostics: defaultSettings.shareDiagnostics,
   diagnosticsConsentVersion: defaultSettings.diagnosticsConsentVersion,
 };
@@ -94,6 +100,7 @@ export const defaultLibrarySettings: LibrarySettings = {
 const profileRecoverySchema = z
   .object({
     appearance: settingsSchema.shape.appearance.catch(defaultProfileSettings.appearance),
+    language: settingsSchema.shape.language.catch(defaultProfileSettings.language),
     shareDiagnostics: settingsSchema.shape.shareDiagnostics.catch(defaultProfileSettings.shareDiagnostics),
     diagnosticsConsentVersion: settingsSchema.shape.diagnosticsConsentVersion.catch(0),
   })
@@ -129,6 +136,7 @@ export function recoverLibrarySettings(raw: unknown): LibrarySettings {
 export function profileSettingsOf(settings: AppSettings): ProfileSettings {
   return {
     appearance: settings.appearance,
+    language: settings.language,
     shareDiagnostics: settings.shareDiagnostics,
     diagnosticsConsentVersion: settings.diagnosticsConsentVersion,
   };
@@ -179,6 +187,7 @@ export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSe
   const shareDiagnostics = patch.shareDiagnostics ?? current.shareDiagnostics;
   return {
     sortOrder: patch.sortOrder ?? current.sortOrder,
+    language: patch.language !== undefined ? patch.language : current.language,
     appearance: patch.appearance ?? current.appearance,
     thumbnailsOnImport: true,
     autoBackupOnImport: patch.autoBackupOnImport ?? current.autoBackupOnImport,

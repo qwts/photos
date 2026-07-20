@@ -97,6 +97,7 @@ describe('settings store (#111)', () => {
     store.set({ appearance: 'light', sortOrder: 'name' });
     assert.deepEqual(JSON.parse(readFileSync(profilePath(dir), 'utf8')), {
       appearance: 'light',
+      language: null,
       shareDiagnostics: false,
       diagnosticsConsentVersion: 0,
     });
