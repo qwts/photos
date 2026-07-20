@@ -79,7 +79,7 @@ export const ClickTargetsAreIndependent: Story = {
     await expect(args.onToggleSelect).toHaveBeenCalledOnce();
 
     openButton.focus();
-    await userEvent.keyboard('{Space}');
+    await userEvent.keyboard(' ');
     await userEvent.keyboard('{Enter}');
     await expect(args.onClick).toHaveBeenCalledTimes(3);
 

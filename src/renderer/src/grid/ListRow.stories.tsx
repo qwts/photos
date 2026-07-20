@@ -98,7 +98,7 @@ export const ClickTargetsAreIndependent: Story = {
     await expect(onOpen).toHaveBeenCalledTimes(1);
 
     row.focus();
-    await userEvent.keyboard('{Space}');
+    await userEvent.keyboard(' ');
     await userEvent.keyboard('{Enter}');
     await expect(onOpen).toHaveBeenCalledTimes(3);
 

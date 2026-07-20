@@ -62,8 +62,12 @@ function photo(page: Page, fileName: string): Locator {
   return page.getByRole('button', { name: `Open ${fileName}` });
 }
 
+function photoGroup(page: Page, fileName: string): Locator {
+  return page.getByRole('group').filter({ has: photo(page, fileName) });
+}
+
 async function select(page: Page, fileName: string): Promise<void> {
-  const item = photo(page, fileName);
+  const item = photoGroup(page, fileName);
   await item.hover();
   await item.getByRole('button', { name: 'Select' }).click();
 }
