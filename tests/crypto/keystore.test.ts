@@ -50,6 +50,21 @@ describe('KeyStore lifecycle', () => {
     assert.deepEqual(keyAfter.key, keyBefore.key);
   });
 
+  test('reserves deterministic nonce prefixes without reuse across restart', () => {
+    const dataDir = tempDir();
+    const safeStorage = fakeSafeStorage(0x5a);
+    const first = KeyStore.open({ safeStorage, dataDir });
+    const reserveFirst = first.currentKey().reserveNoncePrefix;
+    assert.ok(reserveFirst !== undefined);
+    assert.equal(reserveFirst().readBigUInt64BE(), 0n);
+    assert.equal(reserveFirst().readBigUInt64BE(), 1n);
+
+    const reopened = KeyStore.open({ safeStorage, dataDir });
+    const reserveReopened = reopened.currentKey().reserveNoncePrefix;
+    assert.ok(reserveReopened !== undefined);
+    assert.ok(reserveReopened().readBigUInt64BE() > 1n);
+  });
+
   test('master key on disk is never plaintext', () => {
     const dataDir = tempDir();
     const store = KeyStore.open({ safeStorage: fakeSafeStorage(0x5a), dataDir });
