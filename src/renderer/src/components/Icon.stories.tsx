@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
 import { expect } from 'storybook/test';
 
-import { Icon, ICON_NAMES } from './Icon';
+import { Icon, ICON_NAMES, RTL_MIRRORED_ICON_NAMES } from './Icon';
 
 const meta: Meta<typeof Icon> = {
   title: 'Core/Icon',
@@ -54,6 +54,8 @@ export const FullVocabulary: Story = {
     for (const svg of svgs) {
       await expect(svg.getAttribute('stroke-width')).toBe('1.75');
     }
+    const mirrored = [...canvasElement.querySelectorAll<SVGElement>('.ovl-icon--mirror-rtl')].map((svg) => svg.dataset['iconName']);
+    await expect(mirrored).toEqual([...RTL_MIRRORED_ICON_NAMES]);
   },
 };
 

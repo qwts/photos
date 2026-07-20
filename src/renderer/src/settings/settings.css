@@ -37,7 +37,7 @@
   font: inherit;
   font-size: var(--text-md);
   cursor: pointer;
-  text-align: left;
+  text-align: start;
 }
 
 .ovl-settings__navrow:hover {
@@ -287,7 +287,7 @@
 .ovl-key__meterlabel {
   font: var(--type-meta);
   min-width: 74px; /* the mock's own label column */
-  text-align: right;
+  text-align: end;
 }
 
 .ovl-key__mismatch {

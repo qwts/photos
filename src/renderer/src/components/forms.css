@@ -95,7 +95,7 @@
 
 .ovl-chip__remove {
   display: inline-flex;
-  margin-right: -4px;
+  margin-inline-end: -4px;
   opacity: 0.7;
   border: none;
   background: none;

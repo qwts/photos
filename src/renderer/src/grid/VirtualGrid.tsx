@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
+import { useIntl } from 'react-intl';
 
 import './grid.css';
 import {
@@ -12,6 +13,7 @@ import {
   visibleRange,
 } from '../../../shared/library/grid-layout.js';
 import { createFrameMonitor } from './frame-monitor';
+import { directionOf } from '../../../shared/i18n/locales.js';
 
 const GRID_GAP = 4; // must equal --grid-gap (spacing tokens)
 const LIST_ROW_HEIGHT = 52; // mock ListRow height
@@ -46,6 +48,7 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
   onNeedMore,
   renderTile,
 }: VirtualGridProps<Photo>): ReactElement {
+  const direction = directionOf(useIntl().locale);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [scrollTop, setScrollTop] = useState(0);
@@ -136,7 +139,8 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
   const tiles: ReactNode[] = [];
   for (let index = range.firstIndex; index <= range.lastIndex; index += 1) {
     const photo = photos[index];
-    const { left, top } = tilePosition(layout, index);
+    const { left: logicalLeft, top } = tilePosition(layout, index);
+    const left = direction === 'rtl' ? viewport.width - logicalLeft - layout.cellWidth : logicalLeft;
     tiles.push(
       <div
         key={index}

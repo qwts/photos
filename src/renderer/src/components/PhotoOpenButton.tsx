@@ -1,4 +1,7 @@
 import type { DragEvent, ReactElement } from 'react';
+import { useIntl } from 'react-intl';
+
+import { directionOf } from '../../../shared/i18n/locales.js';
 
 export interface PhotoOpenButtonProps {
   readonly label: string;
@@ -10,6 +13,7 @@ export interface PhotoOpenButtonProps {
 }
 
 export function PhotoOpenButton({ label, className, onOpen, onContextAction, onDragStart, onDragEnd }: PhotoOpenButtonProps): ReactElement {
+  const direction = directionOf(useIntl().locale);
   return (
     <button
       type="button"
@@ -35,7 +39,7 @@ export function PhotoOpenButton({ label, className, onOpen, onContextAction, onD
               if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
                 event.preventDefault();
                 const bounds = event.currentTarget.getBoundingClientRect();
-                onContextAction({ x: bounds.right + 4, y: bounds.top });
+                onContextAction({ x: direction === 'rtl' ? bounds.left - 224 : bounds.right + 4, y: bounds.top });
               }
             }
       }

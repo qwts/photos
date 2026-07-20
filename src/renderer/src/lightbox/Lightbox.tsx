@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import { useIntl } from 'react-intl';
 
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
@@ -9,6 +10,7 @@ import { LightboxViewport } from './LightboxViewport';
 import { DEFAULT_VIEW_INTENT } from './geometry.js';
 import { useLightboxChrome } from './use-lightbox-chrome';
 import { useFormats } from '../i18n/use-formats.js';
+import { directionOf } from '../../../shared/i18n/locales.js';
 
 import './lightbox.css';
 
@@ -74,6 +76,7 @@ export function Lightbox({
   onDelete,
 }: LightboxProps): ReactElement {
   const { formatCalendarDate } = useFormats();
+  const direction = directionOf(useIntl().locale);
   const [ephemeralState, setEphemeralState] = useState<{
     readonly photoId: string;
     readonly stage: 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
@@ -170,8 +173,8 @@ export function Lightbox({
         <IconButton icon="x" label="Close (Esc)" onClick={onClose} />
       </div>
       <div className={`ovl-lightbox__nav ovl-lightbox__chrome${chromeClass}`}>
-        <IconButton icon="chevron-left" size="lg" label="Previous (←)" onClick={onPrev} />
-        <IconButton icon="chevron-right" size="lg" label="Next (→)" onClick={onNext} />
+        <IconButton icon="chevron-left" size="lg" label={`Previous (${direction === 'rtl' ? '→' : '←'})`} onClick={onPrev} />
+        <IconButton icon="chevron-right" size="lg" label={`Next (${direction === 'rtl' ? '←' : '→'})`} onClick={onNext} />
       </div>
       <div className={`ovl-lightbox__strip ovl-lightbox__chrome${chromeClass}`}>
         <span className="ovl-lightbox__exif mono-data">{exifStrip(photo)}</span>

@@ -66,7 +66,7 @@
 .ovl-switch__knob {
   position: absolute;
   top: 2px;
-  left: 2px;
+  inset-inline-start: 2px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -75,7 +75,7 @@
 }
 
 .ovl-switch[aria-checked='true'] .ovl-switch__knob {
-  left: 16px;
+  inset-inline-start: 16px;
   background: var(--text-on-accent);
 }
 

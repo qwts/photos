@@ -64,7 +64,7 @@
 
 .ovl-toolbar__hint {
   color: var(--text-faint);
-  margin-left: var(--space-1);
+  margin-inline-start: var(--space-1);
 }
 
 @media (max-width: 620px) {
@@ -93,7 +93,7 @@
 /* Toast surfacing (#79): bottom-right above the status bar. */
 .ovl-toast-host.ovl-shell__toast {
   position: absolute;
-  right: var(--space-4);
+  inset-inline-end: var(--space-4);
   bottom: calc(var(--statusbar-h) + var(--control-h-sm) + var(--space-8));
   z-index: 10;
 }
@@ -109,7 +109,7 @@
   width: var(--sidebar-w);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-1);
+  border-inline-end: 1px solid var(--border-1);
   background: var(--gray-1);
   padding: var(--space-3);
   overflow: auto;
@@ -195,7 +195,7 @@
   border: none;
   background: none;
   width: 100%;
-  text-align: left;
+  text-align: start;
   color: var(--text-muted);
 }
 
@@ -299,7 +299,7 @@
   font: var(--type-meta);
   letter-spacing: var(--tracking-mono);
   text-transform: uppercase;
-  text-align: left;
+  text-align: start;
 }
 
 .ovl-sidebar__connect-cta {
@@ -322,7 +322,7 @@
    * overlaps it (PR #190 review). The #94 panel pads its own sections. */
   box-sizing: border-box;
   width: var(--inspector-w);
-  border-left: 1px solid var(--border-1);
+  border-inline-start: 1px solid var(--border-1);
   background: var(--surface-panel);
   overflow: auto;
 }
@@ -392,7 +392,7 @@
 }
 
 .ovl-sidebar__albumrow .ovl-siderow:not(.ovl-siderow--collapsed) {
-  padding-right: 34px;
+  padding-inline-end: 34px;
 }
 
 .ovl-sidebar__albumrow--drop-allowed .ovl-siderow,
@@ -417,7 +417,7 @@
 
 .ovl-sidebar__album-actions {
   position: absolute;
-  right: 4px;
+  inset-inline-end: 4px;
   top: 3px;
   display: flex;
   align-items: center;
@@ -462,7 +462,7 @@
   background: transparent;
   color: var(--text-body);
   font: inherit;
-  text-align: left;
+  text-align: start;
 }
 
 .ovl-album-menu button:hover,

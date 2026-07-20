@@ -1,9 +1,12 @@
 import { useEffect, useRef, type ReactElement } from 'react';
+import { useIntl } from 'react-intl';
 
+import { directionOf } from '../../../shared/i18n/locales.js';
 import type { ProtectedPhotoRecord } from '../../../shared/library/protected-types.js';
 import { protectedFullUrl } from '../../../shared/library/full-url.js';
 import { IconButton } from '../components/IconButton';
 import { useFormats } from '../i18n/use-formats.js';
+import { lightboxStepForKey } from '../state/lightbox-direction';
 
 interface ProtectedLightboxProps {
   readonly albumId: string;
@@ -25,6 +28,7 @@ export function ProtectedLightbox({
   onToggleFavorite,
 }: ProtectedLightboxProps): ReactElement {
   const { formatCalendarDate } = useFormats();
+  const direction = directionOf(useIntl().locale);
   const panelRef = useRef<HTMLDivElement>(null);
   const priorFocusRef = useRef<HTMLElement | null>(null);
 
@@ -35,9 +39,10 @@ export function ProtectedLightbox({
       if (event.key === 'Escape') {
         event.preventDefault();
         onClose();
-      } else if (event.key === 'ArrowLeft') onPrevious();
-      else if (event.key === 'ArrowRight') onNext();
-      else if (event.key === 'Tab') {
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        if (lightboxStepForKey(event.key, direction) === 1) onNext();
+        else onPrevious();
+      } else if (event.key === 'Tab') {
         const controls = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? []);
         const first = controls[0];
         const last = controls.at(-1);
@@ -55,7 +60,7 @@ export function ProtectedLightbox({
       document.removeEventListener('keydown', onKeyDown);
       priorFocusRef.current?.focus();
     };
-  }, [onClose, onNext, onPrevious]);
+  }, [direction, onClose, onNext, onPrevious]);
 
   const taken = photo.takenAt ?? photo.importedAt;
   return (
@@ -77,8 +82,8 @@ export function ProtectedLightbox({
         <IconButton icon="x" label="Close (Esc)" onClick={onClose} />
       </div>
       <div className="ovl-protected-lightbox__nav">
-        <IconButton icon="chevron-left" size="lg" label="Previous (←)" onClick={onPrevious} />
-        <IconButton icon="chevron-right" size="lg" label="Next (→)" onClick={onNext} />
+        <IconButton icon="chevron-left" size="lg" label={`Previous (${direction === 'rtl' ? '→' : '←'})`} onClick={onPrevious} />
+        <IconButton icon="chevron-right" size="lg" label={`Next (${direction === 'rtl' ? '←' : '→'})`} onClick={onNext} />
       </div>
     </div>
   );

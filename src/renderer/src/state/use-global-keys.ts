@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
+import { useIntl } from 'react-intl';
 
+import { directionOf } from '../../../shared/i18n/locales.js';
 import { useAppState, useAppDispatch } from './app-state-context';
+import { lightboxStepForKey } from './lightbox-direction';
 
 // Global keyboard dispatcher scaffold (#73): routes by mode per the mock —
 // ⌘/Ctrl+A selects all visible, Esc exits lightbox else clears selection,
@@ -8,6 +11,7 @@ import { useAppState, useAppDispatch } from './app-state-context';
 export function useGlobalKeys(): void {
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const direction = directionOf(useIntl().locale);
 
   useEffect(() => {
     const anyDialogOpen = state.importOpen || state.exportOpen || state.settingsOpen || state.librariesOpen;
@@ -32,12 +36,12 @@ export function useGlobalKeys(): void {
       if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && state.lightboxId !== null && !inField && !anyDialogOpen) {
         if (event.defaultPrevented) return;
         event.preventDefault();
-        dispatch({ type: 'lightbox/stepped', delta: event.key === 'ArrowRight' ? 1 : -1 });
+        dispatch({ type: 'lightbox/stepped', delta: lightboxStepForKey(event.key, direction) });
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [state.photos, state.lightboxId, state.importOpen, state.exportOpen, state.settingsOpen, state.librariesOpen, dispatch]);
+  }, [state.photos, state.lightboxId, state.importOpen, state.exportOpen, state.settingsOpen, state.librariesOpen, direction, dispatch]);
 }
