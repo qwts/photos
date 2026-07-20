@@ -1,5 +1,11 @@
 # photos
 
+## 0.36.4
+
+### Patch Changes
+
+- 4604523: Let keyboard users pan zoomed lightbox images with the Arrow keys while preserving photo navigation on axes that do not overflow.
+
 ## 0.36.3
 
 ### Patch Changes
