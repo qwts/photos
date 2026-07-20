@@ -261,12 +261,18 @@ export class KeyStore {
     const highWater = parseNonceHighWater(record.nonceHighWater ?? '0', keyId);
     if (next >= highWater) {
       const reservedUntil = next + NONCE_RESERVATION_SIZE > NONCE_PREFIX_LIMIT ? NONCE_PREFIX_LIMIT : next + NONCE_RESERVATION_SIZE;
-      this.records = this.records.map((existing) =>
+      const previousRecords = this.records;
+      this.records = previousRecords.map((existing) =>
         existing.id === keyId ? { ...existing, nonceHighWater: reservedUntil.toString() } : existing,
       );
       // Persist the exclusive bound before returning any value in the range.
       // A crash may skip values, but can never make one reusable.
-      this.persist();
+      try {
+        this.persist();
+      } catch (error) {
+        this.records = previousRecords;
+        throw error;
+      }
     }
     const prefix = Buffer.alloc(8);
     prefix.writeBigUInt64BE(next);

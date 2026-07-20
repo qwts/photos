@@ -217,6 +217,7 @@ function isReason(reason: RestoreError['reason']): (error: unknown) => boolean {
 
 test('restore engine: fresh staging rebuilds keys, catalog, originals, thumbnails, and albums before activation (#288)', async () => {
   const world = await restoreWorld(2);
+  const sourceHighWater = BigInt(world.keyStore.exportWrappedKeys().find((key) => key.status === 'active')?.nonceHighWater ?? '0');
   const result = await new RestoreEngine(world.deps).run({ masterKey: world.masterKey, allowReplace: false });
   assert.deepEqual(result, { libraryId: LIBRARY_ID, generation: 1, photos: 2, resumed: false });
   assert.equal(existsSync(`${world.targetDir}.restore-staging`), false);
@@ -224,6 +225,8 @@ test('restore engine: fresh staging rebuilds keys, catalog, originals, thumbnail
   assert.equal((await readFile(join(world.targetDir, 'library-id'), 'utf8')).trim(), LIBRARY_ID);
 
   const restoredKeys = KeyStore.open({ safeStorage: fakeSafeStorage, dataDir: world.targetDir });
+  const restoredHighWater = BigInt(restoredKeys.exportWrappedKeys().find((key) => key.status === 'active')?.nonceHighWater ?? '0');
+  assert.ok(restoredHighWater > sourceHighWater, 'thumbnail regeneration durably reserves fresh nonce prefixes');
   const dbKey = restoredKeys.resolver()(1);
   assert.ok(dbKey !== undefined);
   const db = openLibraryDatabase({ path: join(world.targetDir, 'library.db'), dbKey });
