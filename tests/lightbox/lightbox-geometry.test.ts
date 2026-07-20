@@ -31,9 +31,9 @@ describe('lightbox transform geometry (#307)', () => {
     assert.equal(portrait.height, 400);
   });
 
-  test('fill covers both viewport axes across the aspect-ratio matrix (#371)', () => {
+  test('Fill uses width for portrait and height for landscape orientation (#371, #501)', () => {
     const widescreen = { width: 1600, height: 900 };
-    assertClose(fillZoom({ width: 700, height: 525 }, widescreen), 1600 / 700);
+    assertClose(fillZoom({ width: 700, height: 525 }, widescreen), 900 / 525);
     assertClose(fillZoom({ width: 525, height: 700 }, widescreen), 1600 / 525);
     assertClose(fillZoom({ width: 2100, height: 700 }, widescreen), 1.6875);
     assert.equal(fillZoom({ width: 1600, height: 900 }, widescreen), 1);
