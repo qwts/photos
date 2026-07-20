@@ -50,6 +50,7 @@ export const ClickTargetsAreIndependent: Story = {
     alt: 'IMG_4021.RAF',
     onClick: fn(),
     onToggleSelect: fn(),
+    onContextAction: fn(),
   },
   render: (args) => (
     <div style={{ width: 160, height: 160, padding: 'var(--space-7)', boxSizing: 'content-box' }}>
@@ -66,9 +67,21 @@ export const ClickTargetsAreIndependent: Story = {
     await expect(args.onToggleSelect).toHaveBeenCalledOnce();
     await expect(args.onClick).not.toHaveBeenCalled();
     // Tile click opens without toggling selection.
-    await userEvent.click(canvas.getByRole('button', { name: 'Open IMG_4021.RAF' }));
+    const openButton = canvas.getByRole('button', { name: 'Open IMG_4021.RAF' });
+    const selectButton = canvas.getByRole('button', { name: 'Select' });
+    await expect(openButton).not.toContainElement(selectButton);
+    await expect(canvas.queryByRole('img', { name: 'IMG_4021.RAF' })).not.toBeInTheDocument();
+    await userEvent.click(openButton);
     await expect(args.onClick).toHaveBeenCalledOnce();
     await expect(args.onToggleSelect).toHaveBeenCalledOnce();
+
+    openButton.focus();
+    await userEvent.keyboard('{Space}');
+    await userEvent.keyboard('{Enter}');
+    await expect(args.onClick).toHaveBeenCalledTimes(3);
+
+    await fireEvent.keyDown(openButton, { key: 'F10', shiftKey: true });
+    await expect(args.onContextAction).toHaveBeenCalledOnce();
   },
 };
 

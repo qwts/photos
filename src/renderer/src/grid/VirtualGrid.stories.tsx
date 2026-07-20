@@ -84,7 +84,8 @@ export const TileClickVsSelectCircle: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const tile = await canvas.findByRole('button', { name: 'Open IMG_0.JPG' });
-    const circle = within(tile).getByRole('button', { name: 'Select' });
+    const circle = within(tile.parentElement ?? canvasElement).getByRole('button', { name: 'Select' });
+    await expect(tile).not.toContainElement(circle);
     await userEvent.click(circle);
     await expect(onToggle).toHaveBeenCalledWith('P0');
     await expect(onOpen).not.toHaveBeenCalled();
