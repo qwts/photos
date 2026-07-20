@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactElement } from 'react';
 
 import type { AlbumSummary } from '../../../shared/library/types.js';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 
@@ -79,6 +79,7 @@ export function DeleteAlbumDialog({
   readonly onClose: () => void;
   readonly onComplete: () => void;
 }): ReactElement {
+  const { formatCount } = useFormats();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const noun = album.count === 1 ? 'photo stays' : 'photos stay';

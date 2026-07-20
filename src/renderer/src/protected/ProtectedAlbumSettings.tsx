@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
 import type { AlbumSummary } from '../../../shared/library/types.js';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { useAppDispatch } from '../state/app-state-context';
@@ -22,6 +22,7 @@ interface CeremonyTarget {
 }
 
 export function ProtectedAlbumSettings(): ReactElement {
+  const { formatCount } = useFormats();
   const dispatch = useAppDispatch();
   const [ordinary, setOrdinary] = useState<readonly AlbumSummary[]>([]);
   const [protectedRows, setProtectedRows] = useState<readonly ProtectedSettingsRow[]>([]);

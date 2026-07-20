@@ -1226,6 +1226,20 @@
       ]
     },
     {
+      "id": "locale-aware-presentation-formatting",
+      "wiki": "ADR-0020-Internationalization-Architecture",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/locale-formatting.spec.ts"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/library/format.test.ts", "tests/dom/intl-host.test.tsx"]
+        }
+      ]
+    },
+    {
       "id": "m22-library-relocation",
       "wiki": "Library-Management",
       "coverage": [

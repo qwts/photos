@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
+import { useIntl } from 'react-intl';
 
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
@@ -87,6 +88,7 @@ interface ReviewProps {
 }
 
 function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, onClose }: ReviewProps): ReactElement | null {
+  const intl = useIntl();
   const remove = async (eventId: string): Promise<void> => {
     try {
       const { deleted } = await window.overlook.diagnostics.delete({ eventId });
@@ -150,7 +152,7 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
               <header>
                 <div>
                   <strong>{report.kind}</strong>
-                  <span>{new Date(report.capturedAt).toLocaleString()}</span>
+                  <span>{intl.formatDate(report.capturedAt, { dateStyle: 'medium', timeStyle: 'short' })}</span>
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => void remove(report.eventId)}>
                   Delete

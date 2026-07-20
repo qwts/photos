@@ -74,7 +74,7 @@ export function InteropWorkflowDialog({
     >
       <div className="ovl-interop" aria-live="polite" data-phase={state.phase}>
         <div className="ovl-interop__context mono-data">
-          {state.entry.toUpperCase()} · {interopPhaseLabel(state.phase).toUpperCase()}
+          {state.entry} · {interopPhaseLabel(state.phase)}
         </div>
         <div className="ovl-interop__segmented" aria-label="Transfer operation">
           {(['move', 'sync'] as const).map((operation) => (
@@ -92,7 +92,7 @@ export function InteropWorkflowDialog({
         <section className="ovl-interop__provider" aria-label="Provider and pairing status">
           <strong>{state.provider.label}</strong>
           <span className="mono-data">
-            {state.provider.state.replace('-', ' ').toUpperCase()} · PAIRING {state.pairing.toUpperCase()}
+            {state.provider.state.replace('-', ' ')} · Pairing {state.pairing}
           </span>
           <p>{state.provider.detail}</p>
         </section>

@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
 
 import type { AppState } from '../../../shared/library/app-state.js';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { useAppDispatch } from '../state/app-state-context';
 
 export function ToastAction({ toast }: { readonly toast: NonNullable<AppState['toast']> }): ReactElement | null {
+  const { formatCount } = useFormats();
   const dispatch = useAppDispatch();
   if (toast.action === undefined) return null;
   const run = (): void => {

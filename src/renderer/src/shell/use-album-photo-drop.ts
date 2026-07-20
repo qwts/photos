@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type DragEvent, type SetStateAction } from 'react';
 
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import type { AlbumSummary } from '../../../shared/library/types.js';
 import type { PhotoDragPayload } from '../../../shared/library/photo-drag.js';
 import type { AppAction } from '../../../shared/library/app-state.js';
@@ -33,12 +33,14 @@ function noun(count: number): string {
 }
 
 interface DropEffects {
+  readonly formatCount: (value: number) => string;
   readonly dispatch: Dispatch<AppAction>;
   readonly setFeedback: Dispatch<SetStateAction<AlbumDropFeedback | null>>;
   readonly showTemporary: (feedback: AlbumDropFeedback) => void;
 }
 
 function addPhotos(payload: PhotoDragPayload, target: AlbumSummary, effects: DropEffects): void {
+  const { formatCount } = effects;
   effects.setFeedback({ albumId: target.id, phase: 'pending', label: 'Adding…' });
   void window.overlook.albums
     .addPhotos({ albumId: target.id, photoIds: [...payload.photoIds] })
@@ -71,6 +73,7 @@ function addPhotos(payload: PhotoDragPayload, target: AlbumSummary, effects: Dro
 }
 
 function movePhotos(current: AlbumDropChoice, effects: DropEffects): void {
+  const { formatCount } = effects;
   effects.setFeedback({ albumId: current.target.id, phase: 'pending', label: 'Moving…' });
   void window.overlook.albums
     .movePhotos({
@@ -112,6 +115,7 @@ interface DropTargetContext extends DropEffects {
 }
 
 function targetPropsFor(target: AlbumSummary, context: DropTargetContext): AlbumDropTargetProps {
+  const { formatCount } = context;
   const accept = (event: DragEvent<HTMLDivElement>): PhotoDragPayload | null => {
     if (!hasPhotoDrag(event.dataTransfer)) return null;
     const payload = readPhotoDrag(event.dataTransfer);
@@ -173,6 +177,7 @@ export function useAlbumPhotoDrop(albums: readonly AlbumSummary[]): {
   readonly chooseMove: () => void;
   readonly closeChoice: () => void;
 } {
+  const { formatCount } = useFormats();
   const dispatch = useAppDispatch();
   const [feedback, setFeedback] = useState<AlbumDropFeedback | null>(null);
   const [choice, setChoice] = useState<AlbumDropChoice | null>(null);
@@ -191,7 +196,7 @@ export function useAlbumPhotoDrop(albums: readonly AlbumSummary[]): {
     resetTimerRef.current = setTimeout(() => setFeedback(null), 1_200);
   };
 
-  const effects = { dispatch, setFeedback, showTemporary };
+  const effects = { dispatch, formatCount, setFeedback, showTemporary };
 
   return {
     feedback,

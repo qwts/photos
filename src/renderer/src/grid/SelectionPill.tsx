@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 
 import './pill.css';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { AlbumPicker } from './AlbumPicker';
@@ -41,6 +41,7 @@ export function SelectionPill({
   onRemoveFromAlbum,
   onPurge,
 }: SelectionPillProps): ReactElement {
+  const { formatCount } = useFormats();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   return (

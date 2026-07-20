@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import type { DragEvent, ReactElement } from 'react';
 
 import type { AlbumSummary, PhotoRecord } from '../../../shared/library/types.js';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import { Icon } from '../components/Icon';
 import { PhotoTile } from '../components/PhotoTile';
@@ -31,6 +31,7 @@ export function LibraryGridView({
   readonly onOffload: (photoIds: readonly string[], clearSelection?: boolean) => void;
   readonly onTransfer: (entry: 'selection' | 'lightbox', photoIds: readonly string[]) => void;
 }): ReactElement {
+  const { formatCount } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { loadMore, exhausted } = useLibraryPhotos();

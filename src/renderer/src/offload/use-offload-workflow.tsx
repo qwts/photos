@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
 
 import { useAppDispatch } from '../state/app-state-context';
+import { useFormats } from '../i18n/use-formats.js';
 import { OffloadDialog } from './OffloadDialog';
 import { formatOffloadResultTitle } from './offload-summary';
 
@@ -17,6 +18,7 @@ export interface OffloadWorkflow {
 }
 
 export function useOffloadWorkflow(): OffloadWorkflow {
+  const formats = useFormats();
   const dispatch = useAppDispatch();
   const [request, setRequest] = useState<Request | null>(null);
   const open = (photoIds: readonly string[], clearSelection = false, afterSuccess?: () => void): void => {
@@ -36,7 +38,7 @@ export function useOffloadWorkflow(): OffloadWorkflow {
           dispatch({
             type: 'toast/shown',
             toast: {
-              title: formatOffloadResultTitle(result),
+              title: formatOffloadResultTitle(result, formats),
               tone: result.failed > 0 ? 'red' : skipped > 0 ? 'amber' : 'green',
               ...(result.offloaded > 0 ? { action: 'undo-offload', actionPhotoIds: offloadedIds } : {}),
             },

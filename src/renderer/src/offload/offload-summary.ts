@@ -1,5 +1,5 @@
 import type { OverlookApi } from '../../../shared/ipc/api.js';
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import type { AppFormatters } from '../i18n/use-formats.js';
 
 type OffloadResult = Awaited<ReturnType<OverlookApi['backup']['offload']>>;
 type OffloadReason = NonNullable<OffloadResult['results'][number]['reason']>;
@@ -27,7 +27,8 @@ export function offloadReasonLabel(reason: OffloadReason): string {
   return REASON_COPY[reason];
 }
 
-export function formatOffloadResultTitle(result: OffloadResult): string {
+export function formatOffloadResultTitle(result: OffloadResult, formats: Pick<AppFormatters, 'formatBytes' | 'formatCount'>): string {
+  const { formatBytes, formatCount } = formats;
   const summary = [`Offloaded ${formatCount(result.offloaded)}`];
   if (result.skipped > 0) summary.push(`${formatCount(result.skipped)} skipped`);
   if (result.failed > 0) summary.push(`${formatCount(result.failed)} failed`);

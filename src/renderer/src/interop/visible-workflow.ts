@@ -83,12 +83,7 @@ export const INTEROP_REVIEW_LABELS = Object.freeze({
 });
 
 export function interopPhaseLabel(phase: InteropTransferPhase): string {
-  return phase === 'awaiting-acknowledgement'
-    ? 'Awaiting verified acknowledgement'
-    : phase
-        .split('-')
-        .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-        .join(' ');
+  return phase === 'awaiting-acknowledgement' ? 'Awaiting verified acknowledgement' : phase.replaceAll('-', ' ');
 }
 
 export function interopRecoveryLabel(code: InteropErrorCode): string {

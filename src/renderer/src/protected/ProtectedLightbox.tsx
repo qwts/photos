@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactElement } from 'react';
 import type { ProtectedPhotoRecord } from '../../../shared/library/protected-types.js';
 import { protectedFullUrl } from '../../../shared/library/full-url.js';
 import { IconButton } from '../components/IconButton';
+import { useFormats } from '../i18n/use-formats.js';
 
 interface ProtectedLightboxProps {
   readonly albumId: string;
@@ -23,6 +24,7 @@ export function ProtectedLightbox({
   onNext,
   onToggleFavorite,
 }: ProtectedLightboxProps): ReactElement {
+  const { formatCalendarDate } = useFormats();
   const panelRef = useRef<HTMLDivElement>(null);
   const priorFocusRef = useRef<HTMLElement | null>(null);
 
@@ -69,7 +71,7 @@ export function ProtectedLightbox({
       <div className="ovl-protected-lightbox__top">
         <IconButton icon="arrow-left" label="Back to protected album (Esc)" onClick={onClose} />
         <span className="ovl-protected-lightbox__title mono-data">
-          {photo.fileName} — {taken.slice(0, 10)}
+          {photo.fileName} — {formatCalendarDate(taken)}
         </span>
         <IconButton icon="star" label="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
         <IconButton icon="x" label="Close (Esc)" onClick={onClose} />

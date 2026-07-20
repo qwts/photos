@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 
 import type { ProtectedAlbumSummary, ProtectedPageCursor, ProtectedPhotoRecord } from '../../../shared/library/protected-types.js';
 import { protectedThumbUrl } from '../../../shared/library/thumb-url.js';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { PhotoTile } from '../components/PhotoTile';
@@ -23,6 +23,7 @@ export interface ProtectedAlbumViewProps {
 }
 
 export function ProtectedAlbumView({ albumId, onRelocked, mediaSrc }: ProtectedAlbumViewProps): ReactElement {
+  const { formatCount } = useFormats();
   const { query, zoom } = useAppState();
   const [summary, setSummary] = useState<ProtectedAlbumSummary | null>(null);
   const [photos, setPhotos] = useState<readonly ProtectedPhotoRecord[]>([]);

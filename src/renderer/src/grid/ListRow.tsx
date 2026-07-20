@@ -7,17 +7,7 @@ import { Icon } from '../components/Icon';
 import { FavoriteButton } from '../components/FavoriteButton';
 import { PhotoOpenButton } from '../components/PhotoOpenButton';
 import { StatusGlyph } from '../components/StatusGlyph';
-
-function formatDate(takenAt: string | null): string {
-  if (takenAt === null) {
-    return '—';
-  }
-  return new Date(takenAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatMb(bytes: number): string {
-  return `${(bytes / 1_000_000).toFixed(1)} MB`;
-}
+import { useFormats } from '../i18n/use-formats.js';
 
 export interface ListRowProps {
   readonly photo: PhotoRecord;
@@ -51,6 +41,7 @@ export function ListRow({
   onDragStart,
   onDragEnd,
 }: ListRowProps): ReactElement {
+  const { formatBytes, formatCalendarDate } = useFormats();
   return (
     <div role="group" className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}>
       <PhotoOpenButton
@@ -90,11 +81,11 @@ export function ListRow({
           {photo.fileName}
         </div>
         <div className="ovl-listrow__meta mono-data">
-          {photo.place ?? '—'} · {formatDate(photo.takenAt)}
+          {photo.place ?? '—'} · {photo.takenAt === null ? '—' : formatCalendarDate(photo.takenAt)}
         </div>
       </div>
       <div className="ovl-listrow__camera mono-data">{photo.camera ?? '—'}</div>
-      <div className="ovl-listrow__size mono-data">{formatMb(photo.bytes)}</div>
+      <div className="ovl-listrow__size mono-data">{formatBytes(photo.bytes)}</div>
       <FavoriteButton favorite={photo.favorite} pending={favoritePending} className="ovl-listrow__favorite" onToggle={onToggleFavorite} />
       <span className="ovl-listrow__status">
         <StatusGlyph state={photo.syncState} size={16} />

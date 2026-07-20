@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 
 import './pill.css';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 
@@ -14,6 +14,7 @@ export interface PurgeConfirmProps {
 // The destructive confirm (#121): red button, exact counts, "Delete"
 // language per the DS rules (Clear = undoable, Delete = destructive).
 export function PurgeConfirm({ count, onCancel, onConfirm }: PurgeConfirmProps): ReactElement {
+  const { formatCount } = useFormats();
   const noun = count === 1 ? 'photo' : 'photos';
   return (
     <Dialog

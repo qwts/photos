@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
-import { formatBytes } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
@@ -77,6 +77,7 @@ export interface StoragePaneProps {
 
 export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: StoragePaneProps): ReactElement {
   const intl = useIntl();
+  const { formatBytes } = useFormats();
   const [statusLoad, setStatusLoad] = useState<ProviderStatusLoad | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
@@ -197,8 +198,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           ) : connected && status !== null && status.usedBytes !== null && status.totalBytes !== null ? (
             <>
               <div className="ovl-settings__providerMeta mono-data">
-                {status.account ?? 'THIS DEVICE'} · {formatBytes(status.usedBytes).toUpperCase()} /{' '}
-                {formatBytes(status.totalBytes).toUpperCase()} USED
+                {status.account ?? 'THIS DEVICE'} · {formatBytes(status.usedBytes)} / {formatBytes(status.totalBytes)} USED
               </div>
               <ProgressBar label={`${name} storage used`} value={status.usedBytes} max={Math.max(status.totalBytes, 1)} tone="cyan" />
             </>

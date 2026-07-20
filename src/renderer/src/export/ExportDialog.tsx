@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 
 import './export.css';
 
@@ -31,6 +31,7 @@ interface Bar {
 }
 
 export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): ReactElement | null {
+  const { formatCount } = useFormats();
   const [phase, setPhase] = useState<Phase>('options');
   const [format, setFormat] = useState<'original' | 'jpeg'>('original');
   const [decrypt, setDecrypt] = useState(true);
