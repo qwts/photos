@@ -50,7 +50,7 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
     await expect(inspector).toBeVisible();
     await expect(inspector).toContainText('RAW');
     await expect(inspector).toContainText('FUJIFILM X-T5');
-    await expect(inspector).toContainText('6240×4160 · 26.0 MP');
+    await expect(inspector).toContainText('1280×838 · 1.1 MP');
     await expect(inspector).toContainText('AES-256-GCM · KEY #1');
     await page.keyboard.press('i');
     await expect(inspector).toBeHidden();
@@ -111,7 +111,8 @@ async function exerciseFillPersistence(page: Page, viewport: Locator, image: Loc
   await page.keyboard.press('i');
 
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('lightbox')).toContainText('IMG_4035.JPG');
   await expect(viewport).toHaveAttribute('data-mode', 'fill');
   await expectLandscapeHeightFill(viewport, image);
   await page.keyboard.press('ArrowLeft');

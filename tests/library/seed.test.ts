@@ -48,6 +48,19 @@ describe('dev seed', () => {
     const raf = page.photos.filter((photo) => photo.fileName.endsWith('.RAF'));
     assert.equal(raf.length, 4);
     assert.ok(page.photos.some((photo) => photo.favorite));
+    assert.deepEqual(
+      ['01J8SEEDPHOTO0000', '01J8SEEDPHOTO0001', '01J8SEEDPHOTO0002', '01J8SEEDPHOTO0003'].map((id) => {
+        const photo = first.repo.get(id);
+        return { width: photo?.width, height: photo?.height };
+      }),
+      [
+        { width: 1280, height: 838 },
+        { width: 960, height: 1280 },
+        { width: 1280, height: 722 },
+        { width: 960, height: 960 },
+      ],
+      'real seed metadata matches the fixture bytes used by aspect-sensitive rendering',
+    );
 
     // Deterministic: same ids AND same content hashes across fresh seeds.
     const hashesA = page.photos.map((photo) => `${photo.id}:${photo.contentHash}`).sort();
