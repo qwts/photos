@@ -22,6 +22,12 @@ const STATUSES = ['local', 'synced', 'synced', 'synced', 'offloaded', 'syncing',
 export const SEED_ALBUMS = ['Travel 2026', 'Family', 'Big Sur', 'Kyoto Spring'] as const;
 
 const SEED_PHOTO_FILES = ['summer-landscape.jpg', 'street-city.jpg', 'flower-landscape.jpg', 'street-square.jpg'] as const;
+const SEED_PHOTO_DIMENSIONS = [
+  { width: 1280, height: 838 },
+  { width: 960, height: 1280 },
+  { width: 1280, height: 722 },
+  { width: 960, height: 960 },
+] as const;
 let seedPhotoBytes: readonly Buffer[] | null = null;
 
 function realSeedPhotos(): readonly Buffer[] {
@@ -46,6 +52,7 @@ export function sampleJpeg(index: number): Buffer {
 function seedPhoto(index: number): Omit<PhotoInsert, 'contentHash' | 'bytes' | 'keyId'> {
   const n = String(index).padStart(4, '0');
   const raw = index % 5 === 0;
+  const dimensions = SEED_PHOTO_DIMENSIONS[index % SEED_PHOTO_DIMENSIONS.length] ?? SEED_PHOTO_DIMENSIONS[0];
   // Walk backwards one month every 32 photos from June 2026, rolling the
   // year over so any index yields a valid ISO date (PR #152 review).
   const totalMonths = 2026 * 12 + 5 - (index >> 5);
@@ -55,8 +62,8 @@ function seedPhoto(index: number): Omit<PhotoInsert, 'contentHash' | 'bytes' | '
     id: `01J8SEEDPHOTO${n}`,
     fileName: `IMG_${String(4021 + index * 7)}${raw ? '.RAF' : '.JPG'}`,
     fileKind: raw ? 'raw' : 'jpeg',
-    width: 6240,
-    height: 4160,
+    width: dimensions.width,
+    height: dimensions.height,
     camera: CAMERAS[index % 4] ?? null,
     lens: LENSES[index % 4] ?? null,
     iso: [125, 200, 400, 800][index % 4] ?? null,
