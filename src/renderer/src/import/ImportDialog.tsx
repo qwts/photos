@@ -7,7 +7,7 @@ import { Icon } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 
 import './import.css';
 
@@ -30,7 +30,7 @@ interface ScanSummary {
 }
 
 /** The source card's mono line — "1,204 NEW · 38.2 GB · 812 RAW / 392 JPG". */
-function summaryDetail(summary: ScanSummary): string {
+function summaryDetail(summary: ScanSummary, formatCount: (value: number) => string, formatBytes: (bytes: number) => string): string {
   return `${formatCount(summary.newCount)} NEW · ${formatBytes(summary.newBytes)} · ${formatCount(summary.newRaw)} RAW / ${formatCount(summary.newJpg)} JPG`;
 }
 
@@ -92,6 +92,7 @@ interface Bar {
 }
 
 export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, onComplete }: ImportDialogProps): ReactElement | null {
+  const { formatBytes, formatCount } = useFormats();
   const [phase, setPhase] = useState<Phase>('options');
   const [mode, setMode] = useState<'copy' | 'move'>('copy');
   const [source, setSource] = useState<ImportSourceKind>(dropped === null ? 'sd' : 'drop');
@@ -420,7 +421,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
                   <div className="ovl-import__cardTitle">
                     {formatCount(googleDrive.summary.total)} photo{googleDrive.summary.total === 1 ? '' : 's'} selected from Google Drive
                   </div>
-                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(googleDrive.summary)}</div>
+                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(googleDrive.summary, formatCount, formatBytes)}</div>
                   {googleDrive.skipped > 0 ? (
                     <div className="ovl-import__cardMeta mono-data">
                       {formatCount(googleDrive.skipped)} unsupported or unavailable file{googleDrive.skipped === 1 ? '' : 's'} skipped
@@ -464,7 +465,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
                   <div className="ovl-import__cardTitle">
                     {formatCount(drop.summary.newCount)} photo{drop.summary.newCount === 1 ? '' : 's'} ready to import
                   </div>
-                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(drop.summary)}</div>
+                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(drop.summary, formatCount, formatBytes)}</div>
                 </div>
               </div>
             ) : (
@@ -481,7 +482,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
                 <Icon name="hard-drive" size={16} />
                 <div className="ovl-import__cardText">
                   <div className="ovl-import__cardTitle">{sd.label}</div>
-                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(sd.summary)}</div>
+                  <div className="ovl-import__cardMeta mono-data">{summaryDetail(sd.summary, formatCount, formatBytes)}</div>
                 </div>
               </div>
             ) : sd.status === 'scanning' ? (
@@ -516,7 +517,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
               <div className="ovl-import__cardText">
                 <div className="ovl-import__cardPath mono-data">{folder.path}</div>
                 <div className="ovl-import__cardMeta mono-data">
-                  {folder.status === 'ready' ? summaryDetail(folder.summary) : 'Scanning…'}
+                  {folder.status === 'ready' ? summaryDetail(folder.summary, formatCount, formatBytes) : 'Scanning…'}
                 </div>
               </div>
               <button

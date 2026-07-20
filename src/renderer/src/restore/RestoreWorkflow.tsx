@@ -3,7 +3,7 @@ import { defineMessages, useIntl } from 'react-intl';
 
 import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
 import type { RestoreLibrarySummary, RestoreProgressContract } from '../../../shared/backup/restore-contract.js';
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
@@ -79,6 +79,8 @@ function LibraryCard({
   readonly selected: boolean;
   readonly onSelect: () => void;
 }): ReactElement {
+  const intl = useIntl();
+  const { formatBytes, formatCount } = useFormats();
   const valid = library.validation === 'valid';
   return (
     <button
@@ -97,14 +99,16 @@ function LibraryCard({
       </div>
       {valid ? (
         <div className="ovl-restore__meta mono-data">
-          GEN {String(library.generation)} · {formatCount(library.photos ?? 0)} PHOTOS ·{' '}
-          {formatBytes(library.totalBytes ?? 0).toUpperCase()} · {formatCount(library.albums ?? 0)} ALBUMS
+          GEN {String(library.generation)} · {formatCount(library.photos ?? 0)} PHOTOS · {formatBytes(library.totalBytes ?? 0)} ·{' '}
+          {formatCount(library.albums ?? 0)} ALBUMS
         </div>
       ) : (
         <div className="ovl-restore__meta">Metadata is unavailable until this backup validates.</div>
       )}
       {library.generatedAt === null ? null : (
-        <div className="ovl-restore__date">Backed up {new Date(library.generatedAt).toLocaleString()}</div>
+        <div className="ovl-restore__date">
+          Backed up {intl.formatDate(library.generatedAt, { dateStyle: 'medium', timeStyle: 'short' })}
+        </div>
       )}
       {library.fallbackGenerations > 0 ? (
         <div className="ovl-restore__notice">{formatCount(library.fallbackGenerations)} retained fallback generation available</div>
@@ -116,6 +120,7 @@ function LibraryCard({
 
 export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): ReactElement {
   const intl = useIntl();
+  const { formatCount } = useFormats();
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [providerId, setProviderId] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);

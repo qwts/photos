@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import type { LibraryStats } from '../../../shared/library/types.js';
 import { Icon } from '../components/Icon';
 import { useAppState } from '../state/app-state-context';
@@ -9,14 +9,13 @@ import { useAppState } from '../state/app-state-context';
 // the truth about the library. The sync side flips on pendingCount events;
 // the real backup engine (and real lastBackup stamps) land with M08.
 export function StatusBar({ stats }: { readonly stats: LibraryStats | null }): ReactElement {
+  const { formatBytes, formatCount } = useFormats();
   const state = useAppState();
   const syncing = state.pendingCount > 0;
-  const provider = state.providerLabel.toUpperCase();
+  const provider = state.providerLabel;
   return (
     <footer className="ovl-statusbar">
-      <span data-testid="statusbar-left">
-        {stats === null ? '—' : `${formatCount(stats.photos)} PHOTOS · ${formatBytes(stats.bytes).toUpperCase()}`}
-      </span>
+      <span data-testid="statusbar-left">{stats === null ? '—' : `${formatCount(stats.photos)} PHOTOS · ${formatBytes(stats.bytes)}`}</span>
       <span className="ovl-statusbar__spacer" />
       {!state.providerConnected ? (
         // Disconnected (#239): a faint statement of fact, never a fabricated

@@ -3,7 +3,7 @@ import type { FormEvent, ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
 import './library-switcher.css';
-import { formatRelativeTime } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import type { LibraryDescriptor } from '../../../shared/library/registry.js';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -54,6 +54,7 @@ export interface LibrarySwitcherProps {
 
 export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement {
   const intl = useIntl();
+  const { formatRelativeTime } = useFormats();
   const [libs, setLibs] = useState<readonly LibraryDescriptor[] | null>(null);
   // "4h ago" stamps are relative to load time, not render time (purity).
   const [loadedAt, setLoadedAt] = useState(0);

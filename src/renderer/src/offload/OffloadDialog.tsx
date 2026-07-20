@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import type { OverlookApi } from '../../../shared/ipc/api.js';
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 import { offloadReasonLabel } from './offload-summary';
@@ -19,6 +19,7 @@ export interface OffloadDialogProps {
 }
 
 export function OffloadDialog({ photoIds, onClose, onComplete }: OffloadDialogProps): ReactElement {
+  const { formatBytes, formatCount } = useFormats();
   const [plan, setPlan] = useState<Preflight | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -85,9 +86,7 @@ export function OffloadDialog({ photoIds, onClose, onComplete }: OffloadDialogPr
               </strong>{' '}
               can be removed from this Mac after confirmation.
             </div>
-            <div className="ovl-offload__freed mono-data">
-              ESTIMATED SPACE FREED · {formatBytes(plan.estimatedFreedBytes).toUpperCase()}
-            </div>
+            <div className="ovl-offload__freed mono-data">ESTIMATED SPACE FREED · {formatBytes(plan.estimatedFreedBytes)}</div>
             <div className="ovl-offload__safety">Encrypted cloud copies stay untouched. Thumbnails remain available offline.</div>
             {reasons.size === 0 ? null : (
               <div className="ovl-offload__skips">

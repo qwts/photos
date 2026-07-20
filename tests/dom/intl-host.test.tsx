@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { useIntl } from 'react-intl';
 
 import { IntlHost } from '../../src/renderer/src/i18n/IntlHost.js';
+import { useFormats } from '../../src/renderer/src/i18n/use-formats.js';
 
 // Integration coverage for the renderer i18n runtime (#403): IntlHost fetches
 // the main-resolved locale, stamps lang/dir on <html>, and renders children
@@ -28,6 +29,13 @@ function mockOverlook(locale: string): () => void {
 function Probe(): ReactElement {
   const intl = useIntl();
   return <span data-testid="probe">{intl.formatMessage({ id: 'toolbar.import', defaultMessage: 'Import' })}</span>;
+}
+
+function FormatsProbe(): ReactElement {
+  const { formatBytes, formatCalendarDate, formatCount } = useFormats();
+  return (
+    <span data-testid="formats-probe">{[formatCount(1234), formatBytes(98_400_000), formatCalendarDate('2026-07-12')].join(' · ')}</span>
+  );
 }
 
 afterEach(() => {
@@ -87,5 +95,26 @@ test('the en-XB pseudo-locale transforms copy and flips dir to rtl', async () =>
   assert.match(text, /⟪.*⟫/u); // bidi pseudo wrapping
   assert.equal(document.documentElement.dir, 'rtl');
   assert.equal(document.documentElement.lang, 'en-XB');
+  restore();
+});
+
+test('renderer formatters bind to the locale supplied by IntlHost', async () => {
+  const restore = mockOverlook('de');
+  const container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
+
+  act(() => {
+    root?.render(
+      <IntlHost>
+        <FormatsProbe />
+      </IntlHost>,
+    );
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  assert.equal(document.querySelector('[data-testid="formats-probe"]')?.textContent, '1.234 · 98,4 MB · 12. Juli 2026');
   restore();
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 
 import { strengthOf } from '../../../shared/crypto/password-strength.js';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -68,6 +68,7 @@ function resultError(reason: string | null): string {
 }
 
 export function ProtectedAlbumCeremony({ mode, albumId, albumName, onClose, onComplete }: ProtectedAlbumCeremonyProps): ReactElement {
+  const { formatCount } = useFormats();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');

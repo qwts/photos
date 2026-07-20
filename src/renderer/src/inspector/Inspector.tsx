@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 
-import { formatBytes } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import { Badge } from '../components/Badge';
 import { MetadataRow } from '../components/MetadataRow';
@@ -38,6 +38,7 @@ export interface InspectorProps {
 }
 
 export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): ReactElement {
+  const { formatBytes, formatCalendarDate } = useFormats();
   if (photo === null) {
     return (
       <div className="ovl-inspector ovl-inspector--empty" data-testid="inspector">
@@ -54,10 +55,8 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
     photo.shutter === null ? null : `${photo.shutter}S`,
     photo.iso === null ? null : `ISO ${String(photo.iso)}`,
   ].filter((part) => part !== null);
-  const dateLine = [(photo.takenAt ?? photo.importedAt).slice(0, 10), photo.place?.toUpperCase() ?? null]
-    .filter((part) => part !== null)
-    .join(' · ');
-  const provider = providerLabel.toUpperCase();
+  const dateLine = [formatCalendarDate(photo.takenAt ?? photo.importedAt), photo.place ?? null].filter((part) => part !== null).join(' · ');
+  const provider = providerLabel;
   const statusText: Record<SyncStatus, string> = {
     local: 'LOCAL ONLY — NOT BACKED UP',
     synced: `ENCRYPTED · ${provider}`,
@@ -81,7 +80,7 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
           <Badge tone="green" icon="lock">
             Encrypted
           </Badge>
-          <Badge>{photo.fileKind === 'raw' ? 'RAW' : photo.fileKind.toUpperCase()}</Badge>
+          <Badge>{photo.fileKind}</Badge>
           {photo.favorite ? (
             <Badge tone="cyan" icon="star">
               Favorite
@@ -98,7 +97,7 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
       <Section title="File">
         <MetadataRow label="Dimensions" value={dimensions} />
         <MetadataRow label="Size" value={formatBytes(photo.bytes)} />
-        <MetadataRow label="Imported" value={`${photo.importedAt.slice(0, 10)} · ${photo.importSource.toUpperCase()}`} />
+        <MetadataRow label="Imported" value={`${formatCalendarDate(photo.importedAt)} · ${photo.importSource}`} />
       </Section>
       <Section title="Backup">
         <MetadataRow label="State" value={statusText[photo.syncState]} tone={STATUS_TONE[photo.syncState]} />

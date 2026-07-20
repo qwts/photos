@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 
 import type { AlbumSummary } from '../../../shared/library/types.js';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 
@@ -20,6 +20,7 @@ export function AlbumDropDialog({
   readonly onMove: () => void;
   readonly onClose: () => void;
 }): ReactElement {
+  const { formatCount } = useFormats();
   const photos = `${formatCount(count)} ${count === 1 ? 'photo' : 'photos'}`;
   return (
     <Dialog

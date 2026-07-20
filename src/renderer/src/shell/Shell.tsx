@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import './shell.css';
-import { formatCount, formatRelativeTime } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
 import { Icon } from '../components/Icon';
 import { TitleBar } from '../components/TitleBar';
@@ -40,6 +40,7 @@ type RestorableDialog = 'export' | 'settings' | 'libraries';
 // sidebar internals, and status bar semantics land with #74–#81 — this keeps
 // their regions real (token dims, live counts) so each issue fills in place.
 export function Shell({ platform, lockConfigured }: { readonly platform: string; readonly lockConfigured: boolean }): ReactElement {
+  const { formatCount, formatRelativeTime } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const offload = useOffloadWorkflow();
@@ -482,7 +483,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
             onRehydrateError={() => {
               dispatch({
                 type: 'toast/shown',
-                toast: { title: `RESTORE FAILED — STILL IN ${state.providerLabel.toUpperCase()}`, tone: 'red', action: 'retry-backup' },
+                toast: { title: `RESTORE FAILED — STILL IN ${state.providerLabel}`, tone: 'red', action: 'retry-backup' },
               });
             }}
             onRepairDimensions={(width, height) => {

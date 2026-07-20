@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 
 import './move-library.css';
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import type { LibraryDescriptor } from '../../../shared/library/registry.js';
 import type { RelocationFailureReason } from '../../../shared/library/relocation.js';
 import { Badge } from '../components/Badge';
@@ -193,6 +193,7 @@ export interface MoveLibraryDialogProps {
 
 export function MoveLibraryDialog({ libraries, onClose }: MoveLibraryDialogProps): ReactElement {
   const intl = useIntl();
+  const { formatBytes, formatCount } = useFormats();
   // Open library moves LAST: its reactivation reloads this window.
   const ordered = [...libraries].sort((a, b) => Number(a.open) - Number(b.open));
   const [phase, setPhase] = useState<WizardPhase>('review');

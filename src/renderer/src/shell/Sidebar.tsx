@@ -3,7 +3,7 @@ import type { ReactElement, Ref } from 'react';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import type { MessageDescriptor } from 'react-intl';
 
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import type { AlbumSummary, LibraryStats, SourceCounts, SourceFilter } from '../../../shared/library/types.js';
 import { Icon, type IconName } from '../components/Icon';
 import { ProgressBar } from '../components/ProgressBar';
@@ -83,6 +83,7 @@ function SideRow({
   onOpenActions,
   statusLabel,
 }: SideRowProps): ReactElement {
+  const { formatCount } = useFormats();
   const detail = statusLabel ?? (count === null ? null : formatCount(count));
   const hint = detail === null ? label : `${label} · ${detail}`;
   const row = (
@@ -154,6 +155,7 @@ export interface SidebarProps {
 // live aggregate bar while a backup runs (#108), and the mono storage line.
 export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbums = [], onProtectedOpen }: SidebarProps): ReactElement {
   const intl = useIntl();
+  const { formatBytes, formatCount } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const albumDrop = useAlbumPhotoDrop(albums);
@@ -475,14 +477,14 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
               <>
                 <div>
                   {intl.formatMessage(messages.storageOnDisk, {
-                    bytes: formatBytes(stats.bytes - stats.offloadedBytes).toUpperCase(),
+                    bytes: formatBytes(stats.bytes - stats.offloadedBytes),
                   })}
                 </div>
                 {state.providerConnected ? (
                   <div>
                     {intl.formatMessage(messages.storageOffload, {
-                      bytes: formatBytes(stats.offloadedBytes).toUpperCase(),
-                      provider: state.providerLabel.toUpperCase(),
+                      bytes: formatBytes(stats.offloadedBytes),
+                      provider: state.providerLabel,
                     })}
                   </div>
                 ) : null}

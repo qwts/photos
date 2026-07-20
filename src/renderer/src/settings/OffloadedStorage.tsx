@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
-import { formatBytes, formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import type { LibraryStats } from '../../../shared/library/types.js';
 import { Button } from '../components/Button';
 import { Field } from './Field';
@@ -11,6 +11,7 @@ export interface OffloadedStorageProps {
 }
 
 export function OffloadedStorage({ connection, selectedPhotoIds }: OffloadedStorageProps): ReactElement {
+  const { formatBytes, formatCount } = useFormats();
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [restoring, setRestoring] = useState<'selected' | 'all' | null>(null);
   const [result, setResult] = useState<{ readonly message: string; readonly failed: boolean } | null>(null);

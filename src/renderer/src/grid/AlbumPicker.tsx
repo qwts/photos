@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import './pill.css';
-import { formatCount } from '../../../shared/library/format.js';
+import { useFormats } from '../i18n/use-formats.js';
 import { Icon } from '../components/Icon';
 import type { AlbumSummary } from '../../../shared/library/types.js';
 
@@ -15,6 +15,7 @@ export interface AlbumPickerProps {
 // existing albums (live counts) + inline create, keyboard-first (Escape
 // closes; the create row works like the sidebar's, Enter commits).
 export function AlbumPicker({ onPick, onClose }: AlbumPickerProps): ReactElement {
+  const { formatCount } = useFormats();
   const [albums, setAlbums] = useState<readonly AlbumSummary[] | null>(null);
 
   useEffect(() => {

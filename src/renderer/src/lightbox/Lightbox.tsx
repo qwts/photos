@@ -7,6 +7,7 @@ import type { PhotoRecord } from '../../../shared/library/types.js';
 import { LightboxViewport } from './LightboxViewport';
 import { DEFAULT_VIEW_INTENT } from './geometry.js';
 import { useLightboxChrome } from './use-lightbox-chrome';
+import { useFormats } from '../i18n/use-formats.js';
 
 import './lightbox.css';
 
@@ -71,6 +72,7 @@ export function Lightbox({
   suppressRehydrate = false,
   onDelete,
 }: LightboxProps): ReactElement {
+  const { formatCalendarDate } = useFormats();
   const [ephemeralState, setEphemeralState] = useState<{
     readonly photoId: string;
     readonly stage: 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
@@ -145,7 +147,7 @@ export function Lightbox({
       <div className={`ovl-lightbox__top ovl-lightbox__chrome${chromeClass}`}>
         <IconButton icon="arrow-left" label="Back to library (Esc)" onClick={onClose} />
         <span className="ovl-lightbox__title mono-data">
-          {photo.fileName} — {taken.slice(0, 10)}
+          {photo.fileName} — {formatCalendarDate(taken)}
         </span>
         <IconButton icon="star" label="Favorite" active={photo.favorite} onClick={onToggleFavorite} />
         <IconButton icon="share" label="Export" onClick={onExport} />
