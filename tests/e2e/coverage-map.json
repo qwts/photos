@@ -334,6 +334,29 @@
       ]
     },
     {
+      "id": "m05-dimension-integrity",
+      "wiki": "User-Story-M05-Import-pipeline",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/export-flow.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/inspector/Inspector.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/db/library-db.test.ts",
+            "tests/import/exif.test.ts",
+            "tests/import/raw-repair-service.test.ts",
+            "tests/import/thumbnail-pool.test.ts"
+          ]
+        }
+      ]
+    },
+    {
       "id": "m06-jfif-lightbox-traversal",
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [
