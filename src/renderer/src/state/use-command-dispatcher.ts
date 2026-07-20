@@ -1,0 +1,105 @@
+import { useEffect } from 'react';
+import { useIntl } from 'react-intl';
+
+import { resolveCommand, type CommandId, type CommandPlatform, type CommandSurface } from '../../../shared/commands/registry.js';
+import { directionOf } from '../../../shared/i18n/locales.js';
+import { useAppDispatch, useAppState } from './app-state-context';
+import { lightboxStepForKey } from './lightbox-direction';
+
+function commandPlatform(platform: string): CommandPlatform {
+  if (platform === 'darwin') return 'darwin';
+  if (platform === 'win32') return 'win32';
+  return 'linux';
+}
+
+function editableTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]') !== null;
+}
+
+export function useCommandDispatcher(platform: string, onHelp: (surface: CommandSurface) => void): void {
+  const state = useAppState();
+  const dispatch = useAppDispatch();
+  const direction = directionOf(useIntl().locale);
+
+  useEffect(() => {
+    const dialogOpen = state.importOpen || state.exportOpen || state.settingsOpen || state.librariesOpen;
+    const surface: CommandSurface = state.lightboxId === null ? 'grid' : 'lightbox';
+    const execute = (id: CommandId, event: KeyboardEvent): boolean => {
+      switch (id) {
+        case 'app.search.focus':
+          document.querySelector<HTMLInputElement>('[role="searchbox"]')?.focus();
+          return true;
+        case 'selection.selectAll':
+          dispatch({ type: 'selection/all', photoIds: state.photos.map((photo) => photo.id) });
+          return true;
+        case 'selection.clear':
+          dispatch({ type: 'selection/cleared' });
+          return true;
+        case 'view.inspector.toggle':
+          dispatch({ type: 'inspector/toggled' });
+          return true;
+        case 'view.lightbox.close':
+          dispatch({ type: 'lightbox/closed' });
+          return true;
+        case 'view.lightbox.previous':
+        case 'view.lightbox.next': {
+          if (event.defaultPrevented) return false;
+          const key = id === 'view.lightbox.previous' ? 'ArrowLeft' : 'ArrowRight';
+          dispatch({ type: 'lightbox/stepped', delta: lightboxStepForKey(key, direction) });
+          return true;
+        }
+        case 'photo.favorite.toggle': {
+          const photo = state.photos.find(({ id: photoId }) => photoId === state.lightboxId);
+          if (photo === undefined) return false;
+          void window.overlook.library.toggleFavorite({ id: photo.id }).then(({ pendingCount }) => {
+            dispatch({ type: 'pendingCount/set', count: pendingCount });
+          });
+          return true;
+        }
+        case 'photo.trash': {
+          const photo = state.photos.find(({ id: photoId }) => photoId === state.lightboxId);
+          if (photo === undefined || photo.deletedAt !== null) return false;
+          void window.overlook.library.delete({ photoIds: [photo.id] }).then(() => {
+            dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Trash', tone: 'neutral' } });
+          });
+          return true;
+        }
+        case 'view.lightbox.zoomIn':
+        case 'view.lightbox.zoomOut':
+        case 'view.lightbox.zoomReset':
+        case 'view.lightbox.rotateLeft':
+        case 'view.lightbox.rotateRight':
+        case 'view.lightbox.flipHorizontal':
+        case 'view.lightbox.orientationReset':
+          return false;
+        case 'help.shortcuts':
+          onHelp(surface);
+          return true;
+        case 'grid.focus.left':
+        case 'grid.focus.right':
+        case 'grid.focus.up':
+        case 'grid.focus.down':
+        case 'grid.focus.home':
+        case 'grid.focus.end':
+        case 'grid.focus.pageUp':
+        case 'grid.focus.pageDown':
+          return false;
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const command = resolveCommand(event, {
+        surface,
+        dialogOpen,
+        editable: editableTarget(event.target),
+        platform: commandPlatform(platform),
+      });
+      if (command !== null && execute(command.id, event)) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [direction, dispatch, onHelp, platform, state]);
+}
+
+export { commandPlatform };

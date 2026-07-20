@@ -35,6 +35,10 @@
   background: var(--accent-cyan-dim);
 }
 
+.ovl-listrow:focus-within {
+  box-shadow: var(--focus-ring);
+}
+
 .ovl-listrow__select {
   position: relative;
   width: var(--interactive-target-min);

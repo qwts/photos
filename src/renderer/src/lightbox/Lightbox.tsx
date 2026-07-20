@@ -23,6 +23,7 @@ import './lightbox.css';
 // #94; delete stays a disabled stub until M10's soft-delete.
 
 export interface LightboxProps {
+  readonly platform?: string | undefined;
   readonly photo: PhotoRecord;
   /** Storybook supplies a bundled real-photo URL; production uses the decrypted protocol. */
   readonly imageSrc?: string | undefined;
@@ -60,6 +61,7 @@ function exifStrip(photo: PhotoRecord): string {
 }
 
 export function Lightbox({
+  platform = 'darwin',
   photo,
   imageSrc,
   onClose,
@@ -148,6 +150,7 @@ export function Lightbox({
         chromeVisible={chrome}
         onActivity={wakeChrome}
         onDimensionsResolved={onRepairDimensions}
+        platform={platform}
       />
       {photo.fileKind === 'raw' ? (
         <span className={`ovl-lightbox__preview ovl-lightbox__chrome${chromeClass} mono-data`}>PREVIEW</span>

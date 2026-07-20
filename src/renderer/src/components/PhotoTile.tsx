@@ -1,4 +1,4 @@
-import { Fragment, type DragEvent, type ReactElement } from 'react';
+import { Fragment, type DragEvent, type KeyboardEvent, type ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import './phototile.css';
@@ -28,6 +28,10 @@ export interface PhotoTileProps {
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
+  readonly tabIndex?: 0 | -1 | undefined;
+  readonly gridFocusTarget?: true | undefined;
+  readonly onFocus?: (() => void) | undefined;
+  readonly onKeyDown?: ((event: KeyboardEvent<HTMLButtonElement>) => void) | undefined;
 }
 
 function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean, label: string): void {
@@ -58,6 +62,10 @@ export function PhotoTile({
   onContextAction,
   onDragStart,
   onDragEnd,
+  tabIndex,
+  gridFocusTarget,
+  onFocus,
+  onKeyDown,
 }: PhotoTileProps): ReactElement {
   const intl = useIntl();
   const unavailableLabel = previewFailureLabel(intl, previewFailure);
@@ -73,6 +81,10 @@ export function PhotoTile({
         onContextAction={onContextAction}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
+        tabIndex={tabIndex}
+        gridFocusTarget={gridFocusTarget}
+        onFocus={onFocus}
+        onKeyDown={onKeyDown}
       />
       <Fragment key={`${src}:${previewFailure ?? ''}`}>
         <img

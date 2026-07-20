@@ -531,3 +531,18 @@
 .ovl-shell__dropHint {
   color: var(--text-faint);
 }
+.ovl-skip-link {
+  position: fixed;
+  inset: var(--space-3) auto auto var(--space-3);
+  z-index: 1000;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  background: var(--gray-0);
+  color: var(--text-body);
+  box-shadow: var(--focus-ring);
+  transform: translateY(-200%);
+}
+
+.ovl-skip-link:focus {
+  transform: translateY(0);
+}

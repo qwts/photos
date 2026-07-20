@@ -39,6 +39,7 @@ existing links resolve — never add content there.
 - [Spike — Multi-Platform Port](./Spike-Multi-Platform-Port.md) — iOS/iPadOS/tvOS/visionOS/Android/Windows feasibility; findings only, no decision
 - [Spike — Lossless Cold-Storage Archives](./Spike-Cold-Storage-Archives.md) — measured ZIP/zstd feasibility and no-go recommendation
 - [Application Menu Exposure Policy](./Application-Menu-Exposure-Policy.md) — command eligibility matrix, native hierarchy, shortcut policy, and implementation sequence
+- [Keyboard Commands](./Keyboard-Commands.md) — active shortcuts, grid focus behavior, and command-registry extension rules
 
 ## Maintenance Convention
 

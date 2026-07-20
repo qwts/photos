@@ -13,7 +13,7 @@ import { ListRow } from './ListRow';
 import { PhotoContextMenu } from './PhotoContextMenu';
 import { PurgeConfirm } from './PurgeConfirm';
 import { SelectionPill } from './SelectionPill';
-import { VirtualGrid } from './VirtualGrid';
+import { VirtualGrid, type VirtualGridItemKeyboard } from './VirtualGrid';
 import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
 import { PHOTO_PURGE_AUTHORIZATION } from '../../../shared/destructive-actions.js';
 import { DEFAULT_TRASH_RETENTION, trashRetentionDays, trashRetentionLabel, type TrashRetention } from '../../../shared/library/trash.js';
@@ -130,7 +130,7 @@ export function LibraryGridView({
     );
   }
 
-  const renderTile = (photo: PhotoRecord): ReactElement => {
+  const renderTile = (photo: PhotoRecord, _size: number, keyboard: VirtualGridItemKeyboard): ReactElement => {
     const retentionLabel =
       state.source === 'deleted' && photo.deletedAt !== null
         ? trashRetentionLabel(photo.deletedAt, trashRetention, retentionNow)
@@ -162,6 +162,7 @@ export function LibraryGridView({
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
+        {...keyboard}
       />
     ) : (
       <PhotoTile
@@ -183,6 +184,7 @@ export function LibraryGridView({
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
+        {...keyboard}
       />
     );
   };
@@ -198,6 +200,11 @@ export function LibraryGridView({
         topInset={inTrash}
         onNeedMore={loadMore}
         renderTile={renderTile}
+        onKeyboardOpen={(photo) => dispatch({ type: 'lightbox/opened', photoId: photo.id })}
+        onKeyboardSelection={(photoIds, mode) => {
+          if (mode === 'replace') dispatch({ type: 'selection/all', photoIds });
+          else if (photoIds[0] !== undefined) dispatch({ type: 'selection/toggled', photoId: photoIds[0] });
+        }}
       />
       {state.selection.size > 0 ? (
         <SelectionPill

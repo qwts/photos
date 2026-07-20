@@ -1,0 +1,37 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState, type ReactElement } from 'react';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
+
+import { ShortcutHelp } from './ShortcutHelp';
+
+const meta: Meta<typeof ShortcutHelp> = {
+  title: 'Commands/ShortcutHelp',
+  component: ShortcutHelp,
+};
+
+export default meta;
+type Story = StoryObj<typeof ShortcutHelp>;
+
+function GridHelp(): ReactElement | null {
+  const [open, setOpen] = useState(true);
+  return open ? (
+    <ShortcutHelp
+      context={{ surface: 'grid', dialogOpen: false, editable: false, platform: 'darwin' }}
+      platform="darwin"
+      onClose={() => setOpen(false)}
+    />
+  ) : null;
+}
+
+export const GeneratedForGridContext: Story = {
+  render: () => <GridHelp />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument();
+    await expect(canvas.getByText('Select all photos')).toBeInTheDocument();
+    await expect(canvas.getByText('⌘A')).toBeInTheDocument();
+    await expect(canvas.queryByText('Next photo')).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(async () => expect(canvas.queryByRole('dialog')).not.toBeInTheDocument());
+  },
+};

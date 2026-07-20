@@ -454,6 +454,28 @@
       ]
     },
     {
+      "id": "keyboard-infrastructure",
+      "wiki": "Keyboard-Commands",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/keyboard-navigation.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "paths": [
+            "src/renderer/src/grid/VirtualGrid.stories.tsx",
+            "src/renderer/src/commands/ShortcutHelp.stories.tsx",
+            "src/renderer/src/components/Dialog.stories.tsx"
+          ]
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/commands/registry.test.ts", "tests/library/grid-keyboard.test.ts"]
+        }
+      ]
+    },
+    {
       "id": "m06-inspector",
       "wiki": "User-Story-M06-Lightbox-Inspector",
       "coverage": [
