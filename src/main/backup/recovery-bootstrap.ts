@@ -23,6 +23,10 @@ const wrappedKeySchema = z
     const decoded = Buffer.from(value, 'base64');
     return decoded.length === NONCE_LENGTH + TAG_LENGTH + KEY_LENGTH && decoded.toString('base64') === value;
   }, 'invalid wrapped-key encoding');
+const nonceHighWaterSchema = z
+  .string()
+  .regex(/^(0|[1-9][0-9]*)$/u)
+  .refine((value) => BigInt(value) <= 1n << 64n, 'nonce high-water mark exceeds the 64-bit prefix space');
 
 export const recoveryBootstrapSchema = z
   .strictObject({
@@ -36,10 +40,7 @@ export const recoveryBootstrapSchema = z
           createdAt: isoTimestampSchema,
           status: z.enum(['active', 'retired']),
           wrappedKey: wrappedKeySchema,
-          nonceHighWater: z
-            .string()
-            .regex(/^(0|[1-9][0-9]*)$/u)
-            .optional(),
+          nonceHighWater: nonceHighWaterSchema.optional(),
         }),
       )
       .min(1)
