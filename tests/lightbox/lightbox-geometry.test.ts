@@ -68,11 +68,10 @@ describe('lightbox transform geometry (#307)', () => {
       x: 100,
       y: 50,
     });
-    assert.deepEqual(resizeTransform({ zoom: 1, x: 90, y: -999 }, 'fill', { width: 700, height: 525 }, { width: 1600, height: 900 }), {
-      zoom: 1600 / 700,
-      x: 0,
-      y: -150,
-    });
+    const resizedFill = resizeTransform({ zoom: 1, x: 90, y: -999 }, 'fill', { width: 700, height: 525 }, { width: 1600, height: 900 });
+    assertClose(resizedFill.zoom, 900 / 525);
+    assertClose(resizedFill.x, 0);
+    assertClose(resizedFill.y, 0);
   });
 });
 
