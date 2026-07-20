@@ -543,6 +543,7 @@ function getBackupEngine(): BackupEngine {
         emitLibraryChanged({ photoIds: [...photoIds] });
       },
       audit,
+      retention: () => getSettingsStore().get().trashRetention,
       now: () => Date.now(),
       sleep: async (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     });

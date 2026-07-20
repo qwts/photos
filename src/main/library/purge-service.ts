@@ -1,16 +1,14 @@
 import { ProviderError, type StorageProvider } from '../backup/provider.js';
 import type { PhotoRecord } from '../../shared/library/types.js';
-import { TRASH_RETENTION_DAYS } from '../../shared/library/trash.js';
+import { trashRetentionDays, type TrashRetention } from '../../shared/library/trash.js';
 
 // Permanent purge (#121): the one truly destructive path, done with
 // ceremony. Repair-friendly order per the issue: DB row FIRST (nothing ever
 // points at missing data), local blobs second, remote last — a crash or a
 // failed remote delete leaves orphaned copies (repairable, M11 audits find
 // them via the ORPHAN-REMOTE audit line), never a row that lies about
-// having data. Retention: soft-deleted rows auto-purge after 30 days — a
-// fixed constant until a settings control is designed (recorded).
-
-export { TRASH_RETENTION_DAYS as PURGE_RETENTION_DAYS } from '../../shared/library/trash.js';
+// having data. Retention reads the active library setting at sweep time, so
+// library switches and setting changes cannot leave a captured stale window.
 
 const REMOTE_ATTEMPTS = 3;
 const REMOTE_BACKOFF_MS = 500;
@@ -40,6 +38,7 @@ export interface PurgeDeps {
   readonly oweManifest: () => void;
   readonly libraryChanged: (photoIds: readonly string[]) => void;
   readonly audit: (line: string) => void;
+  readonly retention: () => TrashRetention;
   readonly now: () => number;
   readonly sleep: (ms: number) => Promise<void>;
 }
@@ -90,12 +89,15 @@ export class PurgeService {
 
   /** The retention sweep (#121): everything older than the window goes. */
   async purgeExpired(signal?: AbortSignal): Promise<PurgeSummary> {
-    const cutoff = new Date(this.deps.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const retention = this.deps.retention();
+    const retentionDays = trashRetentionDays(retention);
+    if (retentionDays === null) return { purged: 0, skipped: 0, remoteFailures: 0 };
+    const cutoff = new Date(this.deps.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
     const expired = this.deps.repo.expiredDeleted(cutoff);
     if (expired.length === 0) {
       return { purged: 0, skipped: 0, remoteFailures: 0 };
     }
-    this.deps.audit(`PURGE-RETENTION count=${String(expired.length)} cutoff=${cutoff}`);
+    this.deps.audit(`PURGE-RETENTION count=${String(expired.length)} days=${String(retentionDays)} cutoff=${cutoff}`);
     return this.purge(expired, signal);
   }
 

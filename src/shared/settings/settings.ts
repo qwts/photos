@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { providerIdSchema } from '../backup/provider-descriptor.js';
+import { DEFAULT_TRASH_RETENTION, trashRetentionSchema } from '../library/trash.js';
 
 export const CURRENT_DIAGNOSTICS_CONSENT_VERSION = 1 as const;
 
@@ -25,6 +26,8 @@ export const settingsSchema = z.object({
   wifiOnly: z.boolean(),
   /** Percent of available upload, 10–100; 100 = unlimited. */
   bandwidthLimit: z.number().int().min(10).max(100),
+  /** Library-scoped automatic Trash purge window; off keeps manual purge. */
+  trashRetention: trashRetentionSchema,
   shareDiagnostics: z.boolean(),
   /** Versioned because consent to the old local-only placeholder cannot
    * silently become consent to a future network recipient. */
@@ -70,6 +73,7 @@ export const defaultSettings: AppSettings = {
   importMode: 'copy',
   wifiOnly: true,
   bandwidthLimit: 100,
+  trashRetention: DEFAULT_TRASH_RETENTION,
   shareDiagnostics: false,
   diagnosticsConsentVersion: 0,
   appLockIdle: '5',
@@ -92,6 +96,7 @@ export const defaultLibrarySettings: LibrarySettings = {
   importMode: defaultSettings.importMode,
   wifiOnly: defaultSettings.wifiOnly,
   bandwidthLimit: defaultSettings.bandwidthLimit,
+  trashRetention: defaultSettings.trashRetention,
   appLockIdle: defaultSettings.appLockIdle,
   lockWhenHidden: defaultSettings.lockWhenHidden,
   providerId: defaultSettings.providerId,
@@ -115,6 +120,7 @@ const libraryRecoverySchema = z
     importMode: settingsSchema.shape.importMode.catch(defaultLibrarySettings.importMode),
     wifiOnly: settingsSchema.shape.wifiOnly.catch(defaultLibrarySettings.wifiOnly),
     bandwidthLimit: settingsSchema.shape.bandwidthLimit.catch(defaultLibrarySettings.bandwidthLimit),
+    trashRetention: settingsSchema.shape.trashRetention.catch(defaultLibrarySettings.trashRetention),
     appLockIdle: settingsSchema.shape.appLockIdle.catch(defaultLibrarySettings.appLockIdle),
     lockWhenHidden: settingsSchema.shape.lockWhenHidden.catch(defaultLibrarySettings.lockWhenHidden),
     providerId: settingsSchema.shape.providerId.catch(defaultLibrarySettings.providerId),
@@ -151,6 +157,7 @@ export function librarySettingsOf(settings: AppSettings): LibrarySettings {
     importMode: settings.importMode,
     wifiOnly: settings.wifiOnly,
     bandwidthLimit: settings.bandwidthLimit,
+    trashRetention: settings.trashRetention,
     appLockIdle: settings.appLockIdle,
     lockWhenHidden: settings.lockWhenHidden,
     providerId: settings.providerId,
@@ -195,6 +202,7 @@ export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSe
     importMode: patch.importMode ?? current.importMode,
     wifiOnly: patch.wifiOnly ?? current.wifiOnly,
     bandwidthLimit: patch.bandwidthLimit ?? current.bandwidthLimit,
+    trashRetention: patch.trashRetention ?? current.trashRetention,
     shareDiagnostics,
     diagnosticsConsentVersion:
       patch.shareDiagnostics === true
