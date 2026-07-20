@@ -301,6 +301,27 @@ describe('PhotosRepository', () => {
     db.close();
   });
 
+  test('decoder dimensions replace conflicting metadata for every decodable format (#500)', () => {
+    const { db, repo } = openSeeded();
+    const photos = [
+      samplePhoto({ id: 'P-JPEG', contentHash: '1'.repeat(64), fileKind: 'jpeg', width: 4032, height: 3024 }),
+      samplePhoto({ id: 'P-PNG', contentHash: '2'.repeat(64), fileKind: 'png', width: 1200, height: 800 }),
+      samplePhoto({ id: 'P-RAW', contentHash: '3'.repeat(64), fileKind: 'raw', width: 6240, height: 4160 }),
+    ];
+    for (const photo of photos) repo.insert(photo);
+    run(db, 'UPDATE sync_ledger SET dirty = 0');
+
+    for (const photo of photos) {
+      assert.equal(repo.repairGeneratedDimensions(photo.id, photo.height, photo.width), true);
+      assert.deepEqual(
+        { width: repo.get(photo.id)?.width, height: repo.get(photo.id)?.height },
+        { width: photo.height, height: photo.width },
+      );
+      assert.equal(queryGet<{ dirty: number }>(db, 'SELECT dirty FROM sync_ledger WHERE photo_id = ?', photo.id)?.dirty, 1);
+    }
+    db.close();
+  });
+
   test('preview repair candidates stay local and metadata repair fills only unknown values (#368, #487)', () => {
     const { db, repo } = openSeeded();
     const affected = samplePhoto({ width: 0, height: 0, camera: null, lens: null });
