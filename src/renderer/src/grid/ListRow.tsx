@@ -4,6 +4,7 @@ import './list.css';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import { Icon } from '../components/Icon';
+import { PhotoOpenButton } from '../components/PhotoOpenButton';
 import { StatusGlyph } from '../components/StatusGlyph';
 
 function formatDate(takenAt: string | null): string {
@@ -27,12 +28,13 @@ export interface ListRowProps {
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect: () => void;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
-  readonly onDragStart?: ((event: DragEvent<HTMLDivElement>) => void) | undefined;
+  readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
 }
 
 // Dense 52px row (#77) — the mock's ListRow: same selection contract as
-// PhotoTile (circle toggles, body opens), hover states ride CSS.
+// PhotoTile. Open and select are sibling buttons so both keep their native
+// semantics in the accessibility tree.
 export function ListRow({
   photo,
   src,
@@ -44,25 +46,15 @@ export function ListRow({
   onDragEnd,
 }: ListRowProps): ReactElement {
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={`Open ${photo.fileName}`}
-      className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}
-      draggable={onDragStart !== undefined}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onClick={onOpen}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        onContextAction?.({ x: event.clientX, y: event.clientY });
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          onOpen();
-        }
-      }}
-    >
+    <div role="group" className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}>
+      <PhotoOpenButton
+        label={`Open ${photo.fileName}`}
+        className="ovl-listrow__open"
+        onOpen={onOpen}
+        onContextAction={onContextAction}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />
       <button
         type="button"
         aria-label={selected ? 'Deselect' : 'Select'}
@@ -88,7 +80,9 @@ export function ListRow({
         />
       </div>
       <div className="ovl-listrow__main">
-        <div className="ovl-listrow__name">{photo.fileName}</div>
+        <div className="ovl-listrow__name" aria-hidden="true">
+          {photo.fileName}
+        </div>
         <div className="ovl-listrow__meta mono-data">
           {photo.place ?? '—'} · {formatDate(photo.takenAt)}
         </div>

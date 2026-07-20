@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import './phototile.css';
 import type { PreviewFailureReason } from '../../../shared/library/preview.js';
 import { Icon } from './Icon';
+import { PhotoOpenButton } from './PhotoOpenButton';
 import { previewFailureLabel } from './previewFailureLabel';
 import { StatusGlyph, type SyncState } from './StatusGlyph';
 
@@ -20,7 +21,7 @@ export interface PhotoTileProps {
   /** Toggles selection (circle only) — never opens. */
   readonly onToggleSelect?: () => void;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
-  readonly onDragStart?: ((event: DragEvent<HTMLDivElement>) => void) | undefined;
+  readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
 }
 
@@ -34,8 +35,8 @@ function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean, la
 }
 
 // media/PhotoTile.jsx — hover states ride CSS (:hover/:focus-within) instead
-// of JS mouse tracking; the select circle is a real button (keyboard
-// reachable) whose clicks never bubble into the open action.
+// of JS mouse tracking. Open and select are sibling buttons so both keep their
+// native semantics in the accessibility tree.
 export function PhotoTile({
   src,
   alt = '',
@@ -56,29 +57,19 @@ export function PhotoTile({
     .filter(Boolean)
     .join(' ');
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={alt === '' ? 'Open photo' : `Open ${alt}`}
-      className={classes}
-      draggable={onDragStart !== undefined}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onClick={onClick}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        onContextAction?.({ x: event.clientX, y: event.clientY });
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          onClick?.();
-        }
-      }}
-    >
+    <div role="group" className={classes}>
+      <PhotoOpenButton
+        label={alt === '' ? 'Open photo' : `Open ${alt}`}
+        className="ovl-tile__open"
+        onOpen={onClick}
+        onContextAction={onContextAction}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      />
       <Fragment key={`${src}:${previewFailure ?? ''}`}>
         <img
           src={src}
-          alt={alt}
+          alt=""
           loading="lazy"
           draggable={false}
           className="ovl-tile__img"

@@ -48,6 +48,7 @@ export const ClickTargetsAreIndependent: Story = {
   args: {
     src: realPhoto,
     alt: 'IMG_4021.RAF',
+    status: 'synced',
     onClick: fn(),
     onToggleSelect: fn(),
     onContextAction: fn(),
@@ -69,7 +70,9 @@ export const ClickTargetsAreIndependent: Story = {
     // Tile click opens without toggling selection.
     const openButton = canvas.getByRole('button', { name: 'Open IMG_4021.RAF' });
     const selectButton = canvas.getByRole('button', { name: 'Select' });
+    const status = canvas.getByRole('img', { name: 'Backed up (encrypted)' });
     await expect(openButton).not.toContainElement(selectButton);
+    await expect(openButton).not.toContainElement(status);
     await expect(canvas.queryByRole('img', { name: 'IMG_4021.RAF' })).not.toBeInTheDocument();
     await userEvent.click(openButton);
     await expect(args.onClick).toHaveBeenCalledOnce();
