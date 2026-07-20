@@ -230,7 +230,7 @@ export const NavigationPreservesViewIntentAndCloseResets: Story = {
     viewport = canvas.getByTestId('lightbox-viewport');
     await expect(viewport).toHaveAttribute('data-mode', 'custom');
     await expect(viewport).toHaveAttribute('data-zoom', '1.250');
-    await expect(Number(viewport.dataset['panY'])).toBeLessThan(0);
+    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
     await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
 
     await userEvent.click(canvas.getByRole('button', { name: 'Close (Esc)' }));
