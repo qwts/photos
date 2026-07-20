@@ -16,8 +16,13 @@ const FOLDER_SUMMARY = { total: 486, newCount: 486, newBytes: 12_400_000_000, ne
 const DROP_SUMMARY = { total: 2, newCount: 2, newBytes: 61_000_000, newRaw: 1, newJpg: 1, newOther: 0 };
 const DRIVE_SUMMARY = { total: 3, newCount: 2, newBytes: 82_000_000, newRaw: 1, newJpg: 1, newOther: 0 };
 
-function installStub(options?: { readonly noCard?: boolean; readonly importMode?: AppSettings['importMode'] }): void {
+function installStub(options?: {
+  readonly noCard?: boolean;
+  readonly importMode?: AppSettings['importMode'];
+  readonly folderPaths?: readonly string[];
+}): void {
   let current: AppSettings = { ...defaultSettings, importMode: options?.importMode ?? defaultSettings.importMode };
+  let folderPick = 0;
   const settingsApi: OverlookApi['settings'] = {
     get: () => Promise.resolve({ settings: current }),
     set: ({ patch }) => {
@@ -32,7 +37,12 @@ function installStub(options?: { readonly noCard?: boolean; readonly importMode?
         sources: options?.noCard === true ? [] : [{ path: '/Volumes/SONY128', label: 'SONY 128GB · A7 IV', kind: 'volume' as const }],
       }),
     scanSource: ({ path }: { path: string }) => Promise.resolve(path === '/Volumes/SONY128' ? SD_SUMMARY : FOLDER_SUMMARY),
-    pickFolder: () => Promise.resolve({ path: '/Users/ansel/Pictures/Lightroom Exports' }),
+    pickFolder: () => {
+      const paths = options?.folderPaths ?? ['/Users/ansel/Pictures/Lightroom Exports'];
+      const path = paths[Math.min(folderPick, paths.length - 1)] ?? null;
+      folderPick += 1;
+      return Promise.resolve({ path });
+    },
     scanFiles: () => Promise.resolve(DROP_SUMMARY),
     pickGoogleDrive: () =>
       Promise.resolve({
@@ -124,6 +134,12 @@ export const NoCardEmptyState: Story = {
 };
 
 export const FolderFlow: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ folderPaths: ['/Users/ansel/Pictures/Lightroom Exports', '/Users/ansel/Pictures/Family'] });
+      return <Story />;
+    },
+  ],
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.click(body.getByRole('radio', { name: 'Local folder' }));
@@ -143,6 +159,12 @@ export const FolderFlow: Story = {
     // Clearing returns to the dropzone.
     await userEvent.click(body.getByRole('button', { name: 'Clear folder' }));
     await expect(body.getByText('Choose a folder to import')).toBeVisible();
+    await expect(body.getByRole('checkbox', { name: /I understand verified source files/u })).not.toBeChecked();
+    await userEvent.click(body.getByText('Choose a folder to import'));
+    await waitFor(async () => {
+      await expect(body.getByText('/Users/ansel/Pictures/Family')).toBeVisible();
+    });
+    await expect(body.getByRole('button', { name: /Import 486 photos/u })).toBeDisabled();
   },
 };
 

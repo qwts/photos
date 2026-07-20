@@ -212,12 +212,14 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
   }, [dropped, onRejectedDrop]);
 
   const chooseFolder = (): void => {
+    setMoveConfirmed(false);
     void window.overlook.import
       .pickFolder()
       .then(async ({ path }) => {
         if (path === null) {
           return;
         }
+        setMoveConfirmed(false);
         setFolder({ status: 'scanning', path });
         const summary = await window.overlook.import.scanSource({ path });
         setFolder({ status: 'ready', path, summary });
@@ -566,6 +568,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
                 aria-label="Clear folder"
                 onClick={() => {
                   setFolder({ status: 'empty' });
+                  setMoveConfirmed(false);
                 }}
               >
                 <Icon name="x" size={14} />
