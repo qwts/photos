@@ -29,6 +29,12 @@ export interface EnvelopeKey {
   readonly id: number;
   /** 32-byte AES-256 key. */
   readonly key: Buffer;
+  /**
+   * Reserves a unique 64-bit prefix before an envelope is written. Production
+   * library keys provide this through KeyStore; isolated keys retain the
+   * legacy random-prefix behavior for compatibility.
+   */
+  readonly reserveNoncePrefix?: () => Buffer;
 }
 
 export interface EnvelopeContext {
@@ -97,7 +103,10 @@ export function createEncryptStream(key: EnvelopeKey, context: EnvelopeContext, 
   if (chunkSize > MAX_CHUNK_LENGTH) {
     throw new EnvelopeError(`chunkSize ${String(chunkSize)} exceeds the decryptable maximum of ${String(MAX_CHUNK_LENGTH)}`);
   }
-  const noncePrefix = randomBytes(8);
+  const noncePrefix = key.reserveNoncePrefix?.() ?? randomBytes(8);
+  if (noncePrefix.length !== 8) {
+    throw new EnvelopeError(`nonce prefix must be 8 bytes, got ${String(noncePrefix.length)}`);
+  }
   let pending: Buffer[] = [];
   let pendingLength = 0;
   let chunkIndex = 0;

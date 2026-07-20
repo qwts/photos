@@ -58,11 +58,36 @@ describe('KeyStore lifecycle', () => {
     assert.ok(reserveFirst !== undefined);
     assert.equal(reserveFirst().readBigUInt64BE(), 0n);
     assert.equal(reserveFirst().readBigUInt64BE(), 1n);
+    const reserved = JSON.parse(readFileSync(join(dataDir, 'keys.json'), 'utf8')) as {
+      keys: { nonceHighWater: string }[];
+    };
+    assert.equal(reserved.keys[0]?.nonceHighWater, '1024');
 
     const reopened = KeyStore.open({ safeStorage, dataDir });
     const reserveReopened = reopened.currentKey().reserveNoncePrefix;
     assert.ok(reserveReopened !== undefined);
     assert.ok(reserveReopened().readBigUInt64BE() > 1n);
+  });
+
+  test('migrates legacy key records to a nonzero nonce range', () => {
+    const dataDir = tempDir();
+    const safeStorage = fakeSafeStorage(0x5a);
+    KeyStore.open({ safeStorage, dataDir });
+    const keysPath = join(dataDir, 'keys.json');
+    const file = JSON.parse(readFileSync(keysPath, 'utf8')) as {
+      keys: { nonceHighWater?: string }[];
+    };
+    if (file.keys[0] !== undefined) delete file.keys[0].nonceHighWater;
+    writeFileSync(keysPath, JSON.stringify(file));
+
+    const migrated = KeyStore.open({ safeStorage, dataDir });
+    const reserve = migrated.currentKey().reserveNoncePrefix;
+    assert.ok(reserve !== undefined);
+    assert.ok(reserve().readBigUInt64BE() >= 1n << 63n);
+    const persisted = JSON.parse(readFileSync(keysPath, 'utf8')) as {
+      keys: { nonceHighWater?: string }[];
+    };
+    assert.ok(persisted.keys[0]?.nonceHighWater !== undefined);
   });
 
   test('master key on disk is never plaintext', () => {
