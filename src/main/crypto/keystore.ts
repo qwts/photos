@@ -254,8 +254,7 @@ export class KeyStore {
     if (next >= NONCE_PREFIX_LIMIT) {
       throw new KeyCustodyError(`key ${String(keyId)} exhausted its 64-bit nonce prefix space; rotate the library key`);
     }
-    const index = this.records.findIndex((record) => record.id === keyId);
-    const record = this.records[index];
+    const record = this.records.find((candidate) => candidate.id === keyId);
     if (record === undefined) {
       throw new KeyCustodyError(`key ${String(keyId)} has no custody record`);
     }

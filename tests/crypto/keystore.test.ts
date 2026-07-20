@@ -218,4 +218,21 @@ describe('KeyStore failure paths', () => {
     writeFileSync(keysPath, JSON.stringify(file));
     assert.throws(() => KeyStore.open({ safeStorage, dataDir }), /is malformed/);
   });
+
+  test('an exhausted nonce prefix space fails closed and requires rotation', () => {
+    const dataDir = tempDir();
+    const safeStorage = fakeSafeStorage(0x5a);
+    KeyStore.open({ safeStorage, dataDir });
+    const keysPath = join(dataDir, 'keys.json');
+    const file = JSON.parse(readFileSync(keysPath, 'utf8')) as {
+      keys: { nonceHighWater: string }[];
+    };
+    if (file.keys[0] !== undefined) file.keys[0].nonceHighWater = (1n << 64n).toString();
+    writeFileSync(keysPath, JSON.stringify(file));
+
+    const exhausted = KeyStore.open({ safeStorage, dataDir });
+    const reserve = exhausted.currentKey().reserveNoncePrefix;
+    assert.ok(reserve !== undefined);
+    assert.throws(() => reserve(), /exhausted its 64-bit nonce prefix space; rotate the library key/u);
+  });
 });

@@ -108,6 +108,9 @@ describe('cloud recovery bootstrap (#289)', () => {
 
     const malformed = { ...bootstrap, keys: [{ ...first, wrappedKey: `${first.wrappedKey}!!` }, second] };
     assert.throws(() => sealRecoveryBootstrap(malformed, masterKey), /invalid wrapped-key encoding/u);
+
+    const exhausted = { ...bootstrap, keys: [{ ...first, nonceHighWater: ((1n << 64n) + 1n).toString() }, second] };
+    assert.throws(() => sealRecoveryBootstrap(exhausted, masterKey), /nonce high-water mark exceeds/u);
   });
 
   test('invalid outer framing and master-key lengths fail closed', () => {
