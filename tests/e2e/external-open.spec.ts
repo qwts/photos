@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -162,6 +162,7 @@ test('P0 #406: 800 Finder paths route into one running window and one import bat
 
 test('P0 #406/#489: a dropped folder recursively moves only admitted files after consent', async () => {
   const { folder, paths } = makeFolder(3, true);
+  paths.forEach((path, index) => appendFileSync(path, Uint8Array.of(index + 1)));
   const unrelated = join(folder, 'nested', 'notes.txt');
   copyFileSync(FIXTURE, unrelated);
   const userData = mkE2eTmpDir('overlook-e2e-folder-drop-');
