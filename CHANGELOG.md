@@ -1,5 +1,11 @@
 # photos
 
+## 0.36.0
+
+### Minor Changes
+
+- eee37f2: Format dates, counts, storage sizes, and relative times for the active locale.
+
 ## 0.35.4
 
 ### Patch Changes
