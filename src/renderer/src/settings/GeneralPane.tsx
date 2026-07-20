@@ -23,6 +23,13 @@ const messages = defineMessages({
     defaultMessage: 'Changes apply immediately. System default follows your operating-system language.',
   },
   systemLanguage: { id: 'settings.general.language.system', defaultMessage: 'System default' },
+  trashRetention: { id: 'settings.general.trashRetention', defaultMessage: 'Trash retention' },
+  trashRetentionHint: {
+    id: 'settings.general.trashRetention.hint',
+    defaultMessage: 'Controls automatic permanent deletion. You can still delete items manually when automatic deletion is off.',
+  },
+  trashRetentionOff: { id: 'settings.general.trashRetention.off', defaultMessage: 'Off' },
+  trashRetentionDays: { id: 'settings.general.trashRetention.days', defaultMessage: '{days} days' },
   appearance: { id: 'settings.general.appearance', defaultMessage: 'Appearance' },
   appearanceHint: {
     id: 'settings.general.appearance.hint',
@@ -39,7 +46,7 @@ const messages = defineMessages({
 
 export interface GeneralPaneProps {
   readonly settings: AppSettings;
-  readonly onPatch: (patch: Partial<Pick<AppSettings, 'sortOrder' | 'language' | 'appearance'>>) => void;
+  readonly onPatch: (patch: Partial<Pick<AppSettings, 'sortOrder' | 'language' | 'appearance' | 'trashRetention'>>) => void;
 }
 
 export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactElement {
@@ -76,6 +83,21 @@ export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactEleme
             </option>
           ))}
         </select>
+      </Field>
+      <Field label={intl.formatMessage(messages.trashRetention)} hint={intl.formatMessage(messages.trashRetentionHint)}>
+        <Segmented
+          label={intl.formatMessage(messages.trashRetention)}
+          value={settings.trashRetention}
+          options={[
+            { value: 'off', label: intl.formatMessage(messages.trashRetentionOff) },
+            { value: '7', label: intl.formatMessage(messages.trashRetentionDays, { days: 7 }) },
+            { value: '30', label: intl.formatMessage(messages.trashRetentionDays, { days: 30 }) },
+            { value: '90', label: intl.formatMessage(messages.trashRetentionDays, { days: 90 }) },
+          ]}
+          onChange={(trashRetention) => {
+            onPatch({ trashRetention });
+          }}
+        />
       </Field>
       <Field label={intl.formatMessage(messages.appearance)} hint={intl.formatMessage(messages.appearanceHint)}>
         <Segmented

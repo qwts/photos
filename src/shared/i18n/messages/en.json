@@ -224,8 +224,11 @@
   "library.trash.purge.partial": {
     "defaultMessage": "Deleted permanently: {purged} local; {remoteFailures} cloud pending retry"
   },
-  "library.trash.retentionPolicy": {
-    "defaultMessage": "Items in Trash are deleted permanently after 30 days."
+  "library.trash.retentionPolicy.days": {
+    "defaultMessage": "Items in Trash are deleted permanently after {days} days."
+  },
+  "library.trash.retentionPolicy.off": {
+    "defaultMessage": "Items in Trash are kept until you delete them permanently."
   },
   "libswitch.move.one": {
     "defaultMessage": "Move {name}…"
@@ -391,6 +394,18 @@
   },
   "settings.general.thumbnails.hint": {
     "defaultMessage": "The grid browses thumbnails, even offline. Cannot be disabled."
+  },
+  "settings.general.trashRetention": {
+    "defaultMessage": "Trash retention"
+  },
+  "settings.general.trashRetention.days": {
+    "defaultMessage": "{days} days"
+  },
+  "settings.general.trashRetention.hint": {
+    "defaultMessage": "Controls automatic permanent deletion. You can still delete items manually when automatic deletion is off."
+  },
+  "settings.general.trashRetention.off": {
+    "defaultMessage": "Off"
   },
   "settings.nav.general": {
     "defaultMessage": "General"

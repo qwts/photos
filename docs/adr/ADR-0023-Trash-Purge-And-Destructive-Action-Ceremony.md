@@ -193,8 +193,8 @@ profile erase (ADR-0013), relocation source cleanup and both-copies retry
   from `deleted_at`; the registry is only as honest as review keeps it — an
   unregistered destructive surface is the new failure mode to watch for.
 - **Deferred, with owners**:
-  - The retention settings control (Off / 7 / 30 / 90, default 30) — #534 or
-    a follow-up it files.
+  - The retention settings control (Off / 7 / 30 / 90, default 30) — implemented
+    by [#606](https://github.com/qwts/photos/issues/606), the required #534 follow-up.
   - Forced manifest-generation rotation ("scrub cloud history now") — a new
     issue if ever wanted; until then the §5 honest sentence is the contract.
   - Per-photo cloud retention interplay — [#506](https://github.com/qwts/photos/issues/506).

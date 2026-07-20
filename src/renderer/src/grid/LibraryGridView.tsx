@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DragEvent, ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
@@ -16,12 +16,16 @@ import { SelectionPill } from './SelectionPill';
 import { VirtualGrid } from './VirtualGrid';
 import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
 import { PHOTO_PURGE_AUTHORIZATION } from '../../../shared/destructive-actions.js';
-import { trashRetentionLabel } from '../../../shared/library/trash.js';
+import { DEFAULT_TRASH_RETENTION, trashRetentionDays, trashRetentionLabel, type TrashRetention } from '../../../shared/library/trash.js';
 
 const messages = defineMessages({
-  trashPolicy: {
-    id: 'library.trash.retentionPolicy',
-    defaultMessage: 'Items in Trash are deleted permanently after 30 days.',
+  trashPolicyDays: {
+    id: 'library.trash.retentionPolicy.days',
+    defaultMessage: 'Items in Trash are deleted permanently after {days} days.',
+  },
+  trashPolicyOff: {
+    id: 'library.trash.retentionPolicy.off',
+    defaultMessage: 'Items in Trash are kept until you delete them permanently.',
   },
   purgedWithCloudRetry: {
     id: 'library.trash.purge.partial',
@@ -63,6 +67,23 @@ export function LibraryGridView({
   const favoritePendingRef = useRef<ReadonlySet<string>>(new Set());
   const [favoritePending, setFavoritePending] = useState<ReadonlySet<string>>(() => new Set());
   const [retentionNow] = useState(() => Date.now());
+  const [trashRetention, setTrashRetention] = useState<TrashRetention>(DEFAULT_TRASH_RETENTION);
+
+  useEffect(() => {
+    let active = true;
+    let changed = false;
+    const unsubscribe = window.overlook.settings.onChanged(({ settings }) => {
+      changed = true;
+      setTrashRetention(settings.trashRetention);
+    });
+    void window.overlook.settings.get().then(({ settings }) => {
+      if (active && !changed) setTrashRetention(settings.trashRetention);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   const toggleFavorite = (photo: PhotoRecord): void => {
     if (favoritePendingRef.current.has(photo.id)) return;
@@ -91,11 +112,15 @@ export function LibraryGridView({
   const filtersActive = state.query !== '' || state.album !== null || Object.values(state.chips).some(Boolean);
   const total = filtersActive || knownTotal === null ? (exhausted ? state.photos.length : state.photos.length + 1) : knownTotal;
   const inTrash = state.source === 'deleted';
+  const retentionDays = trashRetentionDays(trashRetention);
+  const trashPolicy = intl.formatMessage(retentionDays === null ? messages.trashPolicyOff : messages.trashPolicyDays, {
+    days: retentionDays,
+  });
 
   if (total === 0) {
     return (
       <>
-        {inTrash ? <div className="ovl-trash-policy">{intl.formatMessage(messages.trashPolicy)}</div> : null}
+        {inTrash ? <div className="ovl-trash-policy">{trashPolicy}</div> : null}
         <div className={`ovl-empty${inTrash ? ' ovl-empty--inset' : ''}`} data-testid="empty-state">
           <Icon name="image-off" size={28} color="var(--text-faint)" />
           <div className="ovl-empty__title">Nothing matches</div>
@@ -107,7 +132,9 @@ export function LibraryGridView({
 
   const renderTile = (photo: PhotoRecord): ReactElement => {
     const retentionLabel =
-      state.source === 'deleted' && photo.deletedAt !== null ? trashRetentionLabel(photo.deletedAt, retentionNow) : undefined;
+      state.source === 'deleted' && photo.deletedAt !== null
+        ? trashRetentionLabel(photo.deletedAt, trashRetention, retentionNow)
+        : undefined;
     const onDragStart =
       state.source === 'deleted'
         ? undefined
@@ -162,7 +189,7 @@ export function LibraryGridView({
 
   return (
     <>
-      {inTrash ? <div className="ovl-trash-policy">{intl.formatMessage(messages.trashPolicy)}</div> : null}
+      {inTrash ? <div className="ovl-trash-policy">{trashPolicy}</div> : null}
       <VirtualGrid
         photos={state.photos}
         total={total}
