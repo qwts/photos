@@ -2,6 +2,7 @@
    PhotoTile contract; hover states ride CSS. The circle colors reuse the
    tile's named mock values (phototile.css :root). */
 .ovl-listrow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -10,6 +11,19 @@
   border-radius: var(--radius-1);
   cursor: pointer;
   color: var(--text-body);
+}
+
+.ovl-listrow__open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
 }
 
 .ovl-listrow:hover {
@@ -36,6 +50,7 @@
   padding: 0;
   cursor: pointer;
   opacity: 0;
+  z-index: 2;
 }
 
 .ovl-listrow__select::before {
@@ -119,6 +134,9 @@
 }
 
 .ovl-listrow__status {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
   flex: none;
   width: 18px;
   display: flex;

@@ -21,6 +21,19 @@
   display: block;
 }
 
+.ovl-tile__open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
 .ovl-tile--selected {
   box-shadow: var(--tile-selected-ring);
 }
@@ -89,6 +102,7 @@
   cursor: pointer;
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-out);
+  z-index: 2;
 }
 
 .ovl-tile__select::before {
@@ -126,6 +140,7 @@
   color: var(--tile-star-fg);
   filter: drop-shadow(0 1px 2px oklch(0 0 0 / 0.6));
   pointer-events: none;
+  z-index: 2;
 }
 
 .ovl-tile__status {
@@ -133,4 +148,5 @@
   bottom: 6px;
   right: 6px;
   pointer-events: none;
+  z-index: 2;
 }

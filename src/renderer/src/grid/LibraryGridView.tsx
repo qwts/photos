@@ -60,7 +60,7 @@ export function LibraryGridView({
     const onDragStart =
       state.source === 'deleted'
         ? undefined
-        : (event: DragEvent<HTMLDivElement>): void => {
+        : (event: DragEvent<HTMLButtonElement>): void => {
             beginPhotoDrag(event.dataTransfer, {
               version: 1,
               photoIds: state.selection.has(photo.id) ? [...state.selection] : [photo.id],

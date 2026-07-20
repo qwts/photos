@@ -86,7 +86,9 @@ export const ClickTargetsAreIndependent: Story = {
     const canvas = within(canvasElement);
     const row = await canvas.findByRole('button', { name: 'Open IMG_4021.JPG' });
     const circle = canvas.getByRole('button', { name: 'Select' });
+    const status = canvas.getByRole('img', { name: 'Backed up (encrypted)' });
     await expect(row).not.toContainElement(circle);
+    await expect(row).not.toContainElement(status);
     await expect(circle.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
     await expect(circle.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
     await userEvent.click(circle);
