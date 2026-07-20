@@ -1,4 +1,10 @@
 {
+  "favorite.add": {
+    "defaultMessage": "Add to Favorites"
+  },
+  "favorite.remove": {
+    "defaultMessage": "Remove from Favorites"
+  },
   "libmove.badge.active": {
     "defaultMessage": "Moving…"
   },

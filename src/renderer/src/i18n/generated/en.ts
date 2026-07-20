@@ -4,6 +4,8 @@
 // Compiled id → message string for the renderer's IntlProvider.
 
 export const en: Readonly<Record<string, string>> = {
+  "favorite.add": "Add to Favorites",
+  "favorite.remove": "Remove from Favorites",
   "libmove.badge.active": "Moving…",
   "libmove.badge.cleanupPending": "Moved — cleanup pending",
   "libmove.badge.failed": "Failed",
