@@ -1050,6 +1050,16 @@
       ]
     },
     {
+      "id": "m15-folder-move-consent-reset",
+      "wiki": "User-Story-M15-Import-sources",
+      "coverage": [
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/import/ImportDialog.stories.tsx"
+        }
+      ]
+    },
+    {
       "id": "m15-macos-window-file-drop-safety",
       "wiki": "User-Story-M15-Import-sources",
       "coverage": [
