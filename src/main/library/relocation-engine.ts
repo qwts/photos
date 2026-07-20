@@ -667,6 +667,7 @@ export async function probeRelocation(deps: RelocationDeps, options: { libraryId
   const entry = deps.registry.get(options.libraryId);
   if (entry === undefined) return { ok: false, reason: 'io-error', detail: `library ${options.libraryId} is not registered` };
   try {
+    assertNoPendingRelocation(deps, options.libraryId);
     const plan = await preflight(deps, entry, options.destDir);
     const destParent = path.dirname(plan.destDir);
     return {

@@ -616,6 +616,28 @@ describe('library relocation engine (#483, ADR-0022)', () => {
       assertSourceIntactAndAuthoritative(h);
     });
 
+    test('a pending journal blocks the Review probe with the same refusal as Start', async () => {
+      const h = harness();
+      h.journals.save({
+        version: 1,
+        libraryId: ULID_A,
+        nonce: 'resume-nonce',
+        sourcePath: h.sourceDir,
+        destPath: h.destDir,
+        stagingPath: stagingPathFor(h.destDir),
+        mode: 'copy',
+        state: 'copying',
+        startedAt: NOW().toISOString(),
+      });
+
+      const probe = await probeRelocation(h.deps, { libraryId: ULID_A, destDir: join(h.root, 'different-destination') });
+
+      assert.ok(!probe.ok);
+      assert.equal(probe.reason, 'move-in-progress');
+      assert.match(probe.detail, /resume or discard it first/);
+      assert.equal(h.journals.load(ULID_A)?.destPath, h.destDir, 'probe leaves the pending journal untouched');
+    });
+
     test('a probe names the host holding the source lock instead of failing', async () => {
       const h = harness();
       writeFileSync(
