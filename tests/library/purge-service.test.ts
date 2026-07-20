@@ -9,20 +9,21 @@ import { Readable } from 'node:stream';
 
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
 import { MockProvider } from '../../src/main/backup/mock-provider.js';
-import { PurgeService, PURGE_RETENTION_DAYS } from '../../src/main/library/purge-service.js';
+import { PurgeService } from '../../src/main/library/purge-service.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { run } from '../../src/main/db/sql.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 import type { EnvelopeKey } from '../../src/main/crypto/envelope.js';
 import type { PhotoInsert } from '../../src/shared/library/types.js';
+import type { TrashRetention } from '../../src/shared/library/trash.js';
 
 // #121: the one truly destructive path over REAL store/repo/provider —
 // all three copies go; failures leave a repairable, non-lying state.
 
 const NOW = Date.parse('2026-07-13T12:00:00.000Z');
 
-async function world(count: number, options: { contentHash?: string } = {}) {
+async function world(count: number, options: { contentHash?: string; retention?: TrashRetention } = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), 'overlook-purge-'));
   const db = openLibraryDatabase({ path: join(dataDir, 'library.db'), dbKey: randomBytes(32) });
   run(db, `INSERT OR IGNORE INTO keys (id, wrapped_key, created_at) VALUES (1, 'test', '2026-07-01T00:00:00.000Z')`);
@@ -83,6 +84,7 @@ async function world(count: number, options: { contentHash?: string } = {}) {
     oweManifest: () => owed.push(1),
     libraryChanged: (ids) => changed.push([...ids]),
     audit: (line) => audits.push(line),
+    retention: () => options.retention ?? '30',
     now: () => NOW,
     sleep: () => Promise.resolve(),
   });
@@ -141,17 +143,27 @@ describe('purge (#121)', () => {
     );
   });
 
-  test('retention sweep purges only rows older than the window', async () => {
-    const w = await world(2);
-    w.repo.softDelete(['P0', 'P1']);
-    const expired = new Date(NOW - (PURGE_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000).toISOString();
-    run(w.db, `UPDATE photos SET deleted_at = ? WHERE id = 'P0'`, expired);
+  test('retention sweep honors Off and the exact 7 / 30 / 90-day boundaries', async () => {
+    const off = await world(1, { retention: 'off' });
+    off.repo.softDelete(['P0']);
+    run(off.db, `UPDATE photos SET deleted_at = ? WHERE id = 'P0'`, new Date(NOW - 365 * 24 * 60 * 60 * 1000).toISOString());
+    assert.deepEqual(await off.service.purgeExpired(), { purged: 0, skipped: 0, remoteFailures: 0 });
+    assert.notEqual(off.repo.getDeleted('P0'), undefined, 'Off is manual-only');
 
-    const summary = await w.service.purgeExpired();
-    assert.equal(summary.purged, 1, 'only the expired row went');
-    assert.equal(w.repo.get('P0'), undefined);
-    assert.notEqual(w.repo.getDeleted('P1'), undefined, 'the fresh trash row survives');
-    assert.ok(w.audits.some((line) => line.startsWith('PURGE-RETENTION count=1')));
+    for (const retention of ['7', '30', '90'] as const) {
+      const days = Number(retention);
+      const w = await world(2, { retention });
+      w.repo.softDelete(['P0', 'P1']);
+      const cutoff = NOW - days * 24 * 60 * 60 * 1000;
+      run(w.db, `UPDATE photos SET deleted_at = ? WHERE id = 'P0'`, new Date(cutoff).toISOString());
+      run(w.db, `UPDATE photos SET deleted_at = ? WHERE id = 'P1'`, new Date(cutoff + 1).toISOString());
+
+      const summary = await w.service.purgeExpired();
+      assert.equal(summary.purged, 1, `${retention}-day cutoff includes the boundary`);
+      assert.equal(w.repo.get('P0'), undefined);
+      assert.notEqual(w.repo.getDeleted('P1'), undefined, 'one millisecond inside the window survives');
+      assert.ok(w.audits.some((line) => line.includes(`days=${retention}`)));
+    }
   });
 
   test('cancellation finishes the current destructive item and stops before the next row', async () => {

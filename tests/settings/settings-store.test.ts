@@ -46,6 +46,7 @@ describe('settings store (#111)', () => {
       providerId: null,
       reOffloadAfterViewing: false,
       shareDiagnostics: true,
+      trashRetention: '90',
     });
 
     const reborn = storeIn(dir);
@@ -54,6 +55,7 @@ describe('settings store (#111)', () => {
     assert.equal(reborn.get().providerId, null, 'disconnected survives — null is a value, not "unset"');
     assert.equal(reborn.get().reOffloadAfterViewing, false);
     assert.equal(reborn.get().shareDiagnostics, true);
+    assert.equal(reborn.get().trashRetention, '90');
     assert.equal(reborn.get().diagnosticsConsentVersion, 1);
     assert.equal(reborn.get().wifiOnly, true, 'untouched keys keep their defaults');
   });
@@ -126,6 +128,7 @@ describe('settings store (#111)', () => {
     assert.deepEqual(await handler({ patch: { bandwidthLimit: 5 } }), invalid, 'below the slider floor');
     assert.deepEqual(await handler({ patch: { bandwidthLimit: 101 } }), invalid, 'above unlimited');
     assert.deepEqual(await handler({ patch: { sortOrder: 'random' } }), invalid, 'unknown enum value');
+    assert.deepEqual(await handler({ patch: { trashRetention: '14' } }), invalid, 'retention is the bounded ADR enum');
     assert.deepEqual(await handler({ patch: { providerId: '../cloud' } }), invalid, 'unsafe provider registry key');
     assert.deepEqual(await handler({ patch: { diagnosticsConsentVersion: 1 } }), invalid, 'renderer cannot forge consent policy');
 
@@ -134,6 +137,11 @@ describe('settings store (#111)', () => {
     assert.equal(ok.settings.bandwidthLimit, 10);
     assert.equal(store.get().wifiOnly, false);
     assert.equal(store.get().providerId, 'future-cloud', 'new adapters need no settings enum edit');
+    for (const trashRetention of ['off', '7', '30', '90'] as const) {
+      const result = await handler({ patch: { trashRetention } });
+      assert.ok('settings' in result);
+      assert.equal(result.settings.trashRetention, trashRetention);
+    }
   });
 
   test('legacy local-only preference never upgrades silently into current diagnostics consent', () => {

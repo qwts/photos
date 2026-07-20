@@ -2,7 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { destructiveActions } from '../../src/shared/destructive-actions.js';
-import { TRASH_RETENTION_DAYS, trashDaysRemaining, trashRetentionLabel } from '../../src/shared/library/trash.js';
+import { DEFAULT_TRASH_RETENTION, trashDaysRemaining, trashRetentionDays, trashRetentionLabel } from '../../src/shared/library/trash.js';
 
 describe('ADR-0023 destructive action contract', () => {
   test('registry identifiers are unique and irreversible actions carry authorization and side effects', () => {
@@ -23,11 +23,20 @@ describe('ADR-0023 destructive action contract', () => {
     }
   });
 
-  test('30-day retention rounds up and exposes the expiry day', () => {
+  test('Off / 7 / 30 / 90 retention boundaries share one countdown contract', () => {
     const now = Date.parse('2026-07-20T12:00:00.000Z');
-    assert.equal(TRASH_RETENTION_DAYS, 30);
-    assert.equal(trashDaysRemaining('2026-07-20T12:00:00.000Z', now), 30);
-    assert.equal(trashDaysRemaining('2026-07-19T11:59:59.999Z', now), 29);
-    assert.equal(trashRetentionLabel('2026-06-20T12:00:00.000Z', now), 'Deletes permanently today');
+    assert.equal(DEFAULT_TRASH_RETENTION, '30');
+    assert.equal(trashRetentionDays('off'), null);
+    assert.equal(trashRetentionLabel('2026-01-01T00:00:00.000Z', 'off', now), 'Kept until deleted manually');
+    for (const retention of ['7', '30', '90'] as const) {
+      const days = Number(retention);
+      assert.equal(trashRetentionDays(retention), days);
+      assert.equal(trashDaysRemaining('2026-07-20T12:00:00.000Z', retention, now), days);
+      assert.equal(trashDaysRemaining('2026-07-19T11:59:59.999Z', retention, now), days - 1);
+      assert.equal(
+        trashRetentionLabel(new Date(now - days * 24 * 60 * 60 * 1000).toISOString(), retention, now),
+        'Deletes permanently today',
+      );
+    }
   });
 });

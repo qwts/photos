@@ -31,20 +31,22 @@ function harness() {
 describe('scoped settings store (#387, ADR-0017 §6)', () => {
   test('library settings and provider selection do not bleed across switches', () => {
     const h = harness();
-    h.store.set({ sortOrder: 'name', providerId: 'pcloud', appLockIdle: '30', reOffloadAfterViewing: false });
+    h.store.set({ sortOrder: 'name', providerId: 'pcloud', appLockIdle: '30', reOffloadAfterViewing: false, trashRetention: '90' });
 
     h.switchTo('library-b');
     assert.equal(h.store.get().sortOrder, defaultSettings.sortOrder);
     assert.equal(h.store.get().providerId, defaultSettings.providerId);
     assert.equal(h.store.get().appLockIdle, defaultSettings.appLockIdle);
     assert.equal(h.store.get().reOffloadAfterViewing, defaultSettings.reOffloadAfterViewing);
-    h.store.set({ sortOrder: 'size', providerId: null });
+    assert.equal(h.store.get().trashRetention, defaultSettings.trashRetention);
+    h.store.set({ sortOrder: 'size', providerId: null, trashRetention: 'off' });
 
     h.switchTo('library-a');
     assert.equal(h.store.get().sortOrder, 'name');
     assert.equal(h.store.get().providerId, 'pcloud');
     assert.equal(h.store.get().appLockIdle, '30');
     assert.equal(h.store.get().reOffloadAfterViewing, false);
+    assert.equal(h.store.get().trashRetention, '90');
     assert.deepEqual(h.librarySettings('library-b'), {
       sortOrder: 'size',
       thumbnailsOnImport: true,
@@ -53,6 +55,7 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
       importMode: 'copy',
       wifiOnly: true,
       bandwidthLimit: 100,
+      trashRetention: 'off',
       appLockIdle: '5',
       lockWhenHidden: false,
       providerId: null,
@@ -154,6 +157,7 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
         importMode: 'copy',
         wifiOnly: true,
         bandwidthLimit: 100,
+        trashRetention: '30',
         appLockIdle: '5',
         lockWhenHidden: false,
         providerId: null,

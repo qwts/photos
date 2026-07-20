@@ -680,11 +680,11 @@ export class PhotosRepository {
     return row !== undefined && row.deletedAt !== null ? row : undefined;
   }
 
-  /** Soft-deleted longer than the retention window (#121's auto-purge). */
+  /** Soft-deleted at or beyond the retention window (#121's auto-purge). */
   expiredDeleted(cutoffIso: string): string[] {
     return queryAll<{ id: string }>(
       this.db,
-      'SELECT id FROM ordinary_visible_photos WHERE deleted_at IS NOT NULL AND deleted_at < @cutoff',
+      'SELECT id FROM ordinary_visible_photos WHERE deleted_at IS NOT NULL AND deleted_at <= @cutoff',
       { cutoff: cutoffIso },
     ).map((row) => row.id);
   }
