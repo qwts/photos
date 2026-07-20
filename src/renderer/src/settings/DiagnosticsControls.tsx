@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
+import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 type DiagnosticReport = Awaited<ReturnType<typeof window.overlook.diagnostics.list>>['reports'][number];
 
@@ -89,22 +90,23 @@ interface ReviewProps {
 
 function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, onClose }: ReviewProps): ReactElement | null {
   const intl = useIntl();
+  const [confirming, setConfirming] = useState<DiagnosticReport | 'all' | null>(null);
   const remove = async (eventId: string): Promise<void> => {
     try {
       const { deleted } = await window.overlook.diagnostics.delete({ eventId });
       if (deleted) onReports(reports.filter((report) => report.eventId !== eventId));
-      onNotice(deleted ? 'Report deleted.' : 'That report was already gone.');
+      onNotice(deleted ? 'Diagnostic report cleared.' : 'That report was already gone.');
     } catch {
-      onNotice('The report could not be deleted.');
+      onNotice('The diagnostic report could not be cleared.');
     }
   };
   const purge = async (): Promise<void> => {
     try {
       const { deleted } = await window.overlook.diagnostics.purge();
       onReports([]);
-      onNotice(`${deleted} ${deleted === 1 ? 'report' : 'reports'} deleted.`);
+      onNotice(`${deleted} diagnostic ${deleted === 1 ? 'report' : 'reports'} cleared.`);
     } catch {
-      onNotice('Local reports could not be deleted.');
+      onNotice('Local reports could not be cleared.');
     }
   };
   const exportReports = async (): Promise<void> => {
@@ -128,8 +130,8 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
           <Button variant="ghost" icon="download" onClick={() => void exportReports()}>
             Export JSONL…
           </Button>
-          <Button variant="danger" icon="trash-2" disabled={reports.length === 0} onClick={() => void purge()}>
-            Delete all
+          <Button variant="danger" icon="trash-2" disabled={reports.length === 0} onClick={() => setConfirming('all')}>
+            {destructiveActions.clearDiagnostics.label}…
           </Button>
           <Button variant="primary" onClick={onClose}>
             Done
@@ -154,8 +156,8 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
                   <strong>{report.kind}</strong>
                   <span>{intl.formatDate(report.capturedAt, { dateStyle: 'medium', timeStyle: 'short' })}</span>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => void remove(report.eventId)}>
-                  Delete
+                <Button size="sm" variant="ghost" onClick={() => setConfirming(report)}>
+                  Clear report…
                 </Button>
               </header>
               <pre>{report.payload}</pre>
@@ -163,6 +165,43 @@ function DiagnosticsReviewDialog({ open, reports, notice, onReports, onNotice, o
           ))}
         </div>
       )}
+      <Dialog
+        open={confirming !== null}
+        title={
+          confirming === 'all'
+            ? `Clear ${reports.length} diagnostic ${reports.length === 1 ? 'report' : 'reports'}?`
+            : 'Clear diagnostic report?'
+        }
+        icon="trash-2"
+        width={440}
+        onClose={() => setConfirming(null)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirming(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const target = confirming;
+                setConfirming(null);
+                if (target === 'all') void purge();
+                else if (target !== null) void remove(target.eventId);
+              }}
+            >
+              {confirming === 'all' ? destructiveActions.clearDiagnostics.label : 'Clear report'}
+            </Button>
+          </>
+        }
+      >
+        <p>
+          {confirming === 'all'
+            ? `This removes all ${reports.length} encrypted diagnostic reports stored on this device.`
+            : 'This removes this encrypted diagnostic report from this device.'}{' '}
+          This cannot be undone.
+        </p>
+        <p>{destructiveActions.clearDiagnostics.survival} Nothing was sent.</p>
+      </Dialog>
     </Dialog>
   );
 }

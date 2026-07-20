@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
+import { destructiveActions } from '../../../shared/destructive-actions.js';
 import { LightboxViewport } from './LightboxViewport';
 import { DEFAULT_VIEW_INTENT } from './geometry.js';
 import { useLightboxChrome } from './use-lightbox-chrome';
@@ -164,9 +165,8 @@ export function Lightbox({
         ) : null}
         <IconButton icon="info" label="Inspector (I)" active={inspectorOpen} onClick={onToggleInspector} />
         {photo.deletedAt === null ? (
-          // Already-deleted rows offer no Delete (PR #218 review) — the
-          // trash pill's Restore is their action; purge is #121.
-          <IconButton icon="trash-2" label="Delete" onClick={onDelete} />
+          // Already-trashed rows use the grid's restore or purge ceremonies.
+          <IconButton icon="trash-2" label={destructiveActions.movePhotosToTrash.label} onClick={onDelete} />
         ) : null}
         {/* Explicit close at the conventional corner (#269) — the back arrow
             reads as navigation, not dismissal, and Esc is invisible. */}

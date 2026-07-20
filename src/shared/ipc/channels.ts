@@ -10,6 +10,7 @@ import {
 } from '../library/relocation.js';
 import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
+import { PHOTO_PURGE_AUTHORIZATION } from '../destructive-actions.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -418,8 +419,8 @@ export const channels = {
     }),
   ),
   protectedAlbumExportCancel: defineChannel('protected-album:export-cancel', z.object({}), z.object({})),
-  // Soft delete + restore (#120): safe by default — rows move to Recently
-  // deleted and come back intact. Purge (the destructive path) is #121.
+  // Soft delete + restore (#120): safe by default — rows move to Trash and
+  // come back intact. Purge (the destructive path) is #121.
   libraryDelete: defineChannel(
     'library:delete',
     z.object({ photoIds: z.array(z.string()).min(1) }),
@@ -430,12 +431,14 @@ export const channels = {
     z.object({ photoIds: z.array(z.string()).min(1) }),
     z.object({ restored: z.number().int().nonnegative() }),
   ),
-  // Permanent purge (#121): destructive-confirmed in the renderer; removes
-  // DB row, local blobs, and remote copies (remote last, failures audited
-  // as repairable orphans — never a lying local state).
+  // Permanent purge (#121): the main process requires the ADR-0023 ceremony
+  // acknowledgement even from stale or directly-invoked renderers.
   libraryPurge: defineChannel(
     'library:purge',
-    z.object({ photoIds: z.array(z.string()).min(1) }),
+    z.object({
+      photoIds: z.array(z.string()).min(1),
+      authorization: z.literal(PHOTO_PURGE_AUTHORIZATION),
+    }),
     z.object({
       purged: z.number().int().nonnegative(),
       skipped: z.number().int().nonnegative(),

@@ -14,6 +14,8 @@ import { PurgeConfirm } from './PurgeConfirm';
 import { SelectionPill } from './SelectionPill';
 import { VirtualGrid } from './VirtualGrid';
 import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
+import { PHOTO_PURGE_AUTHORIZATION } from '../../../shared/destructive-actions.js';
+import { trashRetentionLabel } from '../../../shared/library/trash.js';
 
 // Library view (#76/#77): PhotoTile or ListRow over the #74 engine, thumbs
 // via the #75 protocol, empty state per the mock. Totals: sidebar counts
@@ -35,7 +37,7 @@ export function LibraryGridView({
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { loadMore, exhausted } = useLibraryPhotos();
-  // Purge ceremony (#121): the trash pill's Delete opens the confirm over
+  // Purge ceremony (#121): the Trash pill's permanent-delete action opens the confirm over
   // a SNAPSHOT of the selection — global shortcuts (⌘A) stay live while
   // the modal is open, and the destructive set must be exactly what the
   // user confirmed (PR #220 review).
@@ -43,6 +45,7 @@ export function LibraryGridView({
   const [contextPhoto, setContextPhoto] = useState<{ readonly photo: PhotoRecord; readonly x: number; readonly y: number } | null>(null);
   const favoritePendingRef = useRef<ReadonlySet<string>>(new Set());
   const [favoritePending, setFavoritePending] = useState<ReadonlySet<string>>(() => new Set());
+  const [retentionNow] = useState(() => Date.now());
 
   const toggleFavorite = (photo: PhotoRecord): void => {
     if (favoritePendingRef.current.has(photo.id)) return;
@@ -70,18 +73,24 @@ export function LibraryGridView({
   // sized for the source no longer applies — track the loaded set instead.
   const filtersActive = state.query !== '' || state.album !== null || Object.values(state.chips).some(Boolean);
   const total = filtersActive || knownTotal === null ? (exhausted ? state.photos.length : state.photos.length + 1) : knownTotal;
+  const inTrash = state.source === 'deleted';
 
   if (total === 0) {
     return (
-      <div className="ovl-empty" data-testid="empty-state">
-        <Icon name="image-off" size={28} color="var(--text-faint)" />
-        <div className="ovl-empty__title">Nothing matches</div>
-        <div className="ovl-empty__hint">Try clearing search or filters.</div>
-      </div>
+      <>
+        {inTrash ? <div className="ovl-trash-policy">Items in Trash are deleted permanently after 30 days.</div> : null}
+        <div className={`ovl-empty${inTrash ? ' ovl-empty--inset' : ''}`} data-testid="empty-state">
+          <Icon name="image-off" size={28} color="var(--text-faint)" />
+          <div className="ovl-empty__title">Nothing matches</div>
+          <div className="ovl-empty__hint">Try clearing search or filters.</div>
+        </div>
+      </>
     );
   }
 
   const renderTile = (photo: PhotoRecord): ReactElement => {
+    const retentionLabel =
+      state.source === 'deleted' && photo.deletedAt !== null ? trashRetentionLabel(photo.deletedAt, retentionNow) : undefined;
     const onDragStart =
       state.source === 'deleted'
         ? undefined
@@ -105,6 +114,7 @@ export function LibraryGridView({
         }}
         onToggleFavorite={() => toggleFavorite(photo)}
         favoritePending={favoritePending.has(photo.id)}
+        retentionLabel={retentionLabel}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
@@ -125,6 +135,7 @@ export function LibraryGridView({
         }}
         onToggleFavorite={() => toggleFavorite(photo)}
         favoritePending={favoritePending.has(photo.id)}
+        retentionLabel={retentionLabel}
         onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
@@ -134,7 +145,16 @@ export function LibraryGridView({
 
   return (
     <>
-      <VirtualGrid photos={state.photos} total={total} zoom={state.zoom} mode={state.view} onNeedMore={loadMore} renderTile={renderTile} />
+      {inTrash ? <div className="ovl-trash-policy">Items in Trash are deleted permanently after 30 days.</div> : null}
+      <VirtualGrid
+        photos={state.photos}
+        total={total}
+        zoom={state.zoom}
+        mode={state.view}
+        topInset={inTrash}
+        onNeedMore={loadMore}
+        renderTile={renderTile}
+      />
       {state.selection.size > 0 ? (
         <SelectionPill
           count={state.selection.size}
@@ -188,7 +208,7 @@ export function LibraryGridView({
                     dispatch({
                       type: 'toast/shown',
                       toast: {
-                        title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Recently deleted`,
+                        title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`,
                         tone: 'neutral',
                       },
                     });
@@ -228,17 +248,22 @@ export function LibraryGridView({
           onConfirm={() => {
             const photoIds = [...purgeIds];
             setPurgeIds(null);
-            void window.overlook.library.purge({ photoIds }).then(({ purged, remoteFailures }) => {
-              dispatch({
-                type: 'toast/shown',
-                toast:
-                  remoteFailures > 0
-                    ? // Honest partial result: local copies are gone, some
-                      // remote copies are orphaned (audited for retry).
-                      { title: `Deleted ${formatCount(purged)} — ${formatCount(remoteFailures)} CLOUD COPIES PENDING`, tone: 'amber' }
-                    : { title: `Deleted ${formatCount(purged)} ${purged === 1 ? 'photo' : 'photos'}`, tone: 'neutral' },
+            void window.overlook.library
+              .purge({ photoIds, authorization: PHOTO_PURGE_AUTHORIZATION })
+              .then(({ purged, remoteFailures }) => {
+                dispatch({
+                  type: 'toast/shown',
+                  toast:
+                    remoteFailures > 0
+                      ? // Honest partial result: local copies are gone, some
+                        // remote copies are orphaned (audited for retry).
+                        {
+                          title: `Deleted permanently: ${formatCount(purged)} local; ${formatCount(remoteFailures)} cloud pending retry`,
+                          tone: 'amber',
+                        }
+                      : { title: `Deleted ${formatCount(purged)} ${purged === 1 ? 'photo' : 'photos'} permanently`, tone: 'neutral' },
+                });
               });
-            });
           }}
         />
       ) : null}

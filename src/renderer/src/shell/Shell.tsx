@@ -495,7 +495,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
               // Soft delete (#120): the change push drops the row from the
               // visible set, which closes the lightbox in the reducer.
               void window.overlook.library.delete({ photoIds: [current.id] }).then(() => {
-                dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Recently deleted', tone: 'neutral' } });
+                dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Trash', tone: 'neutral' } });
               });
             }}
           />

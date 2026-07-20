@@ -117,7 +117,7 @@ describe('purge (#121)', () => {
     assert.deepEqual(w.changed, [['P0']]);
   });
 
-  test('live rows are skipped, never forced — only Recently deleted purges', async () => {
+  test('live rows are skipped, never forced — only Trash purges', async () => {
     const w = await world(1);
     const summary = await w.service.purge(['P0', 'GHOST']);
     assert.deepEqual(summary, { purged: 0, skipped: 2, remoteFailures: 0 });

@@ -148,7 +148,7 @@ export const ToolbarButtonsRemainInteractive: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Transfer & Sync' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Offload original' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Inspector (I)' }));
-    await userEvent.click(canvas.getByRole('button', { name: 'Delete' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Move to Trash' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Close (Esc)' }));
 
     await expect(args.onClose).toHaveBeenCalledTimes(2);

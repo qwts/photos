@@ -14,7 +14,7 @@ function fileCount(dir: string): number {
   }
 }
 
-// #120 exit criteria: delete from grid AND lightbox → Recently deleted →
+// #120 exit criteria: Move to Trash from grid AND lightbox → Trash →
 // restore → back with favorite/status intact. Purge lands with #121.
 test('soft delete: grid + lightbox routes, trash restore keeps state intact', async () => {
   const userData = mkE2eTmpDir('overlook-e2e-trash-');
@@ -35,46 +35,46 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     // Favorite photo 1 so restore can prove state survives the round-trip.
     await page.evaluate(`window.overlook.library.toggleFavorite({ id: '01J8SEEDPHOTO0001' })`);
 
-    // Grid route: select tile 1 → pill Delete → toast + counts move.
+    // Grid route: select tile 1 → pill Move to Trash → toast + counts move.
     await page.locator('.ovl-grid__cell').nth(1).hover();
     await page.locator('.ovl-tile__select').nth(1).click();
-    // Scoped to the pill: the "Recently deleted" sidebar row also matches
-    // a bare 'Delete' name query.
-    await page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' }).click();
-    await expect(page.getByRole('status')).toContainText('Moved 1 photo to Recently deleted');
-    await expect(page.getByRole('button', { name: 'Recently deleted 1' })).toBeVisible();
+    await page.getByTestId('selection-pill').getByRole('button', { name: 'Move to Trash' }).click();
+    await expect(page.getByRole('status')).toContainText('Moved 1 photo to Trash');
+    await expect(page.getByRole('button', { name: 'Trash 1' })).toBeVisible();
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(2);
 
-    // Lightbox route: open the first remaining photo, Delete — the row
+    // Lightbox route: open the first remaining photo, Move to Trash — the row
     // leaves the visible set, which closes the lightbox.
     await page.locator('.ovl-grid__cell').first().click();
     await expect(page.getByTestId('lightbox')).toBeVisible();
-    await page.getByTestId('lightbox').getByRole('button', { name: 'Delete' }).click();
+    await page.getByTestId('lightbox').getByRole('button', { name: 'Move to Trash' }).click();
     await expect(page.getByTestId('lightbox')).not.toBeVisible();
-    await expect(page.getByRole('button', { name: 'Recently deleted 2' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Trash 2' })).toBeVisible();
 
-    // Trash shows both; the pill flips to Restore + the destructive Delete
+    // Trash shows both; the pill exposes restore and permanent deletion
     // (#121's purge ceremony — no Export here).
-    await page.getByRole('button', { name: 'Recently deleted 2' }).click();
+    await page.getByRole('button', { name: 'Trash 2' }).click();
     // Wait for REAL tiles, not placeholder cells — ⌘A reads loaded photos
     // (the #189 cold-start rule applies to source switches too).
     await expect(page.locator('.ovl-tile__img')).toHaveCount(2);
     await page.keyboard.press('ControlOrMeta+a');
     await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
-    await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible();
-    await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' })).toBeVisible();
+    await expect(page.getByText('Items in Trash are deleted permanently after 30 days.')).toBeVisible();
+    await expect(page.getByText('Deletes permanently in 30 days').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Restore from Trash' })).toBeVisible();
+    await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Delete permanently…' })).toBeVisible();
     await expect(page.getByTestId('selection-pill').getByRole('button', { name: 'Export' })).toHaveCount(0);
 
-    // The in-trash lightbox offers no Delete either (PR #218 review) —
+    // The in-trash lightbox offers no Move to Trash either (PR #218 review) —
     // an already-deleted row's action is Restore, purge is #121.
     await page.locator('.ovl-grid__cell').first().click();
     await expect(page.getByTestId('lightbox')).toBeVisible();
-    await expect(page.getByTestId('lightbox').getByRole('button', { name: 'Delete' })).toHaveCount(0);
+    await expect(page.getByTestId('lightbox').getByRole('button', { name: 'Move to Trash' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('lightbox')).not.toBeVisible();
 
     // Restore both: favorite came back intact, trash empties.
-    await page.getByRole('button', { name: 'Restore' }).click();
+    await page.getByRole('button', { name: 'Restore from Trash' }).click();
     await expect(page.getByRole('status')).toContainText('Restored 2 photos');
     await page.getByRole('button', { name: /All Photos/u }).click();
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(3);
@@ -82,7 +82,7 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
       `window.overlook.library.get({ id: '01J8SEEDPHOTO0001' }).then((r) => r.photo?.favorite ?? false)`,
     );
     expect(favorite).toBe(true);
-    await expect(page.getByRole('button', { name: 'Recently deleted 0' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Trash 0' })).toBeVisible();
   } finally {
     await app.close();
   }
@@ -125,7 +125,7 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     expect(before).toBeGreaterThan(0);
 
     await page.evaluate(`window.overlook.library.delete({ photoIds: ['${target?.id ?? ''}'] })`);
-    await page.getByRole('button', { name: 'Recently deleted 1' }).click();
+    await page.getByRole('button', { name: 'Trash 1' }).click();
     // Gate ⌘A on the TRASH page having actually landed in state — a lone
     // tile can also match a half-decoded previous source under load, and
     // select-all reads state.photos (the "Delete 2 photos" screenshot).
@@ -134,16 +134,23 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     await page.keyboard.press('ControlOrMeta+a');
     await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
 
-    // The ceremony: red Delete in the pill → confirm dialog with the exact
+    // A stale or direct renderer cannot bypass the main-process ceremony.
+    const rejectedWithoutAuthorization = await page.evaluate<boolean>(
+      `window.overlook.library.purge({ photoIds: ['${target?.id ?? ''}'] }).then(() => false, () => true)`,
+    );
+    expect(rejectedWithoutAuthorization).toBe(true);
+
+    // The ceremony: permanent delete in the pill → exact-count dialog →
     // count → the destructive button.
-    await page.getByTestId('selection-pill').getByRole('button', { name: 'Delete' }).click();
-    const confirm = page.getByRole('dialog', { name: 'Delete photos' });
-    await expect(confirm).toContainText('This can’t be undone.');
-    await confirm.getByRole('button', { name: 'Delete 1 photo' }).click();
-    await expect(page.getByRole('status')).toContainText('Deleted 1 photo');
+    await page.getByTestId('selection-pill').getByRole('button', { name: 'Delete permanently…' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Delete 1 photo permanently?' });
+    await expect(confirm).toContainText('Cloud deletion failures are recorded and retried');
+    await expect(confirm).toContainText('This cannot be undone.');
+    await confirm.getByRole('button', { name: 'Delete permanently' }).click();
+    await expect(page.getByRole('status')).toContainText('Deleted 1 photo permanently');
 
     // All three copies are gone; the library keeps browsing.
-    await expect(page.getByRole('button', { name: 'Recently deleted 0' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Trash 0' })).toBeVisible();
     expect(fileCount(remoteBlobs)).toBe(before - 1);
     expect(existsSync(remotePath(target?.contentHash ?? ''))).toBe(false);
     const stillListed = await page.evaluate<boolean>(

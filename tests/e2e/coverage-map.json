@@ -837,6 +837,18 @@
         {
           "type": "unit-dom",
           "path": "tests/library/purge-service.test.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/library/trash-contract.test.ts"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/ipc/registry.test.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/PurgeConfirm.stories.tsx"
         }
       ]
     },

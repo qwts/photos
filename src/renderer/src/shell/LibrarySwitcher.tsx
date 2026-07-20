@@ -12,6 +12,7 @@ import { Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { IconButton } from '../components/IconButton';
 import { MoveLibraryDialog } from './MoveLibraryDialog';
+import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 // Library Switcher (#386, ADR-0017): view, switch, create, and manage the
 // registered libraries. Switching hands off to the main process (#385) which
@@ -261,7 +262,7 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
               Cancel
             </Button>
             <Button onClick={confirmRemove} disabled={removing} data-testid="remove-confirm">
-              {removing ? 'Removing…' : 'Remove from list'}
+              {removing ? 'Removing…' : destructiveActions.removeLibraryFromList.label}
             </Button>
           </>
         }
@@ -269,7 +270,7 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
         <p className="ovl-libswitch__remove-copy">This only removes the library from Overlook’s list here.</p>
         <div className="ovl-libswitch__reassure">
           <Icon name="shield-check" size={16} color="var(--accent-green)" />
-          <span>Nothing is deleted. Your encrypted files stay on disk.</span>
+          <span>{destructiveActions.removeLibraryFromList.survival}</span>
         </div>
         <div className="mono-data ovl-libswitch__remove-path">{removeTarget.path}</div>
       </Dialog>
@@ -416,7 +417,7 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
                 {lib.open ? null : (
                   <IconButton
                     icon="trash-2"
-                    label={`Remove ${lib.name} from list`}
+                    label={`${destructiveActions.removeLibraryFromList.label}: ${lib.name}`}
                     size="sm"
                     onClick={() => {
                       setRefusal(null);

@@ -101,8 +101,8 @@ ratchet culture.
 
 ## Amendments
 
-- **2026-07-12 (#69):** `photos.deleted_at TEXT NULL` added to schema v1 —
-  the design's "Recently deleted" sidebar source needs a deletion marker the
+- **2026-07-12 (#69, renamed by #534):** `photos.deleted_at TEXT NULL` added to schema v1 —
+  the Trash sidebar source needs a deletion marker the
   original draft omitted; counts-by-source treats `deleted_at IS NOT NULL`
   as the deleted set. Soft-delete/restore semantics arrive with M10.
 - **2026-07-16 (#326):** schema v7 and the protected-domain store add durable

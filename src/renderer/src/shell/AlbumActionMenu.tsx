@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactElement } from 'react';
 
 import type { AlbumSummary } from '../../../shared/library/types.js';
 import { Icon } from '../components/Icon';
+import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 export interface AlbumActionMenuProps {
   readonly album: AlbumSummary;
@@ -82,7 +83,7 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, o
         }}
       >
         <Icon name="trash-2" size={14} />
-        Delete album…
+        {destructiveActions.deleteAlbum.label}…
       </button>
       <button type="button" role="menuitem" onClick={onTransfer}>
         <Icon name="refresh-cw" size={14} />
