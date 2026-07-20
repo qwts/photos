@@ -27,8 +27,10 @@ export function useGlobalKeys(): void {
         return;
       }
       // Lightbox mode (#93): ←/→ step the visible sequence with wraparound.
-      // No click-to-focus needed — the listener lives on window.
+      // A zoomed viewport prevents the event first when that axis can pan (#449).
+      // No click-to-focus needed — both listeners live on window.
       if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && state.lightboxId !== null && !inField && !anyDialogOpen) {
+        if (event.defaultPrevented) return;
         event.preventDefault();
         dispatch({ type: 'lightbox/stepped', delta: event.key === 'ArrowRight' ? 1 : -1 });
       }

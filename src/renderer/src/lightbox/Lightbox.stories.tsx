@@ -363,6 +363,25 @@ export const KeyboardZoom: Story = {
   },
 };
 
+export const KeyboardPanWhenZoomed: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
+    await userEvent.click(canvas.getByRole('button', { name: 'Fit image (0)' }));
+    await userEvent.keyboard('+');
+    await expect(viewport).toHaveAttribute('data-mode', 'custom');
+
+    await userEvent.keyboard('{ArrowRight}{ArrowDown}');
+    await waitFor(() => expect(Number(viewport.dataset['panX'])).toBeLessThan(0));
+    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
+
+    await userEvent.keyboard('{ArrowLeft}{ArrowUp}');
+    await waitFor(() => expect(viewport).toHaveAttribute('data-pan-x', '0.0'));
+    await waitFor(() => expect(viewport).toHaveAttribute('data-pan-y', '0.0'));
+  },
+};
+
 export const OrientationToolbar: Story = {
   args: {
     photo: { ...PHOTO, width: 960, height: 1280, fileName: 'PORTRAIT.JPG' },
