@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createCipheriv, createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DAY = new Date().toISOString().slice(0, 10);
 const CHUNK_BYTES = 4 * 1024 * 1024;
+const FIXTURE_TIME = new Date('2000-01-01T00:00:00.000Z');
 const BENCHMARK_KEY = createHash('sha256').update('Overlook cold-storage benchmark only').digest();
 
 const fixtureGroups = {
@@ -45,12 +46,11 @@ function commandVersion(command, args) {
   if (result.error !== undefined || result.status !== 0) {
     throw new Error(`${command} is required for the cold-storage benchmark`);
   }
-  return (
-    `${result.stdout}${result.stderr}`
-      .split('\n')
-      .find((line) => line.trim() !== '')
-      ?.trim() ?? command
-  );
+  const lines = `${result.stdout}${result.stderr}`
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  return lines.find((line) => /(?:\bversion\b|\b(?:un)?zip\s+\d|\bv\d|\bbsdtar\b)/iu.test(line)) ?? lines[0] ?? command;
 }
 
 function runTimed(command, args, cwd) {
@@ -119,6 +119,7 @@ function stageCorpus(root, files, representation) {
     const destination = path.join(root, name);
     if (representation === 'plaintext') copyFileSync(source, destination);
     else writeFileSync(destination, envelope(readFileSync(source), relativePath));
+    utimesSync(destination, FIXTURE_TIME, FIXTURE_TIME);
     staged.push({ name, source: relativePath, bytes: statSync(destination).size });
   }
   return staged;
@@ -189,6 +190,7 @@ function trial(corpus, representation, method, files, root) {
   const inputBytes = staged.reduce((sum, file) => sum + file.bytes, 0);
   const measured = method === 'tar-zstd-3' ? tarZstdArchive(work, staged) : zipArchive(work, staged, method === 'format-aware-zip');
   const archiveBytes = statSync(measured.archive).size;
+  const peaks = [measured.pack.peakRssBytes, measured.unpack.peakRssBytes].filter((value) => value !== null);
   return {
     corpus,
     representation,
@@ -199,7 +201,9 @@ function trial(corpus, representation, method, files, root) {
     savingsPercent: round((1 - archiveBytes / inputBytes) * 100),
     packMs: round(measured.pack.elapsedMs),
     unpackMs: round(measured.unpack.elapsedMs),
-    peakRssBytes: measured.pack.peakRssBytes,
+    packPeakRssBytes: measured.pack.peakRssBytes,
+    unpackPeakRssBytes: measured.unpack.peakRssBytes,
+    peakRssBytes: peaks.length === 0 ? null : Math.max(...peaks),
   };
 }
 
