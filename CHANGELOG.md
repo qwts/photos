@@ -1,5 +1,11 @@
 # photos
 
+## 0.36.3
+
+### Patch Changes
+
+- aa975db: Reserve monotonic AES-GCM envelope nonce prefixes for each versioned library key so large libraries cannot reuse a random 64-bit prefix.
+
 ## 0.36.2
 
 ### Patch Changes
