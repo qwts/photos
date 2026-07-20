@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fireEvent, fn, userEvent, waitFor, within } from 'storybook/test';
 
@@ -274,7 +275,7 @@ export const LegacyUnknownDimensionsRepairOnDecode: Story = {
     const viewport = canvas.getByTestId('lightbox-viewport');
     await waitFor(() => expect(viewport).toHaveAttribute('data-image-width', '960'));
     await expect(viewport).toHaveAttribute('data-image-height', '1280');
-    await expect(canvas.getByRole('img', { name: 'LEGACY-ZERO.JPG' })).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole('img', { name: 'LEGACY-ZERO.JPG' })).toBeVisible());
     await expect(args.onRepairDimensions).toHaveBeenCalledWith(960, 1280);
   },
 };
@@ -287,7 +288,51 @@ export const UndecodablePreviewIsExplicit: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await waitFor(() => expect(canvas.getByText('PREVIEW UNAVAILABLE')).toBeVisible());
+    await expect(canvas.getByTestId('lightbox-viewport')).toHaveAttribute('data-load-state', 'error');
     await expect(canvas.getByTestId('lightbox-viewport')).toHaveAttribute('data-unavailable', 'true');
+  },
+};
+
+function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+  let resolvePromise: (() => void) | undefined;
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: () => resolvePromise?.() };
+}
+
+function DelayedDecodeHarness(args: LightboxProps): ReactElement {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const gate = useMemo(() => deferred(), []);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const image = rootRef.current?.querySelector('img');
+    if (root === null || image === null || image === undefined) return;
+    Object.defineProperty(image, 'decode', { configurable: true, value: () => gate.promise });
+    const release = (): void => gate.resolve();
+    root.addEventListener('overlook-release-decode', release);
+    return () => root.removeEventListener('overlook-release-decode', release);
+  }, [gate]);
+  return (
+    <div ref={rootRef} data-testid="delayed-decode-harness" style={{ display: 'contents' }}>
+      <Lightbox {...args} />
+    </div>
+  );
+}
+
+export const DelayedDecodeShowsStableLoadingState: Story = {
+  render: (args) => <DelayedDecodeHarness {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewport = canvas.getByTestId('lightbox-viewport');
+    const image = canvas.getByRole('img', { name: PHOTO.fileName });
+    await expect(viewport).toHaveAttribute('data-load-state', 'loading');
+    await expect(image).not.toBeVisible();
+    await waitFor(() => expect(canvas.getByText('Loading full-resolution image…')).toBeVisible());
+    canvas.getByTestId('delayed-decode-harness').dispatchEvent(new Event('overlook-release-decode'));
+    await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
+    await waitFor(() => expect(image).toBeVisible());
+    await expect(canvas.queryByText('Loading full-resolution image…')).not.toBeInTheDocument();
   },
 };
 

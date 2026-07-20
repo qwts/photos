@@ -131,7 +131,7 @@ export function Lightbox({
       onBlurCapture={armTimer}
     >
       <LightboxViewport
-        key={photo.id}
+        key={`${photo.id}:${suppressRehydrate ? 'synced' : photo.syncState}:${imageSrc ?? ''}`}
         photo={photo}
         viewIntent={viewIntent}
         onViewIntentChange={setViewIntent}

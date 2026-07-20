@@ -160,6 +160,7 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   const carriedPanY = Number(await viewport.getAttribute('data-pan-y'));
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
+  await expect(viewport).toHaveAttribute('data-load-state', 'decoded');
   await expect(viewport).toHaveAttribute('data-mode', 'custom');
   await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   expect(Math.sign(Number(await viewport.getAttribute('data-pan-y')))).toBe(Math.sign(carriedPanY));
@@ -186,6 +187,7 @@ test('lightbox transform: fill, focal zoom, clamped pan, and navigation persiste
 
     const viewport = page.getByTestId('lightbox-viewport');
     const image = viewport.getByRole('img');
+    await expect(viewport).toHaveAttribute('data-load-state', 'decoded');
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
     await exerciseOrientationControls(page, viewport);
@@ -194,6 +196,7 @@ test('lightbox transform: fill, focal zoom, clamped pan, and navigation persiste
 
     await page.keyboard.press('Escape');
     await page.locator('.ovl-grid__cell').first().click();
+    await expect(viewport).toHaveAttribute('data-load-state', 'decoded');
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
   } finally {

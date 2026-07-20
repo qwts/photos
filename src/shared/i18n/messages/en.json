@@ -221,6 +221,9 @@
   "libswitch.move.selected": {
     "defaultMessage": "Move {count} selected…"
   },
+  "lightbox.image.loading": {
+    "defaultMessage": "Loading full-resolution image…"
+  },
   "preview.unavailable": {
     "defaultMessage": "PREVIEW UNAVAILABLE"
   },

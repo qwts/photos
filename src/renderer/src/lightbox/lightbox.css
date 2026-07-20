@@ -26,17 +26,56 @@
 .ovl-lightbox__img {
   max-width: none;
   max-height: none;
+  opacity: 0;
   object-fit: fill;
-  pointer-events: auto;
+  pointer-events: none;
   user-select: none;
   will-change: transform;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+.ovl-lightbox__img--decoded {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ovl-lightbox__loading,
+.ovl-lightbox__unavailable {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: oklch(0.1 0.005 250 / 0.78);
+  font: var(--type-meta);
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(12px);
+}
+
+.ovl-lightbox__loading {
+  color: var(--text-muted);
+}
+
+.ovl-lightbox__loading-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border-subtle);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: ovl-lightbox-loading-spin 800ms linear infinite;
 }
 
 .ovl-lightbox__unavailable {
-  position: absolute;
   color: var(--accent-red);
-  font: var(--type-meta);
-  letter-spacing: 0.04em;
+}
+
+@keyframes ovl-lightbox-loading-spin {
+  to {
+    rotate: 1turn;
+  }
 }
 
 .ovl-lightbox__gesture-hint {
@@ -254,6 +293,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ovl-lightbox__img {
+    transition: none;
+  }
+
+  .ovl-lightbox__loading-spinner {
+    animation: none;
+  }
+
   .ovl-lightbox__gesture-hint {
     animation: none;
   }
