@@ -1,4 +1,5 @@
 import {
+  assertNoPendingRelocation,
   discardRelocation,
   RelocationError,
   finishRelocationCleanup,
@@ -77,6 +78,12 @@ export class RelocationRuntime {
     const entry = this.options.engineDeps.registry.get(id);
     if (entry === undefined) {
       return { ok: false, reason: 'io-error', detail: `library ${id} is not registered` };
+    }
+    try {
+      assertNoPendingRelocation(this.options.engineDeps, id);
+    } catch (error) {
+      if (error instanceof RelocationError) return { ok: false, reason: error.reason, detail: error.message };
+      throw error;
     }
     const sourcePath = entry.path;
     const isActive = this.options.active.openLibraryId() === id;

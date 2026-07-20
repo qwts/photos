@@ -114,6 +114,20 @@ export interface ResumeRelocationOptions {
   readonly onProgress?: (progress: RelocationProgress) => void;
 }
 
+/** A live journal owns the library's next relocation action. Fresh moves must
+ * not overwrite it: doing so would orphan marker-bound staging that only the
+ * journal can safely resume or discard. */
+export function assertNoPendingRelocation(deps: RelocationDeps, libraryId: string): void {
+  try {
+    if (deps.journals.load(libraryId) !== null) {
+      throw new RelocationError('move-in-progress', `library ${libraryId} has a pending move; resume or discard it first`);
+    }
+  } catch (error) {
+    if (error instanceof RelocationError) throw error;
+    throw new RelocationError('journal-corrupt', error instanceof Error ? error.message : String(error));
+  }
+}
+
 const defaultRmrf = (target: string): Promise<void> => rm(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
 
 function opsOf(deps: RelocationDeps): { rename: typeof rename; rmrf: (target: string) => Promise<void> } {
@@ -447,6 +461,7 @@ async function commitAndCleanup(
 export async function relocateLibrary(deps: RelocationDeps, options: RelocateOptions): Promise<RelocationResult> {
   const entry = deps.registry.get(options.libraryId);
   if (entry === undefined) throw new RelocationError('io-error', `library ${options.libraryId} is not registered`);
+  assertNoPendingRelocation(deps, options.libraryId);
   const ops = opsOf(deps);
 
   let release: () => void;
