@@ -86,6 +86,9 @@
   "favorite.remove": {
     "defaultMessage": "Remove from Favorites"
   },
+  "grid.regionLabel": {
+    "defaultMessage": "Photos"
+  },
   "import.move.complete": {
     "defaultMessage": "{moved} moved · {retained} retained after encrypted custody verification."
   },
@@ -565,6 +568,9 @@
   },
   "settings.transfer.status": {
     "defaultMessage": "Not paired · provider not connected"
+  },
+  "shell.skipToPhotos": {
+    "defaultMessage": "Skip to photos"
   },
   "sidebar.album.actions": {
     "defaultMessage": "Actions for {name}"
