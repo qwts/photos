@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { initialWindowBehavior, resolveE2EWindowMode, shouldShowInitialWindow } from '../../src/main/e2e-window-visibility.js';
+import {
+  initialWindowBehavior,
+  requestNativeWindowAttention,
+  resolveE2EWindowMode,
+  shouldShowInitialWindow,
+} from '../../src/main/e2e-window-visibility.js';
 import { configurePerfEnvironment } from '../perf/global-setup.js';
 
 test('E2E window mode hides local macOS only', () => {
@@ -27,6 +32,45 @@ test('hidden E2E windows disable background throttling without changing producti
     show: true,
     backgroundThrottling: true,
   });
+});
+
+test('hidden E2E windows reject native attention without suppressing visible modes', () => {
+  const calls: string[] = [];
+  const target = {
+    isMinimized: () => true,
+    restore: () => calls.push('restore'),
+    isVisible: () => false,
+    show: () => calls.push('show'),
+    focus: () => calls.push('focus'),
+  };
+
+  requestNativeWindowAttention(target, { packaged: false, harness: '1', mode: 'hidden' });
+  assert.deepEqual(calls, []);
+
+  requestNativeWindowAttention(target, { packaged: false, harness: '1', mode: 'visible' });
+  assert.deepEqual(calls, ['restore', 'show', 'focus']);
+});
+
+test('packaged and ordinary app windows always accept native attention', () => {
+  for (const input of [
+    { packaged: true, harness: '1', mode: 'hidden' },
+    { packaged: false, harness: undefined, mode: 'hidden' },
+  ]) {
+    let focused = false;
+    requestNativeWindowAttention(
+      {
+        isMinimized: () => false,
+        restore: () => assert.fail('a restored window was not minimized'),
+        isVisible: () => true,
+        show: () => assert.fail('a visible window was shown again'),
+        focus: () => {
+          focused = true;
+        },
+      },
+      input,
+    );
+    assert.equal(focused, true);
+  }
 });
 
 test('the performance lane explicitly measures a visible window', () => {

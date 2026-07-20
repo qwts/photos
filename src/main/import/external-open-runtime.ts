@@ -3,6 +3,7 @@ import { app, BrowserWindow } from 'electron';
 import { events } from '../../shared/ipc/channels.js';
 import { createEmitter } from '../../shared/ipc/registry.js';
 import { createWindow } from '../app-window.js';
+import { requestNativeWindowAttention } from '../e2e-window-visibility.js';
 import { commandLineOpenPaths, ExternalOpenIntake } from './external-open-intake.js';
 
 export interface ExternalOpenRuntime {
@@ -55,9 +56,11 @@ export function createExternalOpenRuntime(options: ExternalOpenRuntimeOptions = 
       if (runtimeReady) openPrimaryWindow();
       return;
     }
-    if (win.isMinimized()) win.restore();
-    if (!win.isVisible()) win.show();
-    win.focus();
+    requestNativeWindowAttention(win, {
+      packaged: app.isPackaged,
+      harness: process.env['OVERLOOK_E2E'],
+      mode: process.env['OVERLOOK_E2E_WINDOW'],
+    });
   };
 
   if (primaryInstance) {
