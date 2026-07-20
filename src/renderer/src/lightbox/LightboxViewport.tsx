@@ -9,27 +9,30 @@ import { IconButton } from '../components/IconButton';
 import { previewFailureLabel } from '../components/previewFailureLabel';
 import {
   DEFAULT_ORIENTATION,
+  DEFAULT_VIEW_INTENT,
   clampTransform,
   fillZoom,
   fitSize,
   orientedSize,
   panBy,
-  resizeTransform,
   rotateOrientation,
+  transformToViewIntent,
+  viewIntentToTransform,
   zoomAround,
   type LightboxOrientation,
   type LightboxSize,
-  type LightboxTransform,
+  type LightboxViewIntent,
   type LightboxZoomMode,
 } from './geometry.js';
 
-const FIT: LightboxTransform = { zoom: 1, x: 0, y: 0 };
 const HINT_STORAGE_KEY = 'overlook.lightbox-gestures-seen';
 const HINT_MS = 5500;
 const KEYBOARD_ZOOM_STEP = 1.25;
 
 interface LightboxViewportProps {
   readonly photo: PhotoRecord;
+  readonly viewIntent: LightboxViewIntent;
+  readonly onViewIntentChange: (intent: LightboxViewIntent) => void;
   readonly suppressRehydrate: boolean;
   readonly imageSrc?: string | undefined;
   readonly chromeVisible: boolean;
@@ -61,6 +64,8 @@ function wheelPixels(value: number, mode: number, viewportAxis: number): number 
 
 export function LightboxViewport({
   photo,
+  viewIntent,
+  onViewIntentChange,
   suppressRehydrate,
   imageSrc,
   chromeVisible,
@@ -70,15 +75,15 @@ export function LightboxViewport({
   const intl = useIntl();
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<LightboxSize>({ width: 0, height: 0 });
-  const [transform, setTransform] = useState<LightboxTransform>(FIT);
   const [orientation, setOrientation] = useState<LightboxOrientation>(DEFAULT_ORIENTATION);
-  const [mode, setMode] = useState<LightboxZoomMode>('fit');
   const [showHint, setShowHint] = useState(shouldShowHint);
   const [decoded, setDecoded] = useState<LightboxSize | null>(null);
   const [decodeFailed, setDecodeFailed] = useState(false);
   const image = useMemo(() => decoded ?? { width: photo.width, height: photo.height }, [decoded, photo.height, photo.width]);
   const orientedImage = useMemo(() => orientedSize(image, orientation), [image, orientation]);
   const fitted = fitSize(orientedImage, viewport);
+  const transform = viewIntentToTransform(viewIntent, orientedImage, viewport);
+  const mode = viewIntent.mode;
   const elementSize = orientedSize(fitted, orientation);
   const toolbarTop = Math.max(64, Math.min((viewport.height + fitted.height) / 2 - 8, viewport.height - 92));
   const chromeClass = chromeVisible ? ' ovl-lightbox__chrome--on' : '';
@@ -90,13 +95,12 @@ export function LightboxViewport({
       if (entry === undefined) return;
       const next = { width: entry.contentRect.width, height: entry.contentRect.height };
       setViewport(next);
-      setTransform((current) => resizeTransform(current, mode, orientedImage, next));
     });
     observer.observe(element);
     return () => {
       observer.disconnect();
     };
-  }, [mode, orientedImage]);
+  }, []);
 
   useEffect(() => {
     if (!showHint) return;
@@ -110,22 +114,21 @@ export function LightboxViewport({
   }, [showHint]);
 
   const resetView = useCallback(() => {
-    setTransform(FIT);
-    setMode('fit');
+    onViewIntentChange(DEFAULT_VIEW_INTENT);
     onActivity();
-  }, [onActivity]);
+  }, [onActivity, onViewIntentChange]);
 
   const applyOrientation = useCallback(
     (next: LightboxOrientation) => {
       const axesChanged = next.quarterTurns % 2 !== orientation.quarterTurns % 2;
       const nextFitted = fitSize(orientedSize(image, next), viewport);
-      setTransform((current) => clampTransform(current, nextFitted, viewport));
-      if (axesChanged && mode === 'fill') setMode('custom');
+      const nextMode: LightboxZoomMode = axesChanged && mode === 'fill' ? 'custom' : mode;
+      onViewIntentChange(transformToViewIntent(clampTransform(transform, nextFitted, viewport), nextMode, nextFitted, viewport));
       setOrientation(next);
       setShowHint(false);
       onActivity();
     },
-    [image, mode, onActivity, orientation.quarterTurns, viewport],
+    [image, mode, onActivity, onViewIntentChange, orientation.quarterTurns, transform, viewport],
   );
 
   const rotateBy = useCallback(
@@ -145,14 +148,12 @@ export function LightboxViewport({
 
   const zoomBy = useCallback(
     (factor: number) => {
-      setTransform((current) =>
-        zoomAround(current, current.zoom * factor, { x: viewport.width / 2, y: viewport.height / 2 }, fitted, viewport),
-      );
-      setMode('custom');
+      const next = zoomAround(transform, transform.zoom * factor, { x: viewport.width / 2, y: viewport.height / 2 }, fitted, viewport);
+      onViewIntentChange(transformToViewIntent(next, 'custom', fitted, viewport));
       setShowHint(false);
       onActivity();
     },
-    [fitted, onActivity, viewport],
+    [fitted, onActivity, onViewIntentChange, transform, viewport],
   );
 
   useEffect(() => {
@@ -194,8 +195,7 @@ export function LightboxViewport({
       resetView();
       return;
     }
-    setTransform({ zoom: fillZoom(orientedImage, viewport), x: 0, y: 0 });
-    setMode('fill');
+    onViewIntentChange({ mode: 'fill', zoom: fillZoom(orientedImage, viewport), panX: 0, panY: 0 });
     setShowHint(false);
     onActivity();
   };
@@ -210,14 +210,19 @@ export function LightboxViewport({
         x: bounds === undefined ? viewport.width / 2 : event.clientX - bounds.left,
         y: bounds === undefined ? viewport.height / 2 : event.clientY - bounds.top,
       };
-      setTransform((current) => zoomAround(current, current.zoom * Math.exp(-deltaY * 0.002), focal, fitted, viewport));
-      setMode('custom');
+      const next = zoomAround(transform, transform.zoom * Math.exp(-deltaY * 0.002), focal, fitted, viewport);
+      onViewIntentChange(transformToViewIntent(next, 'custom', fitted, viewport));
       setShowHint(false);
     } else {
-      setTransform((current) => panBy(current, { x: -deltaX, y: -deltaY }, fitted, viewport));
+      const next = panBy(transform, { x: -deltaX, y: -deltaY }, fitted, viewport);
+      onViewIntentChange(transformToViewIntent(next, mode, fitted, viewport));
     }
     onActivity();
   };
+
+  useEffect(() => {
+    if (decodeFailed) onViewIntentChange(DEFAULT_VIEW_INTENT);
+  }, [decodeFailed, onViewIntentChange]);
 
   const onImageLoad = (event: SyntheticEvent<HTMLImageElement>): void => {
     const width = event.currentTarget.naturalWidth;

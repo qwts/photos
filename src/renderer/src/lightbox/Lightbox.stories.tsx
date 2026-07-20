@@ -187,6 +187,54 @@ export const LandscapeFillCoversWidescreenAndPans: Story = {
   },
 };
 
+export const NavigationPreservesViewIntentAndCloseResets: Story = {
+  render: () => <NavigationTransformHarness />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    let viewport = canvas.getByTestId('lightbox-viewport');
+    const landscape = canvas.getByRole('img', { name: 'IMG_4028.JPG' });
+    await waitFor(() => expect(landscape).toHaveProperty('naturalWidth', 1280));
+    await userEvent.click(canvas.getByRole('button', { name: 'Zoom in (+)' }));
+    await fireEvent.wheel(landscape, { deltaY: 5000 });
+    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
+    await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Next (→)' }));
+    await waitFor(() => expect(canvas.getByRole('img', { name: 'PORTRAIT.JPG' })).toBeVisible());
+    viewport = canvas.getByTestId('lightbox-viewport');
+    await expect(viewport).toHaveAttribute('data-mode', 'custom');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.250');
+    await expect(Number(viewport.dataset['panY'])).toBeLessThan(0);
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Close (Esc)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Reopen full view' }));
+    viewport = canvas.getByTestId('lightbox-viewport');
+    await expect(viewport).toHaveAttribute('data-mode', 'fit');
+    await expect(viewport).toHaveAttribute('data-zoom', '1.000');
+  },
+};
+
+export const FillNavigationRecomputesOneAxisOverflow: Story = {
+  render: () => <FillNavigationHarness />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    let viewport = canvas.getByTestId('lightbox-viewport');
+    let image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
+    await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
+    await userEvent.dblClick(image);
+    await expect(viewport).toHaveAttribute('data-mode', 'fill');
+    await expectOneAxisOverflow(viewport, image, 'vertical');
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Next (→)' }));
+    await waitFor(() => expect(canvas.getByRole('img', { name: 'IMG_4028.JPG' })).toBeVisible());
+    viewport = canvas.getByTestId('lightbox-viewport');
+    image = canvas.getByRole('img', { name: 'IMG_4028.JPG' });
+    await expect(viewport).toHaveAttribute('data-mode', 'fill');
+    await expectOneAxisOverflow(viewport, image, 'horizontal');
+  },
+};
+
 export const LegacyUnknownDimensionsRepairOnDecode: Story = {
   args: {
     photo: { ...PHOTO, width: 0, height: 0, fileName: 'LEGACY-ZERO.JPG' },
@@ -342,6 +390,70 @@ function OffloadTransitionHarness(args: LightboxProps) {
       onOffload={() => setOffloading(true)}
     />
   );
+}
+
+function NavigationTransformHarness() {
+  const [open, setOpen] = useState(true);
+  const [index, setIndex] = useState(0);
+  if (!open) return <button onClick={() => setOpen(true)}>Reopen full view</button>;
+  const photos = [PHOTO, { ...PHOTO, id: '01J8SEEDPHOTO0002', fileName: 'PORTRAIT.JPG', width: 960, height: 1280 }];
+  const photo = photos[index] ?? PHOTO;
+  return (
+    <Lightbox
+      photo={photo}
+      imageSrc={index === 0 ? landscapePhoto : portraitPhoto}
+      onClose={() => setOpen(false)}
+      onPrev={() => setIndex((current) => (current + photos.length - 1) % photos.length)}
+      onNext={() => setIndex((current) => (current + 1) % photos.length)}
+      onToggleFavorite={fn()}
+      inspectorOpen={false}
+      onToggleInspector={fn()}
+      onExport={fn()}
+      onTransfer={fn()}
+      onOffload={fn()}
+      onRepairDimensions={fn()}
+      onDelete={fn()}
+    />
+  );
+}
+
+function FillNavigationHarness() {
+  const [index, setIndex] = useState(0);
+  const photos = [{ ...PHOTO, id: '01J8SEEDPHOTO0002', fileName: 'PORTRAIT.JPG', width: 960, height: 1280 }, PHOTO];
+  const photo = photos[index] ?? PHOTO;
+  return (
+    <Lightbox
+      photo={photo}
+      imageSrc={index === 0 ? portraitPhoto : landscapePhoto}
+      onClose={fn()}
+      onPrev={() => setIndex((current) => (current + photos.length - 1) % photos.length)}
+      onNext={() => setIndex((current) => (current + 1) % photos.length)}
+      onToggleFavorite={fn()}
+      inspectorOpen={false}
+      onToggleInspector={fn()}
+      onExport={fn()}
+      onTransfer={fn()}
+      onOffload={fn()}
+      onRepairDimensions={fn()}
+      onDelete={fn()}
+    />
+  );
+}
+
+async function expectOneAxisOverflow(viewport: HTMLElement, image: HTMLElement, axis: 'horizontal' | 'vertical'): Promise<void> {
+  await waitFor(async () => {
+    const viewportBounds = viewport.getBoundingClientRect();
+    const imageBounds = image.getBoundingClientRect();
+    const horizontal = imageBounds.width - viewportBounds.width;
+    const vertical = imageBounds.height - viewportBounds.height;
+    if (axis === 'horizontal') {
+      await expect(horizontal).toBeGreaterThan(1);
+      await expect(Math.abs(vertical)).toBeLessThanOrEqual(1);
+    } else {
+      await expect(vertical).toBeGreaterThan(1);
+      await expect(Math.abs(horizontal)).toBeLessThanOrEqual(1);
+    }
+  });
 }
 
 export const OffloadSuppressionBlocksFetch: Story = {

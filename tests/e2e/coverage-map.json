@@ -217,7 +217,7 @@
         },
         {
           "type": "manual",
-          "reason": "Physical macOS trackpad inertia and two-finger delta feel cannot be reproduced faithfully by Playwright wheel events; verify Option-scroll focal zoom and two-axis pan in the packaged app."
+          "reason": "docs/acceptance/acceptance-test-full-display-image.md covers physical macOS trackpad inertia, image-first chrome, cross-aspect-ratio focal continuity, Inspector geometry, and reset boundaries that Playwright cannot reproduce faithfully."
         }
       ]
     },

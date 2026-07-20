@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { LightboxViewport } from './LightboxViewport';
+import { DEFAULT_VIEW_INTENT } from './geometry.js';
 import { useLightboxChrome } from './use-lightbox-chrome';
 
 import './lightbox.css';
@@ -74,6 +75,7 @@ export function Lightbox({
     readonly photoId: string;
     readonly stage: 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
   } | null>(null);
+  const [viewIntent, setViewIntent] = useState(DEFAULT_VIEW_INTENT);
   const { chrome, rootRef, armTimer, wakeChrome, startClickGesture, trackClickGesture, cancelClickGesture, hideForImageClick } =
     useLightboxChrome(photo.id);
 
@@ -129,6 +131,8 @@ export function Lightbox({
       <LightboxViewport
         key={photo.id}
         photo={photo}
+        viewIntent={viewIntent}
+        onViewIntentChange={setViewIntent}
         suppressRehydrate={suppressRehydrate}
         imageSrc={imageSrc}
         chromeVisible={chrome}
