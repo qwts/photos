@@ -1,5 +1,14 @@
 # photos
 
+## 0.35.2
+
+### Patch Changes
+
+- 486360e: Resume interrupted library moves after verifying staged files instead of restarting large copies from zero.
+- d748815: Prevent a fresh library move from orphaning an interrupted move's resumable staged copy.
+- 4fe704f: Allow dragging the lightbox window from blank toolbar space while keeping its controls interactive.
+- 932251d: Preserve lightbox zoom, fill, and normalized pan while navigating between photos.
+
 ## 0.35.1
 
 ### Patch Changes
