@@ -6,6 +6,11 @@
 export const en: Readonly<Record<string, string>> = {
   "favorite.add": "Add to Favorites",
   "favorite.remove": "Remove from Favorites",
+  "import.move.complete": "{moved} moved · {retained} retained after encrypted custody verification.",
+  "import.move.consent": "I understand verified source files will be deleted and unverified files will be retained.",
+  "import.move.warning.drop": "Each imported original will be deleted from its original folder only after encrypted custody and decrypt/hash verification. Folders and unrelated files stay.",
+  "import.move.warning.folder": "Each imported original will be deleted from this folder only after encrypted custody and decrypt/hash verification. The folder and unrelated files stay.",
+  "import.move.warning.sd": "Each imported original will be deleted from the card only after encrypted custody and decrypt/hash verification.",
   "inspector.file.dimensionMismatch": "DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA",
   "inspector.file.metadata": "Metadata",
   "libmove.badge.active": "Moving…",

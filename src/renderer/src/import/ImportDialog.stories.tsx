@@ -7,7 +7,7 @@ import type { OverlookApi } from '../../../shared/ipc/api.js';
 
 // #88 exit criteria (sources reworked by #237): pixel/copy match to the
 // mock + interaction coverage for the source picker — SD card / no-card
-// empty state / folder choose / Dropped — and the Move-only-for-SD rule.
+// empty state / folder choose / Dropped — and explicit local Move consent.
 // Phase transitions past "options" need the real engine (#90's E2E). The
 // decorator stubs window.overlook.settings + import discovery.
 
@@ -16,8 +16,8 @@ const FOLDER_SUMMARY = { total: 486, newCount: 486, newBytes: 12_400_000_000, ne
 const DROP_SUMMARY = { total: 2, newCount: 2, newBytes: 61_000_000, newRaw: 1, newJpg: 1, newOther: 0 };
 const DRIVE_SUMMARY = { total: 3, newCount: 2, newBytes: 82_000_000, newRaw: 1, newJpg: 1, newOther: 0 };
 
-function installStub(options?: { readonly noCard?: boolean }): void {
-  let current: AppSettings = { ...defaultSettings };
+function installStub(options?: { readonly noCard?: boolean; readonly importMode?: AppSettings['importMode'] }): void {
+  let current: AppSettings = { ...defaultSettings, importMode: options?.importMode ?? defaultSettings.importMode };
   const settingsApi: OverlookApi['settings'] = {
     get: () => Promise.resolve({ settings: current }),
     set: ({ patch }) => {
@@ -93,8 +93,10 @@ export const MoveWarning: Story = {
       await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
     });
     await userEvent.click(body.getByRole('radio', { name: 'Move' }));
-    // README §5 warning, verbatim.
-    await expect(body.getByRole('alert')).toHaveTextContent('Originals will be deleted from the card after import.');
+    await expect(body.getByRole('alert')).toHaveTextContent(
+      'Each imported original will be deleted from the card only after encrypted custody and decrypt/hash verification.',
+    );
+    await expect(body.getByRole('checkbox', { name: /I understand verified source files/u })).not.toBeChecked();
     await userEvent.click(body.getByRole('radio', { name: 'Copy' }));
     await expect(body.queryByRole('alert')).toBeNull();
   },
@@ -132,9 +134,12 @@ export const FolderFlow: Story = {
     });
     await expect(body.getByText('486 NEW · 12.4 GB · 0 RAW / 486 JPG')).toBeVisible();
     await expect(body.getByRole('button', { name: /Import 486 photos/u })).toBeVisible();
-    // Folder imports never delete sources: Move locked, the note says why.
-    await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();
-    await expect(body.getByText('Imported files are copied — source files are left untouched.')).toBeVisible();
+    await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
+    await userEvent.click(body.getByRole('radio', { name: 'Move' }));
+    await expect(body.getByRole('alert')).toHaveTextContent('The folder and unrelated files stay.');
+    await expect(body.getByRole('button', { name: /Import 486 photos/u })).toBeDisabled();
+    await userEvent.click(body.getByRole('checkbox', { name: /I understand verified source files/u }));
+    await expect(body.getByRole('button', { name: /Import 486 photos/u })).toBeEnabled();
     // Clearing returns to the dropzone.
     await userEvent.click(body.getByRole('button', { name: 'Clear folder' }));
     await expect(body.getByText('Choose a folder to import')).toBeVisible();
@@ -152,9 +157,29 @@ export const DroppedFiles: Story = {
     await expect(body.getByRole('radio', { name: 'Dropped' })).toBeChecked();
     await expect(body.getByText('2 NEW · 61 MB · 1 RAW / 1 JPG')).toBeVisible();
     await expect(body.getByRole('button', { name: /Import 2 photos/u })).toBeVisible();
-    // Dropped imports are copy-only.
-    await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();
-    await expect(body.getByText('Imported files are copied — source files are left untouched.')).toBeVisible();
+    await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
+    await userEvent.click(body.getByRole('radio', { name: 'Move' }));
+    await expect(body.getByRole('alert')).toHaveTextContent('Folders and unrelated files stay.');
+    await expect(body.getByRole('button', { name: /Import 2 photos/u })).toBeDisabled();
+    await userEvent.click(body.getByRole('checkbox', { name: /I understand verified source files/u }));
+    await expect(body.getByRole('button', { name: /Import 2 photos/u })).toBeEnabled();
+  },
+};
+
+export const StoredMoveRequiresFreshConsent: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ importMode: 'move' });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(async () => {
+      await expect(body.getByRole('radio', { name: 'Move' })).toBeChecked();
+    });
+    await expect(body.getByRole('checkbox', { name: /I understand verified source files/u })).not.toBeChecked();
+    await expect(body.getByRole('button', { name: /Import 1,204 photos/u })).toBeDisabled();
   },
 };
 

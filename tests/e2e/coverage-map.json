@@ -1042,6 +1042,10 @@
         {
           "type": "storybook",
           "path": "src/renderer/src/import/ImportDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/import/import-engine.test.ts", "tests/import/import-service.test.ts", "tests/import/source-scanner.test.ts"]
         }
       ]
     },

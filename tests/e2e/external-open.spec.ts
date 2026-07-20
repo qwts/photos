@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -160,8 +160,10 @@ test('P0 #406: 800 Finder paths route into one running window and one import bat
   }
 });
 
-test('P0 #406: a folder path recursively opens as one dropped import source', async () => {
-  const { folder } = makeFolder(3, true);
+test('P0 #406/#489: a dropped folder recursively moves only admitted files after consent', async () => {
+  const { folder, paths } = makeFolder(3, true);
+  const unrelated = join(folder, 'nested', 'notes.txt');
+  copyFileSync(FIXTURE, unrelated);
   const userData = mkE2eTmpDir('overlook-e2e-folder-drop-');
   const app = await electron.launch({
     args: ['.'],
@@ -176,7 +178,15 @@ test('P0 #406: a folder path recursively opens as one dropped import source', as
 
     await expect(page.getByRole('dialog', { name: 'Import photos' })).toBeVisible();
     await expect(page.getByText('3 photos ready to import')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Import 3 photos' })).toBeEnabled();
+    await page.getByRole('radio', { name: 'Move' }).click();
+    await expect(page.getByRole('alert')).toContainText('Folders and unrelated files stay.');
+    await expect(page.getByRole('button', { name: 'Import 3 photos' })).toBeDisabled();
+    await page.getByRole('checkbox', { name: /I understand verified source files/u }).click();
+    await page.getByRole('button', { name: 'Import 3 photos' }).click();
+    await expect(page.getByText('3 moved · 0 retained after encrypted custody verification.')).toBeVisible({ timeout: 30_000 });
+    expect(paths.every((path) => !existsSync(path))).toBe(true);
+    expect(existsSync(join(folder, 'nested'))).toBe(true);
+    expect(existsSync(unrelated)).toBe(true);
     expect(app.windows()).toHaveLength(1);
     await expectNativeAttentionMatchesHarness(app);
   } finally {
