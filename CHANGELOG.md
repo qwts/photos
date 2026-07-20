@@ -1,5 +1,11 @@
 # photos
 
+## 0.36.1
+
+### Patch Changes
+
+- a53f72a: Align the lightbox transform controls with the handoff design across standard and compact window sizes.
+
 ## 0.36.0
 
 ### Minor Changes
