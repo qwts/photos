@@ -57,7 +57,13 @@ const GLOBAL_SURFACES: readonly CommandSurface[] = ['global', 'grid', 'lightbox'
 const label = (id: CommandId, defaultMessage: string): CommandDescriptor['label'] => ({ id: `commands.${id}`, defaultMessage });
 
 export const COMMANDS: readonly CommandDescriptor[] = [
-  { id: 'app.search.focus', label: label('app.search.focus', 'Focus search'), surfaces: GLOBAL_SURFACES, key: 'k', primaryModifier: true },
+  {
+    id: 'app.search.focus',
+    label: label('app.search.focus', 'Focus search'),
+    surfaces: ['global', 'grid'],
+    key: 'k',
+    primaryModifier: true,
+  },
   {
     id: 'selection.selectAll',
     label: label('selection.selectAll', 'Select all photos'),

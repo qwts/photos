@@ -48,7 +48,7 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   const dispatch = useAppDispatch();
   const offload = useOffloadWorkflow();
   const [shortcutSurface, setShortcutSurface] = useState<CommandSurface | null>(null);
-  useCommandDispatcher(platform, setShortcutSurface);
+  useCommandDispatcher(platform, setShortcutSurface, shortcutSurface !== null);
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
   // Window drag-and-drop (#237): dropped photo paths pre-seed the dialog's

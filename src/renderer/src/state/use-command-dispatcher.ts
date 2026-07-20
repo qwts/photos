@@ -16,13 +16,13 @@ function editableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && target.closest('input, textarea, select, [contenteditable="true"]') !== null;
 }
 
-export function useCommandDispatcher(platform: string, onHelp: (surface: CommandSurface) => void): void {
+export function useCommandDispatcher(platform: string, onHelp: (surface: CommandSurface) => void, helpOpen: boolean): void {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const direction = directionOf(useIntl().locale);
 
   useEffect(() => {
-    const dialogOpen = state.importOpen || state.exportOpen || state.settingsOpen || state.librariesOpen;
+    const dialogOpen = helpOpen || state.importOpen || state.exportOpen || state.settingsOpen || state.librariesOpen;
     const surface: CommandSurface = state.lightboxId === null ? 'grid' : 'lightbox';
     const execute = (id: CommandId, event: KeyboardEvent): boolean => {
       switch (id) {
@@ -99,7 +99,7 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [direction, dispatch, onHelp, platform, state]);
+  }, [direction, dispatch, helpOpen, onHelp, platform, state]);
 }
 
 export { commandPlatform };

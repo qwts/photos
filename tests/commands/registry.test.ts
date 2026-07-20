@@ -31,6 +31,7 @@ test('context resolution protects fields and gives the lightbox arrow precedence
   assert.equal(resolveCommand({ key: 'a', metaKey: true }, { ...gridContext, editable: true }), null);
   assert.equal(resolveCommand({ key: 'i' }, { ...gridContext, editable: true }), null);
   assert.equal(resolveCommand({ key: 'ArrowRight' }, { ...gridContext, surface: 'lightbox' })?.id, 'view.lightbox.next');
+  assert.equal(resolveCommand({ key: 'k', metaKey: true }, { ...gridContext, surface: 'lightbox' }), null);
   assert.equal(resolveCommand({ key: 'ArrowRight' }, gridContext)?.id, 'grid.focus.right');
   assert.equal(resolveCommand({ key: 'ArrowRight' }, { ...gridContext, dialogOpen: true }), null);
 });
