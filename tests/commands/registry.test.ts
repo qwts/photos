@@ -26,6 +26,7 @@ test('context resolution protects fields and gives the lightbox arrow precedence
   assert.equal(resolveCommand({ key: 'a', metaKey: true }, gridContext)?.id, 'selection.selectAll');
   assert.equal(resolveCommand({ key: 'i' }, gridContext)?.id, 'view.inspector.toggle');
   assert.equal(resolveCommand({ key: '?' }, gridContext)?.id, 'help.shortcuts');
+  assert.equal(resolveCommand({ key: '/', shiftKey: true }, gridContext)?.id, 'help.shortcuts');
 
   assert.equal(resolveCommand({ key: 'a', metaKey: true }, { ...gridContext, editable: true }), null);
   assert.equal(resolveCommand({ key: 'i' }, { ...gridContext, editable: true }), null);
