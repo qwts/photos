@@ -1,6 +1,12 @@
 import type { KeyboardEvent, MouseEvent, ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { Icon } from './Icon';
+
+const messages = defineMessages({
+  add: { id: 'favorite.add', defaultMessage: 'Add to Favorites' },
+  remove: { id: 'favorite.remove', defaultMessage: 'Remove from Favorites' },
+});
 
 export interface FavoriteButtonProps {
   readonly favorite: boolean;
@@ -10,6 +16,7 @@ export interface FavoriteButtonProps {
 }
 
 export function FavoriteButton({ favorite, pending = false, className, onToggle }: FavoriteButtonProps): ReactElement {
+  const intl = useIntl();
   const stopKeyboardPropagation = (event: KeyboardEvent<HTMLButtonElement>): void => {
     event.stopPropagation();
   };
@@ -20,7 +27,7 @@ export function FavoriteButton({ favorite, pending = false, className, onToggle 
   return (
     <button
       type="button"
-      aria-label={favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+      aria-label={intl.formatMessage(favorite ? messages.remove : messages.add)}
       aria-pressed={favorite}
       aria-busy={pending}
       className={`${className}${favorite ? ` ${className}--active` : ''}`}
