@@ -1,5 +1,12 @@
 # photos
 
+## 0.35.1
+
+### Patch Changes
+
+- 57b75ae: Fix photo tile and list-row controls so open, selection, and status semantics remain accessible.
+- fd7deae: Expand compact sidebar and photo-selection hit areas to the WCAG 2.2 24px minimum without enlarging their visual glyphs.
+
 ## 0.35.0
 
 ### Minor Changes
