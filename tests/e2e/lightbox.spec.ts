@@ -149,6 +149,7 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   await page.keyboard.press('Backslash');
   await page.keyboard.press('+');
   await page.mouse.wheel(0, 5000);
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBeLessThan(0);
   const carriedPanY = Number(await viewport.getAttribute('data-pan-y'));
   await page.keyboard.press('ArrowRight');
   await expect(page.getByTestId('lightbox')).toContainText('IMG_4028.JPG');
