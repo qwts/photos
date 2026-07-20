@@ -224,6 +224,8 @@ export const NavigationPreservesViewIntentAndCloseResets: Story = {
     await fireEvent.wheel(landscape, { deltaY: 5000 });
     await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
     await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+    await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
 
     await userEvent.click(canvas.getByRole('button', { name: 'Next (→)' }));
     await waitFor(() => expect(canvas.getByRole('img', { name: 'PORTRAIT.JPG' })).toBeVisible());
