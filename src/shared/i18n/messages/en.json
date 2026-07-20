@@ -5,6 +5,21 @@
   "favorite.remove": {
     "defaultMessage": "Remove from Favorites"
   },
+  "import.move.complete": {
+    "defaultMessage": "{moved} moved · {retained} retained after encrypted custody verification."
+  },
+  "import.move.consent": {
+    "defaultMessage": "I understand verified source files will be deleted and unverified files will be retained."
+  },
+  "import.move.warning.drop": {
+    "defaultMessage": "Each imported original will be deleted from its original folder only after encrypted custody and decrypt/hash verification. Folders and unrelated files stay."
+  },
+  "import.move.warning.folder": {
+    "defaultMessage": "Each imported original will be deleted from this folder only after encrypted custody and decrypt/hash verification. The folder and unrelated files stay."
+  },
+  "import.move.warning.sd": {
+    "defaultMessage": "Each imported original will be deleted from the card only after encrypted custody and decrypt/hash verification."
+  },
   "inspector.file.dimensionMismatch": {
     "defaultMessage": "DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA"
   },

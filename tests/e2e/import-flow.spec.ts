@@ -137,9 +137,11 @@ test('Move import: warning shown, sources emptied only after verified import', a
     const page = await app.firstWindow();
     await page.getByRole('button', { name: 'Import', exact: true }).click();
     await page.getByRole('radio', { name: 'Move' }).click();
-    await expect(page.getByRole('alert')).toContainText('Originals will be deleted from the card after import.');
+    await expect(page.getByRole('alert')).toContainText('only after encrypted custody and decrypt/hash verification');
+    await expect(page.getByRole('button', { name: 'Import 3 photos' })).toBeDisabled();
+    await page.getByRole('checkbox', { name: /I understand verified source files/u }).click();
     await page.getByRole('button', { name: 'Import 3 photos' }).click();
-    await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('3 moved · 0 retained after encrypted custody verification.')).toBeVisible({ timeout: 30_000 });
 
     // Every file verified (decrypt + re-hash) before its source was removed.
     expect(readdirSync(card)).toEqual([]);
@@ -185,7 +187,7 @@ test('RAW matrix: every accepted extension imports with a visible tile and light
   }
 });
 
-test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for folders', async () => {
+test('Folder Move (#489): explicit consent, verified per-file deletion, and folder preservation', async () => {
   const folder = makeCard();
   const userData = mkE2eTmpDir('overlook-e2e-import-');
   const app = await electron.launch({
@@ -210,24 +212,17 @@ test('Folder import (#237): picker seam, forced Copy, pipeline rejects Move for 
     await expect(page.getByText(folder)).toBeVisible();
     await expect(page.getByText('3 NEW ·')).toBeVisible();
 
-    // Folder imports never delete a user's own files: Move is locked in the
-    // UI with the design's note...
-    await expect(page.getByRole('radio', { name: 'Move' })).toBeDisabled();
-    await expect(page.getByText('Imported files are copied — source files are left untouched.')).toBeVisible();
-    // ...and the pipeline refuses it outright even if the UI is bypassed.
-    const rejected = await page.evaluate<string>(
-      `window.overlook.import.run({ path: ${JSON.stringify(folder)}, mode: 'move' }).then(() => 'resolved', (e) => String(e))`,
-    );
-    expect(rejected).toContain('IPC_HANDLER_FAILED');
-    expect(rejected).not.toContain('Move is only available for removable volumes');
-
+    await page.getByRole('radio', { name: 'Move' }).click();
+    await expect(page.getByRole('alert')).toContainText('The folder and unrelated files stay.');
+    await expect(page.getByRole('button', { name: 'Import 3 photos' })).toBeDisabled();
+    await page.getByRole('checkbox', { name: /I understand verified source files/u }).click();
     await page.getByRole('button', { name: 'Import 3 photos' }).click();
-    await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('3 moved · 0 retained after encrypted custody verification.')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Show in library' }).click();
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(3);
 
-    // Copy semantics held: the source folder is untouched.
-    expect(readdirSync(folder).sort()).toEqual([...CARD_FILES].sort());
+    expect(readdirSync(folder)).toEqual([]);
+    expect(existsSync(folder)).toBe(true);
   } finally {
     await app.close();
   }

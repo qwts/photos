@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { Button } from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
@@ -11,13 +12,37 @@ import { useFormats } from '../i18n/use-formats.js';
 
 import './import.css';
 
+const messages = defineMessages({
+  moveWarningSd: {
+    id: 'import.move.warning.sd',
+    defaultMessage: 'Each imported original will be deleted from the card only after encrypted custody and decrypt/hash verification.',
+  },
+  moveWarningFolder: {
+    id: 'import.move.warning.folder',
+    defaultMessage:
+      'Each imported original will be deleted from this folder only after encrypted custody and decrypt/hash verification. The folder and unrelated files stay.',
+  },
+  moveWarningDrop: {
+    id: 'import.move.warning.drop',
+    defaultMessage:
+      'Each imported original will be deleted from its original folder only after encrypted custody and decrypt/hash verification. Folders and unrelated files stay.',
+  },
+  moveConsent: {
+    id: 'import.move.consent',
+    defaultMessage: 'I understand verified source files will be deleted and unverified files will be retained.',
+  },
+  moveComplete: {
+    id: 'import.move.complete',
+    defaultMessage: '{moved} moved · {retained} retained after encrypted custody verification.',
+  },
+});
+
 // ImportDialog (#88, sources reworked by #237): the design's 440px import
 // flow over the real engine. A segmented source picker — SD card / Local
 // folder, plus Dropped when the window drop opened the dialog — feeds the
-// same options → running (two aggregate bars) → done flow. Move is offered
-// ONLY for the SD card; folder and dropped imports force Copy so the app
-// never deletes a user's own files (the service enforces it again). The
-// host mounts a fresh instance per invocation, so state needs no reset.
+// same options → running (two aggregate bars) → done flow. Local sources may
+// Move through the verified per-file cleanup path, with a fresh confirmation
+// every time; Google Drive remains Copy-only (#489).
 
 export type ImportSourceKind = 'sd' | 'folder' | 'drop' | 'google-drive';
 
@@ -92,9 +117,11 @@ interface Bar {
 }
 
 export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, onComplete }: ImportDialogProps): ReactElement | null {
+  const intl = useIntl();
   const { formatBytes, formatCount } = useFormats();
   const [phase, setPhase] = useState<Phase>('options');
   const [mode, setMode] = useState<'copy' | 'move'>('copy');
+  const [moveConfirmed, setMoveConfirmed] = useState(false);
   const [source, setSource] = useState<ImportSourceKind>(dropped === null ? 'sd' : 'drop');
   const [sd, setSd] = useState<SdState>({ status: 'scanning' });
   const [folder, setFolder] = useState<FolderState>({ status: 'empty' });
@@ -111,12 +138,13 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
     if (dropped !== null) {
       setSource('drop');
       setDrop({ status: 'scanning' });
+      setMoveConfirmed(false);
     }
   }
 
   // "On import" is the SAME setting as Settings → Storage & Backup (#114):
-  // the dialog opens with the stored preference and a change here persists
-  // back — the host mounts a fresh instance per invocation.
+  // changes persist back. A stored Move preference never silently arms
+  // deletion on a fresh dialog: Move always requires a new confirmation.
   useEffect(() => {
     void window.overlook.settings.get().then(({ settings }) => {
       setMode(settings.importMode);
@@ -124,6 +152,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
   }, []);
   const chooseMode = (importMode: 'copy' | 'move'): void => {
     setMode(importMode);
+    setMoveConfirmed(false);
     void window.overlook.settings.set({ patch: { importMode } }).catch(() => undefined);
   };
 
@@ -253,6 +282,9 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
   const [copyBar, setCopyBar] = useState<Bar>({ done: 0, total: 0 });
   const [thumbBar, setThumbBar] = useState<Bar>({ done: 0, total: 0 });
   const [imported, setImported] = useState(0);
+  const [moved, setMoved] = useState(0);
+  const [retained, setRetained] = useState(0);
+  const [duplicates, setDuplicates] = useState(0);
   const [failed, setFailed] = useState(0);
   const [runError, setRunError] = useState(false);
   const [cancelled, setCancelled] = useState(0);
@@ -279,8 +311,9 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
   }
 
   const usingSd = source === 'sd';
-  const moveAllowed = usingSd; // never delete a user's own files (#237)
+  const moveAllowed = source !== 'google-drive';
   const importMode = moveAllowed ? mode : 'copy';
+  const moveReady = importMode !== 'move' || moveConfirmed;
   const activeSummary =
     source === 'google-drive'
       ? googleDrive.status === 'ready'
@@ -322,7 +355,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
           ? window.overlook.import.runGoogleDrive({ selectionId: googleDrive.selectionId })
           : Promise.reject(new Error('Google Drive selection is unavailable'))
         : source === 'drop'
-          ? window.overlook.import.run({ files: [...(dropped ?? [])], mode: 'copy' })
+          ? window.overlook.import.run({ files: [...(dropped ?? [])], mode: importMode })
           : window.overlook.import.run({
               path: source === 'sd' ? (sd.status === 'ready' ? sd.path : '') : folder.status === 'ready' ? folder.path : '',
               mode: importMode,
@@ -330,10 +363,13 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
     void run
       .then((summary) => {
         setImported(summary.imported);
+        setMoved(summary.moved);
+        setRetained(summary.retained);
+        setDuplicates(summary.duplicates);
         setFailed(summary.failed);
         setCancelled(summary.cancelled);
         setPhase('done');
-        if (summary.failed === 0 && summary.cancelled === 0) {
+        if (summary.failed === 0 && summary.cancelled === 0 && (importMode === 'copy' || summary.retained === 0)) {
           setCleanCount(summary.imported);
         }
       })
@@ -369,7 +405,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
             >
               Cancel
             </Button>
-            <Button variant="primary" icon="download" disabled={!available} onClick={start}>
+            <Button variant="primary" icon="download" disabled={!available || !moveReady} onClick={start}>
               {available ? `Import ${formatCount(total)} photos` : 'Import'}
             </Button>
           </>
@@ -404,7 +440,10 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
             <Segmented
               label="Import from"
               value={source}
-              onChange={setSource}
+              onChange={(nextSource) => {
+                setSource(nextSource);
+                setMoveConfirmed(false);
+              }}
               options={[
                 ...(dropped === null ? [] : [{ value: 'drop' as const, icon: 'image' as const, label: 'Dropped' }]),
                 { value: 'sd' as const, icon: 'hard-drive' as const, label: 'SD card' },
@@ -503,6 +542,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
                     className="ovl-import__link"
                     onClick={() => {
                       setSource('folder');
+                      setMoveConfirmed(false);
                     }}
                   >
                     Local folder
@@ -552,11 +592,18 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
               ]}
             />
           </div>
-          {usingSd && mode === 'move' ? (
+          {moveAllowed && mode === 'move' ? (
             <div className="ovl-import__warning mono-data" role="alert">
               <Icon name="triangle-alert" size={12} />
-              Originals will be deleted from the card after import.
+              {usingSd
+                ? intl.formatMessage(messages.moveWarningSd)
+                : source === 'folder'
+                  ? intl.formatMessage(messages.moveWarningFolder)
+                  : intl.formatMessage(messages.moveWarningDrop)}
             </div>
+          ) : null}
+          {moveAllowed && mode === 'move' ? (
+            <Checkbox checked={moveConfirmed} onChange={setMoveConfirmed} label={intl.formatMessage(messages.moveConsent)} />
           ) : !moveAllowed ? (
             <div className="ovl-import__note mono-data">
               <Icon name="info" size={12} />
@@ -587,16 +634,23 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
             detail={`${formatCount(thumbBar.done)} / ${formatCount(thumbBar.total)}`}
           />
           {phase === 'done' ? (
-            runError || failed > 0 || cancelled > 0 ? (
+            runError || failed > 0 || cancelled > 0 || (importMode === 'move' && retained > 0) ? (
               <div className="ovl-import__failed" role="alert">
                 <Icon name="triangle-alert" size={15} />
                 {runError
                   ? 'Import failed — nothing was deleted from the source. Check the source and try again.'
                   : `${[
                       `${formatCount(imported)} imported`,
+                      ...(importMode === 'move' ? [`${formatCount(moved)} moved`, `${formatCount(retained)} retained`] : []),
+                      ...(duplicates > 0 ? [`${formatCount(duplicates)} duplicate${duplicates === 1 ? '' : 's'}`] : []),
                       ...(failed > 0 ? [`${formatCount(failed)} failed`] : []),
                       ...(cancelled > 0 ? [`${formatCount(cancelled)} cancelled`] : []),
-                    ].join(' · ')} — everything not imported was kept on the source.`}
+                    ].join(' · ')} — every retained source remains untouched.`}
+              </div>
+            ) : importMode === 'move' ? (
+              <div className="ovl-import__done">
+                <Icon name="shield-check" size={15} />
+                {intl.formatMessage(messages.moveComplete, { moved: formatCount(moved), retained: formatCount(retained) })}
               </div>
             ) : (
               <div className="ovl-import__done">
