@@ -126,13 +126,20 @@ export const ActionStaysUntilUsed: Story = {
 };
 
 function PausableToastDemo(): ReactElement {
-  const [toasts, setToasts] = useState<readonly ToastItem[]>([{ id: 'pause', title: 'Import complete' }]);
-  return <ToastHost toasts={toasts} autoDismissMs={400} onDismiss={() => setToasts([])} />;
+  const [toasts, setToasts] = useState<readonly ToastItem[]>([]);
+  return (
+    <>
+      <Button onClick={() => setToasts([{ id: 'pause', title: 'Import complete' }])}>Show notification</Button>
+      <ToastHost toasts={toasts} autoDismissMs={400} onDismiss={() => setToasts([])} />
+    </>
+  );
 }
 
 export const HoverPausesDismissal: Story = {
   render: () => <PausableToastDemo />,
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Show notification' }));
     const toast = canvasElement.querySelector('.ovl-toast');
     await expect(toast).toBeInTheDocument();
     if (toast === null) return;
@@ -148,6 +155,7 @@ export const FocusPausesDismissal: Story = {
   render: () => <PausableToastDemo />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Show notification' }));
     const dismiss = canvas.getByRole('button', { name: 'Dismiss notification' });
     dismiss.focus();
     await new Promise((resolve) => setTimeout(resolve, 600));
