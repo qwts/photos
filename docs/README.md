@@ -36,6 +36,7 @@ existing links resolve — never add content there.
 - [Full-display image acceptance](./acceptance/acceptance-test-full-display-image.md) — image-first chrome, transform persistence, and reset boundaries
 - [Overlook Library Format v1](./Library-Format-v1.md) — the on-disk format: layout, key hierarchy, envelope, recovery file, SQLCipher parameters
 - [Spike — Multi-Platform Port](./Spike-Multi-Platform-Port.md) — iOS/iPadOS/tvOS/visionOS/Android/Windows feasibility; findings only, no decision
+- [Application Menu Exposure Policy](./Application-Menu-Exposure-Policy.md) — command eligibility matrix, native hierarchy, shortcut policy, and implementation sequence
 
 ## Maintenance Convention
 

@@ -100,9 +100,11 @@ this file in the same PR as the change — never after the fact.
 
 ## Product Invariants
 
-_None yet — the app has no product surface. As photos takes shape, the
-highest-stakes rules (data model, storage, privacy) are recorded here and, where
-possible, enforced as executable checks._
+- All application commands project from the typed shared registry governed by
+  [ADR-0024](docs/adr/ADR-0024-Shared-Command-Registry-And-Application-Menu.md).
+  Native menus, shortcuts, context menus, toolbars, and Quick Actions may show
+  different subsets, but must not duplicate command identity, labels,
+  enablement policy, shortcuts, or execution paths.
 
 ## Branch And GitHub Hygiene
 
