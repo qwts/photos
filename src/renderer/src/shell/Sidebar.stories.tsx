@@ -114,6 +114,9 @@ export const Expanded: Story = {
     await expect(storage).not.toBeNull();
     await expect(offloadRow.scrollWidth).toBeLessThanOrEqual(storage?.clientWidth ?? 0);
     await expect(canvas.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
+    const newAlbum = canvas.getByRole('button', { name: 'New album' });
+    await expect(newAlbum.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
+    await expect(newAlbum.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
   },
 };
 

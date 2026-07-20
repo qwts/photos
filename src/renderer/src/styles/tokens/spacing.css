@@ -31,6 +31,7 @@
   --inspector-w: 280px;
 
   /* Controls */
+  --interactive-target-min: 24px; /* WCAG 2.2 SC 2.5.8 */
   --control-h-sm: 24px;
   --control-h-md: 28px;
   --control-h-lg: 34px;

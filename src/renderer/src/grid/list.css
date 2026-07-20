@@ -22,18 +22,33 @@
 }
 
 .ovl-listrow__select {
-  width: 16px;
-  height: 16px;
+  position: relative;
+  width: var(--interactive-target-min);
+  height: var(--interactive-target-min);
+  margin-inline: -4px;
   border-radius: 50%;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid var(--border-2);
+  border: 0;
   padding: 0;
   cursor: pointer;
   opacity: 0;
+}
+
+.ovl-listrow__select::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--border-2);
+}
+
+.ovl-listrow__select > svg {
+  position: relative;
 }
 
 .ovl-listrow:hover .ovl-listrow__select,
@@ -43,6 +58,10 @@
 }
 
 .ovl-listrow__select--selected {
+  background: transparent;
+}
+
+.ovl-listrow__select--selected::before {
   background: var(--accent-cyan);
   border-color: transparent;
 }

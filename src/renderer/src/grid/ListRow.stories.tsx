@@ -78,6 +78,8 @@ export const ClickTargetsAreIndependent: Story = {
     const canvas = within(canvasElement);
     const row = await canvas.findByRole('button', { name: 'Open IMG_4021.JPG' });
     const circle = within(row).getByRole('button', { name: 'Select' });
+    await expect(circle.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
+    await expect(circle.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
     await userEvent.click(circle);
     await expect(onToggle).toHaveBeenCalledTimes(1);
     await expect(onOpen).not.toHaveBeenCalled();
