@@ -1,17 +1,19 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-20T21:55:53.550Z",
-  "sourceRevision": "9e2404b630cf60e509c3332b232c551d75c99a58",
+  "generatedAt": "2026-07-20T22:03:38.621Z",
+  "sourceRevision": "c56b2efdddae4eb333eea72ddb20b473c5abb308",
   "environment": {
     "platform": "darwin",
     "arch": "arm64",
     "node": "v24.18.0",
-    "zip": "Copyright (c) 1990-2008 Info-ZIP - Type 'zip \"-L\"' for software license.",
+    "zip": "This is Zip 3.0 (July 5th 2008), by Info-ZIP, with modifications by Apple Inc.",
     "tar": "bsdtar 3.5.3 - libarchive 3.7.4 zlib/1.2.12 liblzma/5.4.3 bz2lib/1.0.8",
     "zstd": "*** Zstandard CLI (64-bit) v1.5.7, by Yann Collet ***"
   },
   "fixturePolicy": {
-    "excluded": ["tests/fixtures/exif/corrupt.jpg"],
+    "excluded": [
+      "tests/fixtures/exif/corrupt.jpg"
+    ],
     "note": "Checked-in licensed fixtures only; exact duplicate copies are excluded because the BlobStore already deduplicates by plaintext SHA-256."
   },
   "corpora": {
@@ -23,9 +25,17 @@
       "tests/fixtures/exif/exif-full.jpg",
       "tests/fixtures/exif/exif-stripped.jpg"
     ],
-    "heic": ["tests/fixtures/heic/iphone-13-pro.heic", "tests/fixtures/heic/iphone-xr.heic"],
-    "raw": ["tests/fixtures/exif/sample.raf"],
-    "sidecar": ["tests/fixtures/photos/manifest.json", "tests/fixtures/heic/provenance.json"],
+    "heic": [
+      "tests/fixtures/heic/iphone-13-pro.heic",
+      "tests/fixtures/heic/iphone-xr.heic"
+    ],
+    "raw": [
+      "tests/fixtures/exif/sample.raf"
+    ],
+    "sidecar": [
+      "tests/fixtures/photos/manifest.json",
+      "tests/fixtures/heic/provenance.json"
+    ],
     "mixed": [
       "tests/fixtures/photos/flower-landscape.jpg",
       "tests/fixtures/photos/street-city.jpg",
@@ -49,9 +59,11 @@
       "inputBytes": 1451358,
       "archiveBytes": 1447454,
       "savingsPercent": 0.27,
-      "packMs": 35.19,
-      "unpackMs": 14.36,
-      "peakRssBytes": 1818624
+      "packMs": 33.4,
+      "unpackMs": 13.18,
+      "packPeakRssBytes": 1818624,
+      "unpackPeakRssBytes": 2555904,
+      "peakRssBytes": 2555904
     },
     {
       "corpus": "jpeg",
@@ -59,11 +71,13 @@
       "method": "tar-zstd-3",
       "files": 6,
       "inputBytes": 1451358,
-      "archiveBytes": 1291712,
+      "archiveBytes": 1291637,
       "savingsPercent": 11,
-      "packMs": 20.15,
-      "unpackMs": 16.12,
-      "peakRssBytes": 8683520
+      "packMs": 17.13,
+      "unpackMs": 13.82,
+      "packPeakRssBytes": 8699904,
+      "unpackPeakRssBytes": 6684672,
+      "peakRssBytes": 8699904
     },
     {
       "corpus": "jpeg",
@@ -73,9 +87,11 @@
       "inputBytes": 1451358,
       "archiveBytes": 1452644,
       "savingsPercent": -0.09,
-      "packMs": 9.03,
-      "unpackMs": 12.22,
-      "peakRssBytes": 1589248
+      "packMs": 8.35,
+      "unpackMs": 11.02,
+      "packPeakRssBytes": 1589248,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "jpeg",
@@ -85,9 +101,11 @@
       "inputBytes": 1451610,
       "archiveBytes": 1453186,
       "savingsPercent": -0.11,
-      "packMs": 30.71,
-      "unpackMs": 12.76,
-      "peakRssBytes": 1818624
+      "packMs": 28.37,
+      "unpackMs": 11.32,
+      "packPeakRssBytes": 1818624,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "jpeg",
@@ -95,10 +113,12 @@
       "method": "tar-zstd-3",
       "files": 6,
       "inputBytes": 1451610,
-      "archiveBytes": 1454617,
-      "savingsPercent": -0.21,
-      "packMs": 19.25,
-      "unpackMs": 16.53,
+      "archiveBytes": 1454480,
+      "savingsPercent": -0.2,
+      "packMs": 16.45,
+      "unpackMs": 13.72,
+      "packPeakRssBytes": 8880128,
+      "unpackPeakRssBytes": 6586368,
       "peakRssBytes": 8880128
     },
     {
@@ -109,9 +129,11 @@
       "inputBytes": 1451610,
       "archiveBytes": 1452956,
       "savingsPercent": -0.09,
-      "packMs": 9.75,
-      "unpackMs": 12.78,
-      "peakRssBytes": 1589248
+      "packMs": 8.44,
+      "unpackMs": 11.11,
+      "packPeakRssBytes": 1589248,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "heic",
@@ -121,9 +143,11 @@
       "inputBytes": 1590302,
       "archiveBytes": 1585857,
       "savingsPercent": 0.28,
-      "packMs": 34.86,
-      "unpackMs": 12.71,
-      "peakRssBytes": 1802240
+      "packMs": 31.6,
+      "unpackMs": 11.27,
+      "packPeakRssBytes": 1802240,
+      "unpackPeakRssBytes": 2523136,
+      "peakRssBytes": 2523136
     },
     {
       "corpus": "heic",
@@ -131,11 +155,13 @@
       "method": "tar-zstd-3",
       "files": 2,
       "inputBytes": 1590302,
-      "archiveBytes": 1584524,
-      "savingsPercent": 0.36,
-      "packMs": 16.19,
-      "unpackMs": 12.94,
-      "peakRssBytes": 9289728
+      "archiveBytes": 1584487,
+      "savingsPercent": 0.37,
+      "packMs": 14.51,
+      "unpackMs": 11.77,
+      "packPeakRssBytes": 9306112,
+      "unpackPeakRssBytes": 6733824,
+      "peakRssBytes": 9306112
     },
     {
       "corpus": "heic",
@@ -145,9 +171,11 @@
       "inputBytes": 1590302,
       "archiveBytes": 1590736,
       "savingsPercent": -0.03,
-      "packMs": 9.33,
-      "unpackMs": 12.08,
-      "peakRssBytes": 1572864
+      "packMs": 8.54,
+      "unpackMs": 11.08,
+      "packPeakRssBytes": 1572864,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "heic",
@@ -157,9 +185,11 @@
       "inputBytes": 1590386,
       "archiveBytes": 1591090,
       "savingsPercent": -0.04,
-      "packMs": 33.77,
-      "unpackMs": 12.61,
-      "peakRssBytes": 1802240
+      "packMs": 30.88,
+      "unpackMs": 11.18,
+      "packPeakRssBytes": 1802240,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "heic",
@@ -167,11 +197,13 @@
       "method": "tar-zstd-3",
       "files": 2,
       "inputBytes": 1590386,
-      "archiveBytes": 1591411,
+      "archiveBytes": 1591371,
       "savingsPercent": -0.06,
-      "packMs": 16.97,
-      "unpackMs": 13.08,
-      "peakRssBytes": 9306112
+      "packMs": 14.6,
+      "unpackMs": 11.79,
+      "packPeakRssBytes": 9322496,
+      "unpackPeakRssBytes": 6635520,
+      "peakRssBytes": 9322496
     },
     {
       "corpus": "heic",
@@ -181,9 +213,11 @@
       "inputBytes": 1590386,
       "archiveBytes": 1590840,
       "savingsPercent": -0.03,
-      "packMs": 9.39,
-      "unpackMs": 13.08,
-      "peakRssBytes": 1572864
+      "packMs": 8.51,
+      "unpackMs": 11.1,
+      "packPeakRssBytes": 1572864,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "raw",
@@ -193,9 +227,11 @@
       "inputBytes": 125645,
       "archiveBytes": 123471,
       "savingsPercent": 1.73,
-      "packMs": 8.07,
-      "unpackMs": 5.4,
-      "peakRssBytes": 1802240
+      "packMs": 6.4,
+      "unpackMs": 4.51,
+      "packPeakRssBytes": 1785856,
+      "unpackPeakRssBytes": 2539520,
+      "peakRssBytes": 2539520
     },
     {
       "corpus": "raw",
@@ -203,10 +239,12 @@
       "method": "tar-zstd-3",
       "files": 1,
       "inputBytes": 125645,
-      "archiveBytes": 124894,
-      "savingsPercent": 0.6,
-      "packMs": 13.61,
-      "unpackMs": 12.1,
+      "archiveBytes": 124865,
+      "savingsPercent": 0.62,
+      "packMs": 11.67,
+      "unpackMs": 9.9,
+      "packPeakRssBytes": 3424256,
+      "unpackPeakRssBytes": 3375104,
       "peakRssBytes": 3424256
     },
     {
@@ -217,9 +255,11 @@
       "inputBytes": 125645,
       "archiveBytes": 125861,
       "savingsPercent": -0.17,
-      "packMs": 5.24,
-      "unpackMs": 5.27,
-      "peakRssBytes": 1572864
+      "packMs": 4.5,
+      "unpackMs": 4.95,
+      "packPeakRssBytes": 1572864,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "raw",
@@ -229,9 +269,11 @@
       "inputBytes": 125687,
       "archiveBytes": 125933,
       "savingsPercent": -0.2,
-      "packMs": 6.87,
-      "unpackMs": 5.2,
-      "peakRssBytes": 1802240
+      "packMs": 6.64,
+      "unpackMs": 4.97,
+      "packPeakRssBytes": 1802240,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "raw",
@@ -239,10 +281,12 @@
       "method": "tar-zstd-3",
       "files": 1,
       "inputBytes": 125687,
-      "archiveBytes": 126175,
-      "savingsPercent": -0.39,
-      "packMs": 13.21,
-      "unpackMs": 11.08,
+      "archiveBytes": 126148,
+      "savingsPercent": -0.37,
+      "packMs": 12.57,
+      "unpackMs": 11.07,
+      "packPeakRssBytes": 3424256,
+      "unpackPeakRssBytes": 3375104,
       "peakRssBytes": 3424256
     },
     {
@@ -253,9 +297,11 @@
       "inputBytes": 125687,
       "archiveBytes": 125913,
       "savingsPercent": -0.18,
-      "packMs": 4.67,
-      "unpackMs": 4.68,
-      "peakRssBytes": 1556480
+      "packMs": 4.59,
+      "unpackMs": 4.59,
+      "packPeakRssBytes": 1572864,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "sidecar",
@@ -265,9 +311,11 @@
       "inputBytes": 8640,
       "archiveBytes": 2043,
       "savingsPercent": 76.35,
-      "packMs": 4.48,
-      "unpackMs": 4.32,
-      "peakRssBytes": 1703936
+      "packMs": 4.27,
+      "unpackMs": 4.1,
+      "packPeakRssBytes": 1703936,
+      "unpackPeakRssBytes": 2523136,
+      "peakRssBytes": 2523136
     },
     {
       "corpus": "sidecar",
@@ -275,10 +323,12 @@
       "method": "tar-zstd-3",
       "files": 2,
       "inputBytes": 8640,
-      "archiveBytes": 1967,
-      "savingsPercent": 77.23,
-      "packMs": 12.49,
-      "unpackMs": 11.35,
+      "archiveBytes": 1942,
+      "savingsPercent": 77.52,
+      "packMs": 11.45,
+      "unpackMs": 10.42,
+      "packPeakRssBytes": 3407872,
+      "unpackPeakRssBytes": 3375104,
       "peakRssBytes": 3407872
     },
     {
@@ -289,9 +339,11 @@
       "inputBytes": 8640,
       "archiveBytes": 2043,
       "savingsPercent": 76.35,
-      "packMs": 5.19,
-      "unpackMs": 4.92,
-      "peakRssBytes": 1720320
+      "packMs": 4.15,
+      "unpackMs": 3.99,
+      "packPeakRssBytes": 1703936,
+      "unpackPeakRssBytes": 2523136,
+      "peakRssBytes": 2523136
     },
     {
       "corpus": "sidecar",
@@ -301,9 +353,11 @@
       "inputBytes": 8724,
       "archiveBytes": 9174,
       "savingsPercent": -5.16,
-      "packMs": 5.26,
-      "unpackMs": 5.03,
-      "peakRssBytes": 1703936
+      "packMs": 4.01,
+      "unpackMs": 4.01,
+      "packPeakRssBytes": 1703936,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "sidecar",
@@ -311,10 +365,12 @@
       "method": "tar-zstd-3",
       "files": 2,
       "inputBytes": 8724,
-      "archiveBytes": 9193,
-      "savingsPercent": -5.38,
-      "packMs": 14.18,
-      "unpackMs": 11.97,
+      "archiveBytes": 9154,
+      "savingsPercent": -4.93,
+      "packMs": 11.38,
+      "unpackMs": 10.16,
+      "packPeakRssBytes": 3407872,
+      "unpackPeakRssBytes": 3391488,
       "peakRssBytes": 3407872
     },
     {
@@ -325,9 +381,11 @@
       "inputBytes": 8724,
       "archiveBytes": 9174,
       "savingsPercent": -5.16,
-      "packMs": 4.64,
-      "unpackMs": 4.48,
-      "peakRssBytes": 1572864
+      "packMs": 4,
+      "unpackMs": 3.94,
+      "packPeakRssBytes": 1572864,
+      "unpackPeakRssBytes": 2490368,
+      "peakRssBytes": 2490368
     },
     {
       "corpus": "mixed",
@@ -337,9 +395,11 @@
       "inputBytes": 3175945,
       "archiveBytes": 3158759,
       "savingsPercent": 0.54,
-      "packMs": 68.98,
-      "unpackMs": 24.61,
-      "peakRssBytes": 1851392
+      "packMs": 63.15,
+      "unpackMs": 21.51,
+      "packPeakRssBytes": 1851392,
+      "unpackPeakRssBytes": 2572288,
+      "peakRssBytes": 2572288
     },
     {
       "corpus": "mixed",
@@ -347,11 +407,13 @@
       "method": "tar-zstd-3",
       "files": 11,
       "inputBytes": 3175945,
-      "archiveBytes": 2990974,
-      "savingsPercent": 5.82,
-      "packMs": 25.6,
-      "unpackMs": 20.95,
-      "peakRssBytes": 12304384
+      "archiveBytes": 2990840,
+      "savingsPercent": 5.83,
+      "packMs": 21.67,
+      "unpackMs": 16.95,
+      "packPeakRssBytes": 12288000,
+      "unpackPeakRssBytes": 7880704,
+      "peakRssBytes": 12288000
     },
     {
       "corpus": "mixed",
@@ -361,9 +423,11 @@
       "inputBytes": 3175945,
       "archiveBytes": 3171218,
       "savingsPercent": 0.15,
-      "packMs": 24.22,
-      "unpackMs": 21.74,
-      "peakRssBytes": 1818624
+      "packMs": 20.61,
+      "unpackMs": 20.07,
+      "packPeakRssBytes": 1818624,
+      "unpackPeakRssBytes": 2523136,
+      "peakRssBytes": 2523136
     },
     {
       "corpus": "mixed",
@@ -373,9 +437,11 @@
       "inputBytes": 3176407,
       "archiveBytes": 3179317,
       "savingsPercent": -0.09,
-      "packMs": 64.91,
-      "unpackMs": 22.38,
-      "peakRssBytes": 1851392
+      "packMs": 60.16,
+      "unpackMs": 19.96,
+      "packPeakRssBytes": 1835008,
+      "unpackPeakRssBytes": 2506752,
+      "peakRssBytes": 2506752
     },
     {
       "corpus": "mixed",
@@ -383,11 +449,13 @@
       "method": "tar-zstd-3",
       "files": 11,
       "inputBytes": 3176407,
-      "archiveBytes": 3178950,
+      "archiveBytes": 3178831,
       "savingsPercent": -0.08,
-      "packMs": 25.43,
-      "unpackMs": 20.63,
-      "peakRssBytes": 12484608
+      "packMs": 21.33,
+      "unpackMs": 17.14,
+      "packPeakRssBytes": 12500992,
+      "unpackPeakRssBytes": 7602176,
+      "peakRssBytes": 12500992
     },
     {
       "corpus": "mixed",
@@ -397,9 +465,11 @@
       "inputBytes": 3176407,
       "archiveBytes": 3178817,
       "savingsPercent": -0.08,
-      "packMs": 15.5,
-      "unpackMs": 22.12,
-      "peakRssBytes": 1622016
+      "packMs": 13.7,
+      "unpackMs": 19.55,
+      "packPeakRssBytes": 1622016,
+      "unpackPeakRssBytes": 2506752,
+      "peakRssBytes": 2506752
     }
   ]
 }
