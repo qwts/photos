@@ -263,3 +263,8 @@ possible, enforced as executable checks._
   `git commit --no-verify` is for emergencies.
 - The `/check` command (`.claude/commands/check.md`) wraps the full gate run.
 - Invoke tools through `PATH` (or `npx`); never hardcode machine-specific paths.
+- Local macOS `test:e2e` windows stay hidden and must never activate or take
+  desktop focus, including through `second-instance`, `open-file`, or Dock
+  activation. Route every native restore/show/focus path through
+  `e2e-window-visibility.ts`; use `test:e2e:visible` only for deliberate manual
+  debugging.

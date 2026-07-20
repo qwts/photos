@@ -85,7 +85,11 @@ instead. Floor values are unchanged (ratchet intact).
   keyboard focus. This is a real rendered `BrowserWindow` with background
   throttling disabled, not Chromium headless mode. Linux keeps the window
   visible inside Xvfb because hidden Chromium windows can report zero layout
-  geometry. Use
+  geometry. Native attention requests such as `second-instance`, `open-file`,
+  and Dock activation still deliver their application events in the hidden
+  harness, but must not restore, show, or focus its window. This focus-safety
+  invariant is covered at the policy boundary and in the external-open E2E
+  flows. Use
   `npm run test:e2e:visible` for native-window debugging; a lifecycle-dependent
   spec can set `OVERLOOK_E2E_WINDOW=visible` in its launch environment.
   The performance lane always uses a visible native window so its frame and
