@@ -5,6 +5,7 @@ import { describe, test } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import {
+  OVERLOOK_ICLOUD_CONTAINER_ID,
   OVERLOOK_MAC_APPLICATION_ID,
   OVERLOOK_MAC_BUNDLE_ID,
   OVERLOOK_PRODUCT_NAME,
@@ -54,7 +55,7 @@ describe('macOS release signing safety (#357)', () => {
     assert.doesNotMatch(entitlements, /com\.apple\.developer\.team-identifier/u);
   });
 
-  test('restricted Touch ID identity is isolated behind the provisioned package command', () => {
+  test('restricted Touch ID and iCloud identities are isolated behind the provisioned package command', () => {
     const packageJson = JSON.parse(source('package.json')) as { readonly scripts?: Record<string, string> };
     const builder = source('electron-builder.yml');
     const provisioned = source('build/entitlements.mac.provisioned.plist');
@@ -62,6 +63,16 @@ describe('macOS release signing safety (#357)', () => {
     for (const identity of ['Z5DM34QS5U', 'Z5DM34QS5U.com.zts1.overlook']) {
       assert.match(provisioned, new RegExp(identity, 'u'));
     }
+    for (const entitlement of [
+      'com.apple.developer.icloud-container-identifiers',
+      'com.apple.developer.icloud-services',
+      'com.apple.developer.ubiquity-container-identifiers',
+      OVERLOOK_ICLOUD_CONTAINER_ID,
+      'CloudDocuments',
+    ]) {
+      assert.match(provisioned, new RegExp(entitlement.replaceAll('.', '\\.'), 'u'));
+    }
+    assert.match(packager, /iCloud\.com\.zts1\.overlook/u);
     assert.match(packager, /Z5DM34QS5U/u);
     assert.match(packager, /com\.zts1\.overlook/u);
     assert.match(packageJson.scripts?.['package:signed:provisioned'] ?? '', /package-signed-provisioned\.mjs/u);
@@ -84,10 +95,14 @@ describe('macOS release signing safety (#357)', () => {
       'NSFaceIDUsageDescription',
       'com.apple.application-identifier',
       'com.apple.developer.team-identifier',
+      'com.apple.developer.icloud-container-identifiers',
+      'com.apple.developer.icloud-services',
+      'com.apple.developer.ubiquity-container-identifiers',
       'Overlook Helper (Renderer)',
     ]) {
       assert.ok(provisionedVerifier.includes(contract), `verifier must enforce ${contract}`);
     }
+    assert.match(provisionedVerifier, /ICLOUD_CONTAINER_ID = `iCloud\.\$\{BUNDLE_ID\}`/u);
     assert.match(provisionedVerifier, /codesign/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
     for (const binary of ['ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
@@ -148,5 +163,37 @@ describe('provisioning profile validation (#360)', () => {
       () => validateProvisioningProfile({ ...valid, expiresAt: Date.parse('2020-01-01T00:00:00Z') }, expected, Date.now()),
       /expired/u,
     );
+  });
+
+  test('fails closed unless the profile authorizes the iCloud Documents container (#656)', async () => {
+    const { validateProvisioningProfile } = await provisioningProfileModule();
+    const entitlements = {
+      'com.apple.application-identifier': OVERLOOK_MAC_APPLICATION_ID,
+      'com.apple.developer.team-identifier': OVERLOOK_TEAM_ID,
+      'com.apple.developer.icloud-container-identifiers': [OVERLOOK_ICLOUD_CONTAINER_ID],
+      'com.apple.developer.ubiquity-container-identifiers': [OVERLOOK_ICLOUD_CONTAINER_ID],
+      'com.apple.developer.icloud-services': ['CloudDocuments'],
+    };
+    const metadata = {
+      entitlements,
+      teams: [OVERLOOK_TEAM_ID],
+      expiresAt: Date.parse('2044-07-12T01:24:19Z'),
+    };
+    const expected = {
+      applicationId: OVERLOOK_MAC_APPLICATION_ID,
+      teamId: OVERLOOK_TEAM_ID,
+      iCloudContainerId: OVERLOOK_ICLOUD_CONTAINER_ID,
+    };
+    validateProvisioningProfile(metadata, expected, 0);
+    for (const key of [
+      'com.apple.developer.icloud-container-identifiers',
+      'com.apple.developer.ubiquity-container-identifiers',
+      'com.apple.developer.icloud-services',
+    ]) {
+      assert.throws(
+        () => validateProvisioningProfile({ ...metadata, entitlements: { ...entitlements, [key]: [] } }, expected, 0),
+        /does not authorize/u,
+      );
+    }
   });
 });

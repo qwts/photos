@@ -2,7 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
-    <!-- Restricted Touch ID/Data Protection Keychain identity. This file may
+    <!-- Restricted Touch ID/Data Protection Keychain and iCloud Documents
+         identity. This file may
          be used only with an embedded Developer ID provisioning profile that
          authorizes both values; scripts/package-signed-provisioned.mjs
          validates that contract before electron-builder runs. -->
@@ -10,6 +11,18 @@
     <string>Z5DM34QS5U.com.zts1.overlook</string>
     <key>com.apple.developer.team-identifier</key>
     <string>Z5DM34QS5U</string>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+      <string>iCloud.com.zts1.overlook</string>
+    </array>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+      <string>CloudDocuments</string>
+    </array>
+    <key>com.apple.developer.ubiquity-container-identifiers</key>
+    <array>
+      <string>iCloud.com.zts1.overlook</string>
+    </array>
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
