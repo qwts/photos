@@ -211,6 +211,7 @@ export function Shell({
       setSettingsSection(section);
       dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
     };
+    if (nativeCommand.id.startsWith('album.reorder.')) return;
     switch (nativeCommand.id) {
       case 'app.settings.open':
         openSettings('general');

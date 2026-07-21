@@ -224,12 +224,11 @@ remaining variance instead of lowering the 0.30 ratchet.
 ### Coverage-map distribution (#126 sweep, 2026-07-13)
 
 The full design README screen/interaction inventory maps to 33 ledger
-entries: **30 automated** (31 playwright-e2e, 12 storybook, 10 unit-dom
+entries: **31 automated** (32 playwright-e2e, 13 storybook, 11 unit-dom
 coverages), **1 manual-with-reason** (motion timings / hover fills /
 disabled opacity — visual-only rules; the disabled PATTERN is exercised by
-component stories), and **2 deferred-with-issues** for the design README's
-"not yet designed" set: semantic search results UI (#224) and album
-drag-and-drop reordering (#225). Zero unmapped flows; the validator
+component stories), and **1 deferred-with-issue** for the design README's
+"not yet designed" set: semantic search results UI (#224). Zero unmapped flows; the validator
 enforces shape, path existence, and that deferred entries carry issues.
 
 ### Accessibility gates (#398 — RATCHET: shrink, never raise)

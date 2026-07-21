@@ -76,6 +76,22 @@ export class LibraryService {
     return this.repo.albums();
   }
 
+  albumOrder(): readonly string[] {
+    return this.repo.albumOrder();
+  }
+
+  reorderAlbum(albumId: string, position: number): { changed: boolean; before: readonly string[]; after: readonly string[] } {
+    const result = this.repo.reorderAlbum(albumId, position);
+    if (result.changed) this.events.libraryChanged([]);
+    return result;
+  }
+
+  setAlbumOrder(order: readonly string[]): { changed: boolean; before: readonly string[]; after: readonly string[] } {
+    const result = this.repo.setAlbumOrder(order);
+    if (result.changed) this.events.libraryChanged([]);
+    return result;
+  }
+
   // Albums CRUD (#117): every mutation pushes targeted change events —
   // membership/rename/delete dirty the affected photos (manifest-relevant
   // per ADR-0007), so pendingCount rides along.

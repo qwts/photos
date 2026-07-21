@@ -65,6 +65,10 @@ export type CommandId =
   | 'album.rename'
   | 'album.delete'
   | 'album.transfer'
+  | 'album.reorder.up'
+  | 'album.reorder.down'
+  | 'album.reorder.top'
+  | 'album.reorder.bottom'
   | 'view.inspector.toggle'
   | 'view.inspector.detach'
   | 'view.mode.grid'
@@ -136,6 +140,10 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'album.rename': { id: 'commands.album.rename', defaultMessage: 'Rename album…' },
   'album.delete': { id: 'commands.album.delete', defaultMessage: 'Delete album…' },
   'album.transfer': { id: 'commands.album.transfer', defaultMessage: 'Transfer & Sync…' },
+  'album.reorder.up': { id: 'commands.album.reorder.up', defaultMessage: 'Move up' },
+  'album.reorder.down': { id: 'commands.album.reorder.down', defaultMessage: 'Move down' },
+  'album.reorder.top': { id: 'commands.album.reorder.top', defaultMessage: 'Move to top' },
+  'album.reorder.bottom': { id: 'commands.album.reorder.bottom', defaultMessage: 'Move to bottom' },
   'view.inspector.toggle': { id: 'commands.view.inspector.toggle', defaultMessage: 'Show or hide Inspector' },
   'view.inspector.detach': { id: 'commands.view.inspector.detach', defaultMessage: 'Open Inspector in Separate Window' },
   'view.mode.grid': { id: 'commands.view.mode.grid', defaultMessage: 'Grid' },
@@ -316,6 +324,17 @@ export const COMMANDS: readonly CommandDescriptor[] = [
   { id: 'album.rename', label: label('album.rename', 'Rename album…'), surfaces: [], target: 'focused-item' },
   { id: 'album.delete', label: label('album.delete', 'Delete album…'), surfaces: [], target: 'focused-item' },
   { id: 'album.transfer', label: label('album.transfer', 'Transfer & Sync…'), surfaces: [], target: 'focused-item' },
+  { id: 'album.reorder.up', label: label('album.reorder.up', 'Move up'), surfaces: [], target: 'focused-item', key: 'ArrowUp', alt: true },
+  {
+    id: 'album.reorder.down',
+    label: label('album.reorder.down', 'Move down'),
+    surfaces: [],
+    target: 'focused-item',
+    key: 'ArrowDown',
+    alt: true,
+  },
+  { id: 'album.reorder.top', label: label('album.reorder.top', 'Move to top'), surfaces: [], target: 'focused-item' },
+  { id: 'album.reorder.bottom', label: label('album.reorder.bottom', 'Move to bottom'), surfaces: [], target: 'focused-item' },
   {
     id: 'view.inspector.toggle',
     label: label('view.inspector.toggle', 'Show or hide Inspector'),

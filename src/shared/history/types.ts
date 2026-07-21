@@ -35,6 +35,12 @@ export type InverseParameters =
       readonly after: 'live' | 'trashed';
     }
   | {
+      readonly kind: 'album-order';
+      readonly albumId: string;
+      readonly before: readonly string[];
+      readonly after: readonly string[];
+    }
+  | {
       readonly kind: 'move-compensation';
       readonly photoId: string;
       readonly contentHash: string;

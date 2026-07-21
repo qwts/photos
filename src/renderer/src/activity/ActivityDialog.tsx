@@ -44,6 +44,7 @@ const eventMessages: Readonly<Record<ActivityEventType, { readonly id: string; r
   'album.created': { id: 'activity.event.albumCreated', defaultMessage: 'Created an album' },
   'album.renamed': { id: 'activity.event.albumRenamed', defaultMessage: 'Renamed an album' },
   'album.deleted': { id: 'activity.event.albumDeleted', defaultMessage: 'Deleted an album; photos were kept' },
+  'album.reordered': { id: 'activity.event.albumReordered', defaultMessage: 'Reordered an album' },
   'album.membership-added': {
     id: 'activity.event.albumAdded',
     defaultMessage: 'Added {count, plural, one {# photo} other {# photos}} to an album',

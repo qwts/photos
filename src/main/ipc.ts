@@ -22,7 +22,8 @@ import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
 import type { DiagnosticEvent } from './diagnostics/event-contract.js';
 import { mutateWithActivity } from './activity/activity-publication.js';
 import type { ActivityFacade } from './activity/activity-publication.js';
-import { albumMembershipCommand, favoriteCommand, moveCompensationCommand, trashCommand } from './history/command-drafts.js';
+import { favoriteCommand, moveCompensationCommand, trashCommand } from './history/command-drafts.js';
+import { registerAlbumIpcHandlers } from './library/album-ipc.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -224,89 +225,13 @@ export function registerLibraryHandlers(
   );
 }
 
-export function registerAlbumHandlers(getService: () => LibraryService, newId: () => string, getActivity?: () => ActivityFacade): void {
-  ipcMain.handle(channels.albumCreate.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumCreate, ({ name }) => {
-      return mutateWithActivity(
-        getActivity,
-        () => ({ album: getService().createAlbum(newId(), name) }),
-        ({ album }) => ({ eventType: 'album.created', entityIds: [album.id], outcome: 'succeeded', payload: {} }),
-      );
-    })(request),
-  );
-  ipcMain.handle(channels.albumRename.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumRename, ({ albumId, name }) => {
-      mutateWithActivity(
-        getActivity,
-        () => getService().renameAlbum(albumId, name),
-        () => ({ eventType: 'album.renamed', entityIds: [albumId], outcome: 'succeeded', payload: {} }),
-      );
-      return {};
-    })(request),
-  );
-  ipcMain.handle(channels.albumDelete.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumDelete, ({ albumId }) => {
-      mutateWithActivity(
-        getActivity,
-        () => getService().deleteAlbum(albumId),
-        () => ({ eventType: 'album.deleted', entityIds: [albumId], outcome: 'succeeded', payload: {} }),
-      );
-      return {};
-    })(request),
-  );
-  ipcMain.handle(channels.albumAddPhotos.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumAddPhotos, ({ albumId, photoIds }) => {
-      return mutateWithActivity(
-        getActivity,
-        () => getService().addToAlbum(albumId, photoIds),
-        (result) =>
-          result.added === 0
-            ? undefined
-            : {
-                eventType: 'album.membership-added',
-                entityIds: [albumId, ...photoIds],
-                outcome: 'succeeded',
-                payload: { count: result.added },
-              },
-        (result) => albumMembershipCommand(albumId, result.changedPhotoIds, 'add'),
-      );
-    })(request),
-  );
-  ipcMain.handle(channels.albumRemovePhotos.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumRemovePhotos, ({ albumId, photoIds }) => {
-      return mutateWithActivity(
-        getActivity,
-        () => getService().removeFromAlbum(albumId, photoIds),
-        (result) =>
-          result.removed === 0
-            ? undefined
-            : {
-                eventType: 'album.membership-removed',
-                entityIds: [albumId, ...photoIds],
-                outcome: 'succeeded',
-                payload: { count: result.removed },
-              },
-        (result) => albumMembershipCommand(albumId, result.changedPhotoIds, 'remove'),
-      );
-    })(request),
-  );
-  ipcMain.handle(channels.albumMovePhotos.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumMovePhotos, ({ sourceAlbumId, targetAlbumId, photoIds }) => {
-      return mutateWithActivity(
-        getActivity,
-        () => getService().moveBetweenAlbums(sourceAlbumId, targetAlbumId, photoIds),
-        (result) =>
-          result.moved === 0 && result.alreadyInTarget === 0
-            ? undefined
-            : {
-                eventType: 'album.membership-moved',
-                entityIds: [sourceAlbumId, targetAlbumId, ...photoIds],
-                outcome: result.alreadyInTarget > 0 ? 'partial' : 'succeeded',
-                payload: { count: result.moved, alreadyInTarget: result.alreadyInTarget },
-              },
-      );
-    })(request),
-  );
+export function registerAlbumHandlers(
+  getService: () => LibraryService,
+  newId: () => string,
+  getActivity?: () => ActivityFacade,
+  onManifestChanged?: () => void,
+): void {
+  registerAlbumIpcHandlers(getService, newId, wrapHandler, getActivity, onManifestChanged);
 }
 
 export function registerProtectedAlbumHandlers(

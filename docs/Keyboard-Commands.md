@@ -19,6 +19,19 @@ cell or row, Home/End move to the row boundary, and Page Up/Page Down move by a
 viewport. Shift plus a movement key extends the selection; Space toggles the
 focused photo; Enter opens it. The skip link moves directly to the grid.
 
+## Albums
+
+| Action                              | Shortcut                       |
+| ----------------------------------- | ------------------------------ |
+| Move focused album earlier / later  | `Option+Up` / `Option+Down`    |
+| Grab or drop focused reorder handle | `Space` or `Enter`             |
+| Move a grabbed album                | `Up` / `Down` / `Home` / `End` |
+| Cancel a grabbed move               | `Esc`                          |
+
+The expanded sidebar exposes a dedicated reorder handle after each ordinary
+album row. The collapsed sidebar hides handles; `Shift+F10` or right-click opens
+the same Move up/down/top/bottom commands. Protected albums are not reorderable.
+
 ## Lightbox
 
 | Action                              | Shortcut         |

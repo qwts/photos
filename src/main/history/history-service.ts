@@ -22,6 +22,10 @@ function unavailable(capability: CapabilitySnapshot, reason: CapabilityReason): 
   return { ...capability, status: 'unavailable', reason };
 }
 
+function sameOrder(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
 export class HistoryService {
   private readonly commands: CommandRepository;
   private readonly activity: ActivityRepository;
@@ -30,7 +34,7 @@ export class HistoryService {
     db: BetterSqlite3.Database,
     private readonly library: LibraryService,
     private readonly move?: MoveCompensationRuntime,
-    private readonly onTrash?: () => void,
+    private readonly onManifestChanged?: () => void,
   ) {
     this.commands = new CommandRepository(db);
     this.activity = new ActivityRepository(db);
@@ -83,6 +87,15 @@ export class HistoryService {
         if (states.every((state) => state === source) || states.every((state) => state === target)) return capability;
         return unavailable(capability, 'state-changed');
       }
+      case 'album-order': {
+        const current = this.library.albumOrder();
+        if (!current.includes(record.inverse.albumId)) return unavailable(capability, 'resource-missing');
+        const expectedSource = direction === 'undo' ? record.inverse.after : record.inverse.before;
+        const expectedTarget = direction === 'undo' ? record.inverse.before : record.inverse.after;
+        return sameOrder(current, expectedSource) || sameOrder(current, expectedTarget)
+          ? capability
+          : unavailable(capability, 'state-changed');
+      }
     }
   }
 
@@ -119,8 +132,9 @@ export class HistoryService {
     });
     if (record.inverse.kind === 'trash') {
       const target = direction === 'undo' ? record.inverse.before : record.inverse.after;
-      if (target === 'trashed') this.onTrash?.();
+      if (target === 'trashed') this.onManifestChanged?.();
     }
+    if (record.inverse.kind === 'album-order') this.onManifestChanged?.();
     return result;
   }
 
@@ -170,6 +184,11 @@ export class HistoryService {
         else this.library.restorePhotos(record.inverse.photoIds);
         break;
       }
+      case 'album-order': {
+        const target = direction === 'undo' ? record.inverse.before : record.inverse.after;
+        this.library.setAlbumOrder(target);
+        break;
+      }
       case 'move-compensation':
         throw new Error('Move compensation is asynchronous');
     }
@@ -184,6 +203,8 @@ export class HistoryService {
         return [record.inverse.albumId, ...record.inverse.photoIds];
       case 'trash':
         return record.inverse.photoIds;
+      case 'album-order':
+        return [record.inverse.albumId];
     }
   }
 }

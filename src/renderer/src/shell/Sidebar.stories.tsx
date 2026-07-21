@@ -21,6 +21,7 @@ const addPhotos = fn((request: { photoIds: readonly string[] }) => Promise.resol
 const movePhotos = fn((request: { photoIds: readonly string[] }) =>
   Promise.resolve({ moved: request.photoIds.length, alreadyInTarget: 0 }),
 );
+const reorderAlbum = fn((request: { position: number }) => Promise.resolve({ changed: true, position: request.position, total: 2 }));
 
 function installStub(): void {
   // Sidebar listens to backup progress; AppStateProvider to pending pushes.
@@ -41,6 +42,7 @@ function installStub(): void {
     },
     addPhotos,
     movePhotos,
+    reorder: reorderAlbum,
   } as unknown as OverlookApi['albums'];
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = { library, backup, albums: albumActions };
 }
@@ -306,6 +308,27 @@ export const AlbumManagement: Story = {
   },
 };
 
+export const AlbumKeyboardReorder: Story = {
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      reorderAlbum.mockClear();
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const handle = canvas.getByRole('button', { name: 'Reorder Iceland, position 1 of 2' });
+    handle.focus();
+    await userEvent.keyboard(' ');
+    await userEvent.keyboard('{ArrowDown}');
+    await userEvent.keyboard(' ');
+    await waitFor(() => expect(reorderAlbum).toHaveBeenCalledWith({ albumId: 'a1', position: 1, commandId: 'album.reorder.bottom' }));
+    await expect(handle).toHaveFocus();
+    await expect(canvas.getByRole('button', { name: 'Reorder Iceland, position 2 of 2' })).toBeVisible();
+  },
+};
+
 export const CollapsedAlbumKeyboardActions: Story = {
   loaders: [
     () => {
@@ -315,7 +338,7 @@ export const CollapsedAlbumKeyboardActions: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const albumRow = canvas.getByRole('button', { name: 'Iceland · 214' });
+    const albumRow = canvas.getByRole('button', { name: 'Iceland · 214 · album 1 of 2' });
     albumRow.focus();
     await fireEvent.keyDown(albumRow, { key: 'F10', shiftKey: true });
     await expect(canvas.getByRole('menu', { name: 'Actions for Iceland' })).toBeVisible();

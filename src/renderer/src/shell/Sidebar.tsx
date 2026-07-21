@@ -16,6 +16,7 @@ import { AlbumDropDialog } from './AlbumDropDialog';
 import { useAlbumPhotoDrop } from './use-album-photo-drop';
 import { ContextMenu } from '../components/ContextMenu';
 import { commandById } from '../../../shared/commands/registry.js';
+import { useAlbumReorder, type AlbumReorderCommand } from './use-album-reorder';
 
 // The shell stylesheet carries the sidebar/rail rules; importing it here
 // (not just in Shell) keeps the component styled when mounted alone, e.g.
@@ -74,6 +75,8 @@ interface SideRowProps {
   readonly buttonRef?: Ref<HTMLButtonElement> | undefined;
   readonly onOpenActions?: ((position: { readonly x: number; readonly y: number }, origin: HTMLButtonElement) => void) | undefined;
   readonly statusLabel?: string | undefined;
+  readonly positionLabel?: string | undefined;
+  readonly onReorderShortcut?: ((command: Extract<AlbumReorderCommand, 'album.reorder.up' | 'album.reorder.down'>) => void) | undefined;
 }
 
 function SideRow({
@@ -86,11 +89,13 @@ function SideRow({
   buttonRef,
   onOpenActions,
   statusLabel,
+  positionLabel,
+  onReorderShortcut,
 }: SideRowProps): ReactElement {
   const direction = directionOf(useIntl().locale);
   const { formatCount } = useFormats();
   const detail = statusLabel ?? (count === null ? null : formatCount(count));
-  const hint = detail === null ? label : `${label} · ${detail}`;
+  const hint = [label, detail, positionLabel].filter((part) => part !== null && part !== undefined).join(' · ');
   const row = (
     <button
       ref={buttonRef}
@@ -110,10 +115,16 @@ function SideRow({
             }
       }
       onKeyDown={
-        onOpenActions === undefined
+        onOpenActions === undefined && onReorderShortcut === undefined
           ? undefined
           : (event) => {
+              if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown') && onReorderShortcut !== undefined) {
+                event.preventDefault();
+                onReorderShortcut(event.key === 'ArrowUp' ? 'album.reorder.up' : 'album.reorder.down');
+                return;
+              }
               if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                if (onOpenActions === undefined) return;
                 event.preventDefault();
                 const bounds = event.currentTarget.getBoundingClientRect();
                 onOpenActions({ x: direction === 'rtl' ? bounds.left - 214 : bounds.right + 4, y: bounds.top }, event.currentTarget);
@@ -175,6 +186,7 @@ export function Sidebar({
   const state = useAppState();
   const dispatch = useAppDispatch();
   const albumDrop = useAlbumPhotoDrop(albums);
+  const albumReorder = useAlbumReorder(albums);
   // Collapse to the 56px icon rail (#238): labels/counts move to tooltips,
   // headings become dividers, the backup card becomes the shield button.
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -221,7 +233,11 @@ export function Sidebar({
     };
   }, []);
   return (
-    <nav className={`ovl-sidebar${collapsed ? ' ovl-sidebar--collapsed' : ''}`} aria-label={intl.formatMessage(messages.nav)}>
+    <nav
+      className={`ovl-sidebar${collapsed ? ' ovl-sidebar--collapsed' : ''}${albumReorder.invalid ? ' ovl-sidebar--reorder-invalid' : ''}`}
+      aria-label={intl.formatMessage(messages.nav)}
+      {...albumReorder.invalidZoneProps}
+    >
       <div className="ovl-sidebar__toggle-row">
         <Tooltip label={intl.formatMessage(collapsed ? messages.expand : messages.collapse)} side={inlineEndSide}>
           <button
@@ -336,44 +352,94 @@ export function Sidebar({
           }}
         />
       ) : null}
-      {albums.map((album) => (
-        <div
-          className={`ovl-sidebar__albumrow${albumDrop.feedback?.albumId === album.id ? ` ovl-sidebar__albumrow--drop-${albumDrop.feedback.phase}` : ''}`}
-          key={album.id}
-          {...albumDrop.targetProps(album)}
-        >
-          <SideRow
-            icon="album"
-            label={album.name}
-            count={album.count}
-            active={state.album === album.id}
-            collapsed={collapsed}
-            statusLabel={albumDrop.feedback?.albumId === album.id ? albumDrop.feedback.label : undefined}
-            onClick={() => {
-              dispatch({ type: 'album/set', albumId: album.id });
-            }}
-            onOpenActions={(position, origin) => {
-              albumActionOriginRef.current = origin;
-              setAlbumMenu({ album, ...position });
-            }}
-          />
-          {collapsed ? null : (
-            <button
-              type="button"
-              className="ovl-sidebar__album-actions"
-              aria-label={intl.formatMessage({ id: 'sidebar.album.actions', defaultMessage: 'Actions for {name}' }, { name: album.name })}
-              aria-haspopup="menu"
-              onClick={(event) => {
-                const bounds = event.currentTarget.getBoundingClientRect();
-                albumActionOriginRef.current = event.currentTarget;
-                setAlbumMenu({ album, x: direction === 'rtl' ? bounds.left : bounds.right - 190, y: bounds.bottom + 4 });
+      <span id={albumReorder.instructionId} className="ovl-sr-only">
+        <FormattedMessage
+          id="album.reorder.instructions"
+          defaultMessage="Press Space or Enter to grab. Use arrow keys to move, Space or Enter to drop, and Escape to cancel."
+        />
+      </span>
+      <ul
+        className="ovl-sidebar__albumlist"
+        aria-label={intl.formatMessage(messages.headingAlbums)}
+        aria-roledescription={albumReorder.grabbedId === null ? undefined : 'reorderable list'}
+      >
+        {albumReorder.albums.map((album, albumIndex) => {
+          const photoDropProps = albumDrop.targetProps(album);
+          const reorderRowProps = albumReorder.rowProps(album);
+          return (
+            // A list item is intentionally the drop boundary; activation remains on its nested button.
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- typed album/photo drop target
+            <li
+              className={`ovl-sidebar__albumrow${albumDrop.feedback?.albumId === album.id ? ` ovl-sidebar__albumrow--drop-${albumDrop.feedback.phase}` : ''}${albumReorder.grabbedId === album.id ? ' ovl-sidebar__albumrow--grabbed' : ''}${albumReorder.draggingId === album.id ? ' ovl-sidebar__albumrow--dragging' : ''}`}
+              key={album.id}
+              onDragEnter={(event) => {
+                reorderRowProps.onDragEnter(event);
+                if (!event.isPropagationStopped()) photoDropProps.onDragEnter(event);
+              }}
+              onDragOver={(event) => {
+                reorderRowProps.onDragOver(event);
+                if (!event.isPropagationStopped()) photoDropProps.onDragOver(event);
+              }}
+              onDragLeave={photoDropProps.onDragLeave}
+              onDrop={(event) => {
+                reorderRowProps.onDrop(event);
+                if (!event.isPropagationStopped()) photoDropProps.onDrop(event);
               }}
             >
-              <Icon name="sliders-horizontal" size={12} />
-            </button>
-          )}
-        </div>
-      ))}
+              <SideRow
+                icon="album"
+                label={album.name}
+                count={album.count}
+                active={state.album === album.id}
+                collapsed={collapsed}
+                positionLabel={
+                  collapsed
+                    ? intl.formatMessage(
+                        { id: 'album.reorder.positionSuffix', defaultMessage: 'album {position} of {total}' },
+                        { position: albumIndex + 1, total: albumReorder.albums.length },
+                      )
+                    : undefined
+                }
+                statusLabel={albumDrop.feedback?.albumId === album.id ? albumDrop.feedback.label : undefined}
+                onClick={() => {
+                  dispatch({ type: 'album/set', albumId: album.id });
+                }}
+                onOpenActions={(position, origin) => {
+                  albumActionOriginRef.current = origin;
+                  setAlbumMenu({ album, ...position });
+                }}
+                onReorderShortcut={(command) => albumReorder.moveByCommand(album, command)}
+              />
+              {collapsed ? null : (
+                <Tooltip label={intl.formatMessage({ id: 'album.reorder.tooltip', defaultMessage: 'Reorder album' })} side="right">
+                  <button type="button" className="ovl-sidebar__album-reorder" {...albumReorder.handleProps(album)}>
+                    <Icon name="grip-vertical" size={15} />
+                  </button>
+                </Tooltip>
+              )}
+              {collapsed ? null : (
+                <button
+                  type="button"
+                  className="ovl-sidebar__album-actions"
+                  aria-label={intl.formatMessage(
+                    { id: 'sidebar.album.actions', defaultMessage: 'Actions for {name}' },
+                    { name: album.name },
+                  )}
+                  aria-haspopup="menu"
+                  tabIndex={-1}
+                  onClick={(event) => {
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    albumActionOriginRef.current = event.currentTarget;
+                    setAlbumMenu({ album, x: direction === 'rtl' ? bounds.left : bounds.right - 190, y: bounds.bottom + 4 });
+                  }}
+                >
+                  <Icon name="sliders-horizontal" size={12} />
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
       {protectedAlbums.length === 0 ? null : collapsed ? (
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (
@@ -427,6 +493,14 @@ export function Sidebar({
           onTransfer={() => {
             setAlbumMenu(null);
             onTransferAlbum?.(albumMenu.album);
+          }}
+          position={albumReorder.albums.findIndex(({ id }) => id === albumMenu.album.id)}
+          total={albumReorder.albums.length}
+          onReorder={(command) => {
+            const album = albumMenu.album;
+            setAlbumMenu(null);
+            albumReorder.moveByCommand(album, command);
+            restoreAlbumActionFocus();
           }}
         />
       )}
