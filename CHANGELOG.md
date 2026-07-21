@@ -1,5 +1,12 @@
 # photos
 
+## 0.50.0
+
+### Minor Changes
+
+- 795f805: Add the opt-in cloud LLM assistant foundation (ADR-0018 §7): provider contract, sourced pricing manifest with pre-request estimate and post-request cost math, OS-custody API-key store, Anthropic/OpenAI/xAI adapters and runtime, and the zod IPC surface. Cloud-only and strictly opt-in; a fresh install makes zero LLM network calls.
+- 7114f09: Wire iCloud Drive into provider selection, encrypted backup, offload, rehydration, and restore surfaces.
+
 ## 0.49.0
 
 ### Minor Changes
