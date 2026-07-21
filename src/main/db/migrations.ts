@@ -509,6 +509,44 @@ const SCHEMA_V12: Migration = {
   },
 };
 
+const SCHEMA_V13: Migration = {
+  version: 13,
+  name: 'encrypted-activity-history',
+  // #614 / ADR-0025: user-facing activity is an append-only projection in
+  // each library's SQLCipher database. Retention holds are the narrow seam
+  // #615 can use without putting inverse parameters in general history.
+  up(db) {
+    db.exec(`
+      CREATE TABLE activity_events (
+        sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id TEXT NOT NULL UNIQUE,
+        operation_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+        occurred_at TEXT NOT NULL,
+        actor_class TEXT NOT NULL CHECK (actor_class IN ('local-user', 'system', 'interop-peer', 'recovery')),
+        root_correlation_id TEXT NOT NULL,
+        causation_event_id TEXT,
+        entity_ids_json TEXT NOT NULL CHECK (json_valid(entity_ids_json)),
+        outcome TEXT NOT NULL CHECK (outcome IN ('succeeded', 'partial', 'failed')),
+        payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+        supersedes_event_id TEXT,
+        UNIQUE (operation_id, event_type)
+      );
+      CREATE INDEX idx_activity_occurred ON activity_events (occurred_at, sequence);
+      CREATE INDEX idx_activity_root ON activity_events (root_correlation_id, sequence);
+
+      CREATE TABLE activity_retention_holds (
+        event_id TEXT NOT NULL REFERENCES activity_events (event_id) ON DELETE CASCADE,
+        hold_id TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        PRIMARY KEY (event_id, hold_id)
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_activity_holds_expiry ON activity_retention_holds (expires_at, event_id);
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -522,6 +560,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V10,
   SCHEMA_V11,
   SCHEMA_V12,
+  SCHEMA_V13,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */
