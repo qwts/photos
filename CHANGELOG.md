@@ -1,5 +1,11 @@
 # photos
 
+## 0.46.1
+
+### Patch Changes
+
+- abb2d41: Keep the docked Inspector aligned with lightbox and multi-photo selection state.
+
 ## 0.46.0
 
 ### Minor Changes
