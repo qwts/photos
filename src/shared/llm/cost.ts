@@ -21,10 +21,11 @@ export interface TokenUsage {
 
 const PER_MILLION = 1_000_000;
 
-/** Exact USD cost of a completed request from its reported usage. */
+/** Exact USD cost of a completed request from its reported usage. Non-negative by construction. */
 export function costUsd(price: ModelPrice, usage: TokenUsage): number {
-  const cached = Math.max(0, Math.min(usage.cachedInputTokens, usage.inputTokens));
-  const uncachedInput = usage.inputTokens - cached;
+  const input = Math.max(0, usage.inputTokens);
+  const cached = Math.max(0, Math.min(usage.cachedInputTokens, input));
+  const uncachedInput = input - cached;
   const output = Math.max(0, usage.outputTokens);
   return (uncachedInput * price.inputPerMillion + cached * price.cachedInputPerMillion + output * price.outputPerMillion) / PER_MILLION;
 }

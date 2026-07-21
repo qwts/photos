@@ -98,6 +98,10 @@ export class AnthropicProvider implements LlmProvider {
       .map((block) => block.text ?? '')
       .join('')
       .trim();
+    // A successful-but-empty answer would show as a blank reply the user was still billed for; fail instead.
+    if (answer === '') {
+      throw new LlmRequestError('Anthropic returned an empty answer.');
+    }
     return { answer, modelId, usage: normaliseUsage(message.usage) };
   }
 }

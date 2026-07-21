@@ -25,6 +25,11 @@ describe('llm cost math', () => {
     assert.ok(Math.abs(cost - 1.65) < 1e-9);
   });
 
+  test('costUsd never returns negative spend even on a malformed negative usage', () => {
+    const cost = costUsd(PRICE, { inputTokens: -1000, cachedInputTokens: -5, outputTokens: -10 });
+    assert.equal(cost, 0);
+  });
+
   test('costUsd clamps cached tokens to the input total', () => {
     // Cached reported higher than input must not produce a negative uncached charge.
     const cost = costUsd(PRICE, { inputTokens: 100_000, cachedInputTokens: 500_000, outputTokens: 0 });

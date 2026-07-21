@@ -106,7 +106,12 @@ export class OpenAiCompatibleProvider implements LlmProvider {
     if (choice.finish_reason === 'content_filter' || (choice.message.refusal ?? null) !== null) {
       throw new LlmRefusalError(`${this.id} declined this request.`);
     }
-    return { answer: (choice.message.content ?? '').trim(), modelId, usage: normaliseUsage(response.usage) };
+    const answer = (choice.message.content ?? '').trim();
+    // A successful-but-empty answer would show as a blank reply the user was still billed for; fail instead.
+    if (answer === '') {
+      throw new LlmRequestError(`${this.id} returned an empty answer.`);
+    }
+    return { answer, modelId, usage: normaliseUsage(response.usage) };
   }
 }
 
