@@ -15,6 +15,7 @@ import type { AppSettings } from '../../shared/settings/settings.js';
 import { TouchIdService } from './touch-id.js';
 import { createNativeTouchIdAdapter } from './touch-id-native.js';
 import { TestTouchIdAdapter } from './test-touch-id-adapter.js';
+import { registerInspectorWindowHandlers } from '../inspector-window-runtime.js';
 
 export { createAppLockFacade } from './app-lock-facade.js';
 
@@ -55,6 +56,7 @@ export interface AppLockIpcOptions extends AppLockFacadeOptions {
 export function registerAppLockIpc(options: AppLockIpcOptions): () => void {
   setContentAdmissionGate(() => options.controller.requireContentAccess());
   registerAppLockHandlers(() => createAppLockFacade(options));
+  registerInspectorWindowHandlers(() => options.controller.requireContentAccess());
   const emit = createEmitter(events.appLockStateChanged, (name, payload) => options.send(name, payload));
   const emitTouchId = createEmitter(events.appLockTouchIdChanged, (name, payload) => options.send(name, payload));
   const offState = options.controller.subscribe((snapshot) => emit({ ...snapshot, retryAfterMs: options.controller.retryAfterMs() }));

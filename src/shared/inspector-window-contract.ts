@@ -16,4 +16,11 @@ export const inspectorWindowChannels = {
   inspectorWindowSnapshot: { name: 'inspector-window:snapshot', request: empty, response: inspectorWindowStateSchema },
 } as const;
 
+export const windowEvents = {
+  focusChanged: { name: 'window:focus-changed', payload: z.object({ focused: z.boolean() }) },
+  inspectorWindowChanged: { name: 'inspector-window:changed', payload: inspectorWindowStateSchema },
+  inspectorWindowClosed: { name: 'inspector-window:closed', payload: empty },
+  inspectorWindowStepRequested: { name: 'inspector-window:step-requested', payload: step },
+} as const;
+
 export type InspectorWindowState = z.output<typeof inspectorWindowStateSchema>;
