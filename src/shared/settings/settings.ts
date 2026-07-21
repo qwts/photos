@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { providerIdSchema } from '../backup/provider-descriptor.js';
+import { llmProviderIdSchema } from '../llm/provider.js';
 import { isQuickActionCommandId, type QuickActionCommandId } from '../commands/registry.js';
 import { DEFAULT_TRASH_RETENTION, trashRetentionSchema } from '../library/trash.js';
 
@@ -55,6 +56,12 @@ export const settingsSchema = z.object({
   lockWhenHidden: z.boolean(),
   /** Connected provider; null = disconnected (backup controls disable). */
   providerId: providerIdSchema.nullable(),
+  /** Selected cloud LLM provider (ADR-0018 §7); null = none selected. The API
+   * key itself never lives here — it is in OS custody under userData/llm-auth. */
+  llmProviderId: llmProviderIdSchema.nullable(),
+  /** Per-feature opt-in for ask-about-this-photo (ADR-0018 §7). Default off:
+   * a fresh install makes zero LLM network calls. */
+  llmQaEnabled: z.boolean(),
 });
 
 /** The settings:set request shape — every key optional, same rules. */
@@ -70,6 +77,8 @@ export const profileSettingsSchema = settingsSchema.pick({
   quickActions: true,
   shareDiagnostics: true,
   diagnosticsConsentVersion: true,
+  llmProviderId: true,
+  llmQaEnabled: true,
 });
 
 /** ADR-0017 §6: these policies belong to exactly one library directory. */
@@ -79,6 +88,8 @@ export const librarySettingsSchema = settingsSchema.omit({
   quickActions: true,
   shareDiagnostics: true,
   diagnosticsConsentVersion: true,
+  llmProviderId: true,
+  llmQaEnabled: true,
 });
 
 export type ProfileSettings = z.output<typeof profileSettingsSchema>;
@@ -101,6 +112,8 @@ export const defaultSettings: AppSettings = {
   appLockIdle: '5',
   lockWhenHidden: false,
   providerId: 'mock',
+  llmProviderId: null,
+  llmQaEnabled: false,
 };
 
 export const defaultProfileSettings: ProfileSettings = {
@@ -109,6 +122,8 @@ export const defaultProfileSettings: ProfileSettings = {
   quickActions: defaultSettings.quickActions,
   shareDiagnostics: defaultSettings.shareDiagnostics,
   diagnosticsConsentVersion: defaultSettings.diagnosticsConsentVersion,
+  llmProviderId: defaultSettings.llmProviderId,
+  llmQaEnabled: defaultSettings.llmQaEnabled,
 };
 
 export const defaultLibrarySettings: LibrarySettings = {
@@ -132,6 +147,8 @@ const profileRecoverySchema = z
     quickActions: settingsSchema.shape.quickActions.catch([...defaultProfileSettings.quickActions]),
     shareDiagnostics: settingsSchema.shape.shareDiagnostics.catch(defaultProfileSettings.shareDiagnostics),
     diagnosticsConsentVersion: settingsSchema.shape.diagnosticsConsentVersion.catch(0),
+    llmProviderId: settingsSchema.shape.llmProviderId.catch(defaultProfileSettings.llmProviderId),
+    llmQaEnabled: settingsSchema.shape.llmQaEnabled.catch(defaultProfileSettings.llmQaEnabled),
   })
   .catch(defaultProfileSettings);
 
@@ -170,6 +187,8 @@ export function profileSettingsOf(settings: AppSettings): ProfileSettings {
     quickActions: settings.quickActions,
     shareDiagnostics: settings.shareDiagnostics,
     diagnosticsConsentVersion: settings.diagnosticsConsentVersion,
+    llmProviderId: settings.llmProviderId,
+    llmQaEnabled: settings.llmQaEnabled,
   };
 }
 
@@ -239,5 +258,7 @@ export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSe
     appLockIdle: patch.appLockIdle ?? current.appLockIdle,
     lockWhenHidden: patch.lockWhenHidden ?? current.lockWhenHidden,
     providerId: patch.providerId !== undefined ? patch.providerId : current.providerId,
+    llmProviderId: patch.llmProviderId !== undefined ? patch.llmProviderId : current.llmProviderId,
+    llmQaEnabled: patch.llmQaEnabled ?? current.llmQaEnabled,
   };
 }

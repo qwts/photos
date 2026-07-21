@@ -123,6 +123,8 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
       quickActions: defaultSettings.quickActions,
       shareDiagnostics: false,
       diagnosticsConsentVersion: 0,
+      llmProviderId: null,
+      llmQaEnabled: false,
     });
 
     library = join(root, 'new-library');

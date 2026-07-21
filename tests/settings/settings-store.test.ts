@@ -105,6 +105,8 @@ describe('settings store (#111)', () => {
       quickActions: defaultSettings.quickActions,
       shareDiagnostics: false,
       diagnosticsConsentVersion: 0,
+      llmProviderId: null,
+      llmQaEnabled: false,
     });
     assert.equal((JSON.parse(readFileSync(libraryPath(dir), 'utf8')) as { sortOrder: string }).sortOrder, 'name');
     assert.equal(existsSync(`${profilePath(dir)}.tmp`), false);
