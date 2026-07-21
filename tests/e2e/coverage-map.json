@@ -2,6 +2,28 @@
   "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered \u2014 automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
   "entries": [
     {
+      "id": "context-menu-command-projections",
+      "wiki": "Acceptance-Test-Context-Menus",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/context-menus.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/PhotoContextMenu.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/commands/registry.test.ts", "tests/main/application-menu-model.test.ts"]
+        },
+        {
+          "type": "manual",
+          "reason": "Follow docs/acceptance/Acceptance-Test-Context-Menus.md to verify native pointer placement, viewport-edge clamping, screen-reader announcement, and cross-surface focus restoration that automated lanes cannot fully observe."
+        }
+      ]
+    },
+    {
       "id": "native-application-menu",
       "wiki": "Acceptance-Test-Native-Application-Menu",
       "coverage": [
