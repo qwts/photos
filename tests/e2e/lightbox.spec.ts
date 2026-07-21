@@ -160,7 +160,7 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   await expect(viewport).toHaveAttribute('data-mode', 'fit');
   await page.keyboard.press('r');
   await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
-  await page.keyboard.press('Alt+h');
+  await page.locator('body').dispatchEvent('keydown', { key: 'h', code: 'KeyH', altKey: true, bubbles: true, cancelable: true });
   await expect(viewport).toHaveAttribute('data-orientation-turns', '3');
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
   await page.keyboard.press('+');
