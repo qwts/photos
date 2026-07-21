@@ -80,16 +80,16 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
 async function exerciseOrientationControls(page: Page, viewport: Locator): Promise<void> {
   const toolbar = page.getByRole('toolbar', { name: 'Image orientation controls' });
   await expect(toolbar).toBeVisible();
-  await toolbar.getByRole('button', { name: 'Rotate right (])' }).click();
+  await toolbar.getByRole('button', { name: 'Rotate clockwise (R)' }).click();
   await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
-  await toolbar.getByRole('button', { name: 'Flip horizontal (Backslash)' }).click();
+  await toolbar.getByRole('button', { name: 'Flip horizontally (H)' }).click();
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
-  await page.keyboard.press('r');
+  await page.keyboard.press('Shift+r');
   await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
   await page.keyboard.press('+');
-  await page.keyboard.press(']');
-  await toolbar.getByRole('button', { name: 'Reset orientation (R)' }).click();
+  await page.keyboard.press('r');
+  await toolbar.getByRole('button', { name: 'Reset orientation (⇧R)' }).click();
   await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.keyboard.press('0');
 }
@@ -158,9 +158,10 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.keyboard.press('0');
   await expect(viewport).toHaveAttribute('data-mode', 'fit');
-  await page.keyboard.press(']');
+  await page.keyboard.press('r');
   await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
-  await page.keyboard.press('Backslash');
+  await page.keyboard.press('Alt+h');
+  await expect(viewport).toHaveAttribute('data-orientation-turns', '3');
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
   await page.keyboard.press('+');
   await expect(viewport).toHaveAttribute('data-zoom', '1.250');

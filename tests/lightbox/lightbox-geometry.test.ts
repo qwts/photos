@@ -12,6 +12,7 @@ import {
   panBy,
   resizeTransform,
   rotateOrientation,
+  flipVerticalOrientation,
   transformToViewIntent,
   viewIntentToTransform,
   zoomAround,
@@ -124,5 +125,11 @@ describe('lightbox orientation geometry (#307)', () => {
 
     assert.deepEqual(rotateOrientation(flipped, 1), { quarterTurns: 3, flipped: true });
     assert.deepEqual(rotateOrientation(flipped, -1), { quarterTurns: 1, flipped: true });
+  });
+
+  test('vertical flip composes as a half-turn plus horizontal reflection (#510)', () => {
+    assert.deepEqual(flipVerticalOrientation(DEFAULT_ORIENTATION), { quarterTurns: 2, flipped: true });
+    assert.deepEqual(flipVerticalOrientation(flipVerticalOrientation(DEFAULT_ORIENTATION)), DEFAULT_ORIENTATION);
+    assert.deepEqual(flipVerticalOrientation({ quarterTurns: 1, flipped: true }), { quarterTurns: 3, flipped: false });
   });
 });

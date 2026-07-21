@@ -21,16 +21,17 @@ focused photo; Enter opens it. The skip link moves directly to the grid.
 
 ## Lightbox
 
-| Action                                | Shortcut         |
-| ------------------------------------- | ---------------- |
-| Previous / next photo                 | `Left` / `Right` |
-| Exit lightbox                         | `Esc`            |
-| Show or hide Inspector                | `I`              |
-| Toggle favorite                       | `F`              |
-| Move to Trash                         | `Delete`         |
-| Zoom in / out / reset                 | `+` / `-` / `0`  |
-| Rotate left / right                   | `[` / `]`        |
-| Flip horizontally / reset orientation | `\\` / `R`       |
+| Action                              | Shortcut         |
+| ----------------------------------- | ---------------- |
+| Previous / next photo               | `Left` / `Right` |
+| Exit lightbox                       | `Esc`            |
+| Show or hide Inspector              | `I`              |
+| Toggle favorite                     | `F`              |
+| Move to Trash                       | `Delete`         |
+| Zoom in / out / reset               | `+` / `-` / `0`  |
+| Rotate clockwise / counterclockwise | `R` / `Option+R` |
+| Flip horizontally / vertically      | `H` / `Option+H` |
+| Reset orientation                   | `Shift+R`        |
 
 When a zoomed image overflows the viewport, arrow keys pan it before they
 navigate between photos. Dialogs and editable controls always retain keyboard
@@ -42,3 +43,8 @@ Give it a stable command ID, localized label, active surfaces, and one canonical
 binding. Add any layout-equivalent character variants as alternate keys. The
 registry conflict test must remain empty; do not copy shortcut strings into
 menus, help, or feature components.
+
+Rotate and flip use the physical `R` and `H` keys, so their positions remain
+stable on non-US layouts. Option (Alt on Windows/Linux) invokes the natural
+counter-action. These commands alter only the current lightbox view; persisted
+photo edits remain owned by #493.

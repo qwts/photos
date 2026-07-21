@@ -228,7 +228,7 @@ export const NavigationPreservesViewIntentAndCloseResets: Story = {
     await waitFor(() => expect(landscape.getBoundingClientRect().height).toBeGreaterThan(viewport.getBoundingClientRect().height));
     await fireEvent.wheel(landscape, { deltaY: 5000 });
     await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
-    await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Rotate clockwise (R)' }));
     await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
     await waitFor(() => expect(Number(viewport.dataset['panY'])).toBeLessThan(0));
 
@@ -392,26 +392,26 @@ export const OrientationToolbar: Story = {
     const canvas = within(canvasElement);
     const viewport = canvas.getByTestId('lightbox-viewport');
     const image = canvas.getByRole('img', { name: 'PORTRAIT.JPG' });
-    const resetOrientation = canvas.getByRole('button', { name: 'Reset orientation (R)' });
+    const resetOrientation = canvas.getByRole('button', { name: 'Reset orientation (⇧R)' });
     await waitFor(() => expect(image).toHaveProperty('naturalWidth', 960));
     await expect(resetOrientation).toBeEnabled();
 
     await userEvent.click(canvas.getByRole('button', { name: 'Zoom in (+)' }));
-    await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Rotate clockwise (R)' }));
     await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
     await expect(image.style.transform).toContain('rotate(90deg)');
-    await userEvent.click(canvas.getByRole('button', { name: 'Flip horizontal (Backslash)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Flip horizontally (H)' }));
     await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
     await userEvent.click(resetOrientation);
     await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
     await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
     await expect(viewport).toHaveAttribute('data-zoom', '1.250');
 
-    await userEvent.keyboard(']');
-    await userEvent.keyboard('\\');
-    await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
-    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
     await userEvent.keyboard('r');
+    await userEvent.keyboard('{Alt>}h{/Alt}');
+    await expect(viewport).toHaveAttribute('data-orientation-turns', '3');
+    await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
+    await userEvent.keyboard('{Shift>}r{/Shift}');
     await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
     await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
   },
@@ -441,7 +441,7 @@ export const HandoffTransformToolbar: Story = {
     await expect(
       Math.abs(orientationRect.left + orientationRect.width / 2 - (viewportRect.left + viewportRect.width / 2)),
     ).toBeLessThanOrEqual(1);
-    await expect(Math.round(orientationRect.width)).toBe(155);
+    await expect(Math.round(orientationRect.width)).toBe(189);
     await expect(Math.round(orientationRect.height)).toBe(34);
     await expect(Math.round(zoomRect.left - orientationRect.right)).toBe(11);
     for (const control of controls) {
@@ -470,7 +470,7 @@ export const DurableSyncPatchPreservesViewport: Story = {
     const canvas = within(canvasElement);
     const viewport = canvas.getByTestId('lightbox-viewport');
     await waitFor(() => expect(viewport).toHaveAttribute('data-load-state', 'decoded'));
-    await userEvent.click(canvas.getByRole('button', { name: 'Rotate right (])' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Rotate clockwise (R)' }));
     await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
 
     await userEvent.click(canvas.getByRole('button', { name: 'Advance sync state' }));

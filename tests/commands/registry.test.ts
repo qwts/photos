@@ -6,6 +6,7 @@ import {
   activeShortcuts,
   commandById,
   findShortcutConflicts,
+  formatAriaShortcut,
   formatShortcut,
   nativeCommands,
   resolveCommand,
@@ -85,6 +86,12 @@ test('transient orientation commands use physical keys and Option/Alt inverse bi
 
   assert.equal(resolveCommand({ key: 'р', code: 'KeyR' }, lightbox)?.id, 'view.lightbox.rotateRight');
   assert.equal(resolveCommand({ key: 'р', code: 'KeyR', altKey: true }, lightbox)?.id, 'view.lightbox.rotateLeft');
+  assert.equal(resolveCommand({ key: '®', code: 'KeyR', altKey: true, shiftKey: true }, lightbox), null);
   assert.equal(resolveCommand({ key: 'r', code: 'KeyR' }, { ...lightbox, editable: true }), null);
   assert.equal(resolveCommand({ key: 'r', code: 'KeyR' }, { ...lightbox, dialogOpen: true }), null);
+
+  const inverse = COMMANDS.find(({ id }) => id === 'view.lightbox.rotateLeft')!;
+  assert.equal(formatShortcut(inverse, 'darwin'), '⌥R');
+  assert.equal(formatShortcut(inverse, 'win32'), 'Alt+R');
+  assert.equal(formatAriaShortcut(inverse, 'darwin'), 'Alt+R');
 });

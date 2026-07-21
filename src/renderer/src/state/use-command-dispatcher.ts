@@ -85,6 +85,7 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'view.lightbox.rotateLeft':
         case 'view.lightbox.rotateRight':
         case 'view.lightbox.flipHorizontal':
+        case 'view.lightbox.flipVertical':
         case 'view.lightbox.orientationReset':
           return false;
         case 'help.shortcuts':

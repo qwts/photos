@@ -41,6 +41,14 @@ export function rotateOrientation(orientation: LightboxOrientation, delta: -1 | 
   return { ...orientation, quarterTurns: quarterTurns as LightboxOrientation['quarterTurns'] };
 }
 
+/** Reflect across the visual vertical axis while retaining the compact D4 representation. */
+export function flipVerticalOrientation(orientation: LightboxOrientation): LightboxOrientation {
+  return {
+    quarterTurns: ((orientation.quarterTurns + 2) % 4) as LightboxOrientation['quarterTurns'],
+    flipped: !orientation.flipped,
+  };
+}
+
 export function orientedSize(size: LightboxSize, orientation: LightboxOrientation): LightboxSize {
   return orientation.quarterTurns % 2 === 0 ? size : { width: size.height, height: size.width };
 }
