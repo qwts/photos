@@ -118,6 +118,9 @@ export class InboundPhotoImporter {
       return this.rejected('unsupported', 'Incoming original media type does not match its authenticated content.');
     }
     if (bytes.length !== record.original.byteLength) return this.rejected('unsupported', 'Incoming original byte count does not match.');
+    if (category !== 'eligible' && category !== 'duplicate') {
+      return this.rejected(category, `Incoming original requires ${category} review.`);
+    }
 
     const duplicateId = queryGet<{ id: string }>(
       this.options.db,
@@ -125,7 +128,9 @@ export class InboundPhotoImporter {
       record.original.contentHash,
     )?.id;
     const duplicate = duplicateId === undefined ? undefined : this.options.photos.get(duplicateId);
-    if (duplicate !== undefined) return this.acceptDuplicate(record, albums, duplicate, hooks);
+    if (duplicate !== undefined && category === 'duplicate') return this.acceptDuplicate(record, albums, duplicate, hooks);
+    if (duplicate !== undefined)
+      return this.rejected('conflict', 'A native duplicate appeared after the incoming preview. Refresh and review again.');
     if (category !== 'eligible') return this.rejected(category, `Incoming original requires ${category} review.`);
 
     const photoId = deterministicInboundPhotoId(record.identity.interopId);

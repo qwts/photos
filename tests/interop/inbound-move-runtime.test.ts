@@ -186,6 +186,7 @@ test('explicit refresh previews, imports durably, and resumes ACK upload without
   });
   const journals = new MoveJournalRepository(db);
   const objects = new InboundMoveObjectJournal(db);
+  let failAcknowledgementJournalOnce = true;
   let imports = 0;
   let marker = '';
   const runtime = new InboundMoveRuntime({
@@ -193,7 +194,17 @@ test('explicit refresh previews, imports durably, and resumes ACK upload without
     custody: () => CUSTODY,
     translation: { previewRecord: () => 'eligible' },
     journals,
-    objects,
+    objects: {
+      discover: (input) => objects.discover(input),
+      require: (transferId, path) => objects.require(transferId, path),
+      advance: (transferId, path, phase, at, acknowledgementMessageId) => {
+        if (phase === 'ack-journaled' && failAcknowledgementJournalOnce) {
+          failAcknowledgementJournalOnce = false;
+          throw new Error('injected acknowledgement journal boundary crash');
+        }
+        return objects.advance(transferId, path, phase, at, acknowledgementMessageId);
+      },
+    },
     createMessageId: () => ACK_MESSAGE_ID,
     now: () => '2026-07-21T18:00:00.000Z',
     importer: {
@@ -221,11 +232,14 @@ test('explicit refresh previews, imports durably, and resumes ACK upload without
   assert.equal(preview[0]?.counts.eligible, 1);
   assert.equal(imports, 0, 'manual discovery has no import side effect');
 
-  store.failAcknowledgementOnce = true;
-  await assert.rejects(runtime.start(TRANSFER_ID), /injected acknowledgement upload failure/u);
+  await assert.rejects(runtime.start(TRANSFER_ID), /injected acknowledgement journal boundary crash/u);
   assert.equal(imports, 1);
   assert.equal(marker, source.bytes.toString('hex'));
   assert.equal(journals.pendingOutbox(TRANSFER_ID).length, 1);
+
+  store.failAcknowledgementOnce = true;
+  await assert.rejects(runtime.start(TRANSFER_ID), /injected acknowledgement upload failure/u);
+  assert.equal(imports, 1, 'durable receipt advances committed rows without repeating native import');
 
   const resumed = await runtime.start(TRANSFER_ID);
   assert.equal(resumed.accepted, 1);

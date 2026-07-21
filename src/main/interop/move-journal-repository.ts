@@ -241,7 +241,7 @@ export class MoveJournalRepository {
           recordJson: JSON.stringify(request.payload.record),
         },
       );
-      this.assertSameQueuedRequest(request);
+      this.assertSameQueuedRequest(request, reviewCategory);
       this.updateJournal(request.header.transferId, 'reviewing', request.header.sequence, at);
       this.putAudit({
         eventKey: `${request.header.messageId}:queued`,
@@ -748,12 +748,15 @@ export class MoveJournalRepository {
     }
   }
 
-  private assertSameQueuedRequest(envelope: RecordEnvelope): void {
+  private assertSameQueuedRequest(
+    envelope: RecordEnvelope,
+    expectedReviewCategory: InteropReviewCategory = envelope.payload.reviewCategory,
+  ): void {
     const item = this.requireItem(envelope.header.transferId, envelope.payload.record.identity.interopId);
     if (
       item.sourceMessageId !== envelope.header.messageId ||
       JSON.stringify(item.record) !== JSON.stringify(envelope.payload.record) ||
-      item.reviewCategory !== envelope.payload.reviewCategory
+      item.reviewCategory !== expectedReviewCategory
     ) {
       throw new MoveJournalError('Move item identity was replayed with different content.');
     }
