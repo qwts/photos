@@ -5,6 +5,7 @@ import type { InteropObjectStore } from './transport.js';
 const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
 const manifestPattern = new RegExp(`^pairings/(${uuid})/transfers/(${uuid})/objects/(.+)\\.manifest\\.json$`, 'iu');
 const messagePattern = new RegExp(`^messages/outbox/([0-9]{12})-(${uuid})\\.json\\.aesgcm$`, 'iu');
+const acknowledgementPattern = new RegExp(`^messages/acknowledgements/[0-9]{12}-${uuid}\\.json\\.aesgcm$`, 'iu');
 const blobPattern = new RegExp(`^blobs/(${uuid})/original\\.bin\\.aesgcm$`, 'iu');
 const uuidSchema = z.string().uuid();
 
@@ -65,6 +66,7 @@ export function parseInboundMoveManifestPath(pairingIdInput: string, providerPat
       recordInteropId: uuidSchema.parse(blob[1]),
     };
   }
+  if (acknowledgementPattern.test(logicalPath)) return null;
   throw new InboundMoveDiscoveryError('Incoming Move manifest has an unsupported canonical path.');
 }
 
