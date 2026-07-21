@@ -108,7 +108,11 @@ export function ActivityDialog({ open, onClose }: { readonly open: boolean; read
                     <FormattedMessage {...eventMessages[event.eventType]} values={{ count: countOf(event) }} />
                   </span>
                   <time className="ovl-activity__time mono-data" dateTime={event.occurredAt}>
-                    <FormattedDate value={event.occurredAt} /> · <FormattedTime value={event.occurredAt} />
+                    <FormattedMessage
+                      id="activity.timestamp"
+                      defaultMessage="{date} · {time}"
+                      values={{ date: <FormattedDate value={event.occurredAt} />, time: <FormattedTime value={event.occurredAt} /> }}
+                    />
                   </time>
                   {event.outcome === 'partial' ? (
                     <span className="ovl-activity__partial">

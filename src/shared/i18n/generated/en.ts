@@ -9,6 +9,7 @@ export const en: Readonly<Record<string, string>> = {
   "activity.loadMore": "Load more",
   "activity.loading": "Loading activity",
   "activity.partial": "Completed with some items unresolved",
+  "activity.timestamp": "{date} · {time}",
   "activity.title": "Activity",
   "commands.app.lock.now": "Lock Now",
   "commands.app.search.focus": "Focus search",
