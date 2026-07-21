@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, type Dispatch } from 'react';
 
 import type { AppAction, AppState } from '../../../shared/library/app-state.js';
 
-export function useDetachedInspector(state: AppState, dispatch: Dispatch<AppAction>): readonly AppState['photos'][number][] {
+export function useDetachedInspector(
+  state: AppState,
+  dispatch: Dispatch<AppAction>,
+): { readonly index: number; readonly count: number } | undefined {
   const wasDetachedRef = useRef(false);
   const selection = useMemo(() => state.photos.filter((photo) => state.selection.has(photo.id)), [state.photos, state.selection]);
   const windowState = useMemo(
@@ -41,5 +44,5 @@ export function useDetachedInspector(state: AppState, dispatch: Dispatch<AppActi
     };
   }, [dispatch]);
 
-  return selection;
+  return windowState.selectionPosition ?? undefined;
 }
