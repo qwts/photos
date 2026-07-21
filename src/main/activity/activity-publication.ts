@@ -24,7 +24,7 @@ export interface CommandDraft {
 
 export interface ActivityFacade {
   page(limit: number, cursor?: number): ActivityPage;
-  record(event: ActivityDraft, command?: CommandDraft): void;
+  record(event: ActivityDraft, command?: CommandDraft | readonly CommandDraft[]): void;
   recordMutation<T>(
     mutation: () => T,
     activity: (result: T) => ActivityDraft | undefined,
@@ -103,7 +103,8 @@ export function createActivityFacade(db: BetterSqlite3.Database, onChanged: () =
       try {
         repository.transaction(() => {
           const appended = append(event);
-          if (command !== undefined) commands.append(materializeCommand(command, appended));
+          const drafts: readonly CommandDraft[] = command === undefined ? [] : 'commandId' in command ? [command] : command;
+          for (const draft of drafts) commands.append(materializeCommand(draft, appended));
         });
         status = 'published';
       } catch {

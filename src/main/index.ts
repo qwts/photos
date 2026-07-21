@@ -5,7 +5,7 @@ import { app, dialog, session } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { activityBackupSnapshot, createActivityFacade } from './activity/activity-publication.js';
-import { HistoryService } from './history/history-service.js';
+import { createHistoryService } from './history/history-runtime.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { configureAppProfile } from './app-profile.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
@@ -831,7 +831,7 @@ void externalOpen.whenReady().then(async () => {
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
     getLibrary: getLibraryService,
     getActivity: () => createActivityFacade(requireParts('activity').db, () => manifestSyncTrigger?.()),
-    getHistory: () => new HistoryService(requireParts('history').db, getLibraryService()),
+    getHistory: () => createHistoryService(requireParts('history'), getLibraryService()),
     libraries: {
       ...registryRuntime.facade({
         openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
