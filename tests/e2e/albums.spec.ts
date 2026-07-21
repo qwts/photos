@@ -211,6 +211,8 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
   const keyboardMenu = page.getByRole('menu', { name: 'Actions for Keyboard album' });
   await expect(keyboardMenu.getByRole('menuitem', { name: 'Rename album…' })).toBeFocused();
   await page.keyboard.press('ArrowDown');
+  await expect(keyboardMenu.getByRole('menuitem', { name: 'Transfer & Sync…' })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
   await expect(keyboardMenu.getByRole('menuitem', { name: 'Delete album…' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(keyboardMenu).toHaveCount(0);
