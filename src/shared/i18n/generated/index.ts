@@ -6,5 +6,5 @@
 import { en } from './en.js';
 
 export const catalogs: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  en: en,
+  "en": en,
 };

@@ -44,6 +44,9 @@
   "commands.help.intro": {
     "defaultMessage": "Available in the current view"
   },
+  "commands.help.open": {
+    "defaultMessage": "Overlook Help"
+  },
   "commands.help.shortcuts": {
     "defaultMessage": "Keyboard shortcuts"
   },
