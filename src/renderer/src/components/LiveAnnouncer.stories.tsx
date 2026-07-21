@@ -1,14 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 
 import { Button } from './Button';
 import { useAnnouncer } from './LiveAnnouncer';
+import { SelectionAnnouncer } from './SelectionAnnouncer';
 
 function AnnouncerHarness(): ReactElement {
   const { announce } = useAnnouncer();
+  const [selectionCount, setSelectionCount] = useState(0);
   return (
     <div style={{ display: 'flex', gap: 8 }}>
+      <SelectionAnnouncer count={selectionCount} />
       <Button onClick={() => announce('Backup complete')}>Announce update</Button>
       <Button onClick={() => announce('Import failed', 'assertive')}>Announce error</Button>
       <Button
@@ -19,6 +22,8 @@ function AnnouncerHarness(): ReactElement {
       >
         Coalesce progress
       </Button>
+      <Button onClick={() => setSelectionCount((count) => count + 1)}>Select photo</Button>
+      <Button onClick={() => setSelectionCount(0)}>Clear selection</Button>
     </div>
   );
 }
@@ -52,5 +57,12 @@ export const QueuesRepeatedMessagesByPriority: Story = {
     await userEvent.click(canvas.getByRole('button', { name: 'Coalesce progress' }));
     await waitFor(() => expect(polite).toHaveTextContent('Copying 2 of 4'), { timeout: 2500 });
     await expect(polite).not.toHaveTextContent('Copying 1 of 4');
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Select photo' }));
+    await waitFor(() => expect(polite).toHaveTextContent('1 photo selected'), { timeout: 2500 });
+    await userEvent.click(canvas.getByRole('button', { name: 'Select photo' }));
+    await waitFor(() => expect(polite).toHaveTextContent('2 photos selected'), { timeout: 2500 });
+    await userEvent.click(canvas.getByRole('button', { name: 'Clear selection' }));
+    await waitFor(() => expect(polite).toHaveTextContent('Selection cleared'), { timeout: 2500 });
   },
 };

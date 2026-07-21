@@ -36,6 +36,7 @@ import type { CommandId } from '../../../shared/commands/registry.js';
 import type { CommandMenuContext } from '../../../shared/commands/menu-contract.js';
 import { ActivityDialog } from '../activity/ActivityDialog';
 import { useAnnouncer } from '../components/LiveAnnouncer';
+import { SelectionAnnouncer } from '../components/SelectionAnnouncer';
 
 const viewMessages = defineMessages({
   all: { id: 'shell.view.all', defaultMessage: 'All Photos' },
@@ -45,8 +46,6 @@ const viewMessages = defineMessages({
   deleted: { id: 'shell.view.deleted', defaultMessage: 'Trash' },
   album: { id: 'shell.view.album', defaultMessage: 'Album' },
   protected: { id: 'shell.view.protected', defaultMessage: 'Protected album' },
-  selectionCount: { id: 'shell.selection.count', defaultMessage: '{count, plural, one {# photo selected} other {# photos selected}}' },
-  selectionCleared: { id: 'shell.selection.cleared', defaultMessage: 'Selection cleared' },
   results: { id: 'shell.results.count', defaultMessage: '{count, plural, one {# result} other {# results}}' },
 });
 
@@ -514,18 +513,6 @@ export function Shell({
       : state.album !== null
         ? (activeAlbum?.name ?? intl.formatMessage(viewMessages.album))
         : intl.formatMessage(viewMessages[state.source]);
-  const previousSelectionCount = useRef(state.selection.size);
-  useEffect(() => {
-    if (previousSelectionCount.current === state.selection.size) return;
-    previousSelectionCount.current = state.selection.size;
-    announce(
-      state.selection.size === 0
-        ? intl.formatMessage(viewMessages.selectionCleared)
-        : intl.formatMessage(viewMessages.selectionCount, { count: state.selection.size }),
-      'polite',
-      'selection',
-    );
-  }, [announce, intl, state.selection.size]);
   const previousPhotos = useRef(state.photos);
   useEffect(() => {
     if (previousPhotos.current === state.photos) return;
@@ -540,6 +527,7 @@ export function Shell({
     // portals outside this subtree. The toolbar Import button remains the
     // non-drag equivalent required by SC 2.5.7.
     <div className="ovl-shell">
+      <SelectionAnnouncer count={state.selection.size} />
       <a className="ovl-skip-link" href="#photo-grid">
         <FormattedMessage id="shell.skipToPhotos" defaultMessage="Skip to photos" />
       </a>

@@ -96,7 +96,7 @@ export const ClickTargetsAreIndependent: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const row = await canvas.findByRole('button', { name: 'Open IMG_4021.JPG' });
-    const circle = canvas.getByRole('button', { name: 'Select' });
+    const circle = canvas.getByRole('button', { name: 'Select IMG_4021.JPG' });
     const status = canvas.getByRole('img', { name: 'Backed up (encrypted)' });
     await expect(row).not.toContainElement(circle);
     await expect(row).not.toContainElement(status);

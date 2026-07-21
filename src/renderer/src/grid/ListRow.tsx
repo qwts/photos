@@ -54,6 +54,7 @@ export function ListRow({
   onKeyDown,
 }: ListRowProps): ReactElement {
   const { formatBytes, formatCalendarDate } = useFormats();
+  const photoName = (accessibleName ?? photo.fileName).replace(/^Open /u, '');
   return (
     <div role="group" className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}>
       <PhotoOpenButton
@@ -70,7 +71,7 @@ export function ListRow({
       />
       <button
         type="button"
-        aria-label={selected ? 'Deselect' : 'Select'}
+        aria-label={`${selected ? 'Deselect' : 'Select'} ${photoName}`}
         aria-pressed={selected}
         className={`ovl-listrow__select${selected ? ' ovl-listrow__select--selected' : ''}`}
         onClick={(event) => {

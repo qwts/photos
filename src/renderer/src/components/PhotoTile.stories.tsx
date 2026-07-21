@@ -62,7 +62,7 @@ export const ClickTargetsAreIndependent: Story = {
   ),
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    const select = canvas.getByRole('button', { name: 'Select' });
+    const select = canvas.getByRole('button', { name: 'Select IMG_4021.RAF' });
     await expect(select.getBoundingClientRect().width).toBeGreaterThanOrEqual(24);
     await expect(select.getBoundingClientRect().height).toBeGreaterThanOrEqual(24);
     // Circle click selects but never opens.
@@ -78,7 +78,7 @@ export const ClickTargetsAreIndependent: Story = {
     await expect(args.onClick).not.toHaveBeenCalled();
     // Tile click opens without toggling selection.
     const openButton = canvas.getByRole('button', { name: 'Open IMG_4021.RAF' });
-    const selectButton = canvas.getByRole('button', { name: 'Select' });
+    const selectButton = canvas.getByRole('button', { name: 'Select IMG_4021.RAF' });
     const status = canvas.getByRole('img', { name: 'Backed up (encrypted)' });
     await expect(openButton).not.toContainElement(selectButton);
     await expect(openButton).not.toContainElement(status);
