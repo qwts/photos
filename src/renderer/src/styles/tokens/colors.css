@@ -52,6 +52,7 @@
   --border-photo-overlay: oklch(1 0 0 / 0.6);
   --text-photo-overlay: oklch(0.95 0.005 250);
   --text-photo-muted: oklch(0.78 0.008 250);
+  --text-photo-danger: #ff8880;
   --photo-hover-overlay: oklch(1 0 0 / 0.06);
   --shadow-photo-overlay: 0 1px 2px oklch(0 0 0 / 0.6);
   --photo-top-gradient: linear-gradient(to bottom, oklch(0.1 0.005 250 / 0.75), transparent);
@@ -98,13 +99,13 @@
   --accent-cyan-bright: #007d96;
   --accent-violet: #783caf;
   --accent-amber: #815000;
-  --accent-green: #176b46;
-  --accent-red: #b42332;
+  --accent-green: #125e3b;
+  --accent-red: #8f1020;
 
   --accent-iris-dim: rgb(83 70 199 / 14%);
   --accent-amber-dim: rgb(129 80 0 / 14%);
-  --accent-green-dim: rgb(23 107 70 / 14%);
-  --accent-red-dim: rgb(180 35 50 / 14%);
+  --accent-green-dim: rgb(18 94 59 / 14%);
+  --accent-red-dim: rgb(143 16 32 / 14%);
 
   --border-1: rgb(23 26 33 / 14%);
   --border-2: rgb(23 26 33 / 24%);

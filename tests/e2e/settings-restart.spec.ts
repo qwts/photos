@@ -66,7 +66,7 @@ test('settings persist across an app restart and re-render the UI', async () => 
     expect(new URL(page.url()).searchParams.get('theme')).toBe('light');
     expect(
       await second.evaluate(({ BrowserWindow, nativeTheme }) => ({
-        background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor(),
+        background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor().toLowerCase(),
         source: nativeTheme.themeSource,
       })),
     ).toEqual({ background: '#f7f8fa', source: 'light' });
