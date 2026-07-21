@@ -279,8 +279,10 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ]; then
-            detail=$(tail -n 120 test-results/e2e-output.log | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/$/%0A/' | tr -d '\n')
-            echo "::error title=E2E failure detail::$detail"
+            grep -E 'Error:|Expected:|Received:|Call log:|offload-ui\.spec\.ts:[0-9]+:[0-9]+' test-results/e2e-output.log \
+              | tail -n 10 \
+              | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/^/::error title=E2E failure detail::/' \
+              || true
           fi
           exit "$status"
 
