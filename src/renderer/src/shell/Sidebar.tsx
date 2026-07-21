@@ -14,6 +14,8 @@ import { AlbumActionMenu } from './AlbumActionMenu';
 import { DeleteAlbumDialog, RenameAlbumDialog } from './AlbumDialogs';
 import { AlbumDropDialog } from './AlbumDropDialog';
 import { useAlbumPhotoDrop } from './use-album-photo-drop';
+import { ContextMenu } from '../components/ContextMenu';
+import { commandById } from '../../../shared/commands/registry.js';
 
 // The shell stylesheet carries the sidebar/rail rules; importing it here
 // (not just in Shell) keeps the component styled when mounted alone, e.g.
@@ -150,13 +152,22 @@ export interface SidebarProps {
     readonly count?: number | undefined;
   }[];
   readonly onProtectedOpen?: ((albumId: string, origin: HTMLButtonElement) => void) | undefined;
+  readonly onEmptyTrash?: (() => void) | undefined;
 }
 
 // The 216px navigation rail (#80) per the design's Sidebar.jsx. Album
 // creation and management are keyboard-accessible here; the backup card
 // shows the encrypted badge, the settings gear (opens the M09 dialog), a
 // live aggregate bar while a backup runs (#108), and the mono storage line.
-export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbums = [], onProtectedOpen }: SidebarProps): ReactElement {
+export function Sidebar({
+  counts,
+  stats,
+  albums,
+  onTransferAlbum,
+  protectedAlbums = [],
+  onProtectedOpen,
+  onEmptyTrash,
+}: SidebarProps): ReactElement {
   const intl = useIntl();
   const direction = directionOf(intl.locale);
   const inlineEndSide = direction === 'rtl' ? 'left' : 'right';
@@ -167,6 +178,7 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
   // Collapse to the 56px icon rail (#238): labels/counts move to tooltips,
   // headings become dividers, the backup card becomes the shield button.
   const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [sourceMenu, setSourceMenu] = useState<{ readonly x: number; readonly y: number; readonly origin: HTMLButtonElement } | null>(null);
   const toggleCollapsed = (): void => {
     const next = !collapsed;
     try {
@@ -250,8 +262,36 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
           onClick={() => {
             dispatch({ type: 'source/set', source: key });
           }}
+          onOpenActions={
+            key === 'deleted' && onEmptyTrash !== undefined && (counts?.deleted ?? 0) > 0
+              ? (position, origin) => setSourceMenu({ ...position, origin })
+              : undefined
+          }
         />
       ))}
+      {sourceMenu === null ? null : (
+        <ContextMenu
+          label={intl.formatMessage({ id: 'sidebar.trash.actions', defaultMessage: 'Trash actions' })}
+          x={sourceMenu.x}
+          y={sourceMenu.y}
+          items={[
+            {
+              id: 'trash.empty',
+              label: intl.formatMessage(commandById('trash.empty').label),
+              icon: 'trash-2',
+              action: onEmptyTrash ?? (() => undefined),
+              danger: true,
+            },
+          ]}
+          onClose={() => {
+            const origin = sourceMenu.origin;
+            setSourceMenu(null);
+            requestAnimationFrame(() => {
+              if (origin.isConnected) origin.focus();
+            });
+          }}
+        />
+      )}
       {collapsed ? (
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (

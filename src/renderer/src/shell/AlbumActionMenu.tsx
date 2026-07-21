@@ -1,8 +1,9 @@
-import { useEffect, useRef, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
+import { useIntl } from 'react-intl';
 
 import type { AlbumSummary } from '../../../shared/library/types.js';
-import { Icon } from '../components/Icon';
-import { destructiveActions } from '../../../shared/destructive-actions.js';
+import { commandById } from '../../../shared/commands/registry.js';
+import { ContextMenu } from '../components/ContextMenu';
 
 export interface AlbumActionMenuProps {
   readonly album: AlbumSummary;
@@ -15,80 +16,25 @@ export interface AlbumActionMenuProps {
 }
 
 export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, onClose }: AlbumActionMenuProps): ReactElement {
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    const close = (): void => onClose();
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        close();
-      }
-    };
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', close);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [onClose]);
-
+  const intl = useIntl();
   return (
-    // Same composite-widget exception as Segmented: a `menu` container is not focusable;
-    // its menuitems are. This one is complete — initial focus (above), Escape, and
-    // ArrowUp/ArrowDown/Home/End roving (below). Do not "fix" the rule by adding
-    // tabIndex to the container; that would put a stop in the Tab order that the APG
-    // menu pattern specifically excludes.
-    // eslint-disable-next-line jsx-a11y/interactive-supports-focus
-    <div
-      ref={menuRef}
-      role="menu"
-      aria-label={`Actions for ${album.name}`}
-      className="ovl-album-menu"
-      style={{ left: Math.max(8, Math.min(x, window.innerWidth - 210)), top: Math.max(8, Math.min(y, window.innerHeight - 128)) }}
-      onPointerDown={(event) => event.stopPropagation()}
-      onKeyDown={(event) => {
-        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
-        const current = items.indexOf(document.activeElement as HTMLButtonElement);
-        const target =
-          event.key === 'Home'
-            ? items[0]
-            : event.key === 'End'
-              ? items.at(-1)
-              : event.key === 'ArrowDown'
-                ? items[(current + 1) % items.length]
-                : items[(current - 1 + items.length) % items.length];
-        target?.focus();
-      }}
-    >
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => {
-          onRename();
-        }}
-      >
-        <Icon name="album" size={14} />
-        Rename album…
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="ovl-album-menu__danger"
-        onClick={() => {
-          onDelete();
-        }}
-      >
-        <Icon name="trash-2" size={14} />
-        {destructiveActions.deleteAlbum.label}…
-      </button>
-      <button type="button" role="menuitem" onClick={onTransfer}>
-        <Icon name="refresh-cw" size={14} />
-        Transfer &amp; Sync…
-      </button>
-    </div>
+    <ContextMenu
+      label={`Actions for ${album.name}`}
+      x={x}
+      y={y}
+      onClose={onClose}
+      items={[
+        { id: 'album.rename', label: intl.formatMessage(commandById('album.rename').label), icon: 'album', action: onRename },
+        { id: 'album.transfer', label: intl.formatMessage(commandById('album.transfer').label), icon: 'refresh-cw', action: onTransfer },
+        {
+          id: 'album.delete',
+          label: intl.formatMessage(commandById('album.delete').label),
+          icon: 'trash-2',
+          action: onDelete,
+          danger: true,
+          separatorBefore: true,
+        },
+      ]}
+    />
   );
 }

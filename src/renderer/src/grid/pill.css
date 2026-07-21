@@ -101,6 +101,13 @@
   box-shadow: var(--shadow-2);
 }
 
+.ovl-albumpicker--context {
+  position: fixed;
+  z-index: 220;
+  bottom: auto;
+  transform: none;
+}
+
 .ovl-albumpicker__row {
   display: flex;
   align-items: center;

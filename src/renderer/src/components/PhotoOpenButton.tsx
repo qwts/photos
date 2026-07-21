@@ -7,7 +7,7 @@ export interface PhotoOpenButtonProps {
   readonly label: string;
   readonly className: string;
   readonly onOpen?: (() => void) | undefined;
-  readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
+  readonly onContextAction?: ((point: { readonly x: number; readonly y: number; readonly origin: HTMLButtonElement }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
   readonly tabIndex?: 0 | -1 | undefined;
@@ -47,7 +47,7 @@ export function PhotoOpenButton({
           ? undefined
           : (event) => {
               event.preventDefault();
-              onContextAction({ x: event.clientX, y: event.clientY });
+              onContextAction({ x: event.clientX, y: event.clientY, origin: event.currentTarget });
             }
       }
       onKeyDown={
@@ -59,7 +59,11 @@ export function PhotoOpenButton({
               if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
                 event.preventDefault();
                 const bounds = event.currentTarget.getBoundingClientRect();
-                onContextAction?.({ x: direction === 'rtl' ? bounds.left - 224 : bounds.right + 4, y: bounds.top });
+                onContextAction?.({
+                  x: direction === 'rtl' ? bounds.left - 224 : bounds.right + 4,
+                  y: bounds.top,
+                  origin: event.currentTarget,
+                });
               }
             }
       }

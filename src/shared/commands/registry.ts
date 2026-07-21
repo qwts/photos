@@ -51,6 +51,9 @@ export type CommandId =
   | 'history.redo'
   | 'album.membership.add'
   | 'album.membership.remove'
+  | 'album.rename'
+  | 'album.delete'
+  | 'album.transfer'
   | 'view.inspector.toggle'
   | 'view.mode.grid'
   | 'view.mode.list'
@@ -58,8 +61,14 @@ export type CommandId =
   | 'view.lightbox.previous'
   | 'view.lightbox.next'
   | 'photo.favorite.toggle'
+  | 'photo.open'
+  | 'photo.export'
+  | 'photo.offload'
+  | 'photo.transfer'
   | 'photo.trash'
   | 'photo.restore'
+  | 'photo.purge'
+  | 'trash.empty'
   | 'view.lightbox.zoomIn'
   | 'view.lightbox.zoomOut'
   | 'view.lightbox.zoomReset'
@@ -109,6 +118,9 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'history.redo': { id: 'commands.history.redo', defaultMessage: 'Redo' },
   'album.membership.add': { id: 'commands.album.membership.add', defaultMessage: 'Add to album' },
   'album.membership.remove': { id: 'commands.album.membership.remove', defaultMessage: 'Remove from album' },
+  'album.rename': { id: 'commands.album.rename', defaultMessage: 'Rename album…' },
+  'album.delete': { id: 'commands.album.delete', defaultMessage: 'Delete album…' },
+  'album.transfer': { id: 'commands.album.transfer', defaultMessage: 'Transfer & Sync…' },
   'view.inspector.toggle': { id: 'commands.view.inspector.toggle', defaultMessage: 'Show or hide Inspector' },
   'view.mode.grid': { id: 'commands.view.mode.grid', defaultMessage: 'Grid' },
   'view.mode.list': { id: 'commands.view.mode.list', defaultMessage: 'List' },
@@ -116,8 +128,14 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'view.lightbox.previous': { id: 'commands.view.lightbox.previous', defaultMessage: 'Previous photo' },
   'view.lightbox.next': { id: 'commands.view.lightbox.next', defaultMessage: 'Next photo' },
   'photo.favorite.toggle': { id: 'commands.photo.favorite.toggle', defaultMessage: 'Toggle favorite' },
+  'photo.open': { id: 'commands.photo.open', defaultMessage: 'Open' },
+  'photo.export': { id: 'commands.photo.export', defaultMessage: 'Export…' },
+  'photo.offload': { id: 'commands.photo.offload', defaultMessage: 'Offload original…' },
+  'photo.transfer': { id: 'commands.photo.transfer', defaultMessage: 'Transfer & Sync…' },
   'photo.trash': { id: 'commands.photo.trash', defaultMessage: 'Move photo to Trash' },
   'photo.restore': { id: 'commands.photo.restore', defaultMessage: 'Restore photo' },
+  'photo.purge': { id: 'commands.photo.purge', defaultMessage: 'Delete permanently…' },
+  'trash.empty': { id: 'commands.trash.empty', defaultMessage: 'Empty Trash…' },
   'view.lightbox.zoomIn': { id: 'commands.view.lightbox.zoomIn', defaultMessage: 'Zoom in' },
   'view.lightbox.zoomOut': { id: 'commands.view.lightbox.zoomOut', defaultMessage: 'Zoom out' },
   'view.lightbox.zoomReset': { id: 'commands.view.lightbox.zoomReset', defaultMessage: 'Reset zoom' },
@@ -275,6 +293,9 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     surfaces: [],
     target: 'selection',
   },
+  { id: 'album.rename', label: label('album.rename', 'Rename album…'), surfaces: [], target: 'focused-item' },
+  { id: 'album.delete', label: label('album.delete', 'Delete album…'), surfaces: [], target: 'focused-item' },
+  { id: 'album.transfer', label: label('album.transfer', 'Transfer & Sync…'), surfaces: [], target: 'focused-item' },
   {
     id: 'view.inspector.toggle',
     label: label('view.inspector.toggle', 'Show or hide Inspector'),
@@ -327,6 +348,10 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     key: 'f',
     native: { menu: 'photo', lockSafe: false, queueable: false },
   },
+  { id: 'photo.open', label: label('photo.open', 'Open'), surfaces: [], target: 'focused-item' },
+  { id: 'photo.export', label: label('photo.export', 'Export…'), surfaces: [], target: 'selection' },
+  { id: 'photo.offload', label: label('photo.offload', 'Offload original…'), surfaces: [], target: 'selection' },
+  { id: 'photo.transfer', label: label('photo.transfer', 'Transfer & Sync…'), surfaces: [], target: 'selection' },
   {
     id: 'photo.trash',
     label: label('photo.trash', 'Move photo to Trash'),
@@ -341,6 +366,8 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     surfaces: [],
     target: 'selection',
   },
+  { id: 'photo.purge', label: label('photo.purge', 'Delete permanently…'), surfaces: [], target: 'selection' },
+  { id: 'trash.empty', label: label('trash.empty', 'Empty Trash…'), surfaces: [], target: 'route' },
   {
     id: 'view.lightbox.zoomIn',
     label: label('view.lightbox.zoomIn', 'Zoom in'),
