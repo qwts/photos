@@ -60,6 +60,7 @@ describe('full-res URL contract (#91)', () => {
     assert.equal(parseFullUrl(`${FULL_SCHEME}://library/a/b`), null);
     assert.equal(parseFullUrl(`${FULL_SCHEME}://library/`), null);
     assert.equal(parseFullUrl(`${FULL_SCHEME}://library/%ZZ`), null);
+    assert.equal(parseProtectedFullUrl('not a url'), null);
     assert.equal(parseProtectedFullUrl(`${FULL_SCHEME}://protected/album-only`), null);
     assert.equal(parseProtectedFullUrl(`${FULL_SCHEME}://protected/album/%ZZ`), null);
   });

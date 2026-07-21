@@ -234,6 +234,31 @@ describe('app state reducer', () => {
     assert.equal(state.inspectorPhotoId, null);
   });
 
+  test('Inspector lifecycle preserves reducer no-ops and alternate close paths (#503)', () => {
+    const photos = ['a', 'b'].map((id) => ({ id }) as AppState['photos'][number]);
+    const sorted = apply(initialAppState, { type: 'sortOrder/set', order: 'name' });
+    assert.equal(sorted.sortOrder, 'name');
+    const invalidLightbox = { ...sorted, photos, lightboxId: 'missing' };
+    assert.equal(apply(invalidLightbox, { type: 'lightbox/stepped', delta: 1 }), invalidLightbox);
+
+    const docked = apply(sorted, { type: 'photos/loaded', photos, append: false }, { type: 'inspector/toggled' });
+    const hidden = apply(docked, { type: 'inspector/toggled' });
+    assert.equal(hidden.inspectorOpen, false);
+    assert.equal(hidden.inspectorSource, null);
+
+    const detached = apply(
+      sorted,
+      { type: 'photos/loaded', photos, append: false },
+      { type: 'selection/all', photoIds: ['a'] },
+      { type: 'lightbox/opened', photoId: 'b' },
+      { type: 'inspector/detached' },
+      { type: 'escape' },
+    );
+    assert.equal(detached.lightboxId, null);
+    assert.equal(detached.inspectorSource, 'selection');
+    assert.equal(detached.inspectorPhotoId, 'a');
+  });
+
   test('lightbox follows visibility: an id that leaves the photo set closes for real (#92)', () => {
     const photo = (id: string) => ({ id }) as AppState['photos'][number];
     let state = apply(

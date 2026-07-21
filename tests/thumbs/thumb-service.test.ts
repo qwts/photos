@@ -40,6 +40,7 @@ describe('thumb URL contract', () => {
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/01J8?size=huge`), null);
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/?size=thumb`), null);
     assert.equal(parseThumbUrl(`${THUMB_SCHEME}://library/%ZZ?size=thumb`), null);
+    assert.equal(parseProtectedThumbUrl('not a url'), null);
     assert.equal(parseProtectedThumbUrl(`${THUMB_SCHEME}://protected/album-only?size=thumb`), null);
     assert.equal(parseProtectedThumbUrl(`${THUMB_SCHEME}://protected/album/%ZZ?size=thumb`), null);
   });

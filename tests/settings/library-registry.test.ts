@@ -9,7 +9,7 @@ import { LibraryRegistry, LibraryRegistryError, ensureDefaultEntry } from '../..
 import { LibraryRegistryRuntime } from '../../src/main/library/library-registry-runtime.js';
 import { channels } from '../../src/shared/ipc/channels.js';
 import { wrapHandler } from '../../src/shared/ipc/registry.js';
-import { selectStartupLibrary, type LibraryEntry } from '../../src/shared/library/registry.js';
+import { libraryRegistryFileSchema, selectStartupLibrary, type LibraryEntry } from '../../src/shared/library/registry.js';
 
 // #384 / ADR-0017 §1/§7: standalone fail-loud registry with atomic writes,
 // registry-only removal, and the register-in-place legacy migration.
@@ -33,6 +33,10 @@ function registryIn(dir: string): LibraryRegistry {
 }
 
 describe('library registry (#384)', () => {
+  test('the shared schema rejects duplicate library ids', () => {
+    const duplicate = entry();
+    assert.equal(libraryRegistryFileSchema.safeParse({ version: 1, entries: [duplicate, duplicate] }).success, false);
+  });
   test('an absent file is an empty registry, not an error', () => {
     const registry = registryIn(mkdtempSync(join(tmpdir(), 'overlook-registry-')));
     assert.deepEqual(registry.list(), []);
@@ -107,6 +111,7 @@ describe('library registry (#384)', () => {
     const never = entry({ id: ULID_A, createdAt: '2026-07-01T00:00:00.000Z' });
     const opened = entry({ id: ULID_B, path: '/tmp/lib-b', lastOpenedAt: '2026-07-02T00:00:00.000Z' });
     assert.equal(selectStartupLibrary([never, opened])?.id, ULID_B);
+    assert.equal(selectStartupLibrary([never, entry({ id: ULID_B, createdAt: '2026-07-03T00:00:00.000Z' })])?.id, ULID_B);
     assert.equal(selectStartupLibrary([never])?.id, ULID_A);
     assert.equal(selectStartupLibrary([]), undefined);
   });
