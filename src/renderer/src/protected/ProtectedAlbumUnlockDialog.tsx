@@ -70,7 +70,7 @@ export function ProtectedAlbumUnlockDialog({ albumId, onClose, onDone }: Protect
           <PasswordField
             value={password}
             onChange={setPassword}
-            label="Protected album password"
+            label="Album password"
             name="protected-album-password"
             autoComplete="current-password"
             autoFocus

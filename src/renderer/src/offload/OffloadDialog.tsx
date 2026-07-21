@@ -77,7 +77,7 @@ export function OffloadDialog({ photoIds, onClose, onComplete }: OffloadDialogPr
       }
     >
       <div className="ovl-offload" aria-live="polite">
-        {plan === null && error === null ? <div className="ovl-offload__loading mono-data">CHECKING VERIFIED BACKUPS…</div> : null}
+        {plan === null && error === null ? <div className="ovl-offload__loading mono-data">Checking verified backups…</div> : null}
         {plan === null ? null : (
           <>
             <div className="ovl-offload__summary">
@@ -86,11 +86,11 @@ export function OffloadDialog({ photoIds, onClose, onComplete }: OffloadDialogPr
               </strong>{' '}
               can be removed from this Mac after confirmation.
             </div>
-            <div className="ovl-offload__freed mono-data">ESTIMATED SPACE FREED · {formatBytes(plan.estimatedFreedBytes)}</div>
+            <div className="ovl-offload__freed mono-data">Estimated space freed · {formatBytes(plan.estimatedFreedBytes)}</div>
             <div className="ovl-offload__safety">Encrypted cloud copies stay untouched. Thumbnails remain available offline.</div>
             {reasons.size === 0 ? null : (
               <div className="ovl-offload__skips">
-                <div className="mono-data">{formatCount(plan.ineligible)} WILL BE SKIPPED</div>
+                <div className="mono-data">{formatCount(plan.ineligible)} will be skipped</div>
                 <ul>
                   {[...reasons].map(([reason, count]) => (
                     <li key={reason}>

@@ -56,7 +56,8 @@ export const PasswordFailureAndThrottle: Story = {
     await userEvent.type(password, 'wrong password');
     await userEvent.click(canvas.getByRole('button', { name: 'Unlock' }));
     await expect(await canvas.findByText('That password did not unlock this library.')).toBeVisible();
-    await expect(canvas.getByRole('button', { name: /Try again in/u })).toBeDisabled();
+    await expect(canvas.getByRole('button', { name: 'Unlock' })).toBeDisabled();
+    await expect(canvas.getByText(/Try again in/u)).toBeVisible();
   },
 };
 

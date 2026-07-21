@@ -14,7 +14,7 @@ async function syncState(page: Page): Promise<string> {
 async function confirmOffload(page: Page): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Offload originals' });
   await expect(dialog.getByText('1 original')).toBeVisible();
-  await expect(dialog.getByText(/ESTIMATED SPACE FREED/u)).toBeVisible();
+  await expect(dialog.getByText(/Estimated space freed/u)).toBeVisible();
   await dialog.getByRole('button', { name: 'Offload 1' }).click();
   await expect(dialog).toBeHidden();
   await expect.poll(() => syncState(page)).toBe('offloaded');
@@ -38,7 +38,7 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
     await page.getByTestId('virtual-grid').waitFor();
     await firstCell.locator('.ovl-tile__img').waitFor();
     await page.getByRole('button', { name: 'Back up' }).click();
-    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP · now', { timeout: 20_000 });
+    await expect(page.getByTestId('sync-state')).toContainText('All backed up · now', { timeout: 20_000 });
 
     // Minimum-width selection layout keeps Offload visible and moves the
     // secondary actions into the keyboard-accessible overflow.
@@ -55,17 +55,17 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
     await expect(dialog.getByText('1 original')).toBeVisible();
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect.poll(() => syncState(page)).toBe('synced');
-    await expect(pill).toContainText('1 SELECTED');
+    await expect(pill).toContainText('1 selected');
 
     // Selection entry: verified eviction, targeted update, clear-on-success,
     // and Undo's verified download/status restoration.
     await pill.getByRole('button', { name: 'Offload' }).click();
     await confirmOffload(page);
     await expect(pill).toBeHidden();
-    await expect(page.getByRole('status')).toContainText('Offloaded 1 · Freed');
+    await expect(page.locator('.ovl-toast-host')).toContainText('Offloaded 1 · Freed');
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(() => syncState(page)).toBe('synced');
-    await expect(page.getByRole('status')).toContainText('Restored 1 original');
+    await expect(page.locator('.ovl-toast-host')).toContainText('Restored 1 original');
 
     // Context entry executes the same preflight, then Settings restores the
     // selected original and reports the verified result.
@@ -99,7 +99,7 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
     // keeps the durable ledger offloaded, and clears both encrypted and
     // plaintext caches on close.
     await firstCell.click();
-    await expect(lightbox.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible();
+    await expect(lightbox.getByText('Streaming original · re-offloads on close')).toBeVisible();
     await expect(lightbox.getByRole('button', { name: 'Keep downloaded' })).toBeVisible();
     await expect.poll(() => syncState(page)).toBe('offloaded');
     await lightbox.getByRole('button', { name: 'Close (Esc)' }).click();
@@ -110,7 +110,7 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
     // A new view fetches again after close. Explicit promotion verifies and
     // atomically restores durable bytes before the ledger becomes synced.
     await firstCell.click();
-    await expect(lightbox.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible();
+    await expect(lightbox.getByText('Streaming original · re-offloads on close')).toBeVisible();
     await lightbox.getByRole('button', { name: 'Keep downloaded' }).click();
     await expect.poll(() => syncState(page)).toBe('synced');
     await lightbox.getByRole('button', { name: 'Close (Esc)' }).click();

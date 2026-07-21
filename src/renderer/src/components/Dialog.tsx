@@ -55,9 +55,9 @@ export function Dialog({ open, title, icon, width = 420, onClose, bodyClassName,
       >
         <div className="ovl-dialog__header">
           {icon === undefined ? null : <Icon name={icon} size={18} color="var(--text-muted)" />}
-          <div id={titleId} className="ovl-dialog__title">
+          <h2 id={titleId} className="ovl-dialog__title">
             {title}
-          </div>
+          </h2>
           {onClose === undefined ? null : <IconButton icon="x" label="Close" size="sm" onClick={requestClose} />}
         </div>
         <div className={`ovl-dialog__body${bodyClassName === undefined ? '' : ` ${bodyClassName}`}`}>{children}</div>

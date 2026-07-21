@@ -160,11 +160,11 @@ test('fresh-profile onboarding rebinds app lock before opening a retained protec
     const page = await original.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
     await page.getByRole('button', { name: 'Set password…' }).click();
     const dialog = page.getByRole('dialog', { name: 'Set app password' });
-    await dialog.getByLabel('New app password').fill(APP_PASSWORD);
-    await dialog.getByLabel('Confirm app password').fill(APP_PASSWORD);
+    await dialog.getByLabel('New password').fill(APP_PASSWORD);
+    await dialog.getByLabel('Confirm password').fill(APP_PASSWORD);
     await dialog.getByRole('button', { name: 'Set app password' }).click();
     await expect(page.getByTestId('lock-screen')).toBeVisible();
   } finally {

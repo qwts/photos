@@ -56,6 +56,7 @@
 }
 
 .ovl-inspector__sectionTitle {
+  margin-top: 0;
   font: var(--type-meta);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;

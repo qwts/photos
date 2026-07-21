@@ -1,4 +1,5 @@
-import type { Preview } from '@storybook/react-vite';
+import type { Decorator, Preview } from '@storybook/react-vite';
+import { createElement } from 'react';
 
 // The token styles entry is the same one the renderer loads (#54): stories
 // render on the real dark canvas with the real tokens — no Storybook theme
@@ -6,9 +7,12 @@ import type { Preview } from '@storybook/react-vite';
 import '../src/renderer/src/styles/index.css';
 import budget from '../tests/a11y/violation-budget.json' with { type: 'json' };
 import { localeGlobalType, withIntl } from './intl-decorator';
+import { AnnouncerProvider } from '../src/renderer/src/components/LiveAnnouncer';
+
+const withAnnouncer: Decorator = (Story) => createElement(AnnouncerProvider, null, createElement(Story));
 
 const preview: Preview = {
-  decorators: [withIntl],
+  decorators: [withIntl, withAnnouncer],
   globalTypes: localeGlobalType,
   parameters: {
     layout: 'fullscreen',

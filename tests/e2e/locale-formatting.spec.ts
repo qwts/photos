@@ -17,7 +17,7 @@ test('composed chrome formats values with the main-resolved locale', async () =>
   try {
     const page = await app.firstWindow();
     await expect(page.getByTestId('virtual-grid')).toBeVisible();
-    await expect(page.getByTestId('statusbar-left')).toContainText('2.000 PHOTOS ·');
+    await expect(page.getByTestId('statusbar-left')).toContainText('2.000 photos ·');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en-DE');
   } finally {
     await app.close();

@@ -45,7 +45,7 @@ test('boots a seeded temp profile deterministically', async () => {
     // #73/#74: the composed shell surfaces the seeded library — sidebar
     // count, statusbar total, one grid cell per seeded photo.
     await expect(page.getByRole('button', { name: 'All Photos 12' })).toBeVisible();
-    await expect(page.getByTestId('statusbar-left')).toContainText('12 PHOTOS ·');
+    await expect(page.getByTestId('statusbar-left')).toContainText('12 photos ·');
     await expect(page.getByTestId('virtual-grid').locator('.ovl-grid__cell')).toHaveCount(12);
 
     // #76/#127: cells are real PhotoTiles whose licensed-photo thumbs decode

@@ -12,6 +12,8 @@ import { StatusGlyph, type SyncState } from './StatusGlyph';
 export interface PhotoTileProps {
   readonly src: string;
   readonly alt?: string;
+  /** Full screen-reader label when filename-only `alt` lacks date/place context. */
+  readonly accessibleName?: string | undefined;
   readonly selected?: boolean;
   readonly favorite?: boolean;
   readonly status?: SyncState;
@@ -49,6 +51,7 @@ function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean, la
 export function PhotoTile({
   src,
   alt = '',
+  accessibleName,
   selected = false,
   favorite = false,
   status = 'local',
@@ -75,7 +78,7 @@ export function PhotoTile({
   return (
     <div role="group" className={classes}>
       <PhotoOpenButton
-        label={alt === '' ? 'Open photo' : `Open ${alt}`}
+        label={accessibleName ?? (alt === '' ? 'Open photo' : `Open ${alt}`)}
         className="ovl-tile__open"
         onOpen={onClick}
         onContextAction={onContextAction}

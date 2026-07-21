@@ -9,6 +9,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
 import { useFormats } from '../i18n/use-formats.js';
+import { useAnnouncer } from '../components/LiveAnnouncer';
 
 import './import.css';
 
@@ -54,9 +55,9 @@ interface ScanSummary {
   readonly newJpg: number;
 }
 
-/** The source card's mono line — "1,204 NEW · 38.2 GB · 812 RAW / 392 JPG". */
+/** Natural-case source text; mono-data applies the visual uppercase treatment. */
 function summaryDetail(summary: ScanSummary, formatCount: (value: number) => string, formatBytes: (bytes: number) => string): string {
-  return `${formatCount(summary.newCount)} NEW · ${formatBytes(summary.newBytes)} · ${formatCount(summary.newRaw)} RAW / ${formatCount(summary.newJpg)} JPG`;
+  return `${formatCount(summary.newCount)} new · ${formatBytes(summary.newBytes)} · ${formatCount(summary.newRaw)} RAW / ${formatCount(summary.newJpg)} JPG`;
 }
 
 type SdState =
@@ -118,6 +119,7 @@ interface Bar {
 
 export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, onComplete }: ImportDialogProps): ReactElement | null {
   const intl = useIntl();
+  const { announce } = useAnnouncer();
   const { formatBytes, formatCount } = useFormats();
   const [phase, setPhase] = useState<Phase>('options');
   const [mode, setMode] = useState<'copy' | 'move'>('copy');
@@ -308,6 +310,43 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
     };
   }, [phase]);
 
+  const copyQuarter = copyBar.total === 0 ? -1 : Math.floor((copyBar.done / copyBar.total) * 4);
+  const thumbQuarter = thumbBar.total === 0 ? -1 : Math.floor((thumbBar.done / thumbBar.total) * 4);
+  const announcedCopyQuarter = useRef(-2);
+  const announcedThumbQuarter = useRef(-2);
+  useEffect(() => {
+    if (phase !== 'running' || copyQuarter < 0 || announcedCopyQuarter.current === copyQuarter) return;
+    announcedCopyQuarter.current = copyQuarter;
+    announce(
+      `${source !== 'google-drive' && mode === 'move' ? 'Moving and encrypting' : 'Copying and encrypting'}: ${formatCount(copyBar.done)} of ${formatCount(copyBar.total)}`,
+      'polite',
+      'import-copy-progress',
+    );
+  }, [announce, copyBar.done, copyBar.total, copyQuarter, formatCount, mode, phase, source]);
+  useEffect(() => {
+    if (phase !== 'running' || thumbQuarter < 0 || announcedThumbQuarter.current === thumbQuarter) return;
+    announcedThumbQuarter.current = thumbQuarter;
+    announce(
+      `Generating thumbnails: ${formatCount(thumbBar.done)} of ${formatCount(thumbBar.total)}`,
+      'polite',
+      'import-thumbnail-progress',
+    );
+  }, [announce, formatCount, phase, thumbBar.done, thumbBar.total, thumbQuarter]);
+  const previousSdStatus = useRef(sd.status);
+  useEffect(() => {
+    if (previousSdStatus.current === sd.status) return;
+    previousSdStatus.current = sd.status;
+    announce(
+      sd.status === 'ready'
+        ? `SD card detected: ${sd.label}`
+        : sd.status === 'none'
+          ? 'SD card status: no card detected'
+          : 'Looking for cards',
+      'polite',
+      'sd-card-status',
+    );
+  }, [announce, sd]);
+
   if (!open) {
     return null;
   }
@@ -371,6 +410,17 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
         setFailed(summary.failed);
         setCancelled(summary.cancelled);
         setPhase('done');
+        if (summary.failed > 0) {
+          announce(`Import finished with ${formatCount(summary.failed)} ${summary.failed === 1 ? 'failure' : 'failures'}`, 'assertive');
+        } else if (summary.cancelled > 0) {
+          announce(`Import cancelled after ${formatCount(summary.imported)} ${summary.imported === 1 ? 'photo' : 'photos'}`);
+        } else if (importMode === 'move' && summary.retained > 0) {
+          announce(`${formatCount(summary.retained)} source ${summary.retained === 1 ? 'file was' : 'files were'} retained`, 'assertive');
+        } else {
+          announce(
+            `Import complete: ${formatCount(summary.imported)} ${summary.imported === 1 ? 'photo' : 'photos'} imported and encrypted`,
+          );
+        }
         if (summary.failed === 0 && summary.cancelled === 0 && (importMode === 'copy' || summary.retained === 0)) {
           setCleanCount(summary.imported);
         }
@@ -380,6 +430,7 @@ export function ImportDialog({ open, dropped, onClose, onDone, onRejectedDrop, o
         // card was deleted (Move cleanup only follows verification).
         setRunError(true);
         setPhase('done');
+        announce('Import failed. Source files were left untouched.', 'assertive');
       });
   };
 

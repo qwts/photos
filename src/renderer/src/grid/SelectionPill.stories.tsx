@@ -50,7 +50,7 @@ export const ThousandsSeparatorAndClear: Story = {
   args: { count: 12_345, onClear, onDelete: fn(), onAddToAlbum: fn(), onOffload: fn() },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await expect(await canvas.findByText('12,345 SELECTED')).toBeInTheDocument();
+    await expect(await canvas.findByText('12,345 selected')).toBeInTheDocument();
     await expect(canvas.getByRole('button', { name: /Export/ })).toBeEnabled();
     await expect(canvas.getByRole('button', { name: /Add to album/ })).toBeEnabled();
     await userEvent.click(canvas.getByRole('button', { name: /Offload/ }));

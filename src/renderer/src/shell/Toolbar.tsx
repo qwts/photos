@@ -38,6 +38,7 @@ const messages = defineMessages({
   viewGrid: { id: 'toolbar.view.grid', defaultMessage: 'Grid' },
   viewList: { id: 'toolbar.view.list', defaultMessage: 'List' },
   zoom: { id: 'toolbar.zoom', defaultMessage: 'Zoom' },
+  region: { id: 'toolbar.region', defaultMessage: 'Photo tools' },
   backupNow: { id: 'toolbar.backup.now', defaultMessage: 'Back up now' },
   backup: { id: 'toolbar.backup', defaultMessage: 'Back up' },
   lockNow: { id: 'toolbar.lock', defaultMessage: 'Lock now' },
@@ -90,8 +91,8 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
 
   const anyFilter = Object.values(state.chips).some(Boolean);
   return (
-    <div className="ovl-toolbar titlebar-no-drag">
-      <div className="ovl-toolbar__row">
+    <section className="ovl-toolbar titlebar-no-drag" aria-label={intl.formatMessage(messages.region)}>
+      <div className="ovl-toolbar__row" role="toolbar" aria-label={intl.formatMessage(messages.region)}>
         <div className="ovl-toolbar__wordmark">
           <img className="ovl-toolbar__mark" src={overlookIcon} alt="" width={20} height={20} />
           <span className="ovl-toolbar__brand">{BRAND_WORDMARK}</span>
@@ -140,10 +141,10 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
                 // Manual trigger (#108): amber start toast per the mock; the
                 // completion listener shows green/red endings. A disconnected
                 // provider blocks the run (#114) — say so instead.
-                dispatch({ type: 'toast/shown', toast: { title: 'BACKUP STARTED', tone: 'amber' } });
+                dispatch({ type: 'toast/shown', toast: { title: 'Backup started', tone: 'amber' } });
                 void window.overlook.backup.run({}).then(({ skipped }) => {
                   if (skipped === 'disconnected') {
-                    dispatch({ type: 'toast/shown', toast: { title: 'BACKUP OFF — NOT CONNECTED', tone: 'neutral' } });
+                    dispatch({ type: 'toast/shown', toast: { title: 'Backup off — not connected', tone: 'neutral' } });
                   }
                 });
               }}
@@ -192,6 +193,6 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
           </span>
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }

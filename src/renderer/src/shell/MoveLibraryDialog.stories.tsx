@@ -153,7 +153,7 @@ export const ProgressHoldsWithCancel: Story = {
     await waitFor(async () => {
       await expect(body.getByTestId('move-progress')).toBeVisible();
     });
-    await expect(body.getByText('LIBRARY 1 OF 1')).toBeVisible();
+    await expect(body.getByText('Library 1 of 1')).toBeVisible();
     // Pre-commit: cancel maps to the engine's rollback.
     await expect(body.getByTestId('move-cancel')).toBeVisible();
   },
@@ -199,7 +199,7 @@ export const ResultsMovedAndCleanupPending: Story = {
       await expect(body.getByTestId('move-results')).toBeVisible();
     });
     await expect(body.getByText('Moved')).toBeVisible();
-    await expect(body.getByText('INSTANT MOVE', { exact: false })).toBeVisible();
+    await expect(body.getByText('Instant move', { exact: false })).toBeVisible();
     // Acceptance 10: both verified locations, safe retry, never a guess.
     await expect(body.getByText('Moved — cleanup pending')).toBeVisible();
     await expect(body.getByText(/nothing will be deleted without you/)).toBeVisible();
@@ -244,7 +244,7 @@ export const ReviewResolvesMethodAndSpace: Story = {
     await waitFor(async () => {
       await expect(body.getByTestId('move-method-chip')).toBeVisible();
     });
-    await expect(body.getByText('COPY & VERIFY')).toBeVisible();
+    await expect(body.getByText('Copy & verify')).toBeVisible();
     await expect(body.getByTestId('move-space-meter')).toBeVisible();
     await expect(body.getByText('48.2 GB needed · 512 GB free')).toBeVisible();
     await expect(body.getByTestId('move-start')).toBeEnabled();
@@ -264,7 +264,7 @@ export const ReviewNetworkWarningNeverBlocks: Story = {
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.click(body.getByTestId('move-pick-destination'));
     await waitFor(async () => {
-      await expect(body.getByText('INSTANT MOVE')).toBeVisible();
+      await expect(body.getByText('Instant move')).toBeVisible();
     });
     // ADR-0017 §5: network destinations warn, never block.
     await expect(body.getByTestId('move-network-warning')).toBeVisible();

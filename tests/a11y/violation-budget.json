@@ -1,15 +1,6 @@
 {
   "$comment": "Accessibility violation budget (#398, ADR-0001). A RATCHET: entries only shrink. This file is the honest list of KNOWN axe violations on the audited surfaces — every surface not listed here has an implicit budget of ZERO, so a new violation anywhere fails the gate without anyone having to remember to add it. Counts are keyed by axe RULE ID, never totalled: a bare total would let a surface swap one rule for another at the same count and stay 'within budget', hiding a fresh regression behind existing debt. Runtime enforcement lives in .storybook/test-runner.ts (per story) and tests/e2e/a11y.spec.ts (per flow): a surface over its budget on any rule is a regression, and a surface UNDER budget also fails, demanding the number be tightened. Both lanes also record which ids they audited so scripts/check-a11y-budget.mjs --visited can fail orphaned entries. That script validates shape, path existence, and that every entry names the issue that owns the fix. Drop a rule when it reaches zero; delete the entry when its last rule goes; never raise one.",
   "tags": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
-  "stories": [
-    {
-      "id": "app-protectedalbumceremony--recovery-file-and-new-credential",
-      "story": "src/renderer/src/protected/ProtectedAlbumCeremony.stories.tsx",
-      "rules": {
-        "aria-prohibited-attr": 1
-      },
-      "issues": [400]
-    }
-  ],
+  "stories": [],
   "flows": []
 }

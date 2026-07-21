@@ -18,7 +18,7 @@ export function ToastAction({ toast }: { readonly toast: NonNullable<AppState['t
       dispatch({ type: 'toast/dismissed' });
       void window.overlook.backup.run({}).then(({ skipped }) => {
         if (skipped === 'disconnected') {
-          dispatch({ type: 'toast/shown', toast: { title: 'BACKUP OFF — NOT CONNECTED', tone: 'neutral' } });
+          dispatch({ type: 'toast/shown', toast: { title: 'Backup off — not connected', tone: 'neutral' } });
         }
       });
       return;
@@ -33,12 +33,12 @@ export function ToastAction({ toast }: { readonly toast: NonNullable<AppState['t
           type: 'toast/shown',
           toast:
             failed > 0
-              ? { title: `Restored ${formatCount(restored)} · ${formatCount(failed)} FAILED`, tone: 'red' }
+              ? { title: `Restored ${formatCount(restored)} · ${formatCount(failed)} failed`, tone: 'red' }
               : { title: `Restored ${formatCount(restored)} ${restored === 1 ? 'original' : 'originals'}`, tone: 'green' },
         });
       })
       .catch(() => {
-        dispatch({ type: 'toast/shown', toast: { title: 'RESTORE FAILED — ORIGINALS REMAIN OFFLOADED', tone: 'red' } });
+        dispatch({ type: 'toast/shown', toast: { title: 'Restore failed — originals remain offloaded', tone: 'red' } });
       });
   };
   return (

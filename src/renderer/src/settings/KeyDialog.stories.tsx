@@ -55,23 +55,23 @@ export const BackupGating: Story = {
     await expect(exportButton).toBeDisabled();
 
     // A weak password never enables export, even confirmed + acknowledged.
-    await userEvent.type(body.getByLabelText('New password'), 'abc');
+    await userEvent.type(body.getByLabelText('Encrypt backup with password'), 'abc');
     await expect(body.getByTestId('strength-meter')).toHaveTextContent('Weak');
-    await userEvent.type(body.getByLabelText('Re-enter password'), 'abc');
+    await userEvent.type(body.getByLabelText('Confirm password'), 'abc');
     await userEvent.click(body.getByText('I understand this password cannot be reset or recovered.'));
     await expect(exportButton).toBeDisabled();
 
     // A strong password with a mismatched confirmation stays gated.
-    await userEvent.clear(body.getByLabelText('New password'));
-    await userEvent.type(body.getByLabelText('New password'), 'Correct Horse 9!');
+    await userEvent.clear(body.getByLabelText('Encrypt backup with password'));
+    await userEvent.type(body.getByLabelText('Encrypt backup with password'), 'Correct Horse 9!');
     await expect(body.getByTestId('strength-meter')).toHaveTextContent('Very strong');
     await expect(body.getByRole('alert')).toHaveTextContent("Passwords don't match.");
     await expect(exportButton).toBeDisabled();
 
     // Matching confirmation + acknowledgment unlocks it; export shows the
     // saved-file card and the store-it-safely warning.
-    await userEvent.clear(body.getByLabelText('Re-enter password'));
-    await userEvent.type(body.getByLabelText('Re-enter password'), 'Correct Horse 9!');
+    await userEvent.clear(body.getByLabelText('Confirm password'));
+    await userEvent.type(body.getByLabelText('Confirm password'), 'Correct Horse 9!');
     await expect(exportButton).toBeEnabled();
     await userEvent.click(exportButton);
     await waitFor(async () => {
@@ -97,7 +97,7 @@ export const ImportFlow: Story = {
       await expect(body.getByTestId('key-file-card')).toHaveTextContent('overlook-recovery.key');
     });
     await expect(importButton).toBeDisabled();
-    await userEvent.type(body.getByLabelText('Backup password'), 'Correct Horse 9!');
+    await userEvent.type(body.getByLabelText('Password'), 'Correct Horse 9!');
     await expect(importButton).toBeEnabled();
     await userEvent.click(importButton);
     await waitFor(async () => {
@@ -121,7 +121,7 @@ export const ImportWrongPassword: Story = {
     await waitFor(async () => {
       await expect(body.getByTestId('key-file-card')).toBeVisible();
     });
-    await userEvent.type(body.getByLabelText('Backup password'), 'nope');
+    await userEvent.type(body.getByLabelText('Password'), 'nope');
     await userEvent.click(body.getByRole('button', { name: 'Unlock & import' }));
     // The designed failure copy — honest about no-reset, still on the form.
     await waitFor(async () => {

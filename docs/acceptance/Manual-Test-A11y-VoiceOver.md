@@ -46,9 +46,8 @@ string is the evidence, and paraphrase loses the defect.
 
 - **Expect:** a landmark for each region — banner (title bar), navigation ("Library"),
   the toolbar, main, complementary ("Inspector") when open, contentinfo (status bar).
-- **Known fail** (audit finding 15, [#400](https://github.com/qwts/photos/issues/400)):
-  the **toolbar is in no landmark** — search, filters, view toggle, and zoom are
-  unreachable by landmark navigation. There is also **no skip link** (2.4.1).
+- Confirm the “Photo tools” region contains the toolbar, and the skip link moves focus to
+  the named main view.
 
 ### 2. Headings — is there an outline?
 
@@ -56,17 +55,14 @@ string is the evidence, and paraphrase loses the defect.
 
 - **Expect:** an `h1` naming the view, and headings for Sidebar groups
   (Library / Albums / Protected) and Inspector sections.
-- **Known fail** (finding 16): the shell has **no `h1`** and those headings are `<div>`s.
-  Expect a near-empty list. `SettingsDialog` has an `h3` with nothing above it.
+- Open Settings and confirm its dialog title precedes the pane's `h3` in the outline.
 
 ### 3. Browse the grid — is the count true?
 
 Tab into the grid, then **⌃⌥→** through tiles.
 
 - **Expect:** each photo announces its position in the **whole library** ("3 of 1,204").
-- **Known fail** (finding 3, [#399](https://github.com/qwts/photos/issues/399)): the grid
-  is virtualized with no `aria-setsize`/`aria-posinset`/`aria-rowcount`, so it announces
-  the count of _mounted_ tiles — **actively wrong**, not merely missing.
+- Confirm each name includes filename, localized date, and place when available.
 - Also check: is there any way **past** the grid without tabbing every tile? (No.)
 - On a tile, press **Space**. **Known fail** (finding 9,
   [#412](https://github.com/qwts/photos/issues/412)): only Enter works.
@@ -78,10 +74,8 @@ Tab into the grid, then **⌃⌥→** through tiles.
 **⌘A**, then select and deselect individual photos.
 
 - **Expect:** the selection count is announced as it changes.
-- **Known fail** (finding 12, [#400](https://github.com/qwts/photos/issues/400)): the
-  SelectionPill appears with no live region — **silence**.
-- Reach the pill's overflow menu by keyboard. **Known fail** (finding 22): `role="menu"`
-  with no focus management, no arrow keys, no Escape.
+- Reach the pill's overflow menu by keyboard. Focus should enter the first item; arrow
+  keys and Home/End move within it; Escape closes it and restores focus to the trigger.
 - Note: ⌘A selects only the **loaded page**, not the library. Compare what was announced
   against the status bar's total.
 
@@ -99,8 +93,8 @@ Enter on a tile.
   keyboard. **Known fail:** chrome hides on mouse-idle with no keyboard wake path.
 - Step with ←/→ — is the new photo announced at all?
 - On an offloaded photo, watch the custody strip (`FETCHING ORIGINAL…` →
-  `STREAMING ORIGINAL…`). **Known fail:** a security-relevant state machine with no live
-  region.
+  `STREAMING ORIGINAL…`). Each photo and custody transition should be announced once;
+  an unavailable original should interrupt through the assertive channel.
 
 ### 6. Import — is progress audible?
 
@@ -108,9 +102,8 @@ Open Import, choose a folder, run it.
 
 - **Expect:** phase changes and completion are announced; failures are announced
   assertively.
-- **Known fail** (finding 12): both progress bars are silent; only the **failure** summary
-  has `role="alert"`, so **success is silent**.
-- Insert an SD card mid-dialog: the `Looking for cards…` → detected transition is silent.
+- Progress is intentionally throttled to quarter steps. Insert an SD card mid-dialog and
+  confirm the `Looking for cards…` → detected transition is announced once.
 - Find the "Generate thumbnails on import" checkbox: it is `checked` with no `onChange`
   and is not disabled — it cannot be changed and does not say so.
 

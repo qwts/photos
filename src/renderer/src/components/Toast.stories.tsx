@@ -58,7 +58,7 @@ export const AutoDismiss: Story = {
   render: () => <AutoDismissDemo />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const announcer = canvas.getByRole('status');
+    const announcer = canvas.getByTestId('screen-reader-announcer-polite');
     await userEvent.click(canvas.getByRole('button', { name: 'Show notification' }));
     await expect(announcer).toHaveTextContent('Backup verified');
     await waitFor(
@@ -87,7 +87,7 @@ export const RapidAnnouncementsStayOrdered: Story = {
   render: () => <AnnouncementQueueDemo />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const announcer = canvas.getByRole('status');
+    const announcer = canvas.getByTestId('screen-reader-announcer-polite');
     await expect(announcer).toHaveTextContent('First notification');
     await userEvent.click(canvas.getByRole('button', { name: 'Show second' }));
     await expect(announcer).toHaveTextContent('First notification');

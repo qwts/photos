@@ -42,11 +42,11 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     expect(thumbUrl).not.toBeNull();
 
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
     await page.getByRole('button', { name: 'Set password…' }).click();
     const setDialog = page.getByRole('dialog', { name: 'Set app password' });
-    await setDialog.getByLabel('New app password').fill(PASSWORD);
-    await setDialog.getByLabel('Confirm app password').fill(PASSWORD);
+    await setDialog.getByLabel('New password').fill(PASSWORD);
+    await setDialog.getByLabel('Confirm password').fill(PASSWORD);
     await setDialog.getByRole('button', { name: 'Set app password' }).click();
 
     await expect(page.getByTestId('lock-screen')).toBeVisible();
@@ -108,16 +108,16 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     }
 
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
     const touchIdSwitch = page.getByRole('switch', { name: 'Unlock with Touch ID' });
     await expect(touchIdSwitch).toBeEnabled();
     await expect(touchIdSwitch).not.toBeChecked();
     await touchIdSwitch.click();
     const touchIdDialog = page.getByRole('dialog', { name: 'Enable Touch ID' });
-    await touchIdDialog.getByLabel('Current app password').fill('wrong password');
+    await touchIdDialog.getByLabel('Current password').fill('wrong password');
     await touchIdDialog.getByRole('button', { name: 'Enable Touch ID' }).click();
     await expect(touchIdDialog.getByRole('status')).toContainText('incorrect');
-    await touchIdDialog.getByLabel('Current app password').fill(PASSWORD);
+    await touchIdDialog.getByLabel('Current password').fill(PASSWORD);
     await touchIdDialog.getByRole('button', { name: 'Enable Touch ID' }).click();
     await expect(touchIdDialog).toHaveCount(0);
     await expect(touchIdSwitch).toBeChecked();
@@ -128,17 +128,17 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     await page.getByTestId('virtual-grid').waitFor();
 
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
     await expect(page.getByRole('button', { name: 'Import…' })).toBeDisabled();
     await expect(page.getByTestId('recovery-key-row')).toContainText('Remove the app password before importing');
     await page.getByRole('button', { name: 'Change…' }).click();
     const changeDialog = page.getByRole('dialog', { name: 'Change app password' });
-    await changeDialog.getByLabel('Current app password').fill('wrong password');
-    await changeDialog.getByLabel('New app password').fill(NEXT_PASSWORD);
-    await changeDialog.getByLabel('Confirm app password').fill(NEXT_PASSWORD);
+    await changeDialog.getByLabel('Current password').fill('wrong password');
+    await changeDialog.getByLabel('New password').fill(NEXT_PASSWORD);
+    await changeDialog.getByLabel('Confirm password').fill(NEXT_PASSWORD);
     await changeDialog.getByRole('button', { name: 'Change app password' }).click();
     await expect(changeDialog.getByRole('status')).toContainText('incorrect');
-    await changeDialog.getByLabel('Current app password').fill(PASSWORD);
+    await changeDialog.getByLabel('Current password').fill(PASSWORD);
     await changeDialog.getByRole('button', { name: 'Change app password' }).click();
     await expect(changeDialog).toHaveCount(0);
     await page.keyboard.press('Escape');
@@ -156,10 +156,10 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     await page.getByTestId('virtual-grid').waitFor();
 
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
     await page.getByRole('button', { name: 'Remove…' }).click();
     const removeDialog = page.getByRole('dialog', { name: 'Remove app password' });
-    await removeDialog.getByLabel('Current app password').fill(NEXT_PASSWORD);
+    await removeDialog.getByLabel('Current password').fill(NEXT_PASSWORD);
     await removeDialog.getByRole('button', { name: 'Remove app password' }).click();
     await expect(removeDialog).toHaveCount(0);
     await page.keyboard.press('Escape');

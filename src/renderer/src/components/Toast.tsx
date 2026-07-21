@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
 import './overlays.css';
 import { Icon, type IconName } from './Icon';
 import { IconButton } from './IconButton';
+import { useAnnouncer } from './LiveAnnouncer';
 
 export type ToastTone = 'neutral' | 'green' | 'amber' | 'red';
 
@@ -29,19 +30,6 @@ const messages = defineMessages({
     defaultMessage: 'Notification',
   },
 });
-
-const ANNOUNCEMENT_DWELL_MS = 1000;
-
-interface Announcement {
-  readonly id: number;
-  readonly text: string;
-}
-
-type AnnouncementAction = { readonly type: 'enqueue'; readonly announcement: Announcement } | { readonly type: 'next' };
-
-function announcementReducer(queue: readonly Announcement[], action: AnnouncementAction): readonly Announcement[] {
-  return action.type === 'enqueue' ? [...queue, action.announcement] : queue.slice(1);
-}
 
 export interface ToastProps {
   readonly tone?: ToastTone;
@@ -187,33 +175,19 @@ function ToastTimer({
 // toasts preserve their remaining duration while hovered or focused (#411).
 export function ToastHost({ toasts, onDismiss, className, autoDismissMs = 4000 }: ToastHostProps): ReactElement {
   const intl = useIntl();
+  const { announce } = useAnnouncer();
   const latest = toasts.at(-1);
   const announcement =
     latest?.detail === undefined
       ? latest?.title
       : intl.formatMessage(messages.announcement, { title: latest.title, detail: latest.detail });
-  const [announcementQueue, dispatchAnnouncement] = useReducer(announcementReducer, []);
-  const announcementIdRef = useRef(0);
   useEffect(() => {
     if (announcement !== undefined) {
-      announcementIdRef.current += 1;
-      dispatchAnnouncement({
-        type: 'enqueue',
-        announcement: { id: announcementIdRef.current, text: announcement },
-      });
+      announce(announcement, latest?.tone === 'red' ? 'assertive' : 'polite');
     }
-  }, [announcement, latest]);
-  const activeAnnouncement = announcementQueue[0];
-  useEffect(() => {
-    if (activeAnnouncement === undefined) return;
-    const timer = setTimeout(() => dispatchAnnouncement({ type: 'next' }), ANNOUNCEMENT_DWELL_MS);
-    return () => clearTimeout(timer);
-  }, [activeAnnouncement]);
+  }, [announce, announcement, latest]);
   return (
     <div className={['ovl-toast-host', className].filter(Boolean).join(' ')}>
-      <div className="ovl-toast-host__announcer" role="status" aria-live="polite" aria-atomic="true">
-        {activeAnnouncement?.text}
-      </div>
       {toasts.map((toast) => (
         <ToastTimer key={toast.id} toast={toast} onDismiss={onDismiss} autoDismissMs={autoDismissMs} />
       ))}

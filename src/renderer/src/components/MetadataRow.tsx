@@ -14,14 +14,14 @@ export interface MetadataRowProps {
 // media/MetadataRow.jsx — 88px uppercase-mono label + truncating value.
 export function MetadataRow({ label, value, mono = true, tone }: MetadataRowProps): ReactElement {
   return (
-    <div className="ovl-metadata-row">
-      <span className="ovl-metadata-row__label">{label}</span>
-      <span
+    <dl className="ovl-metadata-row">
+      <dt className="ovl-metadata-row__label">{label}</dt>
+      <dd
         className={`ovl-metadata-row__value${mono ? '' : ' ovl-metadata-row__value--sans'}`}
         style={tone === undefined ? undefined : { color: tone }}
       >
         {value}
-      </span>
-    </div>
+      </dd>
+    </dl>
   );
 }

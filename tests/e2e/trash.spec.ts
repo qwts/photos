@@ -39,7 +39,7 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     await page.locator('.ovl-grid__cell').nth(1).hover();
     await page.locator('.ovl-tile__select').nth(1).click();
     await page.getByTestId('selection-pill').getByRole('button', { name: 'Move to Trash' }).click();
-    await expect(page.getByRole('status')).toContainText('Moved 1 photo to Trash');
+    await expect(page.locator('.ovl-toast-host')).toContainText('Moved 1 photo to Trash');
     await expect(page.getByRole('button', { name: 'Trash 1' })).toBeVisible();
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(2);
 
@@ -58,7 +58,7 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     // (the #189 cold-start rule applies to source switches too).
     await expect(page.locator('.ovl-tile__img')).toHaveCount(2);
     await page.keyboard.press('ControlOrMeta+a');
-    await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
+    await expect(page.getByTestId('selection-pill')).toContainText('2 selected');
     await expect(page.getByText('Items in Trash are deleted permanently after 30 days.')).toBeVisible();
     await expect(page.getByText('Deletes permanently in 30 days').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Restore from Trash' })).toBeVisible();
@@ -68,13 +68,13 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
     // The library-scoped setting updates both policy surfaces live. Off keeps
     // manual permanent deletion available; switching to 7 restarts the fuse.
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'General' }).click();
+    await page.getByRole('tab', { name: 'General' }).click();
     await page.getByRole('radio', { name: 'Off' }).click();
     await page.keyboard.press('Escape');
     await expect(page.getByText('Items in Trash are kept until you delete them permanently.')).toBeVisible();
     await expect(page.getByText('Kept until deleted manually').first()).toBeVisible();
     await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'General' }).click();
+    await page.getByRole('tab', { name: 'General' }).click();
     await page.getByRole('radio', { name: '7 days' }).click();
     await page.keyboard.press('Escape');
     await expect(page.getByText('Items in Trash are deleted permanently after 7 days.')).toBeVisible();
@@ -90,7 +90,7 @@ test('soft delete: grid + lightbox routes, trash restore keeps state intact', as
 
     // Restore both: favorite came back intact, trash empties.
     await page.getByRole('button', { name: 'Restore from Trash' }).click();
-    await expect(page.getByRole('status')).toContainText('Restored 2 photos');
+    await expect(page.locator('.ovl-toast-host')).toContainText('Restored 2 photos');
     await page.getByRole('button', { name: /All Photos/u }).click();
     await expect(page.locator('.ovl-grid__cell')).toHaveCount(3);
     const favorite = await page.evaluate<boolean>(
@@ -127,8 +127,8 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     // Back up, then target a photo whose blob VERIFIABLY reached the
     // remote (seed profiles settle some rows without uploading them).
     await page.getByRole('button', { name: 'Back up' }).click();
-    await expect(page.getByRole('status')).toContainText('BACKUP COMPLETE', { timeout: 20_000 });
-    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP', { timeout: 20_000 });
+    await expect(page.getByTestId('screen-reader-announcer-polite')).toContainText('Backup complete', { timeout: 20_000 });
+    await expect(page.getByTestId('sync-state')).toContainText('All backed up', { timeout: 20_000 });
     const remoteBlobs = join(userData, 'mock-remote', 'blobs');
     const photos = await page.evaluate<{ id: string; contentHash: string; fileName: string }[]>(
       `window.overlook.library.page({ source: 'all', limit: 10 }).then((r) => r.photos.map((p) => ({ id: p.id, contentHash: p.contentHash, fileName: p.fileName })))`,
@@ -145,9 +145,9 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     // tile can also match a half-decoded previous source under load, and
     // select-all reads state.photos (the "Delete 2 photos" screenshot).
     await expect(page.locator('.ovl-tile__img')).toHaveCount(1);
-    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(`Open ${target?.fileName ?? ''}`);
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(new RegExp(`^Open ${target?.fileName ?? ''},`, 'u'));
     await page.keyboard.press('ControlOrMeta+a');
-    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+    await expect(page.getByTestId('selection-pill')).toContainText('1 selected');
 
     // A stale or direct renderer cannot bypass the main-process ceremony.
     const rejectedWithoutAuthorization = await page.evaluate<boolean>(
@@ -162,7 +162,7 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     await expect(confirm).toContainText('Cloud deletion failures are recorded and retried');
     await expect(confirm).toContainText('This cannot be undone.');
     await confirm.getByRole('button', { name: 'Delete permanently' }).click();
-    await expect(page.getByRole('status')).toContainText('Deleted 1 photo permanently');
+    await expect(page.locator('.ovl-toast-host')).toContainText('Deleted 1 photo permanently');
 
     // All three copies are gone; the library keeps browsing.
     await expect(page.getByRole('button', { name: 'Trash 0' })).toBeVisible();

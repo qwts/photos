@@ -184,6 +184,13 @@
   color: var(--text-faint);
 }
 
+.ovl-sidebar__headingText {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+
 .ovl-siderow {
   display: flex;
   align-items: center;

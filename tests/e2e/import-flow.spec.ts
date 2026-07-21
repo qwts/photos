@@ -73,7 +73,7 @@ test('Copy import: dialog flow, encrypted at rest, grid + toast + counts', async
 
     // Options: the fixture card surfaced through the harness seam.
     await expect(page.getByText('SDCARD')).toBeVisible();
-    await expect(page.getByText('3 NEW ·')).toBeVisible();
+    await expect(page.getByText('3 new ·')).toBeVisible();
     await page.getByRole('button', { name: 'Import 3 photos' }).click();
 
     // Done: clean summary, then Show in library.
@@ -158,7 +158,7 @@ test('RAW matrix: every accepted extension imports with a visible tile and light
   try {
     const page = await app.firstWindow();
     await page.getByRole('button', { name: 'Import', exact: true }).click();
-    await expect(page.getByText('8 NEW ·')).toBeVisible();
+    await expect(page.getByText('8 new ·')).toBeVisible();
     await page.getByRole('button', { name: 'Import 8 photos' }).click();
     await expect(page.getByText('All 8 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Show in library' }).click();
@@ -180,7 +180,7 @@ test('RAW matrix: every accepted extension imports with a visible tile and light
       .getByRole('button', { name: /Open sample\./u })
       .first()
       .click();
-    await expect(page.getByText('PREVIEW', { exact: true })).toBeVisible();
+    await expect(page.getByText('Preview', { exact: true })).toBeVisible();
     await expect(page.getByText('PREVIEW UNAVAILABLE')).toHaveCount(0);
   } finally {
     await app.close();
@@ -210,7 +210,7 @@ test('Folder Move (#489): explicit consent, verified per-file deletion, and fold
     await page.getByRole('radio', { name: 'Local folder' }).click();
     await page.getByText('Choose a folder to import').click();
     await expect(page.getByText(folder)).toBeVisible();
-    await expect(page.getByText('3 NEW ·')).toBeVisible();
+    await expect(page.getByText('3 new ·')).toBeVisible();
 
     await page.getByRole('radio', { name: 'Move' }).click();
     await expect(page.getByRole('alert')).toContainText('The folder and unrelated files stay.');
@@ -248,7 +248,7 @@ test('Google Drive import (#465): selected cloud files use the copy-only encrypt
     await page.getByText('Choose photos from Google Drive').click();
 
     await expect(page.getByText('3 photos selected from Google Drive')).toBeVisible();
-    await expect(page.getByText('3 NEW ·')).toBeVisible();
+    await expect(page.getByText('3 new ·')).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Move' })).toBeDisabled();
     await page.getByRole('button', { name: 'Import 3 photos' }).click();
     await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });

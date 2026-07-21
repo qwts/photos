@@ -35,7 +35,7 @@ test('selection opens an honest blocked transfer review without changing selecti
 
     await dialog.locator('.ovl-dialog__footer').getByRole('button', { name: 'Close' }).click();
     await expect(dialog).toBeHidden();
-    await expect(selection).toContainText('1 SELECTED');
+    await expect(selection).toContainText('1 selected');
     await expect(page.getByRole('radio', { name: 'Grid' })).toBeChecked();
   } finally {
     await app.close();
@@ -47,7 +47,7 @@ test('Settings and lightbox entries preserve their underlying surfaces', async (
   try {
     await page.getByRole('button', { name: 'Settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Settings' });
-    await settings.getByRole('button', { name: 'Transfer & Sync' }).click();
+    await settings.getByRole('tab', { name: 'Transfer & Sync' }).click();
     await settings.getByRole('button', { name: 'Open Transfer & Sync' }).click();
 
     const settingsTransfer = page.getByRole('dialog', { name: 'Move to Image Trail' });

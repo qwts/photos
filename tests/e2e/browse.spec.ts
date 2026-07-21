@@ -90,10 +90,10 @@ test('selection: pointer, ⌘/Ctrl+A, Esc, pill survival across sources', async 
   const { app, page } = await launchSeeded();
   try {
     await page.keyboard.press('ControlOrMeta+a');
-    await expect(page.getByTestId('selection-pill')).toContainText('12 SELECTED');
+    await expect(page.getByTestId('selection-pill')).toContainText('12 selected');
     // Mock survival semantics: only still-visible photos stay selected.
     await page.getByRole('button', { name: 'Favorites 2' }).click();
-    await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
+    await expect(page.getByTestId('selection-pill')).toContainText('2 selected');
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('selection-pill')).toHaveCount(0);
     // Clear-× path too.
@@ -149,14 +149,14 @@ test('sidebar: source switching refilters; counts live-update on mutation', asyn
 test('chrome truth: statusbar, backup button and card reflect pending state', async () => {
   const { app, page } = await launchSeeded();
   try {
-    await expect(page.getByTestId('statusbar-left')).toContainText('12 PHOTOS ·');
-    await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 4 → Local mock');
+    await expect(page.getByTestId('statusbar-left')).toContainText('12 photos ·');
+    await expect(page.getByTestId('sync-state')).toContainText('Encrypting 4 → Local mock');
     await expect(page.getByTestId('backup-card')).toContainText('Library encrypted');
     // The card shows the real storage split (#108); the progress bar only
     // renders during an active run. The full run choreography lives in
     // backup.spec.ts.
-    await expect(page.getByTestId('backup-card')).toContainText('ON DISK');
-    await expect(page.getByTestId('backup-card')).toContainText('OFFLOAD (Local mock)');
+    await expect(page.getByTestId('backup-card')).toContainText('on disk');
+    await expect(page.getByTestId('backup-card')).toContainText('offload (Local mock)');
     const backup = page.getByRole('button', { name: 'Back up' });
     await expect(backup).toBeEnabled();
   } finally {

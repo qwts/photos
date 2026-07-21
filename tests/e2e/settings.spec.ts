@@ -63,15 +63,15 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await page.getByRole('button', { name: 'Settings' }).click();
     const dialog = page.getByTestId('settings-dialog');
     await expect(dialog).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Storage & Backup' })).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('tab', { name: 'Storage & Backup' })).toHaveAttribute('aria-selected', 'true');
 
     // #113: sort change re-orders the grid LIVE. Seed rows share one byte
     // size, so 'size' falls to its id-DESC tiebreak — the first tile flips
     // from the newest-by-date (IMG_4021.RAF) to the highest id (IMG_4028).
-    await page.getByRole('button', { name: 'General' }).click();
-    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4021.RAF');
+    await page.getByRole('tab', { name: 'General' }).click();
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(/^Open IMG_4021\.RAF,/u);
     await page.getByRole('radio', { name: 'Size' }).click();
-    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4028.JPG');
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(/^Open IMG_4028\.JPG,/u);
     await expect(page.getByRole('radio', { name: '30 days' })).toBeChecked();
     await page.getByRole('radio', { name: '7 days' }).click();
     await expect(page.getByRole('radio', { name: '7 days' })).toBeChecked();
@@ -120,7 +120,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     // misleading backed-up states anywhere.
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Back up' })).toBeHidden();
-    await expect(page.getByTestId('sync-state')).toContainText('Local mock NOT CONNECTED');
+    await expect(page.getByTestId('sync-state')).toContainText('Local mock not connected');
     await expect(page.getByTestId('backup-card')).toContainText('not connected');
     // The sidebar's Connect link is the path back — it opens Settings.
     await page.getByTestId('sidebar-connect').click();
@@ -133,7 +133,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     // Reconnect restores the shell surfaces live, no restart.
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Back up' })).toBeVisible();
-    await expect(page.getByTestId('sync-state')).not.toContainText('NOT CONNECTED');
+    await expect(page.getByTestId('sync-state')).not.toContainText('not connected');
     await expect(page.getByTestId('sidebar-connect')).toBeHidden();
     // The #115 Privacy block below expects the dialog open again.
     await page.getByRole('button', { name: 'Settings' }).click();
@@ -141,7 +141,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
 
     // #115: the Privacy pane — always-on badge, deferred face grouping
     // (disabled + off, never faked), diagnostics persists through the store.
-    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
     const pane = page.getByTestId('settings-pane');
     await expect(pane).toContainText('Always on');
     const paneSwitches = pane.getByRole('switch');
@@ -186,19 +186,19 @@ test('settings keeps stable modal geometry and content-only scrolling in a short
     await opener.click();
     const dialog = page.getByRole('dialog', { name: 'Settings' });
     const pane = page.getByTestId('settings-pane');
-    const nav = page.getByRole('navigation', { name: 'Settings sections' });
+    const nav = page.getByRole('tablist', { name: 'Settings sections' });
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveCSS('animation-duration', '0.001s');
     await expect.poll(async () => (await dialog.boundingBox())?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(388);
 
-    await page.getByRole('button', { name: 'Privacy' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
     await expect(pane).toHaveCSS('overflow-y', 'auto');
     const navTop = (await nav.boundingBox())?.y;
     await page.evaluate("document.querySelector('[data-testid=settings-pane]').scrollTop = 160");
     await expect.poll(() => page.evaluate<number>("document.querySelector('[data-testid=settings-pane]').scrollTop")).toBeGreaterThan(0);
     await expect.poll(async () => (await nav.boundingBox())?.y).toBe(navTop);
 
-    await page.getByRole('button', { name: 'General' }).click();
+    await page.getByRole('tab', { name: 'General' }).click();
     await expect(pane).toHaveAttribute('data-section', 'general');
     await expect.poll(() => page.evaluate<number>("document.querySelector('[data-testid=settings-pane]').scrollTop")).toBe(0);
     await dialog.getByRole('button', { name: 'Close' }).click();

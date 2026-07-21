@@ -32,8 +32,8 @@ const messages = defineMessages({
   settings: { id: 'sidebar.settings', defaultMessage: 'Settings' },
   encrypted: { id: 'sidebar.encrypted', defaultMessage: 'Library encrypted' },
   encryptedOpenSettings: { id: 'sidebar.encrypted.openSettings', defaultMessage: 'Library encrypted — open Settings' },
-  storageOnDisk: { id: 'sidebar.storage.onDisk', defaultMessage: '{bytes} ON DISK' },
-  storageOffload: { id: 'sidebar.storage.offload', defaultMessage: '{bytes} OFFLOAD ({provider})' },
+  storageOnDisk: { id: 'sidebar.storage.onDisk', defaultMessage: '{bytes} on disk' },
+  storageOffload: { id: 'sidebar.storage.offload', defaultMessage: '{bytes} offload ({provider})' },
   connect: { id: 'sidebar.connect', defaultMessage: 'Connect' },
   sourceAll: { id: 'sidebar.source.all', defaultMessage: 'All Photos' },
   sourceFavorites: { id: 'sidebar.source.favorites', defaultMessage: 'Favorites' },
@@ -227,7 +227,9 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (
         <div className="ovl-sidebar__heading mono-data">
-          <FormattedMessage id="sidebar.heading.library" defaultMessage="Library" />
+          <h2 className="ovl-sidebar__headingText">
+            <FormattedMessage id="sidebar.heading.library" defaultMessage="Library" />
+          </h2>
         </div>
       )}
       {SOURCES.filter(
@@ -254,9 +256,9 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (
         <div className="ovl-sidebar__heading mono-data">
-          <span>
+          <h2 className="ovl-sidebar__headingText">
             <FormattedMessage id="sidebar.heading.albums" defaultMessage="Albums" />
-          </span>
+          </h2>
           <button
             type="button"
             className="ovl-sidebar__gear"
@@ -336,7 +338,9 @@ export function Sidebar({ counts, stats, albums, onTransferAlbum, protectedAlbum
         <div className="ovl-sidebar__divider" role="presentation" />
       ) : (
         <div className="ovl-sidebar__heading mono-data">
-          <FormattedMessage id="sidebar.heading.protected" defaultMessage="Protected" />
+          <h2 className="ovl-sidebar__headingText">
+            <FormattedMessage id="sidebar.heading.protected" defaultMessage="Protected" />
+          </h2>
         </div>
       )}
       {protectedAlbums.map((album) => {

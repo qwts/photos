@@ -31,7 +31,7 @@ test('keyboard-only browse, search, selection, help, and lightbox tour (#399)', 
     const search = page.getByRole('searchbox', { name: 'Search library' });
     await expect(search).toBeFocused();
     await page.keyboard.press('ControlOrMeta+a');
-    await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
+    await expect(page.getByTestId('selection-pill')).toContainText('2 selected');
     await page.keyboard.press('Shift+/');
     await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toHaveCount(0);
 

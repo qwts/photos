@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
@@ -8,6 +9,10 @@ import { RecoveryUnlock } from './RecoveryUnlock';
 
 import './lock-screen.css';
 
+const messages = defineMessages({
+  retryCountdown: { id: 'lock.retryCountdown', defaultMessage: 'Try again in {seconds}s' },
+});
+
 export interface LockScreenProps {
   readonly platform: string;
   readonly state: 'locked' | 'unlocking' | 'locking' | 'recovery-required';
@@ -15,6 +20,7 @@ export interface LockScreenProps {
 }
 
 export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): ReactElement {
+  const intl = useIntl();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [deadline, setDeadline] = useState(() => Date.now() + retryAfterMs);
@@ -130,8 +136,13 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
                 className="ovl-lock-screen__unlock"
                 disabled={password === '' || busy || remainingMs > 0}
               >
-                {busy ? 'Unlocking…' : remainingMs > 0 ? `Try again in ${String(waitSeconds)}s` : 'Unlock'}
+                {busy ? 'Unlocking…' : 'Unlock'}
               </Button>
+              {remainingMs > 0 ? (
+                <div className="mono-data" aria-hidden="true">
+                  {intl.formatMessage(messages.retryCountdown, { seconds: waitSeconds })}
+                </div>
+              ) : null}
             </>
           )}
           {recoveryRequired ? null : (

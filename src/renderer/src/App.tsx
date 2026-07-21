@@ -8,6 +8,7 @@ import { RestoreOnboarding } from './restore/RestoreOnboarding';
 import { LockScreen } from './lock/LockScreen';
 import { EMPTY_COMMAND_MENU_CONTEXT } from '../../shared/commands/menu-contract.js';
 import type { CommandId } from '../../shared/commands/registry.js';
+import { AnnouncerProvider } from './components/LiveAnnouncer';
 
 type LockStatus = Awaited<ReturnType<typeof window.overlook.appLock.status>>;
 
@@ -54,16 +55,22 @@ export function App(): ReactElement {
 
   if (lock === null) return <></>;
   if (lock.state !== 'unconfigured-unlocked' && lock.state !== 'unlocked') {
-    return <LockScreen platform={platform} state={lock.state} retryAfterMs={lock.retryAfterMs} />;
+    return (
+      <AnnouncerProvider>
+        <LockScreen platform={platform} state={lock.state} retryAfterMs={lock.retryAfterMs} />
+      </AnnouncerProvider>
+    );
   }
 
   return (
-    <AppStateProvider>
-      {fresh === true ? (
-        <RestoreOnboarding platform={platform} onStartNew={() => setFresh(false)} />
-      ) : fresh === false ? (
-        <Shell platform={platform} lockConfigured={lock.state === 'unlocked'} nativeCommand={nativeCommand} />
-      ) : null}
-    </AppStateProvider>
+    <AnnouncerProvider>
+      <AppStateProvider>
+        {fresh === true ? (
+          <RestoreOnboarding platform={platform} onStartNew={() => setFresh(false)} />
+        ) : fresh === false ? (
+          <Shell platform={platform} lockConfigured={lock.state === 'unlocked'} nativeCommand={nativeCommand} />
+        ) : null}
+      </AppStateProvider>
+    </AnnouncerProvider>
   );
 }

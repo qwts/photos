@@ -34,7 +34,7 @@ test('settings persist across an app restart and re-render the UI', async () => 
     await page.getByTestId('virtual-grid').waitFor();
     await page.locator('.ovl-tile__img').first().waitFor();
     // Date order (default): the newest-by-date seed row leads.
-    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4021.RAF');
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(/^Open IMG_4021\.RAF,/u);
 
     await page.evaluate(
       `window.overlook.settings.set({ patch: { sortOrder: 'size', wifiOnly: false, bandwidthLimit: 40, providerId: null } })`,
@@ -56,7 +56,7 @@ test('settings persist across an app restart and re-render the UI', async () => 
 
     // The grid comes up in the persisted order with no user action: size's
     // id-DESC tiebreak leads with IMG_4028 (seed rows share one byte size).
-    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName('Open IMG_4028.JPG');
+    await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(/^Open IMG_4028\.JPG,/u);
 
     // The dialog re-renders the persisted state too: disconnected card,
     // backup-specific controls hidden (#239), import Copy/Move still usable.

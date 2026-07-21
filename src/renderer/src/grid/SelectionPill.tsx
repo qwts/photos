@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import './pill.css';
 import { useFormats } from '../i18n/use-formats.js';
@@ -45,6 +45,15 @@ export function SelectionPill({
   const actions = destructiveActions;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreTriggerRef = useRef<HTMLButtonElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (moreOpen) moreMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+  }, [moreOpen]);
+  const closeMore = (): void => {
+    setMoreOpen(false);
+    requestAnimationFrame(() => moreTriggerRef.current?.focus());
+  };
   return (
     <div className="ovl-pill-anchor">
       <div className="ovl-pill" data-testid="selection-pill">
@@ -59,7 +68,7 @@ export function SelectionPill({
             }}
           />
         ) : null}
-        <span className="ovl-pill__count mono-data">{formatCount(count)} SELECTED</span>
+        <span className="ovl-pill__count mono-data">{formatCount(count)} selected</span>
         {onRestore !== undefined ? (
           // Trash mode: restore is the headline; purge is the destructive
           // purge behind #121's confirm ceremony.
@@ -104,9 +113,44 @@ export function SelectionPill({
               )}
             </div>
             <div className="ovl-pill__more">
-              <IconButton icon="sliders-horizontal" label="More selection actions" size="sm" onClick={() => setMoreOpen((open) => !open)} />
+              <IconButton
+                ref={moreTriggerRef}
+                icon="sliders-horizontal"
+                label="More selection actions"
+                size="sm"
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((open) => !open)}
+              />
               {moreOpen ? (
-                <div className="ovl-pill__menu" role="menu">
+                <div
+                  ref={moreMenuRef}
+                  className="ovl-pill__menu"
+                  role="menu"
+                  tabIndex={-1}
+                  aria-label="Selection actions"
+                  onKeyDown={(event) => {
+                    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+                    const current = items.findIndex((item) => item === document.activeElement);
+                    const next =
+                      event.key === 'Home'
+                        ? 0
+                        : event.key === 'End'
+                          ? items.length - 1
+                          : event.key === 'ArrowDown'
+                            ? (current + 1) % items.length
+                            : event.key === 'ArrowUp'
+                              ? (current - 1 + items.length) % items.length
+                              : null;
+                    if (next !== null) {
+                      event.preventDefault();
+                      items[next]?.focus();
+                    } else if (event.key === 'Escape') {
+                      event.preventDefault();
+                      closeMore();
+                    }
+                  }}
+                >
                   <button type="button" role="menuitem" onClick={onTransfer}>
                     Transfer &amp; Sync
                   </button>

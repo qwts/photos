@@ -298,8 +298,8 @@ export const StorageOpensByDefault: Story = {
     await expect(dialog).toBeVisible();
     await Promise.all(dialog.getAnimations({ subtree: true }).map((animation) => animation.finished));
     const loadingBounds = dialog.getBoundingClientRect();
-    const storage = body.getByRole('button', { name: 'Storage & Backup' });
-    await expect(storage).toHaveAttribute('aria-current', 'true');
+    const storage = body.getByRole('tab', { name: 'Storage & Backup' });
+    await expect(storage).toHaveAttribute('aria-selected', 'true');
     // A slow provider check stays neutral: never claim the selected provider
     // is disconnected or offer connection actions before truth resolves.
     await waitFor(() => expect(body.getByText('Checking connection…')).toBeVisible());
@@ -318,7 +318,7 @@ export const StorageOpensByDefault: Story = {
     const resolvedBounds = dialog.getBoundingClientRect();
     await expect(resolvedBounds.width).toBeCloseTo(loadingBounds.width, 0);
     await expect(resolvedBounds.height).toBeCloseTo(loadingBounds.height, 0);
-    await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
+    await expect(body.getByText('This device · 380 GB / 500 GB used')).toBeVisible();
     await expect(body.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
     await expect(body.getByText('12.6 GB stored only in your verified cloud backup. Thumbnails remain on this Mac.')).toBeVisible();
     await expect(body.queryByText('Checking backup provider before restoring…')).not.toBeInTheDocument();
@@ -384,7 +384,7 @@ export const DisconnectHidesBackupControls: Story = {
     // Reconnect: instant with the mock, quota and the knobs return.
     await userEvent.click(body.getByRole('button', { name: 'Connect Local mock' }));
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
-    await expect(body.getByText('THIS DEVICE · 380 GB / 500 GB USED')).toBeVisible();
+    await expect(body.getByText('This device · 380 GB / 500 GB used')).toBeVisible();
     await expect(body.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
   },
 };
@@ -399,8 +399,8 @@ export const ProviderSelectionAndUnknownQuota: Story = {
     );
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Archive Cloud' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
-    await waitFor(() => expect(body.getByText('THIS DEVICE · STORAGE USAGE NOT REPORTED')).toBeVisible());
-    await expect(body.getByText(/VERIFY BY DOWNLOAD/u)).toBeVisible();
+    await waitFor(() => expect(body.getByText('This device · storage usage not reported')).toBeVisible());
+    await expect(body.getByText(/Verify by download/u)).toBeVisible();
   },
 };
 
@@ -414,8 +414,8 @@ export const GoogleDriveSelection: Story = {
     );
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Google Drive' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Google Drive' }));
-    await waitFor(() => expect(body.getByText('THIS DEVICE · 42 GB / 100 GB USED')).toBeVisible());
-    await expect(body.getByText(/SERVER CHECKSUM · RESUMABLE UPLOADS/u)).toBeVisible();
+    await waitFor(() => expect(body.getByText('This device · 42 GB / 100 GB used')).toBeVisible());
+    await expect(body.getByText(/Server checksum · resumable uploads/u)).toBeVisible();
   },
 };
 
@@ -428,7 +428,7 @@ export const RestoreDiscoveryAndWarnings: Story = {
     await userEvent.click(body.getByRole('button', { name: 'Choose recovery key' }));
     await userEvent.type(body.getByLabelText('Recovery-key password'), 'correct horse battery staple');
     await userEvent.click(body.getByRole('button', { name: 'Discover backups' }));
-    await waitFor(() => expect(body.getByTestId('restore-library-card')).toHaveTextContent('1,542 PHOTOS'));
+    await waitFor(() => expect(body.getByTestId('restore-library-card')).toHaveTextContent('1,542 photos'));
     await expect(body.getByText('1 retained fallback generation available')).toBeVisible();
     await expect(body.getByText('Verified staged work is ready to resume')).toBeVisible();
     await userEvent.click(body.getByRole('button', { name: 'Review restore' }));
@@ -445,10 +445,10 @@ export const RestoreDiscoveryAndWarnings: Story = {
 export const NavSwitchesPanes: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole('button', { name: 'General' }));
-    await expect(body.getByRole('button', { name: 'General' })).toHaveAttribute('aria-current', 'true');
+    await userEvent.click(body.getByRole('tab', { name: 'General' }));
+    await expect(body.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
     await waitFor(() => expect(body.getByText('Default sort order')).toBeVisible());
-    await userEvent.click(body.getByRole('button', { name: 'Privacy' }));
+    await userEvent.click(body.getByRole('tab', { name: 'Privacy' }));
     await expect(body.getByText('End-to-end encryption')).toBeVisible();
   },
 };
@@ -470,9 +470,9 @@ export const ContentOwnsScrolling: Story = {
   ),
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole('button', { name: 'Privacy' }));
+    await userEvent.click(body.getByRole('tab', { name: 'Privacy' }));
     const pane = body.getByTestId('settings-pane');
-    const nav = body.getByRole('navigation', { name: 'Settings sections' });
+    const nav = body.getByRole('tablist', { name: 'Settings sections' });
     const dialogBody = pane.parentElement?.parentElement;
     if (dialogBody === null || dialogBody === undefined) throw new Error('settings dialog body missing');
 
@@ -484,7 +484,7 @@ export const ContentOwnsScrolling: Story = {
     await expect(pane.scrollTop).toBeGreaterThan(0);
     await expect(nav.getBoundingClientRect().top).toBe(navTop);
 
-    await userEvent.click(body.getByRole('button', { name: 'General' }));
+    await userEvent.click(body.getByRole('tab', { name: 'General' }));
     await expect(pane).toHaveAttribute('data-section', 'general');
     await expect(pane.scrollTop).toBe(0);
   },
@@ -494,7 +494,7 @@ export const TransferAndSyncAction: Story = {
   args: { onTransfer: fn() },
   play: async ({ canvasElement, args }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole('button', { name: 'Transfer & Sync' }));
+    await userEvent.click(body.getByRole('tab', { name: 'Transfer & Sync' }));
     const action = await waitFor(() => body.getByRole('button', { name: 'Open Transfer & Sync' }));
 
     await expect(action).toHaveClass('ovl-button', 'ovl-button--primary', 'ovl-settings__transferAction');
@@ -511,7 +511,7 @@ export const TransferAndSyncAction: Story = {
 export const PrivacySection: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole('button', { name: 'Privacy' }));
+    await userEvent.click(body.getByRole('tab', { name: 'Privacy' }));
 
     // Recovery key row (#240): fingerprint + both KeyDialog entry points.
     await waitFor(() => expect(body.getByTestId('recovery-key-row')).toHaveTextContent('9F2C·4A81·D0E7·5B3A'));
@@ -569,12 +569,14 @@ export const PrivacySection: Story = {
 export const KeyboardOperable: Story = {
   play: async ({ canvasElement, args }) => {
     const body = within(canvasElement.ownerDocument.body);
-    // The nav rows are real buttons: Tab reaches them (after the header's
-    // Close control), Enter activates.
+    // The tablist is reachable after the header's Close control; arrows
+    // move and activate sections without adding extra Tab stops.
     await userEvent.tab();
     await userEvent.tab();
-    await expect(body.getByRole('button', { name: 'General' })).toHaveFocus();
-    await userEvent.keyboard('{Enter}');
+    await expect(body.getByRole('tab', { name: 'Storage & Backup' })).toHaveFocus();
+    await expect(body.getByRole('tab', { name: 'Storage & Backup' })).toHaveAttribute('aria-selected', 'true');
+    await userEvent.keyboard('{ArrowUp}');
+    await expect(body.getByRole('tab', { name: 'General' })).toHaveFocus();
     await waitFor(() => expect(body.getByText('Default sort order')).toBeVisible());
     // Esc closes from anywhere inside the dialog.
     await userEvent.keyboard('{Escape}');
@@ -585,7 +587,7 @@ export const KeyboardOperable: Story = {
 export const GeneralSection: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.click(body.getByRole('button', { name: 'General' }));
+    await userEvent.click(body.getByRole('tab', { name: 'General' }));
     await waitFor(() => expect(body.getByRole('radio', { name: 'Date' })).toBeChecked());
 
     // Sort change round-trips through the store stub.
@@ -626,8 +628,8 @@ export const GeneralRightToLeft: Story = {
     const body = within(canvasElement.ownerDocument.body);
     await waitFor(() => expect(canvasElement.ownerDocument.documentElement).toHaveAttribute('dir', 'rtl'));
     const dialog = body.getByRole('dialog');
-    const nav = body.getByRole('navigation');
-    const general = within(nav).getAllByRole('button')[0];
+    const nav = body.getByRole('tablist');
+    const general = within(nav).getAllByRole('tab')[0];
     if (general === undefined) throw new Error('general settings navigation item missing');
     await userEvent.click(general);
     const pane = body.getByTestId('settings-pane');
@@ -642,8 +644,8 @@ export const GeneralExpandedPseudoLocale: Story = {
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     const dialog = body.getByRole('dialog');
-    const nav = body.getByRole('navigation');
-    const general = within(nav).getAllByRole('button')[0];
+    const nav = body.getByRole('tablist');
+    const general = within(nav).getAllByRole('tab')[0];
     if (general === undefined) throw new Error('general settings navigation item missing');
     await userEvent.click(general);
     await waitFor(() => expect(body.getByTestId('settings-pane')).toBeVisible());

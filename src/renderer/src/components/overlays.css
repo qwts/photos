@@ -44,6 +44,7 @@
 
 .ovl-dialog__title {
   flex: 1;
+  margin: 0;
   font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
 }
@@ -138,15 +139,6 @@
   flex-direction: column;
   gap: var(--space-3);
   align-items: flex-end;
-}
-
-.ovl-toast-host__announcer {
-  position: absolute;
-  inline-size: var(--space-1);
-  block-size: var(--space-1);
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 /* Toast action (#89): the "Show" jump in the import-completion toast. */

@@ -29,14 +29,14 @@ function launch(userData: string, keyFile: string, seed = false): Promise<Electr
 
 async function openPrivacy(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: 'Privacy' }).click();
+  await page.getByRole('tab', { name: 'Privacy' }).click();
 }
 
 async function exportRecoveryKey(page: Page): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Back up encryption key' });
   await page.getByRole('button', { name: 'Back up…' }).click();
-  await page.getByLabel('New password').fill(RECOVERY_PASSWORD);
-  await page.getByLabel('Re-enter password').fill(RECOVERY_PASSWORD);
+  await page.getByLabel('Encrypt backup with password').fill(RECOVERY_PASSWORD);
+  await page.getByLabel('Confirm password').fill(RECOVERY_PASSWORD);
   await page.getByText('I understand this password cannot be reset or recovered.').click();
   await page.getByRole('button', { name: 'Export key backup' }).click();
   await expect(page.getByText('Key backup saved.')).toBeVisible({ timeout: 30_000 });
@@ -64,8 +64,8 @@ async function protectAlbum(page: Page): Promise<void> {
   const row = page.locator('.ovl-protected-settings__row', { hasText: 'Private originals' });
   await row.getByRole('button', { name: 'Protect…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Protect “Private originals”' });
-  await dialog.getByLabel('New protected album password').fill(ALBUM_PASSWORD);
-  await dialog.getByLabel('Confirm protected album password').fill(ALBUM_PASSWORD);
+  await dialog.getByLabel('New album password').fill(ALBUM_PASSWORD);
+  await dialog.getByLabel('Confirm password').fill(ALBUM_PASSWORD);
   await dialog.getByRole('button', { name: 'Protect album' }).click();
   await expect(dialog).toHaveCount(0, { timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Unlock…' })).toBeVisible();
@@ -104,9 +104,9 @@ async function unlockProtected(page: Page, password: string): Promise<void> {
   await origin.focus();
   await origin.press('Enter');
   const dialog = page.getByRole('dialog', { name: 'Unlock protected album' });
-  await expect(dialog.getByLabel('Protected album password')).toBeFocused();
-  await dialog.getByLabel('Protected album password').fill(password);
-  await dialog.getByLabel('Protected album password').press('Enter');
+  await expect(dialog.getByLabel('Album password')).toBeFocused();
+  await dialog.getByLabel('Album password').fill(password);
+  await dialog.getByLabel('Album password').press('Enter');
   await expect(page.getByRole('heading', { name: 'Private originals' })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.ovl-protected-route .ovl-grid__cell')).toHaveCount(2);
 }
@@ -115,9 +115,9 @@ async function changeAlbumPassword(page: Page): Promise<void> {
   await openPrivacy(page);
   await page.getByRole('button', { name: 'Change…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Change protected album password' });
-  await dialog.getByLabel('Current protected album password').fill(ALBUM_PASSWORD);
-  await dialog.getByLabel('New protected album password').fill(CHANGED_PASSWORD);
-  await dialog.getByLabel('Confirm protected album password').fill(CHANGED_PASSWORD);
+  await dialog.getByLabel('Current album password').fill(ALBUM_PASSWORD);
+  await dialog.getByLabel('New album password').fill(CHANGED_PASSWORD);
+  await dialog.getByLabel('Confirm password').fill(CHANGED_PASSWORD);
   await dialog.getByRole('button', { name: 'Change password' }).click();
   await expect(dialog).toHaveCount(0, { timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Unlock…' })).toBeVisible();
@@ -131,8 +131,8 @@ async function recoverAlbumPassword(page: Page): Promise<void> {
   await dialog.getByRole('button', { name: 'Choose…' }).click();
   await expect(dialog).toContainText('overlook-recovery.key');
   await dialog.getByLabel('Recovery file password').fill(RECOVERY_PASSWORD);
-  await dialog.getByLabel('New protected album password').fill(RECOVERED_PASSWORD);
-  await dialog.getByLabel('Confirm protected album password').fill(RECOVERED_PASSWORD);
+  await dialog.getByLabel('New album password').fill(RECOVERED_PASSWORD);
+  await dialog.getByLabel('Confirm password').fill(RECOVERED_PASSWORD);
   await dialog.getByRole('button', { name: 'Recover' }).click();
   await expect(dialog).toHaveCount(0, { timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Unlock…' })).toBeVisible();
@@ -143,8 +143,8 @@ async function configureAppLock(page: Page): Promise<void> {
   await openPrivacy(page);
   await page.getByRole('button', { name: 'Set password…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Set app password' });
-  await dialog.getByLabel('New app password').fill(APP_PASSWORD);
-  await dialog.getByLabel('Confirm app password').fill(APP_PASSWORD);
+  await dialog.getByLabel('New password').fill(APP_PASSWORD);
+  await dialog.getByLabel('Confirm password').fill(APP_PASSWORD);
   await dialog.getByRole('button', { name: 'Set app password' }).click();
   await expect(page.getByTestId('lock-screen')).toBeVisible();
 }
@@ -163,7 +163,7 @@ async function removeProtection(page: Page): Promise<void> {
   await openPrivacy(page);
   await page.getByRole('region', { name: 'Protected albums' }).getByRole('button', { name: 'Remove…' }).click();
   const dialog = page.getByRole('dialog', { name: 'Remove album protection' });
-  await dialog.getByLabel('Current protected album password').fill(RECOVERED_PASSWORD);
+  await dialog.getByLabel('Current album password').fill(RECOVERED_PASSWORD);
   await dialog.getByRole('button', { name: 'Remove protection' }).click();
   await expect(dialog).toHaveCount(0, { timeout: 30_000 });
   await expect(page.locator('.ovl-protected-settings__row', { hasText: 'Private originals' })).toBeVisible();

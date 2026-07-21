@@ -55,6 +55,8 @@ export const RafFavorite: Story = {
   args: { photo: PHOTO, providerLabel: 'Local mock' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.getByRole('heading', { level: 2, name: 'Inspector' })).toBeInTheDocument();
+    await expect(canvas.getByRole('heading', { level: 3, name: 'Capture' })).toBeInTheDocument();
     await expect(canvas.getByText('raw')).toBeVisible();
     await expect(canvas.getByText('Encrypted')).toBeVisible();
     await expect(canvas.getByText('Favorite')).toBeVisible();
@@ -65,7 +67,7 @@ export const RafFavorite: Story = {
     await expect(canvas.getByText('Jul 2, 2026 · SD card')).toBeVisible();
     // Real key metadata + the honest synced copy (no fabricated timestamp).
     await expect(canvas.getByText('AES-256-GCM · KEY #2')).toBeVisible();
-    await expect(canvas.getByText('ENCRYPTED · Local mock')).toBeVisible();
+    await expect(canvas.getByText('Encrypted · Local mock')).toBeVisible();
     await expect(canvas.queryByText('DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA')).toBeNull();
   },
 };
@@ -95,7 +97,7 @@ export const MetadataLite: Story = {
     await expect(canvas.queryByText('Exposure')).toBeNull();
     await expect(canvas.queryByText('Favorite')).toBeNull();
     await expect(canvas.getByText('jpeg')).toBeVisible();
-    await expect(canvas.getByText('LOCAL ONLY — NOT BACKED UP')).toBeVisible();
+    await expect(canvas.getByText('Local only — not backed up')).toBeVisible();
   },
 };
 
