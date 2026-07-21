@@ -204,12 +204,14 @@ describe('backup manifest schema (#289)', () => {
 });
 
 describe('media info in manifests (ADR-0026, #547)', () => {
-  test('pre-0026 manifests without mediaInfo parse with a null default', () => {
+  test('pre-0026 manifests without mediaInfo parse with the key ABSENT (never inserted)', () => {
+    // Sealed protected metadata is verified by exact re-stringification, so
+    // parsing legacy JSON must not insert keys (PR #626 review).
     const source = manifest();
     const legacy = JSON.parse(JSON.stringify(source)) as { photos: Array<Record<string, unknown>> };
     delete legacy.photos[0]?.['mediaInfo'];
     const parsed = backupManifestV2Schema.parse(legacy);
-    assert.equal(parsed.photos[0]?.mediaInfo, null);
+    assert.equal('mediaInfo' in (parsed.photos[0] ?? {}), false);
   });
 
   test('probed facts roundtrip; playability tiers have no field to hide in', () => {

@@ -49,7 +49,7 @@ export interface PhotoRecord {
 export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'previewFailure' | 'dimensionStatus' | 'syncState' | 'mediaInfo'> & {
   readonly favorite?: boolean;
   /** Optional like favorite: most kinds have no probed facts to record. */
-  readonly mediaInfo?: MediaInfo | null;
+  readonly mediaInfo?: MediaInfo | null | undefined;
 };
 
 /** The sidebar's library sources (design §Sidebar). */
