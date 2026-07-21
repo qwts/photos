@@ -281,6 +281,10 @@
       "coverage": [
         {
           "type": "playwright-e2e",
+          "path": "tests/e2e/keyboard-navigation.spec.ts"
+        },
+        {
+          "type": "playwright-e2e",
           "path": "tests/e2e/lightbox.spec.ts"
         },
         {
