@@ -34,7 +34,14 @@ export const AppearsOnHover: Story = {
     // Keyboard parity (PR #140 review): focus shows the same hint.
     await userEvent.tab();
     await waitFor(async () => {
-      await expect(canvas.getByRole('tooltip')).toHaveTextContent('All photos backed up');
+      const tooltip = canvas.getByRole('tooltip');
+      await expect(tooltip).toHaveTextContent('All photos backed up');
+      await expect(canvas.getByRole('button')).toHaveAttribute('aria-describedby', tooltip.id);
+    });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(async () => {
+      await expect(canvas.queryByRole('tooltip')).not.toBeInTheDocument();
+      await expect(canvas.getByRole('button')).not.toHaveAttribute('aria-describedby');
     });
     await userEvent.tab();
     await waitFor(async () => {
