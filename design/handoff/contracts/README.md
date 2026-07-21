@@ -6,6 +6,17 @@ Overlook and Image Trail. The runtime schemas live under
 `SHA256SUMS` let the sibling repositories enforce exact parity without a
 network dependency during builds.
 
+Contract v1 also defines the provider object paths used by Move:
+
+- `messages/outbox/<12-digit-sequence>-<message-id>.json.aesgcm`
+- `messages/acknowledgements/<12-digit-sequence>-<message-id>.json.aesgcm`
+- `blobs/<record-interop-id>/original.bin.aesgcm`
+
+Messages use `sealed-message.schema.json`; original bytes use the nested binary
+format in `sealed-blob.md`. An accepted Move containing an original must
+acknowledge both its record and blob protocol message IDs. The storage object
+for the binary original is not itself a protocol message.
+
 Run `npm run interop:generate-contract` after an intentional contract change.
 Commit the regenerated schemas and checksum with the runtime change. Consumers
 must reject unsupported versions and checksum mismatches; they must not silently

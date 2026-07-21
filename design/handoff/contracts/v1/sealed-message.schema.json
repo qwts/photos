@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "magic": {
+      "type": "string",
+      "const": "OVERLOOK-IMAGE-TRAIL-SEALED-MESSAGE"
+    },
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "pairingId": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "transferId": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "messageId": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "keyId": {
+      "type": "string",
+      "pattern": "^interop:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "cipher": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "AES-GCM"
+        },
+        "iv": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "ciphertext": {
+          "minLength": 24,
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "name",
+        "iv",
+        "ciphertext"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "magic",
+    "schemaVersion",
+    "pairingId",
+    "transferId",
+    "messageId",
+    "keyId",
+    "cipher"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "__schema1": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    }
+  },
+  "$id": "https://github.com/qwts/photos/blob/main/design/handoff/contracts/v1/sealed-message.schema.json",
+  "title": "Overlook and Image Trail AES-GCM sealed message v1",
+  "$comment": "The clear identity header is authenticated as canonical JSON AAD. Opening additionally verifies the decrypted envelope identity against that header."
+}

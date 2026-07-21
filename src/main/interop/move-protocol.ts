@@ -28,7 +28,12 @@ function isAcknowledgementEnvelope(envelope: InteropEnvelope): envelope is Ackno
 }
 
 export interface MoveOriginalVerifier {
-  verify(record: InteropRecord): Promise<{ readonly verified: boolean; readonly targetLocalId: string | null }>;
+  verify(record: InteropRecord): Promise<{
+    readonly verified: boolean;
+    readonly targetLocalId: string | null;
+    /** Additional source protocol messages whose custody was verified, such as the original-blob message. */
+    readonly sourceMessageIds?: readonly string[] | undefined;
+  }>;
 }
 
 export type MoveSourceOriginalAction = 'remove-after-verified-copy' | 'preserve-original';
@@ -125,18 +130,22 @@ export class MoveProtocolService {
     let targetLocalId: string | null = null;
     let originalVerification: Exclude<MoveOriginalVerification, 'pending'> = originalVerificationFor(request.payload.record);
     let verificationError: InteropError | null = null;
+    let acknowledgedMessageIds: readonly string[] = [request.header.messageId];
 
     if (request.payload.record.original.state === 'available' && imported.record.persisted && acceptedCategory(reviewCategory)) {
       try {
         const verification = await verifier.verify(request.payload.record);
         targetLocalId = verification.targetLocalId;
-        if (verification.verified) {
+        acknowledgedMessageIds = [...new Set([request.header.messageId, ...(verification.sourceMessageIds ?? [])])];
+        if (verification.verified && acknowledgedMessageIds.length > 1) {
           originalVerification = 'verified';
         } else {
           originalVerification = 'unavailable';
           verificationError = {
             code: 'partial-failure',
-            message: 'Target original verification failed.',
+            message: verification.verified
+              ? 'Target original verification did not cover its source blob message.'
+              : 'Target original verification failed.',
             retryable: true,
             recordInteropId: request.payload.record.identity.interopId,
           };
@@ -181,7 +190,7 @@ export class MoveProtocolService {
         targetLocalId,
         metadataPersisted,
         originalVerification,
-        acknowledgedMessageIds: [request.header.messageId],
+        acknowledgedMessageIds,
         errors,
       },
     });
