@@ -121,6 +121,7 @@
     "zod": "4.4.3"
   },
   "overrides": {
+    "shell-quote": "1.9.0",
     "madge": {
       "typescript": "$typescript"
     },

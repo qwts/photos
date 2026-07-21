@@ -221,6 +221,10 @@ this file in the same PR as the change — never after the fact.
   upstream ships ESLint 10 support; if a bump ever breaks rule execution the
   symptom is jsx-a11y silently reporting **nothing**, so treat a sudden drop to
   zero findings as a failure, not a win.
+- **`shell-quote` is overridden to 1.9.0** because `concurrently` 10.0.3 pins
+  vulnerable 1.8.4 (CVE-2026-13311). Remove the override when `concurrently`
+  adopts `shell-quote` 1.9.0 or later, after its Storybook orchestration lane
+  passes without the override.
 - Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only
   PRs may skip it. 0.x semantics (minor = behavior-changing, patch = fixes):
   [ADR-0002 Versioning Policy](docs/adr/ADR-0002-Versioning-Policy.md).
