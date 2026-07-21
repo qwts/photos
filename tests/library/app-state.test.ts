@@ -165,6 +165,47 @@ describe('app state reducer', () => {
     assert.equal(state.toast, null);
   });
 
+  test('lightbox owns and closes the Inspector it opened (#503)', () => {
+    const photo = { id: 'a' } as AppState['photos'][number];
+    const open = apply(
+      initialAppState,
+      { type: 'photos/loaded', photos: [photo], append: false },
+      { type: 'lightbox/opened', photoId: photo.id },
+      { type: 'inspector/toggled' },
+    );
+    assert.equal(open.inspectorOpen, true);
+    assert.equal(open.inspectorSource, 'lightbox');
+    assert.equal(open.inspectorPhotoId, photo.id);
+
+    const closed = apply(open, { type: 'lightbox/closed' });
+    assert.equal(closed.lightboxId, null);
+    assert.equal(closed.inspectorOpen, false);
+    assert.equal(closed.inspectorSource, null);
+    assert.equal(closed.inspectorPhotoId, null);
+  });
+
+  test('Inspector pages a multi-selection in stable visible order (#503)', () => {
+    const photos = ['a', 'b', 'c'].map((id) => ({ id }) as AppState['photos'][number]);
+    let state = apply(
+      initialAppState,
+      { type: 'photos/loaded', photos, append: false },
+      { type: 'selection/all', photoIds: ['c', 'a'] },
+      { type: 'inspector/toggled' },
+    );
+    assert.equal(state.inspectorSource, 'selection');
+    assert.equal(state.inspectorPhotoId, 'a', 'visible gallery order wins over set insertion order');
+    state = apply(state, { type: 'inspector/stepped', delta: 1 });
+    assert.equal(state.inspectorPhotoId, 'c');
+    state = apply(state, { type: 'inspector/stepped', delta: 1 });
+    assert.equal(state.inspectorPhotoId, 'a', 'cursor wraps');
+
+    state = apply(state, { type: 'selection/toggled', photoId: 'a' });
+    assert.equal(state.inspectorPhotoId, 'c', 'removing the focused item chooses the next visible selection');
+    state = apply(state, { type: 'photos/loaded', photos: [photos[0]!], append: false });
+    assert.equal(state.inspectorPhotoId, null);
+    assert.equal(state.inspectorOpen, true, 'an empty grid selection keeps the explicitly opened dock available');
+  });
+
   test('lightbox follows visibility: an id that leaves the photo set closes for real (#92)', () => {
     const photo = (id: string) => ({ id }) as AppState['photos'][number];
     let state = apply(

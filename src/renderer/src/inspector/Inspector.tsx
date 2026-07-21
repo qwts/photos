@@ -6,6 +6,7 @@ import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import { Badge } from '../components/Badge';
 import { MetadataRow } from '../components/MetadataRow';
 import { StatusGlyph } from '../components/StatusGlyph';
+import { IconButton } from '../components/IconButton';
 import type { PhotoRecord, SyncStatus } from '../../../shared/library/types.js';
 import { useAnnouncer } from '../components/LiveAnnouncer';
 
@@ -31,6 +32,9 @@ const messages = defineMessages({
     id: 'inspector.file.dimensionMismatch',
     defaultMessage: 'DIMENSIONS MISMATCH — POSSIBLY CORRUPT METADATA',
   },
+  selectionPosition: { id: 'inspector.selection.position', defaultMessage: '{current} of {count} selected' },
+  previousSelected: { id: 'inspector.selection.previous', defaultMessage: 'Previous selected photo' },
+  nextSelected: { id: 'inspector.selection.next', defaultMessage: 'Next selected photo' },
 });
 
 function Section({ title, children }: { readonly title: string; readonly children: ReactElement | (ReactElement | null)[] }): ReactElement {
@@ -46,9 +50,12 @@ export interface InspectorProps {
   /** The focused photo — lightbox photo, else the single grid selection. */
   readonly photo: PhotoRecord | null;
   readonly providerLabel?: string | undefined;
+  readonly selectionPosition?: { readonly index: number; readonly count: number } | undefined;
+  readonly onPrevious?: (() => void) | undefined;
+  readonly onNext?: (() => void) | undefined;
 }
 
-export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): ReactElement {
+export function Inspector({ photo, providerLabel = 'Cloud', selectionPosition, onPrevious, onNext }: InspectorProps): ReactElement {
   const intl = useIntl();
   const { announce } = useAnnouncer();
   const { formatBytes, formatCalendarDate } = useFormats();
@@ -87,6 +94,24 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
   return (
     <div className="ovl-inspector" data-testid="inspector">
       <h2 className="ovl-sr-only">{intl.formatMessage(messages.title)}</h2>
+      {selectionPosition === undefined ? null : (
+        <nav
+          className="ovl-inspector__selectionNav"
+          aria-label={intl.formatMessage(messages.selectionPosition, {
+            current: selectionPosition.index + 1,
+            count: selectionPosition.count,
+          })}
+        >
+          <IconButton icon="chevron-left" label={intl.formatMessage(messages.previousSelected)} onClick={onPrevious} />
+          <span className="mono-data" aria-live="polite">
+            {intl.formatMessage(messages.selectionPosition, {
+              current: selectionPosition.index + 1,
+              count: selectionPosition.count,
+            })}
+          </span>
+          <IconButton icon="chevron-right" label={intl.formatMessage(messages.nextSelected)} onClick={onNext} />
+        </nav>
+      )}
       <div className="ovl-inspector__header">
         <img className="ovl-inspector__thumb" src={thumbUrl(photo.id)} alt="" />
         <div className="ovl-inspector__headText">

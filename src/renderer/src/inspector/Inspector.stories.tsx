@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { Inspector } from './Inspector';
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -131,5 +131,22 @@ export const Empty: Story = {
   args: { photo: null },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText('Select a photo')).toBeVisible();
+  },
+};
+
+export const MultipleSelected: Story = {
+  args: {
+    photo: PHOTO,
+    selectionPosition: { index: 1, count: 3 },
+    onPrevious: fn(),
+    onNext: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText('2 of 3 selected')).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: 'Previous selected photo' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Next selected photo' }));
+    await expect(args.onPrevious).toHaveBeenCalledTimes(1);
+    await expect(args.onNext).toHaveBeenCalledTimes(1);
   },
 };
