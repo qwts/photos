@@ -67,6 +67,15 @@ describe('sealed interop transport contract (#662)', () => {
     assert.throws(() => openInteropMessage(sealed, key(Buffer.alloc(32, 9))), /could not be opened/u);
   });
 
+  test('rejects IVs whose Base64 text length masks a non-96-bit nonce', () => {
+    const golden = goldenTransportFixtureSchema.parse(fixture('sealed-transport'));
+    const sealed = JSON.parse(Buffer.from(golden.message.sealed, 'base64').toString('utf8')) as {
+      cipher: { iv: string };
+    };
+    sealed.cipher.iv = Buffer.alloc(10).toString('base64');
+    assert.throws(() => openInteropMessage(Buffer.from(JSON.stringify(sealed), 'utf8'), key()), /Encrypted interop message is invalid/u);
+  });
+
   test('keeps original metadata encrypted and verifies exact plaintext custody', () => {
     const golden = goldenTransportFixtureSchema.parse(fixture('sealed-transport'));
     const original = Buffer.from(golden.blob.original, 'base64');
