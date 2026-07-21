@@ -69,7 +69,7 @@
 }
 
 .ovl-lightbox__unavailable {
-  color: var(--accent-red);
+  color: var(--text-photo-danger);
 }
 
 @keyframes ovl-lightbox-loading-spin {

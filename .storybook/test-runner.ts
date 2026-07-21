@@ -92,7 +92,10 @@ const config: TestRunnerConfig = {
       const verdict = evaluateSurface({ id: context.id, observed: countByRule(violations), entries: budget.stories });
       if (!verdict.ok) {
         const detail = violations
-          .map((violation) => `  - [${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help}`)
+          .flatMap((violation) => [
+            `  - [${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help}`,
+            ...violation.nodes.map((node) => `      ${node.target.join(' ')}: ${node.failureSummary ?? 'no failure summary'}`),
+          ])
           .join('\n');
         throw new Error(`[${theme}] ${verdict.reason}\n${detail}`);
       }

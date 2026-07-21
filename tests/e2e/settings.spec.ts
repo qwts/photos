@@ -84,7 +84,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(247, 248, 250)');
     await expect.poll(async () => page.evaluate<string>(`window.overlook.settings.get().then((r) => r.settings.appearance)`)).toBe('light');
     const lightNative = await app.evaluate(({ BrowserWindow, nativeTheme }) => ({
-      background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor(),
+      background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor().toLowerCase(),
       source: nativeTheme.themeSource,
     }));
     expect(lightNative).toEqual({ background: '#f7f8fa', source: 'light' });
@@ -92,7 +92,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await page.getByRole('radio', { name: 'Dark' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     const darkNative = await app.evaluate(({ BrowserWindow, nativeTheme }) => ({
-      background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor(),
+      background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor().toLowerCase(),
       source: nativeTheme.themeSource,
     }));
     expect(darkNative).toEqual({ background: '#050708', source: 'dark' });
