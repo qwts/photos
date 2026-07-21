@@ -98,7 +98,7 @@ export const TileClickVsSelectCircle: Story = {
     await expect(firstItem).toHaveAttribute('aria-posinset', '1');
     await expect(firstItem).toHaveAttribute('aria-setsize', String(PHOTOS.length));
     const tile = await canvas.findByRole('button', { name: 'Open IMG_0.JPG' });
-    const circle = within(tile.parentElement ?? canvasElement).getByRole('button', { name: 'Select' });
+    const circle = within(tile.parentElement ?? canvasElement).getByRole('button', { name: 'Select IMG_0.JPG' });
     await expect(tile).not.toContainElement(circle);
     await userEvent.click(circle);
     await expect(onToggle).toHaveBeenCalledWith('P0');

@@ -72,6 +72,7 @@ export function PhotoTile({
 }: PhotoTileProps): ReactElement {
   const intl = useIntl();
   const unavailableLabel = previewFailureLabel(intl, previewFailure);
+  const photoName = (accessibleName ?? (alt === '' ? 'photo' : alt)).replace(/^Open /u, '');
   const classes = ['ovl-tile', selected ? 'ovl-tile--selected' : undefined, status === 'offloaded' ? 'ovl-tile--offloaded' : undefined]
     .filter(Boolean)
     .join(' ');
@@ -110,7 +111,7 @@ export function PhotoTile({
       {onToggleSelect === undefined ? null : (
         <button
           type="button"
-          aria-label={selected ? 'Deselect' : 'Select'}
+          aria-label={`${selected ? 'Deselect' : 'Select'} ${photoName}`}
           aria-pressed={selected}
           className={`ovl-tile__select${selected ? ' ovl-tile__select--selected' : ''}`}
           onClick={(event) => {
