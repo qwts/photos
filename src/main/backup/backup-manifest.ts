@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { activityEventTypes } from '../../shared/activity/types.js';
+import type { ActivityEvent } from '../../shared/activity/types.js';
 
-export const BACKUP_MANIFEST_SCHEMA_VERSION = 3 as const;
+export const BACKUP_MANIFEST_SCHEMA_VERSION = 4 as const;
 
 const ulidSchema = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u, 'expected a Crockford ULID');
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u, 'expected a lowercase SHA-256 digest');
@@ -167,7 +169,7 @@ export const protectedBackupPhotoV3Schema = z.strictObject({
 
 export const backupManifestV3Schema = z
   .strictObject({
-    schema: z.literal(BACKUP_MANIFEST_SCHEMA_VERSION),
+    schema: z.literal(3),
     libraryId: ulidSchema,
     databaseSchema: z.number().int().positive(),
     generatedAt: isoTimestampSchema,
@@ -246,6 +248,49 @@ export const backupManifestV3Schema = z
     }
   });
 
+const activityPayloadValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+export const backupActivityEventV4Schema = z.strictObject({
+  sequence: z.number().int().positive(),
+  eventId: z.string().min(1),
+  operationId: z.string().min(1),
+  eventType: z.enum(activityEventTypes),
+  schemaVersion: z.literal(1),
+  occurredAt: isoTimestampSchema,
+  actorClass: z.enum(['local-user', 'system', 'interop-peer', 'recovery']),
+  rootCorrelationId: z.string().min(1),
+  causationEventId: z.string().nullable(),
+  entityIds: z.array(z.string()).readonly(),
+  outcome: z.enum(['succeeded', 'partial', 'failed']),
+  payload: z.record(z.string(), activityPayloadValueSchema).readonly(),
+  supersedesEventId: z.string().nullable(),
+});
+
+export const backupManifestV4Schema = z
+  .strictObject({
+    ...backupManifestV3Schema.shape,
+    schema: z.literal(BACKUP_MANIFEST_SCHEMA_VERSION),
+    activity: z.array(backupActivityEventV4Schema).readonly(),
+  })
+  .superRefine((manifest, context) => {
+    const { activity: _activity, ...withoutActivity } = manifest;
+    const previous = backupManifestV3Schema.safeParse({ ...withoutActivity, schema: 3 });
+    if (!previous.success) {
+      context.addIssue({ code: 'custom', message: `schema-3 records are inconsistent: ${z.prettifyError(previous.error)}` });
+    }
+    let priorSequence = 0;
+    const eventIds = new Set<string>();
+    for (const [index, event] of manifest.activity.entries()) {
+      if (event.sequence <= priorSequence) {
+        context.addIssue({ code: 'custom', path: ['activity', index, 'sequence'], message: 'activity sequence must increase' });
+      }
+      if (eventIds.has(event.eventId)) {
+        context.addIssue({ code: 'custom', path: ['activity', index, 'eventId'], message: 'activity event IDs must be unique' });
+      }
+      priorSequence = event.sequence;
+      eventIds.add(event.eventId);
+    }
+  });
+
 export type BackupManifestV1 = z.infer<typeof backupManifestV1Schema>;
 export type BackupManifestPhotoV2 = z.infer<typeof backupManifestPhotoV2Schema>;
 export type BackupManifestAlbumV2 = z.infer<typeof backupManifestAlbumV2Schema>;
@@ -254,7 +299,8 @@ export type ProtectedBackupAlbumV3 = z.infer<typeof protectedBackupAlbumV3Schema
 export type ProtectedBackupObjectV3 = z.infer<typeof protectedBackupObjectV3Schema>;
 export type ProtectedBackupPhotoV3 = z.infer<typeof protectedBackupPhotoV3Schema>;
 export type BackupManifestV3 = z.infer<typeof backupManifestV3Schema>;
-export type RestorableBackupManifest = BackupManifestV2 | BackupManifestV3;
+export type BackupManifestV4 = z.infer<typeof backupManifestV4Schema>;
+export type RestorableBackupManifest = BackupManifestV2 | BackupManifestV3 | BackupManifestV4;
 
 export interface BackupManifestSnapshot {
   readonly databaseSchema: number;
@@ -267,6 +313,10 @@ export interface BackupManifestSnapshot {
 export interface BackupManifestSnapshotV3 extends BackupManifestSnapshot {
   readonly protectedAlbums: readonly ProtectedBackupAlbumV3[];
   readonly protectedPhotos: readonly ProtectedBackupPhotoV3[];
+}
+
+export interface BackupManifestSnapshotV4 extends BackupManifestSnapshotV3 {
+  readonly activity: readonly ActivityEvent[];
 }
 
 export type ParsedBackupManifest =
@@ -296,6 +346,19 @@ export function buildBackupManifestV3(input: {
   readonly snapshot: BackupManifestSnapshotV3;
 }): BackupManifestV3 {
   return backupManifestV3Schema.parse({
+    schema: 3,
+    libraryId: input.libraryId,
+    generatedAt: input.generatedAt,
+    ...input.snapshot,
+  });
+}
+
+export function buildBackupManifestV4(input: {
+  readonly libraryId: string;
+  readonly generatedAt: string;
+  readonly snapshot: BackupManifestSnapshotV4;
+}): BackupManifestV4 {
+  return backupManifestV4Schema.parse({
     schema: BACKUP_MANIFEST_SCHEMA_VERSION,
     libraryId: input.libraryId,
     generatedAt: input.generatedAt,
@@ -322,10 +385,17 @@ export function parseBackupManifest(input: unknown): ParsedBackupManifest {
     }
     return { restorable: true, manifest: parsed.data };
   }
-  if (version.data.schema === BACKUP_MANIFEST_SCHEMA_VERSION) {
+  if (version.data.schema === 3) {
     const parsed = backupManifestV3Schema.safeParse(input);
     if (!parsed.success) {
       throw new BackupManifestError(`invalid schema-3 manifest: ${z.prettifyError(parsed.error)}`);
+    }
+    return { restorable: true, manifest: parsed.data };
+  }
+  if (version.data.schema === BACKUP_MANIFEST_SCHEMA_VERSION) {
+    const parsed = backupManifestV4Schema.safeParse(input);
+    if (!parsed.success) {
+      throw new BackupManifestError(`invalid schema-4 manifest: ${z.prettifyError(parsed.error)}`);
     }
     return { restorable: true, manifest: parsed.data };
   }

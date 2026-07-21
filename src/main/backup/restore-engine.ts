@@ -12,6 +12,7 @@ import { installRecoveredMaster } from '../crypto/recovery.js';
 import { openLibraryDatabase } from '../db/database.js';
 import { PhotosRepository } from '../db/photos-repository.js';
 import { ProtectedRecoveryRepository } from '../db/protected-recovery-repository.js';
+import { ActivityRepository } from '../activity/activity-repository.js';
 import type { ThumbnailService } from '../import/thumbnail-service.js';
 import type { BackupManifestPhotoV2 } from './backup-manifest.js';
 import { discoverRestore, type RestoreCandidate, type RestoreDiscovery } from './restore-discovery.js';
@@ -167,7 +168,7 @@ export class RestoreEngine {
     checkpoint: RestoreCheckpoint,
     signal?: AbortSignal,
   ): Promise<RestoreCheckpoint> {
-    if (candidate.manifest.schema !== 3) return checkpoint;
+    if (candidate.manifest.schema === 2) return checkpoint;
     const entries = candidate.manifest.protectedPhotos.flatMap((photo) =>
       photo.objects.filter((object) => object.status === 'synced').map((object) => ({ photo, object, id: `${photo.id}:${object.kind}` })),
     );
@@ -370,7 +371,8 @@ export class RestoreEngine {
     try {
       const repo = new PhotosRepository(db);
       repo.restoreManifest(candidate.manifest, discovery.bootstrap.keys);
-      if (candidate.manifest.schema === 3) new ProtectedRecoveryRepository(db).restore(candidate.manifest);
+      if (candidate.manifest.schema !== 2) new ProtectedRecoveryRepository(db).restore(candidate.manifest);
+      if (candidate.manifest.schema === 4) new ActivityRepository(db).restoreSnapshot(candidate.manifest.activity);
       const rebuilt = repo.manifestSnapshot();
       const expected = {
         keyIds: candidate.manifest.keyIds,
@@ -385,7 +387,7 @@ export class RestoreEngine {
           throw new RestoreError('corrupt', `final verification failed for ${photo.id}`);
         }
       }
-      if (candidate.manifest.schema === 3) {
+      if (candidate.manifest.schema !== 2) {
         const protectedRepo = new ProtectedRecoveryRepository(db);
         const protectedExpected = {
           protectedAlbums: candidate.manifest.protectedAlbums,
@@ -402,6 +404,12 @@ export class RestoreEngine {
               throw new RestoreError('corrupt', 'final protected ciphertext verification failed');
             }
           }
+        }
+      }
+      if (candidate.manifest.schema === 4) {
+        const activity = new ActivityRepository(db).backupSnapshot();
+        if (!isDeepStrictEqual(activity, candidate.manifest.activity)) {
+          throw new RestoreError('corrupt', 'rebuilt activity history does not match the manifest');
         }
       }
     } finally {

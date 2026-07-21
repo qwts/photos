@@ -72,13 +72,29 @@ function comparable(event: ActivityAppend): string {
   });
 }
 
+function assertPrivacySafePayload(payload: ActivityAppend['payload']): void {
+  for (const [key, value] of Object.entries(payload ?? {})) {
+    if (/(?:path|file|name|title|destination|source)/iu.test(key)) {
+      throw new Error(`activity payload contains sensitive field: ${key}`);
+    }
+    if (typeof value === 'string' && (/^(?:\/|[A-Za-z]:\\|\\\\)/u.test(value) || value.includes('/Users/'))) {
+      throw new Error('activity payload contains an external path');
+    }
+  }
+}
+
 export class ActivityRepository {
   constructor(
     private readonly db: BetterSqlite3.Database,
     private readonly policy: ActivityRetentionPolicy = DEFAULT_ACTIVITY_RETENTION,
   ) {}
 
+  transaction<T>(operation: () => T): T {
+    return this.db.transaction(operation)();
+  }
+
   append(event: ActivityAppend): ActivityEvent {
+    assertPrivacySafePayload(event.payload);
     const existing = this.byOperation(event.operationId, event.eventType);
     if (existing !== undefined) {
       const stored: ActivityAppend = {
@@ -139,6 +155,50 @@ export class ActivityRepository {
     const more = rows.length > limit;
     const visible = rows.slice(0, limit).map(parseRow);
     return { events: visible, nextCursor: more ? (visible.at(-1)?.sequence ?? null) : null };
+  }
+
+  backupSnapshot(): readonly ActivityEvent[] {
+    return queryAll<ActivityRow>(this.db, 'SELECT * FROM activity_events ORDER BY sequence').map(parseRow);
+  }
+
+  restoreSnapshot(events: readonly ActivityEvent[]): void {
+    for (const [index, event] of events.entries()) {
+      if (index > 0 && event.sequence <= events[index - 1]!.sequence) {
+        throw new Error('activity restore sequence must increase');
+      }
+    }
+    const transaction = this.db.transaction(() => {
+      for (const event of events) {
+        assertPrivacySafePayload(event.payload);
+        runNamed(
+          this.db,
+          `INSERT INTO activity_events (
+             sequence, event_id, operation_id, event_type, schema_version, occurred_at,
+             actor_class, root_correlation_id, causation_event_id, entity_ids_json,
+             outcome, payload_json, supersedes_event_id
+           ) VALUES (
+             @sequence, @eventId, @operationId, @eventType, 1, @occurredAt,
+             @actorClass, @rootCorrelationId, @causationEventId, @entityIdsJson,
+             @outcome, @payloadJson, @supersedesEventId
+           )`,
+          {
+            sequence: event.sequence,
+            eventId: event.eventId,
+            operationId: event.operationId,
+            eventType: event.eventType,
+            occurredAt: event.occurredAt,
+            actorClass: event.actorClass,
+            rootCorrelationId: event.rootCorrelationId,
+            causationEventId: event.causationEventId,
+            entityIdsJson: stableJson(event.entityIds),
+            outcome: event.outcome,
+            payloadJson: stableJson(event.payload),
+            supersedesEventId: event.supersedesEventId,
+          },
+        );
+      }
+    });
+    transaction();
   }
 
   hold(eventId: string, holdId: string, expiresAt: string): void {

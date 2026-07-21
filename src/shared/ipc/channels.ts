@@ -12,6 +12,7 @@ import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-d
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
 import { PHOTO_PURGE_AUTHORIZATION } from '../destructive-actions.js';
 import { commandIdSchema, commandMenuContextSchema } from '../commands/menu-contract.js';
+import { activityPageRequestSchema, activityPageResponseSchema } from '../activity/schemas.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -310,6 +311,7 @@ export const channels = {
     z.object({}),
     z.object({ albums: z.array(z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() })).readonly() }),
   ),
+  activityPage: defineChannel('activity:page', activityPageRequestSchema, activityPageResponseSchema),
   protectedAlbumsList: defineChannel(
     'protected-album:list',
     z.object({}),

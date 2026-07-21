@@ -57,6 +57,9 @@ export interface OverlookApi {
     readonly onStorageChanged: (listener: () => void) => () => void;
     readonly onPendingCountChanged: (listener: (payload: { count: number }) => void) => () => void;
   };
+  readonly activity: {
+    readonly page: (request: Req<typeof channels.activityPage>) => Promise<Res<typeof channels.activityPage>>;
+  };
   readonly albums: {
     readonly create: (request: Req<typeof channels.albumCreate>) => Promise<Res<typeof channels.albumCreate>>;
     readonly rename: (request: Req<typeof channels.albumRename>) => Promise<Res<typeof channels.albumRename>>;

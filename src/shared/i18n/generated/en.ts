@@ -4,6 +4,12 @@
 // Compiled id → message string for an ICU runtime.
 
 export const en: Readonly<Record<string, string>> = {
+  "activity.empty": "Library activity will appear here.",
+  "activity.failed": "Activity could not be loaded.",
+  "activity.loadMore": "Load more",
+  "activity.loading": "Loading activity",
+  "activity.partial": "Completed with some items unresolved",
+  "activity.title": "Activity",
   "commands.app.lock.now": "Lock Now",
   "commands.app.search.focus": "Focus search",
   "commands.app.settings.open": "Settings…",
@@ -215,6 +221,7 @@ export const en: Readonly<Record<string, string>> = {
   "settings.transfer.open": "Open Transfer & Sync",
   "settings.transfer.status": "Not paired · provider not connected",
   "shell.skipToPhotos": "Skip to photos",
+  "sidebar.activity": "Activity",
   "sidebar.album.actions": "Actions for {name}",
   "sidebar.album.name": "Album name",
   "sidebar.album.new": "New album",

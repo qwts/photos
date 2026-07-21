@@ -1,4 +1,22 @@
 {
+  "activity.empty": {
+    "defaultMessage": "Library activity will appear here."
+  },
+  "activity.failed": {
+    "defaultMessage": "Activity could not be loaded."
+  },
+  "activity.loadMore": {
+    "defaultMessage": "Load more"
+  },
+  "activity.loading": {
+    "defaultMessage": "Loading activity"
+  },
+  "activity.partial": {
+    "defaultMessage": "Completed with some items unresolved"
+  },
+  "activity.title": {
+    "defaultMessage": "Activity"
+  },
   "commands.app.lock.now": {
     "defaultMessage": "Lock Now"
   },
@@ -631,6 +649,9 @@
   },
   "shell.skipToPhotos": {
     "defaultMessage": "Skip to photos"
+  },
+  "sidebar.activity": {
+    "defaultMessage": "Activity"
   },
   "sidebar.album.actions": {
     "defaultMessage": "Actions for {name}"

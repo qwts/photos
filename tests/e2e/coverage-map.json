@@ -1381,6 +1381,24 @@
       ]
     },
     {
+      "id": "encrypted-library-activity-history",
+      "wiki": "Activity-History",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/activity.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/activity/ActivityDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/activity/activity-repository.test.ts", "tests/backup/restore-engine.test.ts"]
+        }
+      ]
+    },
+    {
       "id": "m22-library-relocation",
       "wiki": "Library-Management",
       "coverage": [

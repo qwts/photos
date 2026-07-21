@@ -3,6 +3,7 @@ import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 import type { ProtectedBlobKind } from '../blobs/protected-blob-store.js';
 import type {
   BackupManifestV3,
+  BackupManifestV4,
   ProtectedBackupAlbumV3,
   ProtectedBackupObjectV3,
   ProtectedBackupPhotoV3,
@@ -196,7 +197,7 @@ export class ProtectedRecoveryRepository {
     })();
   }
 
-  restore(manifest: BackupManifestV3): void {
+  restore(manifest: BackupManifestV3 | BackupManifestV4): void {
     this.db.transaction(() => {
       for (const album of manifest.protectedAlbums) {
         runNamed(

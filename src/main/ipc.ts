@@ -20,6 +20,8 @@ import type { OffloadPreflight, OffloadSummary, RestoreOriginalsSummary } from '
 import type { AppLockState, AppTouchIdUnlockResult, AppUnlockResult, LockStateSnapshot } from './crypto/app-lock-controller.js';
 import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
 import type { DiagnosticEvent } from './diagnostics/event-contract.js';
+import { mutateWithActivity } from './activity/activity-publication.js';
+import type { ActivityFacade } from './activity/activity-publication.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -140,7 +142,11 @@ function windowFromEvent(event: IpcMainInvokeEvent): BrowserWindow {
 // Registers a main-process handler for every channel in the registry. Called
 // once at startup, before any window exists. Handlers stay thin here; domain
 // logic gets its own modules as the epics land.
-export function registerLibraryHandlers(getService: () => LibraryService, onDeleted?: (deleted: number) => void): void {
+export function registerLibraryHandlers(
+  getService: () => LibraryService,
+  onDeleted?: (deleted: number) => void,
+  getActivity?: () => ActivityFacade,
+): void {
   const page = (request: unknown): unknown => wrapHandler(channels.libraryPage, (req) => getService().page(req))(request);
   ipcMain.handle(channels.libraryPage.name, (_event, request: unknown) => page(request));
   ipcMain.handle(channels.libraryGet.name, (_event, request: unknown) =>
@@ -150,7 +156,18 @@ export function registerLibraryHandlers(getService: () => LibraryService, onDele
     wrapHandler(channels.libraryRepairDimensions, ({ id, width, height }) => getService().repairDimensions(id, width, height))(request),
   );
   ipcMain.handle(channels.libraryToggleFavorite.name, (_event, request: unknown) =>
-    wrapHandler(channels.libraryToggleFavorite, ({ id }) => getService().toggleFavorite(id))(request),
+    wrapHandler(channels.libraryToggleFavorite, ({ id }) => {
+      return mutateWithActivity(
+        getActivity,
+        () => getService().toggleFavorite(id),
+        (result) => ({
+          eventType: 'photo.favorite-changed',
+          entityIds: [id],
+          outcome: 'succeeded',
+          payload: { favorite: result.favorite },
+        }),
+      );
+    })(request),
   );
   ipcMain.handle(channels.libraryCounts.name, (_event, request: unknown) =>
     wrapHandler(channels.libraryCounts, ({ recentSince }) => getService().counts(recentSince))(request),
@@ -163,7 +180,19 @@ export function registerLibraryHandlers(getService: () => LibraryService, onDele
   );
   ipcMain.handle(channels.libraryDelete.name, (_event, request: unknown) =>
     wrapHandler(channels.libraryDelete, ({ photoIds }) => {
-      const result = getService().deletePhotos(photoIds);
+      const result = mutateWithActivity(
+        getActivity,
+        () => getService().deletePhotos(photoIds),
+        (completed) =>
+          completed.deleted === 0
+            ? undefined
+            : {
+                eventType: 'photo.trashed',
+                entityIds: photoIds,
+                outcome: 'succeeded',
+                payload: { count: completed.deleted },
+              },
+      );
       // Deleting a SYNCED photo changes the manifest with nothing dirty —
       // the host owes the remote a fresh generation (PR #218 review).
       if (result.deleted > 0) {
@@ -173,36 +202,110 @@ export function registerLibraryHandlers(getService: () => LibraryService, onDele
     })(request),
   );
   ipcMain.handle(channels.libraryRestore.name, (_event, request: unknown) =>
-    wrapHandler(channels.libraryRestore, ({ photoIds }) => getService().restorePhotos(photoIds))(request),
+    wrapHandler(channels.libraryRestore, ({ photoIds }) => {
+      return mutateWithActivity(
+        getActivity,
+        () => getService().restorePhotos(photoIds),
+        (result) =>
+          result.restored === 0
+            ? undefined
+            : {
+                eventType: 'photo.restored',
+                entityIds: photoIds,
+                outcome: 'succeeded',
+                payload: { count: result.restored },
+              },
+      );
+    })(request),
   );
 }
 
-export function registerAlbumHandlers(getService: () => LibraryService, newId: () => string): void {
+export function registerAlbumHandlers(getService: () => LibraryService, newId: () => string, getActivity?: () => ActivityFacade): void {
   ipcMain.handle(channels.albumCreate.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumCreate, ({ name }) => ({ album: getService().createAlbum(newId(), name) }))(request),
+    wrapHandler(channels.albumCreate, ({ name }) => {
+      return mutateWithActivity(
+        getActivity,
+        () => ({ album: getService().createAlbum(newId(), name) }),
+        ({ album }) => ({ eventType: 'album.created', entityIds: [album.id], outcome: 'succeeded', payload: {} }),
+      );
+    })(request),
   );
   ipcMain.handle(channels.albumRename.name, (_event, request: unknown) =>
     wrapHandler(channels.albumRename, ({ albumId, name }) => {
-      getService().renameAlbum(albumId, name);
+      mutateWithActivity(
+        getActivity,
+        () => getService().renameAlbum(albumId, name),
+        () => ({ eventType: 'album.renamed', entityIds: [albumId], outcome: 'succeeded', payload: {} }),
+      );
       return {};
     })(request),
   );
   ipcMain.handle(channels.albumDelete.name, (_event, request: unknown) =>
     wrapHandler(channels.albumDelete, ({ albumId }) => {
-      getService().deleteAlbum(albumId);
+      mutateWithActivity(
+        getActivity,
+        () => getService().deleteAlbum(albumId),
+        () => ({ eventType: 'album.deleted', entityIds: [albumId], outcome: 'succeeded', payload: {} }),
+      );
       return {};
     })(request),
   );
   ipcMain.handle(channels.albumAddPhotos.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumAddPhotos, ({ albumId, photoIds }) => getService().addToAlbum(albumId, photoIds))(request),
+    wrapHandler(channels.albumAddPhotos, ({ albumId, photoIds }) => {
+      return mutateWithActivity(
+        getActivity,
+        () => getService().addToAlbum(albumId, photoIds),
+        (result) =>
+          result.added === 0
+            ? undefined
+            : {
+                eventType: 'album.membership-added',
+                entityIds: [albumId, ...photoIds],
+                outcome: 'succeeded',
+                payload: { count: result.added },
+              },
+      );
+    })(request),
   );
   ipcMain.handle(channels.albumRemovePhotos.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumRemovePhotos, ({ albumId, photoIds }) => getService().removeFromAlbum(albumId, photoIds))(request),
+    wrapHandler(channels.albumRemovePhotos, ({ albumId, photoIds }) => {
+      return mutateWithActivity(
+        getActivity,
+        () => getService().removeFromAlbum(albumId, photoIds),
+        (result) =>
+          result.removed === 0
+            ? undefined
+            : {
+                eventType: 'album.membership-removed',
+                entityIds: [albumId, ...photoIds],
+                outcome: 'succeeded',
+                payload: { count: result.removed },
+              },
+      );
+    })(request),
   );
   ipcMain.handle(channels.albumMovePhotos.name, (_event, request: unknown) =>
-    wrapHandler(channels.albumMovePhotos, ({ sourceAlbumId, targetAlbumId, photoIds }) =>
-      getService().moveBetweenAlbums(sourceAlbumId, targetAlbumId, photoIds),
-    )(request),
+    wrapHandler(channels.albumMovePhotos, ({ sourceAlbumId, targetAlbumId, photoIds }) => {
+      return mutateWithActivity(
+        getActivity,
+        () => getService().moveBetweenAlbums(sourceAlbumId, targetAlbumId, photoIds),
+        (result) =>
+          result.moved === 0 && result.alreadyInTarget === 0
+            ? undefined
+            : {
+                eventType: 'album.membership-moved',
+                entityIds: [sourceAlbumId, targetAlbumId, ...photoIds],
+                outcome: result.alreadyInTarget > 0 ? 'partial' : 'succeeded',
+                payload: { count: result.moved, alreadyInTarget: result.alreadyInTarget },
+              },
+      );
+    })(request),
+  );
+}
+
+export function registerActivityHandlers(getActivity: () => ActivityFacade): void {
+  ipcMain.handle(channels.activityPage.name, (_event, request: unknown) =>
+    wrapHandler(channels.activityPage, ({ limit, cursor }) => getActivity().page(limit, cursor))(request),
   );
 }
 
@@ -291,9 +394,19 @@ export interface PurgeFacade {
   purge(photoIds: readonly string[]): Promise<{ purged: number; skipped: number; remoteFailures: number }>;
 }
 
-export function registerPurgeHandlers(getFacade: () => PurgeFacade): void {
+export function registerPurgeHandlers(getFacade: () => PurgeFacade, getActivity?: () => ActivityFacade): void {
   ipcMain.handle(channels.libraryPurge.name, (_event, request: unknown) =>
-    wrapHandler(channels.libraryPurge, async ({ photoIds }) => getFacade().purge(photoIds))(request),
+    wrapHandler(channels.libraryPurge, async ({ photoIds }) => {
+      const result = await getFacade().purge(photoIds);
+      if (result.purged > 0 || result.remoteFailures > 0) {
+        getActivity?.().record({
+          eventType: 'photo.purged',
+          outcome: result.remoteFailures > 0 || result.skipped > 0 ? 'partial' : 'succeeded',
+          payload: { count: result.purged, skipped: result.skipped, remoteFailures: result.remoteFailures },
+        });
+      }
+      return result;
+    })(request),
   );
 }
 
@@ -426,6 +539,7 @@ export function registerImportHandlers(
   pickFolder: () => Promise<string | null>,
   onImported?: () => void,
   onExternalReady?: () => void,
+  getActivity?: () => ActivityFacade,
 ): void {
   ipcMain.handle(channels.importListSources.name, (_event, request: unknown) =>
     wrapHandler(channels.importListSources, async () => ({ sources: await getService().listSources() }))(request),
@@ -452,6 +566,19 @@ export function registerImportHandlers(
     wrapHandler(channels.importGoogleDriveRun, async ({ selectionId }) => {
       const summary = await getService().runGoogleDrive(selectionId);
       if (summary.imported > 0) onImported?.();
+      getActivity?.().record({
+        eventType: 'import.completed',
+        outcome: summary.failed > 0 || summary.cancelled > 0 ? 'partial' : 'succeeded',
+        payload: {
+          mode: 'copy',
+          imported: summary.imported,
+          moved: summary.moved,
+          retained: summary.retained,
+          duplicates: summary.duplicates,
+          failed: summary.failed,
+          cancelled: summary.cancelled,
+        },
+      });
       return {
         imported: summary.imported,
         moved: summary.moved,
@@ -484,6 +611,19 @@ export function registerImportHandlers(
       if (summary.imported > 0) {
         onImported?.();
       }
+      getActivity?.().record({
+        eventType: 'import.completed',
+        outcome: summary.failed > 0 || summary.cancelled > 0 ? 'partial' : 'succeeded',
+        payload: {
+          mode,
+          imported: summary.imported,
+          moved: summary.moved,
+          retained: summary.retained,
+          duplicates: summary.duplicates,
+          failed: summary.failed,
+          cancelled: summary.cancelled,
+        },
+      });
       return {
         imported: summary.imported,
         moved: summary.moved,
@@ -570,9 +710,18 @@ export interface ExportFacade {
   pickDestination(): Promise<string | null>;
 }
 
-export function registerExportHandlers(getFacade: () => ExportFacade): void {
+export function registerExportHandlers(getFacade: () => ExportFacade, getActivity?: () => ActivityFacade): void {
   ipcMain.handle(channels.exportRun.name, (_event, request: unknown) =>
-    wrapHandler(channels.exportRun, async ({ photoIds, destination, format }) => getFacade().run(photoIds, destination, format))(request),
+    wrapHandler(channels.exportRun, async ({ photoIds, destination, format }) => {
+      const result = await getFacade().run(photoIds, destination, format);
+      getActivity?.().record({
+        eventType: 'photo.exported',
+        entityIds: photoIds,
+        outcome: result.failed > 0 || result.cancelled > 0 ? 'partial' : 'succeeded',
+        payload: { format: format ?? 'original', ...result },
+      });
+      return result;
+    })(request),
   );
   ipcMain.handle(channels.exportCancel.name, (_event, request: unknown) =>
     wrapHandler(channels.exportCancel, () => {

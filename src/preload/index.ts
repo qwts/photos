@@ -105,6 +105,9 @@ const overlook: OverlookApi = {
     onStorageChanged: createSubscriber(events.storageChanged, subscribeTransport),
     onPendingCountChanged: createSubscriber(events.pendingCountChanged, subscribeTransport),
   }),
+  activity: Object.freeze({
+    page: createInvoker(channels.activityPage, invokeTransport),
+  }),
   albums: Object.freeze({
     create: createInvoker(channels.albumCreate, invokeTransport),
     rename: createInvoker(channels.albumRename, invokeTransport),
