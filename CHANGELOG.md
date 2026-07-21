@@ -1,5 +1,11 @@
 # photos
 
+## 0.41.0
+
+### Minor Changes
+
+- 8a6da36: Add discoverable lightbox rotate and flip shortcuts with Option/Alt inverse actions and non-US keyboard layout support.
+
 ## 0.40.0
 
 ### Minor Changes
