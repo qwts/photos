@@ -147,7 +147,7 @@ export function PhotoTile({
             onToggleSelect();
           }}
           onKeyDown={(event) => {
-            event.stopPropagation();
+            if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() !== 'i') event.stopPropagation();
           }}
         >
           {selected ? <Icon name="check" size={12} strokeWidth={3} /> : null}

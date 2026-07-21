@@ -106,7 +106,7 @@ export function ListRow({
           onToggleSelect();
         }}
         onKeyDown={(event) => {
-          event.stopPropagation();
+          if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() !== 'i') event.stopPropagation();
         }}
       >
         {selected ? <Icon name="check" size={11} strokeWidth={3} color="var(--text-on-accent)" /> : null}
