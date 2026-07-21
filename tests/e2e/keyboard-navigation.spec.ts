@@ -53,7 +53,8 @@ test('keyboard-only browse, search, selection, help, and lightbox tour (#399)', 
     await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toHaveCount(0);
 
     await focusTargets.nth(2).focus();
-    await page.keyboard.press('Enter');
+    await expect(focusTargets.nth(2)).toBeFocused();
+    await focusTargets.nth(2).press('Enter');
     await expect(page.getByTestId('lightbox')).toBeVisible();
     await page.keyboard.press('Shift+/');
     const lightboxHelp = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
