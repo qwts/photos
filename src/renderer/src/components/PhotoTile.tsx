@@ -1,5 +1,5 @@
-import { Fragment, type DragEvent, type KeyboardEvent, type ReactElement } from 'react';
-import { useIntl } from 'react-intl';
+import { Fragment, type DragEvent, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import './phototile.css';
 import type { PreviewFailureReason } from '../../../shared/library/preview.js';
@@ -28,6 +28,9 @@ export interface PhotoTileProps {
   readonly onToggleFavorite?: () => void;
   readonly favoritePending?: boolean;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number; readonly origin: HTMLButtonElement }) => void) | undefined;
+  readonly quickActions?: ReactNode;
+  readonly quickActionPhotoId?: string | undefined;
+  readonly onQuickActionTargetChange?: ((active: boolean) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
   readonly tabIndex?: 0 | -1 | undefined;
@@ -35,6 +38,10 @@ export interface PhotoTileProps {
   readonly onFocus?: (() => void) | undefined;
   readonly onKeyDown?: ((event: KeyboardEvent<HTMLButtonElement>) => void) | undefined;
 }
+
+const messages = defineMessages({
+  moreActions: { id: 'library.photo.moreActions', defaultMessage: 'More actions for {photo}' },
+});
 
 function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean, label: string): void {
   image.dataset['unavailable'] = unavailable ? 'true' : 'false';
@@ -63,6 +70,9 @@ export function PhotoTile({
   onToggleFavorite,
   favoritePending = false,
   onContextAction,
+  quickActions,
+  quickActionPhotoId,
+  onQuickActionTargetChange,
   onDragStart,
   onDragEnd,
   tabIndex,
@@ -77,7 +87,24 @@ export function PhotoTile({
     .filter(Boolean)
     .join(' ');
   return (
-    <div role="group" className={classes}>
+    <div
+      role="group"
+      className={classes}
+      data-quick-action-photo-id={quickActionPhotoId}
+      onPointerEnter={() => onQuickActionTargetChange?.(true)}
+      onPointerLeave={(event) => {
+        if (!event.currentTarget.contains(document.activeElement)) onQuickActionTargetChange?.(false);
+      }}
+      onFocusCapture={() => onQuickActionTargetChange?.(true)}
+      onBlurCapture={(event) => {
+        if (
+          (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) &&
+          !event.currentTarget.matches(':hover')
+        ) {
+          onQuickActionTargetChange?.(false);
+        }
+      }}
+    >
       <PhotoOpenButton
         label={accessibleName ?? (alt === '' ? 'Open photo' : `Open ${alt}`)}
         className="ovl-tile__open"
@@ -108,6 +135,7 @@ export function PhotoTile({
         <div className="ovl-tile__unavailable mono-data" />
       </Fragment>
       <div className="ovl-tile__hover-overlay" />
+      {quickActions}
       {onToggleSelect === undefined ? null : (
         <button
           type="button"
@@ -127,6 +155,22 @@ export function PhotoTile({
       )}
       {onToggleFavorite === undefined ? null : (
         <FavoriteButton favorite={favorite} pending={favoritePending} className="ovl-tile__favorite" onToggle={onToggleFavorite} />
+      )}
+      {onContextAction === undefined ? null : (
+        <button
+          type="button"
+          className="ovl-tile__more"
+          aria-label={intl.formatMessage(messages.moreActions, { photo: photoName })}
+          aria-haspopup="menu"
+          onClick={(event) => {
+            event.stopPropagation();
+            const rect = event.currentTarget.getBoundingClientRect();
+            onContextAction({ x: rect.right, y: rect.bottom, origin: event.currentTarget });
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <Icon name="sliders-horizontal" size={14} />
+        </button>
       )}
       {showStatus && status !== 'local' ? (
         <span className="ovl-tile__status">

@@ -2,6 +2,8 @@
   position: fixed;
   z-index: 210;
   min-width: 210px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   padding: var(--space-1);
   background: var(--gray-2);
   border: 1px solid var(--border-2);
@@ -42,4 +44,16 @@
 
 .ovl-context-menu .ovl-context-menu__danger {
   color: var(--accent-red);
+}
+
+.ovl-context-menu__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.ovl-context-menu__meta {
+  color: var(--text-faint);
+  font: var(--type-meta);
 }

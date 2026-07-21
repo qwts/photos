@@ -44,6 +44,7 @@ existing links resolve — never add content there.
 - [Spike — Lossless Cold-Storage Archives](./Spike-Cold-Storage-Archives.md) — measured ZIP/zstd feasibility and no-go recommendation
 - [Application Menu Exposure Policy](./Application-Menu-Exposure-Policy.md) — command eligibility matrix, native hierarchy, shortcut policy, and implementation sequence
 - [Keyboard Commands](./Keyboard-Commands.md) — active shortcuts, grid focus behavior, and command-registry extension rules
+- [Gallery Quick Actions acceptance](./acceptance/Acceptance-Test-Quick-Actions.md) — configurable Command-hover actions, targeting, cleanup, and alternative access
 
 ## Maintenance Convention
 

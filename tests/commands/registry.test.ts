@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   COMMANDS,
+  QUICK_ACTION_COMMANDS,
   activeShortcuts,
   commandById,
   findShortcutConflicts,
@@ -23,6 +24,15 @@ const gridContext: CommandContext = {
 test('command registry has stable unique IDs and no active binding conflicts (#399)', () => {
   assert.equal(new Set(COMMANDS.map(({ id }) => id)).size, COMMANDS.length);
   assert.deepEqual(findShortcutConflicts(COMMANDS), []);
+});
+
+test('Quick Actions are a bounded command-registry projection with stable UI metadata (#532)', () => {
+  assert.deepEqual(
+    QUICK_ACTION_COMMANDS.map(({ id }) => id),
+    ['album.membership.add', 'photo.favorite.toggle', 'photo.export', 'photo.trash', 'photo.restore'],
+  );
+  assert.ok(QUICK_ACTION_COMMANDS.length <= 5);
+  assert.ok(QUICK_ACTION_COMMANDS.every(({ quickAction }) => quickAction.icon.length > 0));
 });
 
 test('context resolution protects fields and gives the lightbox arrow precedence (#399)', () => {

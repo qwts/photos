@@ -1,8 +1,26 @@
 import { z } from 'zod';
 import { providerIdSchema } from '../backup/provider-descriptor.js';
+import { isQuickActionCommandId, type QuickActionCommandId } from '../commands/registry.js';
 import { DEFAULT_TRASH_RETENTION, trashRetentionSchema } from '../library/trash.js';
 
 export const CURRENT_DIAGNOSTICS_CONSENT_VERSION = 1 as const;
+
+export const DEFAULT_QUICK_ACTIONS: readonly QuickActionCommandId[] = [
+  'photo.favorite.toggle',
+  'album.membership.add',
+  'photo.export',
+  'photo.trash',
+];
+
+const quickActionIdSchema = z.custom<QuickActionCommandId>(
+  (value) => typeof value === 'string' && isQuickActionCommandId(value),
+  'Unknown Quick Action command',
+);
+
+export const quickActionsSchema = z
+  .array(quickActionIdSchema)
+  .max(5)
+  .refine((ids) => new Set(ids).size === ids.length, 'Quick Action commands must be unique');
 
 // Typed app settings (#111, epic #44): one source of truth for every knob
 // the SettingsDialog surfaces (design SettingsDialog.jsx = the control
@@ -16,6 +34,8 @@ export const settingsSchema = z.object({
   /** 'light' exists in the schema but ships disabled — the DS has no light
    * theme yet (recorded on the epic). */
   appearance: z.enum(['dark', 'light']),
+  /** Ordered Command-hover actions. Empty disables the overlay. */
+  quickActions: quickActionsSchema,
   /** Locked true by design: imports always generate thumbnails. */
   thumbnailsOnImport: z.literal(true),
   autoBackupOnImport: z.boolean(),
@@ -48,6 +68,7 @@ export type SettingsPatch = z.output<typeof settingsPatchSchema>;
 export const profileSettingsSchema = settingsSchema.pick({
   appearance: true,
   language: true,
+  quickActions: true,
   shareDiagnostics: true,
   diagnosticsConsentVersion: true,
 });
@@ -56,6 +77,7 @@ export const profileSettingsSchema = settingsSchema.pick({
 export const librarySettingsSchema = settingsSchema.omit({
   appearance: true,
   language: true,
+  quickActions: true,
   shareDiagnostics: true,
   diagnosticsConsentVersion: true,
 });
@@ -67,6 +89,7 @@ export const defaultSettings: AppSettings = {
   sortOrder: 'date',
   language: null,
   appearance: 'dark',
+  quickActions: [...DEFAULT_QUICK_ACTIONS],
   thumbnailsOnImport: true,
   autoBackupOnImport: true,
   reOffloadAfterViewing: true,
@@ -84,6 +107,7 @@ export const defaultSettings: AppSettings = {
 export const defaultProfileSettings: ProfileSettings = {
   appearance: defaultSettings.appearance,
   language: defaultSettings.language,
+  quickActions: defaultSettings.quickActions,
   shareDiagnostics: defaultSettings.shareDiagnostics,
   diagnosticsConsentVersion: defaultSettings.diagnosticsConsentVersion,
 };
@@ -106,6 +130,7 @@ const profileRecoverySchema = z
   .object({
     appearance: settingsSchema.shape.appearance.catch(defaultProfileSettings.appearance),
     language: settingsSchema.shape.language.catch(defaultProfileSettings.language),
+    quickActions: settingsSchema.shape.quickActions.catch([...defaultProfileSettings.quickActions]),
     shareDiagnostics: settingsSchema.shape.shareDiagnostics.catch(defaultProfileSettings.shareDiagnostics),
     diagnosticsConsentVersion: settingsSchema.shape.diagnosticsConsentVersion.catch(0),
   })
@@ -143,6 +168,7 @@ export function profileSettingsOf(settings: AppSettings): ProfileSettings {
   return {
     appearance: settings.appearance,
     language: settings.language,
+    quickActions: settings.quickActions,
     shareDiagnostics: settings.shareDiagnostics,
     diagnosticsConsentVersion: settings.diagnosticsConsentVersion,
   };
@@ -196,6 +222,7 @@ export function mergeSettings(current: AppSettings, patch: SettingsPatch): AppSe
     sortOrder: patch.sortOrder ?? current.sortOrder,
     language: patch.language !== undefined ? patch.language : current.language,
     appearance: patch.appearance ?? current.appearance,
+    quickActions: patch.quickActions ?? current.quickActions,
     thumbnailsOnImport: true,
     autoBackupOnImport: patch.autoBackupOnImport ?? current.autoBackupOnImport,
     reOffloadAfterViewing: patch.reOffloadAfterViewing ?? current.reOffloadAfterViewing,

@@ -78,7 +78,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect.poll(async () => page.evaluate<string>(`window.overlook.settings.get().then((r) => r.settings.trashRetention)`)).toBe('7');
     // The locked controls render per the pattern: Light disabled, thumbs on.
     await expect(page.getByRole('radio', { name: 'Light' })).toBeDisabled();
-    await expect(page.getByRole('switch')).toBeDisabled();
+    await expect(page.getByRole('switch', { name: 'Generate thumbnails on import' })).toBeDisabled();
 
     await page.keyboard.press('Escape');
     await expect(dialog).not.toBeVisible();

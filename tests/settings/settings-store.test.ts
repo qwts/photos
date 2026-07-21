@@ -45,6 +45,7 @@ describe('settings store (#111)', () => {
       bandwidthLimit: 40,
       providerId: null,
       reOffloadAfterViewing: false,
+      quickActions: ['photo.export', 'photo.favorite.toggle'],
       shareDiagnostics: true,
       trashRetention: '90',
     });
@@ -56,6 +57,7 @@ describe('settings store (#111)', () => {
     assert.equal(reborn.get().reOffloadAfterViewing, false);
     assert.equal(reborn.get().shareDiagnostics, true);
     assert.equal(reborn.get().trashRetention, '90');
+    assert.deepEqual(reborn.get().quickActions, ['photo.export', 'photo.favorite.toggle']);
     assert.equal(reborn.get().diagnosticsConsentVersion, 1);
     assert.equal(reborn.get().wifiOnly, true, 'untouched keys keep their defaults');
   });
@@ -100,6 +102,7 @@ describe('settings store (#111)', () => {
     assert.deepEqual(JSON.parse(readFileSync(profilePath(dir), 'utf8')), {
       appearance: 'light',
       language: null,
+      quickActions: defaultSettings.quickActions,
       shareDiagnostics: false,
       diagnosticsConsentVersion: 0,
     });
@@ -131,6 +134,13 @@ describe('settings store (#111)', () => {
     assert.deepEqual(await handler({ patch: { trashRetention: '14' } }), invalid, 'retention is the bounded ADR enum');
     assert.deepEqual(await handler({ patch: { providerId: '../cloud' } }), invalid, 'unsafe provider registry key');
     assert.deepEqual(await handler({ patch: { diagnosticsConsentVersion: 1 } }), invalid, 'renderer cannot forge consent policy');
+    assert.deepEqual(await handler({ patch: { quickActions: ['photo.export', 'photo.export'] } }), invalid, 'Quick Action IDs are unique');
+    assert.deepEqual(await handler({ patch: { quickActions: ['library.import'] } }), invalid, 'only eligible commands persist');
+
+    const quickActions = ['photo.export', 'photo.favorite.toggle'] as const;
+    const quickActionResult = await handler({ patch: { quickActions: [...quickActions] } });
+    assert.ok('settings' in quickActionResult);
+    assert.deepEqual(quickActionResult.settings.quickActions, quickActions);
 
     const ok = await handler({ patch: { bandwidthLimit: 10, wifiOnly: false, providerId: 'future-cloud' } });
     assert.ok('settings' in ok);

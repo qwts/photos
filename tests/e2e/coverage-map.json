@@ -24,6 +24,28 @@
       ]
     },
     {
+      "id": "m04-gallery-quick-actions",
+      "wiki": "Acceptance-Test-Quick-Actions",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/quick-actions.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/grid/QuickActions.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/commands/quick-actions.test.ts", "tests/commands/registry.test.ts", "tests/settings/settings-store.test.ts"]
+        },
+        {
+          "type": "manual",
+          "reason": "A packaged macOS VoiceOver pass follows docs/acceptance/Acceptance-Test-Quick-Actions.md to verify modifier announcements, Command-click safety, app deactivation cleanup, and parity of pointer, keyboard, context-menu, and touch-visible access."
+        }
+      ]
+    },
+    {
       "id": "native-application-menu",
       "wiki": "Acceptance-Test-Native-Application-Menu",
       "coverage": [

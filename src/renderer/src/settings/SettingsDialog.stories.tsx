@@ -616,9 +616,17 @@ export const GeneralSection: Story = {
     await expect(body.getByRole('radio', { name: 'Light' })).toBeDisabled();
     await expect(body.getByText("Dark only for now — a light theme isn't part of the design system yet.")).toBeVisible();
 
+    // Quick Actions are profile-scoped, ordered, and may be disabled.
+    await expect(body.getByRole('switch', { name: 'Export' })).toBeChecked();
+    await userEvent.click(body.getByRole('switch', { name: 'Move photo to Trash' }));
+    await expect(body.getByRole('switch', { name: 'Move photo to Trash' })).not.toBeChecked();
+    await userEvent.click(body.getByRole('switch', { name: 'Restore photo' }));
+    await userEvent.click(body.getByRole('button', { name: 'Move Restore photo up' }));
+    await expect(body.getByRole('button', { name: 'Move Restore photo down' })).toBeEnabled();
+
     // Thumbnails: locked on with the rationale.
-    await expect(body.getByRole('switch')).toBeChecked();
-    await expect(body.getByRole('switch')).toBeDisabled();
+    await expect(body.getByRole('switch', { name: 'Generate thumbnails on import' })).toBeChecked();
+    await expect(body.getByRole('switch', { name: 'Generate thumbnails on import' })).toBeDisabled();
     await expect(body.getByText('The grid browses thumbnails, even offline. Cannot be disabled.')).toBeVisible();
   },
 };

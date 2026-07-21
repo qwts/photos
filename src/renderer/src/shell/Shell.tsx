@@ -102,6 +102,7 @@ export function Shell({
   // Dropped source; `dragging` shows the full-window overlay.
   const [dropped, setDropped] = useState<readonly string[] | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [exportPhotoIds, setExportPhotoIds] = useState<readonly string[] | null>(null);
   const dialogStateRef = useRef(state);
   useEffect(() => {
     dialogStateRef.current = state;
@@ -196,6 +197,7 @@ export function Shell({
       setUnlockAlbumId(null);
       offload.close();
       setDropped(null);
+      setExportPhotoIds(null);
       dispatch({ type: 'lightbox/closed' });
       dispatch({ type: 'dialog/set', dialog: 'import', open: false });
       dispatch({ type: 'dialog/set', dialog: 'export', open: false });
@@ -638,10 +640,9 @@ export function Shell({
       {state.exportOpen ? (
         <ExportDialog
           open
-          // The focused photo wins (lightbox entry, count=1); otherwise the
-          // selection set (#100). Selection is preserved through the flow.
-          photoIds={state.lightboxId !== null ? [state.lightboxId] : [...state.selection]}
+          photoIds={exportPhotoIds ?? (state.lightboxId !== null ? [state.lightboxId] : [...state.selection])}
           onClose={() => {
+            setExportPhotoIds(null);
             dispatch({ type: 'dialog/set', dialog: 'export', open: false });
           }}
         />
@@ -743,6 +744,7 @@ export function Shell({
             }}
             onExport={() => {
               // Lightbox entry point (#100): count=1, the focused photo.
+              setExportPhotoIds([current.id]);
               dispatch({ type: 'dialog/set', dialog: 'export', open: true });
             }}
             onTransfer={() => openInterop('lightbox', [current.id])}
@@ -803,8 +805,13 @@ export function Shell({
           ) : null}
           {state.protectedAlbum === null ? (
             <LibraryGridView
+              platform={commandPlatform(platform)}
               knownTotal={counts === null ? null : counts[state.source]}
               activeAlbum={albums.find((album) => album.id === state.album) ?? null}
+              onExport={(photoIds) => {
+                setExportPhotoIds(photoIds);
+                dispatch({ type: 'dialog/set', dialog: 'export', open: true });
+              }}
               onOffload={offload.open}
               onTransfer={openInterop}
             />

@@ -1,0 +1,85 @@
+.ovl-quick-actions {
+  position: absolute;
+  z-index: 5;
+  inset-inline-start: 50%;
+  bottom: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - var(--space-2));
+  width: max-content;
+  padding: 3px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-2);
+  background: oklch(0.16 0.008 250 / 0.94);
+  box-shadow: var(--shadow-2);
+  transform: translateX(-50%);
+}
+
+.ovl-quick-actions__target {
+  max-width: 100%;
+  color: var(--text-faint);
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ovl-quick-actions__buttons {
+  display: flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.ovl-quick-actions__button-wrap {
+  display: flex;
+}
+
+.ovl-quick-actions button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+.ovl-quick-actions button:hover,
+.ovl-quick-actions button:focus-visible {
+  background: var(--gray-5);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ovl-quick-actions button:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ovl-listrow .ovl-quick-actions {
+  inset-inline-start: auto;
+  inset-inline-end: 52px;
+  bottom: 2px;
+  flex-direction: row;
+  transform: none;
+}
+
+.ovl-quick-action-picker {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+}
+
+.ovl-quick-action-picker .ovl-albumpicker {
+  position: static;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import type { DragEvent, ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
@@ -19,6 +19,16 @@ import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
 import { PHOTO_PURGE_AUTHORIZATION } from '../../../shared/destructive-actions.js';
 import { DEFAULT_TRASH_RETENTION, trashRetentionDays, trashRetentionLabel, type TrashRetention } from '../../../shared/library/trash.js';
 import { useAnnouncer } from '../components/LiveAnnouncer';
+import {
+  configuredQuickActions,
+  initialQuickActionVisibility,
+  quickActionAvailability,
+  quickActionTargetIds,
+  reduceQuickActionVisibility,
+} from '../../../shared/commands/quick-actions.js';
+import type { CommandPlatform, QuickActionCommandId } from '../../../shared/commands/registry.js';
+import { DEFAULT_QUICK_ACTIONS } from '../../../shared/settings/settings.js';
+import { QuickActions, type QuickActionItem } from './QuickActions';
 
 const messages = defineMessages({
   trashPolicyDays: {
@@ -37,6 +47,13 @@ const messages = defineMessages({
     id: 'library.trash.purge.complete',
     defaultMessage: 'Deleted {count, plural, one {# photo} other {# photos}} permanently',
   },
+  favoriteAdd: { id: 'library.quickActions.favorite.add', defaultMessage: 'Add to Favorites' },
+  favoriteRemove: { id: 'library.quickActions.favorite.remove', defaultMessage: 'Remove from Favorites' },
+  favoriteBusy: { id: 'library.quickActions.favorite.busy', defaultMessage: 'Favorite update in progress' },
+  unavailableInTrash: { id: 'library.quickActions.unavailableInTrash', defaultMessage: 'Unavailable for photos in Trash' },
+  availableOnlyInTrash: { id: 'library.quickActions.availableOnlyInTrash', defaultMessage: 'Available only for photos in Trash' },
+  targetPhoto: { id: 'library.quickActions.target.photo', defaultMessage: 'This photo' },
+  targetSelection: { id: 'library.quickActions.target.selection', defaultMessage: 'Selection ({count})' },
 });
 
 // Library view (#76/#77): PhotoTile or ListRow over the #74 engine, thumbs
@@ -47,11 +64,15 @@ const messages = defineMessages({
 export function LibraryGridView({
   knownTotal,
   activeAlbum,
+  platform,
+  onExport,
   onOffload,
   onTransfer,
 }: {
   readonly knownTotal: number | null;
   readonly activeAlbum: AlbumSummary | null;
+  readonly platform: CommandPlatform;
+  readonly onExport: (photoIds: readonly string[]) => void;
   readonly onOffload: (photoIds: readonly string[], clearSelection?: boolean) => void;
   readonly onTransfer: (entry: 'selection' | 'lightbox', photoIds: readonly string[]) => void;
 }): ReactElement {
@@ -69,6 +90,7 @@ export function LibraryGridView({
   const [contextPhoto, setContextPhoto] = useState<{
     readonly photo: PhotoRecord;
     readonly targetIds: readonly string[];
+    readonly selectionBeforeOpen: readonly string[];
     readonly x: number;
     readonly y: number;
     readonly origin: HTMLButtonElement;
@@ -83,6 +105,9 @@ export function LibraryGridView({
   const [favoritePending, setFavoritePending] = useState<ReadonlySet<string>>(() => new Set());
   const [retentionNow] = useState(() => Date.now());
   const [trashRetention, setTrashRetention] = useState<TrashRetention>(DEFAULT_TRASH_RETENTION);
+  const [quickActionIds, setQuickActionIds] = useState<readonly QuickActionCommandId[]>(DEFAULT_QUICK_ACTIONS);
+  const [quickActionVisibility, dispatchQuickActionVisibility] = useReducer(reduceQuickActionVisibility, initialQuickActionVisibility);
+  const [quickAlbumIds, setQuickAlbumIds] = useState<readonly string[] | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -90,9 +115,13 @@ export function LibraryGridView({
     const unsubscribe = window.overlook.settings.onChanged(({ settings }) => {
       changed = true;
       setTrashRetention(settings.trashRetention);
+      setQuickActionIds(settings.quickActions);
     });
     void window.overlook.settings.get().then(({ settings }) => {
-      if (active && !changed) setTrashRetention(settings.trashRetention);
+      if (active && !changed) {
+        setTrashRetention(settings.trashRetention);
+        setQuickActionIds(settings.quickActions);
+      }
     });
     return () => {
       active = false;
@@ -126,9 +155,10 @@ export function LibraryGridView({
     photo: PhotoRecord,
     point: { readonly x: number; readonly y: number; readonly origin: HTMLButtonElement },
   ): void => {
-    const targetIds = state.selection.has(photo.id) ? [...state.selection] : [photo.id];
+    const selectionBeforeOpen = [...state.selection];
+    const targetIds = state.selection.has(photo.id) ? selectionBeforeOpen : [photo.id];
     if (!state.selection.has(photo.id)) dispatch({ type: 'selection/all', photoIds: targetIds });
-    setContextPhoto({ photo, targetIds, ...point });
+    setContextPhoto({ photo, targetIds, selectionBeforeOpen, ...point });
   };
 
   const restoreContextFocus = (origin: HTMLButtonElement): void => {
@@ -142,10 +172,120 @@ export function LibraryGridView({
   const filtersActive = state.query !== '' || state.album !== null || Object.values(state.chips).some(Boolean);
   const total = filtersActive || knownTotal === null ? (exhausted ? state.photos.length : state.photos.length + 1) : knownTotal;
   const inTrash = state.source === 'deleted';
+  const modalOpen =
+    state.importOpen ||
+    state.exportOpen ||
+    state.settingsOpen ||
+    state.activityOpen ||
+    state.librariesOpen ||
+    state.lightboxId !== null ||
+    purgeIds !== null ||
+    quickAlbumIds !== null ||
+    contextPhoto !== null;
   const retentionDays = trashRetentionDays(trashRetention);
   const trashPolicy = intl.formatMessage(retentionDays === null ? messages.trashPolicyOff : messages.trashPolicyDays, {
     days: retentionDays,
   });
+
+  useEffect(() => {
+    if (modalOpen) dispatchQuickActionVisibility({ type: 'dismiss' });
+  }, [modalOpen]);
+
+  useEffect(() => {
+    if (platform !== 'darwin') return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Meta' || modalOpen) return;
+      const hovered = document.querySelector<HTMLElement>('[data-quick-action-photo-id]:hover');
+      const focused =
+        document.activeElement instanceof HTMLElement ? document.activeElement.closest<HTMLElement>('[data-quick-action-photo-id]') : null;
+      const targetId = hovered?.dataset['quickActionPhotoId'] ?? focused?.dataset['quickActionPhotoId'];
+      if (targetId !== undefined) dispatchQuickActionVisibility({ type: 'target', id: targetId });
+      dispatchQuickActionVisibility({ type: 'modifier', held: true });
+    };
+    const onKeyUp = (event: KeyboardEvent): void => {
+      if (event.key === 'Meta') dispatchQuickActionVisibility({ type: 'modifier', held: false });
+    };
+    const dismiss = (): void => dispatchQuickActionVisibility({ type: 'dismiss' });
+    const deactivate = (): void => dispatchQuickActionVisibility({ type: 'modifier', held: false });
+    const onVisibility = (): void => {
+      if (document.hidden) deactivate();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', deactivate);
+    window.addEventListener('scroll', dismiss, true);
+    window.addEventListener('wheel', dismiss, true);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', deactivate);
+      window.removeEventListener('scroll', dismiss, true);
+      window.removeEventListener('wheel', dismiss, true);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [modalOpen, platform]);
+
+  const quickActionItems = (photo: PhotoRecord): readonly QuickActionItem[] => {
+    const selection = [...state.selection];
+    return configuredQuickActions(quickActionIds).map((command) => {
+      const availability = quickActionAvailability(command.id, inTrash ? 'trash' : 'library');
+      const targetIds = quickActionTargetIds(command.id, photo.id, selection);
+      const busy = command.id === 'photo.favorite.toggle' && favoritePending.has(photo.id);
+      return {
+        id: command.id,
+        label:
+          command.id === 'photo.favorite.toggle'
+            ? intl.formatMessage(photo.favorite ? messages.favoriteRemove : messages.favoriteAdd)
+            : intl.formatMessage(command.label),
+        icon: command.quickAction.icon,
+        enabled: availability.enabled && !busy,
+        reason: busy
+          ? intl.formatMessage(messages.favoriteBusy)
+          : availability.reason === 'library-only'
+            ? intl.formatMessage(messages.unavailableInTrash)
+            : availability.reason === 'trash-only'
+              ? intl.formatMessage(messages.availableOnlyInTrash)
+              : null,
+        targetLabel:
+          targetIds.length === 1
+            ? intl.formatMessage(messages.targetPhoto)
+            : intl.formatMessage(messages.targetSelection, { count: targetIds.length }),
+      };
+    });
+  };
+
+  const invokeQuickAction = (commandId: QuickActionCommandId, photo: PhotoRecord): void => {
+    const photoIds = quickActionTargetIds(commandId, photo.id, [...state.selection]);
+    if (!quickActionAvailability(commandId, inTrash ? 'trash' : 'library').enabled) return;
+    dispatchQuickActionVisibility({ type: 'dismiss' });
+    switch (commandId) {
+      case 'photo.favorite.toggle':
+        toggleFavorite(photo);
+        return;
+      case 'photo.export':
+        onExport(photoIds);
+        return;
+      case 'album.membership.add':
+        setQuickAlbumIds(photoIds);
+        return;
+      case 'photo.trash':
+        void window.overlook.library.delete({ photoIds: [...photoIds] }).then(({ deleted }) => {
+          dispatch({
+            type: 'toast/shown',
+            toast: { title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`, tone: 'neutral' },
+          });
+        });
+        return;
+      case 'photo.restore':
+        void window.overlook.library.restore({ photoIds: [...photoIds] }).then(({ restored }) => {
+          dispatch({
+            type: 'toast/shown',
+            toast: { title: `Restored ${formatCount(restored)} ${restored === 1 ? 'photo' : 'photos'}`, tone: 'green' },
+          });
+        });
+    }
+  };
 
   useEffect(() => {
     if (total === 0) announce('Nothing matches. Try clearing search or filters.', 'polite', 'empty-state');
@@ -181,6 +321,21 @@ export function LibraryGridView({
             });
           };
     const onDragEnd = onDragStart === undefined ? undefined : endPhotoDrag;
+    const items = quickActionItems(photo);
+    const quickActions =
+      platform === 'darwin' &&
+      quickActionVisibility.modifierHeld &&
+      quickActionVisibility.targetId === photo.id &&
+      !modalOpen &&
+      items.length > 0 ? (
+        <QuickActions photoName={photo.fileName} items={items} onInvoke={(id) => invokeQuickAction(id, photo)} />
+      ) : null;
+    const onQuickActionTargetChange =
+      platform === 'darwin'
+        ? (active: boolean): void => {
+            dispatchQuickActionVisibility({ type: 'target', id: active ? photo.id : null });
+          }
+        : undefined;
     return state.view === 'list' ? (
       <ListRow
         photo={photo}
@@ -196,6 +351,8 @@ export function LibraryGridView({
         favoritePending={favoritePending.has(photo.id)}
         retentionLabel={retentionLabel}
         onContextAction={(point) => openContextMenu(photo, point)}
+        quickActions={quickActions}
+        onQuickActionTargetChange={onQuickActionTargetChange}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         {...keyboard}
@@ -219,6 +376,9 @@ export function LibraryGridView({
         favoritePending={favoritePending.has(photo.id)}
         retentionLabel={retentionLabel}
         onContextAction={(point) => openContextMenu(photo, point)}
+        quickActions={quickActions}
+        quickActionPhotoId={photo.id}
+        onQuickActionTargetChange={onQuickActionTargetChange}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         {...keyboard}
@@ -250,7 +410,7 @@ export function LibraryGridView({
             dispatch({ type: 'selection/cleared' });
           }}
           onExport={() => {
-            dispatch({ type: 'dialog/set', dialog: 'export', open: true });
+            onExport([...state.selection]);
           }}
           onOffload={() => onOffload([...state.selection], true)}
           onTransfer={() => onTransfer('selection', [...state.selection])}
@@ -334,8 +494,8 @@ export function LibraryGridView({
             for (const photo of state.photos.filter(({ id }) => targetIds.has(id))) toggleFavorite(photo);
           }}
           onExport={() => {
-            dispatch({ type: 'selection/all', photoIds: contextPhoto.targetIds });
-            dispatch({ type: 'dialog/set', dialog: 'export', open: true });
+            onExport(contextPhoto.targetIds);
+            dispatch({ type: 'selection/all', photoIds: contextPhoto.selectionBeforeOpen });
           }}
           onAddToAlbum={() => {
             setAlbumPicker({ targetIds: contextPhoto.targetIds, x: contextPhoto.x, y: contextPhoto.y, origin: contextPhoto.origin });
@@ -386,6 +546,8 @@ export function LibraryGridView({
             });
           }}
           onPurge={() => setPurgeIds(contextPhoto.targetIds)}
+          quickActions={quickActionItems(contextPhoto.photo)}
+          onQuickAction={(id) => invokeQuickAction(id, contextPhoto.photo)}
         />
       )}
       {albumPicker === null ? null : (
@@ -407,6 +569,26 @@ export function LibraryGridView({
             });
           }}
         />
+      )}
+      {quickAlbumIds === null ? null : (
+        <div className="ovl-quick-action-picker">
+          <AlbumPicker
+            onPick={(album) => {
+              const photoIds = quickAlbumIds;
+              setQuickAlbumIds(null);
+              void window.overlook.albums.addPhotos({ albumId: album.id, photoIds: [...photoIds] }).then(({ added }) => {
+                dispatch({
+                  type: 'toast/shown',
+                  toast: {
+                    title: `Added ${formatCount(added)} ${added === 1 ? 'photo' : 'photos'} to ${album.name}`,
+                    tone: 'green',
+                  },
+                });
+              });
+            }}
+            onClose={() => setQuickAlbumIds(null)}
+          />
+        </div>
       )}
       {purgeIds !== null && purgeIds.length > 0 ? (
         <PurgeConfirm
