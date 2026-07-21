@@ -630,3 +630,72 @@ export const OffloadSuppressionBlocksFetch: Story = {
     await expect(canvas.getByRole('img', { name: PHOTO.fileName })).toBe(originalImage);
   },
 };
+
+// #547 / ADR-0026 §7: under prefers-reduced-motion, animated GIF/WebP opens
+// on the static poster and plays only on an intentional, always-visible
+// action. The media query is forced through a scoped matchMedia patch so the
+// story is deterministic regardless of the host OS setting.
+let reducedMotionForced = false;
+const originalMatchMedia = typeof window === 'undefined' ? undefined : window.matchMedia.bind(window);
+if (originalMatchMedia !== undefined) {
+  window.matchMedia = (query: string) => {
+    if (reducedMotionForced && query.includes('prefers-reduced-motion')) {
+      return {
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => false,
+      };
+    }
+    return originalMatchMedia(query);
+  };
+}
+
+const ANIMATED_PHOTO: PhotoRecord = {
+  ...PHOTO,
+  id: '01J8SEEDPHOTO0002',
+  fileName: 'party.gif',
+  fileKind: 'gif',
+  mediaInfo: { animated: true, frameCount: 3, loopCount: 0 },
+};
+
+export const AnimatedReducedMotionHoldsPoster: Story = {
+  args: { photo: ANIMATED_PHOTO, imageSrc: portraitPhoto, posterSrc: landscapePhoto },
+  decorators: [
+    (Story) => {
+      reducedMotionForced = true;
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    try {
+      const canvas = within(canvasElement);
+      const image = (): HTMLImageElement => canvas.getByRole<HTMLImageElement>('img', { name: ANIMATED_PHOTO.fileName });
+      await expect(image().src).toContain(landscapePhoto);
+      const playButton = canvas.getByRole('button', { name: 'Play animation' });
+      await expect(playButton).toHaveAttribute('aria-pressed', 'false');
+      await userEvent.click(playButton);
+      await expect(image().src).toContain(portraitPhoto);
+      const stopButton = canvas.getByRole('button', { name: 'Show static poster' });
+      await expect(stopButton).toHaveAttribute('aria-pressed', 'true');
+      await userEvent.click(stopButton);
+      await expect(image().src).toContain(landscapePhoto);
+    } finally {
+      reducedMotionForced = false;
+    }
+  },
+};
+
+export const AnimatedWithoutReducedMotionPlaysImmediately: Story = {
+  args: { photo: ANIMATED_PHOTO, imageSrc: portraitPhoto, posterSrc: landscapePhoto },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const image = canvas.getByRole<HTMLImageElement>('img', { name: ANIMATED_PHOTO.fileName });
+    await expect(image.src).toContain(portraitPhoto);
+    await expect(canvas.queryByRole('button', { name: 'Play animation' })).not.toBeInTheDocument();
+  },
+};
