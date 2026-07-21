@@ -84,6 +84,11 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(runtime({ providerId: () => 'mock', isPackaged: true }).runtime.activeId(), null);
     assert.equal(runtime({ providerId: () => 'mock' }).runtime.activeId(), 'mock');
     assert.equal(runtime({ providerId: () => 'pcloud', isPackaged: true }).runtime.activeId(), 'pcloud');
+    assert.equal(
+      runtime({ providerId: () => 'icloud-drive', isPackaged: true }).runtime.activeId(),
+      'icloud-drive',
+      'persisted iCloud selection remains active before the async availability probe runs',
+    );
     assert.equal(runtime({ providerId: () => 'google-drive' }).runtime.activeId(), null, 'an unconfigured Drive build is disconnected');
     assert.equal(
       runtime({ providerId: () => 'google-drive', googleDriveClientId: () => 'desktop.apps.googleusercontent.com' }).runtime.activeId(),
