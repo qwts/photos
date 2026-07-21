@@ -13,6 +13,7 @@ provider ready.
 - Team ID: `Z5DM34QS5U`
 - Application ID: `Z5DM34QS5U.com.zts1.overlook`
 - iCloud Documents container: `iCloud.com.zts1.overlook`
+- signed ubiquity-container entitlement: `Z5DM34QS5U.iCloud.com.zts1.overlook`
 
 The container must be created and attached to the app identifier in Apple
 Developer before a matching Developer ID provisioning profile is generated.
@@ -24,7 +25,7 @@ entitlements:
 - `com.apple.application-identifier`
 - `com.apple.developer.team-identifier`
 - `com.apple.developer.icloud-container-identifiers`
-- `com.apple.developer.ubiquity-container-identifiers`
+- `com.apple.developer.ubiquity-container-identifiers` containing the Team-ID-prefixed container
 - `com.apple.developer.icloud-services` containing `CloudDocuments`
 
 Renderer and other helper executables inherit only Electron hardened-runtime
