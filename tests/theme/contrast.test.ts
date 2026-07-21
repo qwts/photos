@@ -18,9 +18,11 @@ describe('WCAG contrast math (#401)', () => {
 
   test('is order-independent and preserves the published AA boundary', () => {
     const black = srgb8(0, 0, 0);
-    const boundary = srgb8(116, 116, 116);
+    const belowBoundary = contrastRatio(black, srgb8(116, 116, 116));
+    const boundary = srgb8(117, 117, 117);
     const forward = contrastRatio(black, boundary);
     assert.equal(forward, contrastRatio(boundary, black));
+    assert.ok(belowBoundary < 4.5);
     assert.ok(forward >= 4.5);
   });
 
