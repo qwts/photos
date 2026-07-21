@@ -51,4 +51,17 @@ describe('renderer lock reload barrier (#311 review)', () => {
     await assert.rejects(reload, /locked renderer reload failed \(-6\): file missing/);
     assert.equal(contents.listenerCount('destroyed'), 0);
   });
+
+  test('supports a themed navigation while preserving the lock reload barrier (#395 review)', async () => {
+    const contents = new FakeContents();
+    let navigations = 0;
+    const reload = reloadWebContentsForLock([contents], (target) => {
+      assert.equal(target.listenerCount('did-finish-load'), 1);
+      navigations += 1;
+    });
+    assert.equal(contents.reloads, 0);
+    assert.equal(navigations, 1);
+    contents.emit('did-finish-load');
+    await reload;
+  });
 });

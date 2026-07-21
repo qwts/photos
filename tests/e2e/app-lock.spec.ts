@@ -114,9 +114,17 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     await page.getByRole('button', { name: 'Unlock' }).click();
     await page.getByTestId('virtual-grid').waitFor();
 
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('tab', { name: 'General' }).click();
+    await page.getByRole('radio', { name: 'Light' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.keyboard.press('Escape');
+
     for (const event of ['lock-screen', 'suspend', 'user-did-resign-active'] as const) {
       await emitLifecycleLock(second, event);
       await expect(page.getByTestId('lock-screen')).toBeVisible();
+      expect(new URL(page.url()).searchParams.get('theme')).toBe('light');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
       await unlock(page, PASSWORD);
     }
 

@@ -7,6 +7,12 @@ export const WINDOW_BACKGROUND: Readonly<Record<ResolvedAppearance, string>> = {
   light: '#f7f8fa',
 };
 
+export function withAppearanceBootstrapQuery(url: string, appearance: ResolvedAppearance): string {
+  const next = new URL(url);
+  next.searchParams.set('theme', appearance);
+  return next.toString();
+}
+
 export interface AppearanceSettingsSource {
   get(): Pick<AppSettings, 'appearance'>;
   subscribe(listener: (settings: Pick<AppSettings, 'appearance'>) => void): () => void;

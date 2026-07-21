@@ -7,7 +7,7 @@ export interface ReloadableWebContents {
   reloadIgnoringCache(): void;
 }
 
-function reloadOne(contents: ReloadableWebContents): Promise<void> {
+function reloadOne<T extends ReloadableWebContents>(contents: T, reloadDocument: (contents: T) => void): Promise<void> {
   if (contents.isDestroyed()) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const cleanup = (): void => {
@@ -32,10 +32,13 @@ function reloadOne(contents: ReloadableWebContents): Promise<void> {
     contents.once('did-finish-load', finished);
     contents.once('did-fail-load', failed);
     contents.once('destroyed', destroyed);
-    contents.reloadIgnoringCache();
+    reloadDocument(contents);
   });
 }
 
-export function reloadWebContentsForLock(contents: readonly ReloadableWebContents[]): Promise<void> {
-  return Promise.all(contents.map(reloadOne)).then(() => undefined);
+export function reloadWebContentsForLock<T extends ReloadableWebContents>(
+  contents: readonly T[],
+  reloadDocument: (contents: T) => void = (target) => target.reloadIgnoringCache(),
+): Promise<void> {
+  return Promise.all(contents.map((target) => reloadOne(target, reloadDocument))).then(() => undefined);
 }

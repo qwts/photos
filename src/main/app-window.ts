@@ -4,6 +4,7 @@ import { app, BrowserWindow } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
+import { withAppearanceBootstrapQuery } from './appearance-runtime.js';
 import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/renderer-lock-reload.js';
 import { initialWindowBehavior } from './e2e-window-visibility.js';
 import { createInspectorWindowController } from './inspector-window-controller.js';
@@ -12,6 +13,11 @@ import type { InspectorWindowState } from '../shared/inspector-window-contract.j
 
 let windowAppearance: 'dark' | 'light' = 'dark';
 let windowBackgroundColor = '#050708';
+
+interface ThemedReloadableWebContents extends ReloadableWebContents {
+  getURL(): string;
+  loadURL(url: string): Promise<void>;
+}
 
 export function applyWindowAppearance(appearance: 'dark' | 'light', backgroundColor: string): void {
   windowAppearance = appearance;
@@ -125,6 +131,8 @@ export function relaunchLocked(): void {
  * cannot survive a lock transition. The replacement document boots only the
  * locking/locked surface because main-process authority is already revoked. */
 export function reloadContentWindowsForLock(): Promise<void> {
-  const contents = BrowserWindow.getAllWindows().map((win) => win.webContents as unknown as ReloadableWebContents);
-  return reloadWebContentsForLock(contents);
+  const contents = BrowserWindow.getAllWindows().map((win) => win.webContents as unknown as ThemedReloadableWebContents);
+  return reloadWebContentsForLock(contents, (target) => {
+    void target.loadURL(withAppearanceBootstrapQuery(target.getURL(), windowAppearance)).catch(() => undefined);
+  });
 }
