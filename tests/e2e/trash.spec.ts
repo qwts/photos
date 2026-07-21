@@ -223,6 +223,13 @@ test('protected Original: ordinary deletion preserves it and Shift+Delete requir
     await expect(page.locator('.ovl-toast-host')).toContainText('preserved 1 protected Original');
     await expect(page.getByRole('button', { name: `Open ${target.fileName}` })).toBeVisible();
 
+    const search = page.getByRole('searchbox');
+    await search.fill('editable shortcut guard');
+    await page.keyboard.press('Shift+Delete');
+    await expect(page.getByRole('dialog', { name: 'Authenticate Original deletion' })).toHaveCount(0);
+    await search.fill('');
+    await search.blur();
+
     await page.keyboard.press('Shift+Delete');
     const authenticate = page.getByRole('dialog', { name: 'Authenticate Original deletion' });
     await authenticate.getByLabel('App password').fill('wrong password');
