@@ -617,7 +617,7 @@ export const GeneralSection: Story = {
     await expect(body.getByText("Dark only for now — a light theme isn't part of the design system yet.")).toBeVisible();
 
     // Quick Actions are profile-scoped, ordered, and may be disabled.
-    await expect(body.getByRole('switch', { name: 'Export' })).toBeChecked();
+    await expect(body.getByRole('switch', { name: 'Export…' })).toBeChecked();
     await userEvent.click(body.getByRole('switch', { name: 'Move photo to Trash' }));
     await expect(body.getByRole('switch', { name: 'Move photo to Trash' })).not.toBeChecked();
     await userEvent.click(body.getByRole('switch', { name: 'Restore photo' }));
