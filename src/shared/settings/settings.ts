@@ -31,9 +31,8 @@ export const settingsSchema = z.object({
   sortOrder: z.enum(['date', 'name', 'size']),
   /** Explicit UI language; null follows the operating-system locale. */
   language: z.string().min(1).nullable(),
-  /** 'light' exists in the schema but ships disabled — the DS has no light
-   * theme yet (recorded on the epic). */
-  appearance: z.enum(['dark', 'light']),
+  /** First-party theme, or the live operating-system preference. */
+  appearance: z.enum(['dark', 'light', 'system']),
   /** Ordered Command-hover actions. Empty disables the overlay. */
   quickActions: quickActionsSchema,
   /** Locked true by design: imports always generate thumbnails. */

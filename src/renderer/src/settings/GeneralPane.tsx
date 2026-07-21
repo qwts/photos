@@ -8,10 +8,8 @@ import { QuickActionsSettings } from './QuickActionsSettings';
 import { SHIPPED_LOCALES } from '../../../shared/i18n/locales.js';
 import type { AppSettings } from '../../../shared/settings/settings.js';
 
-// General section (#113): sort order drives the grid query live; appearance
-// ships with Light disabled (the DS has no light theme — conflict with the
-// mock recorded on the epic); thumbnails-on-import is locked on with its
-// rationale, matching the schema's literal.
+// General section (#113): sort order and appearance apply live;
+// thumbnails-on-import is locked on with its rationale, matching the schema.
 
 const messages = defineMessages({
   sortOrder: { id: 'settings.general.sortOrder', defaultMessage: 'Default sort order' },
@@ -39,10 +37,11 @@ const messages = defineMessages({
   },
   appearanceHint: {
     id: 'settings.general.appearance.hint',
-    defaultMessage: "Dark only for now — a light theme isn't part of the design system yet.",
+    defaultMessage: 'Changes apply immediately. System follows your operating-system appearance.',
   },
   dark: { id: 'settings.general.appearance.dark', defaultMessage: 'Dark' },
   light: { id: 'settings.general.appearance.light', defaultMessage: 'Light' },
+  systemAppearance: { id: 'settings.general.appearance.system', defaultMessage: 'System' },
   thumbnails: { id: 'settings.general.thumbnails', defaultMessage: 'Generate thumbnails on import' },
   thumbnailsHint: {
     id: 'settings.general.thumbnails.hint',
@@ -113,7 +112,8 @@ export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactEleme
           value={settings.appearance}
           options={[
             { value: 'dark', label: intl.formatMessage(messages.dark) },
-            { value: 'light', label: intl.formatMessage(messages.light), disabled: true },
+            { value: 'light', label: intl.formatMessage(messages.light) },
+            { value: 'system', label: intl.formatMessage(messages.systemAppearance) },
           ]}
           onChange={(appearance) => {
             onPatch({ appearance });

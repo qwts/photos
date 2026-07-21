@@ -162,10 +162,11 @@ export default tseslint.config(
     },
   },
   {
-    // Plain-JS Node scripts (and this config file) are outside the TS project;
+    // Plain-JS Node scripts, blocking renderer bootstrap scripts, and this config
+    // file are outside the TS project;
     // type-aware rules can't apply. no-undef is off for Node globals (console),
     // matching image-trail — TS owns undefined-identifier checking for source.
-    files: ['**/*.mjs', '**/*.cjs', 'eslint.config.js'],
+    files: ['**/*.mjs', '**/*.cjs', 'src/renderer/public/**/*.js', 'eslint.config.js'],
     extends: [tseslint.configs.disableTypeChecked],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',

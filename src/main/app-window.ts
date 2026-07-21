@@ -10,6 +10,15 @@ import { createInspectorWindowController } from './inspector-window-controller.j
 import { installWindowNavigationPolicy } from './window-navigation-policy.js';
 import type { InspectorWindowState } from '../shared/inspector-window-contract.js';
 
+let windowAppearance: 'dark' | 'light' = 'dark';
+let windowBackgroundColor = '#050708';
+
+export function applyWindowAppearance(appearance: 'dark' | 'light', backgroundColor: string): void {
+  windowAppearance = appearance;
+  windowBackgroundColor = backgroundColor;
+  for (const win of BrowserWindow.getAllWindows()) win.setBackgroundColor(backgroundColor);
+}
+
 export function broadcast(send: (win: BrowserWindow) => void): void {
   for (const win of BrowserWindow.getAllWindows()) send(win);
 }
@@ -67,7 +76,7 @@ function createContentWindow(surface: 'primary' | 'inspector'): BrowserWindow {
     minWidth: surface === 'inspector' ? 320 : 960,
     minHeight: surface === 'inspector' ? 480 : 600,
     ...(surface === 'inspector' ? { title: 'Inspector' } : {}),
-    backgroundColor: '#050708',
+    backgroundColor: windowBackgroundColor,
     show: windowBehavior.show,
     ...(surface === 'inspector' ? {} : process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : { frame: false }),
     webPreferences: {
@@ -87,10 +96,14 @@ function createContentWindow(surface: 'primary' | 'inspector'): BrowserWindow {
   if (devServerUrl !== undefined) {
     const url = new URL(devServerUrl);
     if (surface === 'inspector') url.searchParams.set('surface', 'inspector');
+    url.searchParams.set('theme', windowAppearance);
     void win.loadURL(url.toString());
   } else {
     void win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'), {
-      query: surface === 'inspector' ? { surface: 'inspector' } : {},
+      query: {
+        ...(surface === 'inspector' ? { surface: 'inspector' } : {}),
+        theme: windowAppearance,
+      },
     });
   }
   return win;

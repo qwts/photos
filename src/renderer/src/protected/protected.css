@@ -141,7 +141,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: rgb(4 6 8 / 98%);
+  background: var(--surface-photo-backdrop);
 }
 
 .ovl-protected-lightbox > img {
@@ -176,13 +176,24 @@
   gap: var(--space-2);
   min-height: 48px;
   padding: var(--space-2) var(--space-3);
-  background: linear-gradient(rgb(4 6 8 / 88%), transparent);
+  background: var(--protected-photo-top-gradient);
+}
+
+.ovl-protected-lightbox__top .ovl-icon-button,
+.ovl-protected-lightbox__nav .ovl-icon-button {
+  color: var(--text-photo-muted);
+}
+
+.ovl-protected-lightbox__top .ovl-icon-button:hover,
+.ovl-protected-lightbox__nav .ovl-icon-button:hover {
+  background: var(--photo-hover-overlay);
+  color: var(--text-photo-overlay);
 }
 
 .ovl-protected-lightbox__title {
   flex: 1;
   overflow: hidden;
-  color: var(--text-muted);
+  color: var(--text-photo-muted);
   font-size: 11px;
   text-align: center;
   text-overflow: ellipsis;

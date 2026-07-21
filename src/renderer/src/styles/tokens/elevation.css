@@ -11,6 +11,12 @@
   --duration-normal: 200ms; /* @kind other */
 }
 
+:root[data-theme='light'] {
+  --shadow-1: 0 1px 2px rgb(23 26 33 / 0.12);
+  --shadow-2: 0 4px 12px rgb(23 26 33 / 0.16), 0 1px 3px rgb(23 26 33 / 0.12);
+  --shadow-3: 0 16px 48px rgb(23 26 33 / 0.2), 0 2px 8px rgb(23 26 33 / 0.14);
+}
+
 /* One renderer-wide preference contract: components keep their semantic
  * transition/animation declarations, while reduced-motion users get an
  * effectively immediate lifecycle. The finite iteration override also stops

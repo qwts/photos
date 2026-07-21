@@ -37,7 +37,7 @@ test('settings persist across an app restart and re-render the UI', async () => 
     await expect(page.locator('.ovl-tile__open').first()).toHaveAccessibleName(/^Open IMG_4021\.RAF,/u);
 
     await page.evaluate(
-      `window.overlook.settings.set({ patch: { sortOrder: 'size', wifiOnly: false, bandwidthLimit: 40, providerId: null } })`,
+      `window.overlook.settings.set({ patch: { sortOrder: 'size', wifiOnly: false, bandwidthLimit: 40, providerId: null, appearance: 'light' } })`,
     );
   } finally {
     await first.close();
@@ -50,9 +50,26 @@ test('settings persist across an app restart and re-render the UI', async () => 
     await page.getByTestId('virtual-grid').waitFor();
 
     const persisted = await page.evaluate<{
-      settings: { sortOrder: string; wifiOnly: boolean; bandwidthLimit: number; providerId: string | null };
+      settings: { sortOrder: string; wifiOnly: boolean; bandwidthLimit: number; providerId: string | null; appearance: string };
     }>(`window.overlook.settings.get()`);
-    expect(persisted.settings).toMatchObject({ sortOrder: 'size', wifiOnly: false, bandwidthLimit: 40, providerId: null });
+    expect(persisted.settings).toMatchObject({
+      sortOrder: 'size',
+      wifiOnly: false,
+      bandwidthLimit: 40,
+      providerId: null,
+      appearance: 'light',
+    });
+
+    // #395: the persisted mode reaches native chrome and the blocking HTML
+    // bootstrap before the renderer paints app content.
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    expect(new URL(page.url()).searchParams.get('theme')).toBe('light');
+    expect(
+      await second.evaluate(({ BrowserWindow, nativeTheme }) => ({
+        background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor(),
+        source: nativeTheme.themeSource,
+      })),
+    ).toEqual({ background: '#f7f8fa', source: 'light' });
 
     // The grid comes up in the persisted order with no user action: size's
     // id-DESC tiebreak leads with IMG_4028 (seed rows share one byte size).

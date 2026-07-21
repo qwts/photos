@@ -2,18 +2,18 @@ import type { Decorator, Preview } from '@storybook/react-vite';
 import { createElement } from 'react';
 
 // The token styles entry is the same one the renderer loads (#54): stories
-// render on the real dark canvas with the real tokens — no Storybook theme
-// duplication to drift.
+// render on both first-party themes with no Storybook token duplication.
 import '../src/renderer/src/styles/index.css';
 import budget from '../tests/a11y/violation-budget.json' with { type: 'json' };
 import { localeGlobalType, withIntl } from './intl-decorator';
+import { themeGlobalType, withTheme } from './theme-decorator';
 import { AnnouncerProvider } from '../src/renderer/src/components/LiveAnnouncer';
 
 const withAnnouncer: Decorator = (Story) => createElement(AnnouncerProvider, null, createElement(Story));
 
 const preview: Preview = {
-  decorators: [withIntl, withAnnouncer],
-  globalTypes: localeGlobalType,
+  decorators: [withTheme, withIntl, withAnnouncer],
+  globalTypes: { ...localeGlobalType, ...themeGlobalType },
   parameters: {
     layout: 'fullscreen',
     // Point the a11y panel at the SAME tag set the budget is counted against, read from

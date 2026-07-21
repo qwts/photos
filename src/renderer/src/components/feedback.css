@@ -59,7 +59,7 @@
   justify-content: center;
   border-radius: 50%;
   flex: none;
-  background: oklch(0.12 0.005 250 / 0.7);
+  background: color-mix(in oklch, var(--surface-photo-overlay) 70%, transparent);
   backdrop-filter: blur(4px);
 }
 
