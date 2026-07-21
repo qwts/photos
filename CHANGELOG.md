@@ -1,5 +1,11 @@
 # photos
 
+## 0.45.0
+
+### Minor Changes
+
+- dc36c03: Standardize accessible context menus for photos, albums, and Trash around the shared command registry.
+
 ## 0.44.0
 
 ### Minor Changes
