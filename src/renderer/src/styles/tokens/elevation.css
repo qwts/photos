@@ -10,3 +10,23 @@
   --duration-fast: 120ms; /* @kind other */
   --duration-normal: 200ms; /* @kind other */
 }
+
+/* One renderer-wide preference contract: components keep their semantic
+ * transition/animation declarations, while reduced-motion users get an
+ * effectively immediate lifecycle. The finite iteration override also stops
+ * hard-coded progress/status spinners without hiding their non-motion state. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

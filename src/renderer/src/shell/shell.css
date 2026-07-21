@@ -67,7 +67,10 @@
   margin-inline-start: var(--space-1);
 }
 
-@media (max-width: 620px) {
+/* At 200% Electron zoom the 1280px default window exposes a 640 CSS-pixel
+ * viewport. Wrap before the toolbar can widen the root document and push
+ * fixed/overlay controls outside the reachable viewport. */
+@media (max-width: 860px) {
   .ovl-toolbar__row {
     flex-wrap: wrap;
     height: auto;

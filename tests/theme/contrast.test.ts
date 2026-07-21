@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { contrastRatio, relativeLuminance, srgb8 } from '../../src/shared/theme/contrast.js';
+import { contrastRatio, oklchToSrgb, relativeLuminance, srgb8 } from '../../src/shared/theme/contrast.js';
 
 describe('WCAG contrast math (#401)', () => {
   test('matches the WCAG black/white reference ratio', () => {
@@ -22,5 +22,11 @@ describe('WCAG contrast math (#401)', () => {
     const forward = contrastRatio(black, boundary);
     assert.equal(forward, contrastRatio(boundary, black));
     assert.ok(forward >= 4.5);
+  });
+
+  test('converts neutral OKLCH endpoints used by the token checker', () => {
+    assert.deepEqual(oklchToSrgb(0, 0, 250), srgb8(0, 0, 0));
+    const white = oklchToSrgb(1, 0, 250);
+    assert.ok(white.every((value) => Math.abs(value - 1) < 0.000_001));
   });
 });

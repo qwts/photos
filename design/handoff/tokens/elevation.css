@@ -10,3 +10,21 @@
   --duration-fast: 120ms; /* @kind other */
   --duration-normal: 200ms; /* @kind other */
 }
+
+/* Reduced-motion is a renderer-wide token contract. The finite animation
+   iteration keeps progress/status state visible without continuous motion. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
