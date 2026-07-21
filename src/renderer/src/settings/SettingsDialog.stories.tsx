@@ -5,6 +5,7 @@ import { SettingsDialog } from './SettingsDialog';
 import { defaultSettings, mergeSettings, type AppSettings } from '../../../shared/settings/settings.js';
 import type { OverlookApi } from '../../../shared/ipc/api.js';
 import { AppStateProvider } from '../state/app-state-context';
+import type { QuickActionCommandId } from '../../../shared/commands/registry.js';
 
 // #112–#114 exit criteria: the 640px two-pane frame (Storage & Backup opens
 // by default, nav switches panes, keyboard-operable, Esc closes), the
@@ -15,11 +16,16 @@ import { AppStateProvider } from '../state/app-state-context';
 
 interface StoryWindow extends Window {
   disconnectCalls?: number;
+  quickActionPatches?: readonly (readonly QuickActionCommandId[])[];
   releaseInitialProviderStatus?: () => void;
   releaseProviderDisconnect?: () => void;
 }
 
-function installStub(options?: { readonly deferInitialProviderStatus?: boolean; readonly deferProviderDisconnect?: boolean }): void {
+function installStub(options?: {
+  readonly deferInitialProviderStatus?: boolean;
+  readonly deferProviderDisconnect?: boolean;
+  readonly deferQuickActionSettings?: boolean;
+}): void {
   let current: AppSettings = { ...defaultSettings };
   const mockProvider = {
     id: 'mock',
@@ -75,6 +81,11 @@ function installStub(options?: { readonly deferInitialProviderStatus?: boolean; 
   const settingsApi: OverlookApi['settings'] = {
     get: () => Promise.resolve({ settings: current }),
     set: ({ patch }) => {
+      if (options?.deferQuickActionSettings === true && patch.quickActions !== undefined) {
+        const storyWindow = globalThis as unknown as StoryWindow;
+        storyWindow.quickActionPatches = [...(storyWindow.quickActionPatches ?? []), patch.quickActions];
+        return Promise.resolve({ settings: current });
+      }
       apply(patch);
       return Promise.resolve({ settings: current });
     },
@@ -97,6 +108,7 @@ function installStub(options?: { readonly deferInitialProviderStatus?: boolean; 
       : Promise.resolve();
   const storyWindow = globalThis as unknown as StoryWindow;
   storyWindow.disconnectCalls = 0;
+  storyWindow.quickActionPatches = [];
   let providerStatusRequests = 0;
   const backupApi: OverlookApi['backup'] = {
     run: () =>
@@ -586,6 +598,12 @@ export const KeyboardOperable: Story = {
 };
 
 export const GeneralSection: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ deferQuickActionSettings: true });
+      return <Story />;
+    },
+  ],
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.click(body.getByRole('tab', { name: 'General' }));
@@ -621,6 +639,10 @@ export const GeneralSection: Story = {
     await userEvent.click(body.getByRole('switch', { name: 'Move photo to Trash' }));
     await expect(body.getByRole('switch', { name: 'Move photo to Trash' })).not.toBeChecked();
     await userEvent.click(body.getByRole('switch', { name: 'Restore photo' }));
+    await expect((globalThis as unknown as StoryWindow).quickActionPatches).toEqual([
+      ['photo.favorite.toggle', 'album.membership.add', 'photo.export'],
+      ['photo.favorite.toggle', 'album.membership.add', 'photo.export', 'photo.restore'],
+    ]);
     await userEvent.click(body.getByRole('button', { name: 'Move Restore photo up' }));
     await expect(body.getByRole('button', { name: 'Move Restore photo down' })).toBeEnabled();
 

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import flowerPhoto from '../../../../design/handoff/assets/thumbs/t03.png';
 import landscapePhoto from '../../../../design/handoff/assets/thumbs/t01.png';
@@ -109,13 +109,13 @@ export const TileClickVsSelectCircle: Story = {
     tile.focus();
     await userEvent.keyboard('{ArrowRight}');
     const second = canvas.getByRole('button', { name: 'Open IMG_1.JPG' });
-    await expect(second).toHaveFocus();
+    await waitFor(() => expect(second).toHaveFocus());
     await expect(tile).toHaveAttribute('tabindex', '-1');
     await expect(second).toHaveAttribute('tabindex', '0');
 
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
     const third = canvas.getByRole('button', { name: 'Open IMG_2.JPG' });
-    await expect(third).toHaveFocus();
+    await waitFor(() => expect(third).toHaveFocus());
     await expect(onKeyboardSelection).toHaveBeenCalledWith(['P1', 'P2'], 'replace');
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
     await expect(onKeyboardSelection).toHaveBeenCalledWith(['P1', 'P2', 'P3'], 'replace');

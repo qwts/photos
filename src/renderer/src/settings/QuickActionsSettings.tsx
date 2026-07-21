@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
 import { QUICK_ACTION_COMMANDS, type QuickActionCommandId } from '../../../shared/commands/registry.js';
@@ -24,34 +24,61 @@ export interface QuickActionsSettingsProps {
 
 export function QuickActionsSettings({ value, onChange }: QuickActionsSettingsProps): ReactElement {
   const intl = useIntl();
-  const enabled = new Set(value);
+  const [optimisticValue, setOptimisticValue] = useState(value);
+  const optimisticValueRef = useRef(value);
+  const pendingValuesRef = useRef<readonly (readonly QuickActionCommandId[])[]>([]);
+
+  useEffect(() => {
+    const acknowledgedIndex = pendingValuesRef.current.findIndex(
+      (pending) => pending.length === value.length && pending.every((id, index) => id === value[index]),
+    );
+    if (acknowledgedIndex >= 0) {
+      const remaining = pendingValuesRef.current.slice(acknowledgedIndex + 1);
+      pendingValuesRef.current = remaining;
+      if (remaining.length > 0) return;
+    } else {
+      pendingValuesRef.current = [];
+    }
+    optimisticValueRef.current = value;
+    setOptimisticValue(value);
+  }, [value]);
+
+  const commit = (next: readonly QuickActionCommandId[]): void => {
+    pendingValuesRef.current = [...pendingValuesRef.current, next];
+    optimisticValueRef.current = next;
+    setOptimisticValue(next);
+    onChange(next);
+  };
+
+  const enabled = new Set(optimisticValue);
   const commandsById = new Map(QUICK_ACTION_COMMANDS.map((command) => [command.id, command]));
   const commands = [
-    ...value
+    ...optimisticValue
       .map((id) => commandsById.get(id))
       .filter((command): command is (typeof QUICK_ACTION_COMMANDS)[number] => command !== undefined),
     ...QUICK_ACTION_COMMANDS.filter(({ id }) => !enabled.has(id)),
   ];
 
   const toggle = (id: QuickActionCommandId, checked: boolean): void => {
-    onChange(checked ? [...value, id] : value.filter((candidate) => candidate !== id));
+    const current = optimisticValueRef.current;
+    commit(checked ? [...current, id] : current.filter((candidate) => candidate !== id));
   };
 
   const move = (index: number, offset: -1 | 1): void => {
-    const next = [...value];
+    const next = [...optimisticValueRef.current];
     const [item] = next.splice(index, 1);
     if (item === undefined) return;
     next.splice(index + offset, 0, item);
-    onChange(next);
+    commit(next);
   };
 
   return (
     <div className="ovl-quick-action-settings">
       {commands.map((command) => {
         const checked = enabled.has(command.id);
-        const index = value.indexOf(command.id);
+        const index = optimisticValue.indexOf(command.id);
         const label = intl.formatMessage(command.label);
-        const maxReached = !checked && value.length >= 5;
+        const maxReached = !checked && optimisticValue.length >= 5;
         return (
           <div className="ovl-quick-action-settings__row" key={command.id}>
             <Icon name={command.quickAction.icon} size={14} />
@@ -79,7 +106,7 @@ export function QuickActionsSettings({ value, onChange }: QuickActionsSettingsPr
                 <Button
                   variant="ghost"
                   size="sm"
-                  disabled={index === value.length - 1}
+                  disabled={index === optimisticValue.length - 1}
                   aria-label={intl.formatMessage(messages.moveDown, { action: label })}
                   onClick={() => {
                     move(index, 1);
