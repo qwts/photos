@@ -28,15 +28,19 @@ export function validateProvisioningProfile(metadata, expected, now = Date.now()
   if (!Array.isArray(metadata.teams) || !metadata.teams.includes(expected.teamId)) {
     throw new Error(`profile TeamIdentifier does not contain ${expected.teamId}`);
   }
-  if (expected.iCloudContainerId !== undefined) {
+  if (expected.iCloudContainerId !== undefined || expected.ubiquityContainerId !== undefined) {
     const containers = metadata.entitlements?.['com.apple.developer.icloud-container-identifiers'];
     const ubiquityContainers = metadata.entitlements?.['com.apple.developer.ubiquity-container-identifiers'];
     const services = metadata.entitlements?.['com.apple.developer.icloud-services'];
-    if (!Array.isArray(containers) || !containers.includes(expected.iCloudContainerId)) {
+    if (expected.iCloudContainerId === undefined || !Array.isArray(containers) || !containers.includes(expected.iCloudContainerId)) {
       throw new Error(`profile does not authorize iCloud container ${expected.iCloudContainerId}`);
     }
-    if (!Array.isArray(ubiquityContainers) || !ubiquityContainers.includes(expected.iCloudContainerId)) {
-      throw new Error(`profile does not authorize ubiquity container ${expected.iCloudContainerId}`);
+    if (
+      expected.ubiquityContainerId === undefined ||
+      !Array.isArray(ubiquityContainers) ||
+      !ubiquityContainers.includes(expected.ubiquityContainerId)
+    ) {
+      throw new Error(`profile does not authorize ubiquity container ${expected.ubiquityContainerId}`);
     }
     if (!Array.isArray(services) || !services.includes('CloudDocuments')) {
       throw new Error('profile does not authorize iCloud Documents');

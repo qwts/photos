@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 
 import {
   OVERLOOK_ICLOUD_CONTAINER_ID,
+  OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
   OVERLOOK_MAC_APPLICATION_ID,
   OVERLOOK_MAC_BUNDLE_ID,
   OVERLOOK_PRODUCT_NAME,
@@ -68,6 +69,7 @@ describe('macOS release signing safety (#357)', () => {
       'com.apple.developer.icloud-services',
       'com.apple.developer.ubiquity-container-identifiers',
       OVERLOOK_ICLOUD_CONTAINER_ID,
+      OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
       'CloudDocuments',
     ]) {
       assert.match(provisioned, new RegExp(entitlement.replaceAll('.', '\\.'), 'u'));
@@ -103,6 +105,7 @@ describe('macOS release signing safety (#357)', () => {
       assert.ok(provisionedVerifier.includes(contract), `verifier must enforce ${contract}`);
     }
     assert.match(provisionedVerifier, /ICLOUD_CONTAINER_ID = `iCloud\.\$\{BUNDLE_ID\}`/u);
+    assert.match(provisionedVerifier, /UBIQUITY_CONTAINER_ID = `\$\{TEAM_ID\}\.\$\{ICLOUD_CONTAINER_ID\}`/u);
     assert.match(provisionedVerifier, /codesign/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
     for (const binary of ['ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
@@ -171,7 +174,7 @@ describe('provisioning profile validation (#360)', () => {
       'com.apple.application-identifier': OVERLOOK_MAC_APPLICATION_ID,
       'com.apple.developer.team-identifier': OVERLOOK_TEAM_ID,
       'com.apple.developer.icloud-container-identifiers': [OVERLOOK_ICLOUD_CONTAINER_ID],
-      'com.apple.developer.ubiquity-container-identifiers': [OVERLOOK_ICLOUD_CONTAINER_ID],
+      'com.apple.developer.ubiquity-container-identifiers': [OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID],
       'com.apple.developer.icloud-services': ['CloudDocuments'],
     };
     const metadata = {
@@ -183,6 +186,7 @@ describe('provisioning profile validation (#360)', () => {
       applicationId: OVERLOOK_MAC_APPLICATION_ID,
       teamId: OVERLOOK_TEAM_ID,
       iCloudContainerId: OVERLOOK_ICLOUD_CONTAINER_ID,
+      ubiquityContainerId: OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
     };
     validateProvisioningProfile(metadata, expected, 0);
     for (const key of [
