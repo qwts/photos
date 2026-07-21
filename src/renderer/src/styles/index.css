@@ -17,7 +17,7 @@ body,
 
 body {
   margin: 0;
-  overflow: hidden;
+  overflow-x: clip;
   background: var(--surface-window);
   color: var(--text-body);
   font: var(--type-body);

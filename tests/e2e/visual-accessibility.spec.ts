@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './support/app.js';
 
@@ -13,6 +13,16 @@ async function expectInsideViewport(selector: string, page: Page): Promise<void>
   expect(layout.top).toBeGreaterThanOrEqual(0);
   expect(layout.right).toBeLessThanOrEqual(layout.width);
   expect(layout.bottom).toBeLessThanOrEqual(layout.height);
+}
+
+async function expectControlInsideViewport(control: Locator, page: Page): Promise<void> {
+  const box = await control.boundingBox();
+  const viewport = await page.evaluate<{ width: number; height: number }>('({ width: window.innerWidth, height: window.innerHeight })');
+  expect(box).not.toBeNull();
+  expect(box?.x).toBeGreaterThanOrEqual(0);
+  expect(box?.y).toBeGreaterThanOrEqual(0);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(viewport.height);
 }
 
 test('reduced motion collapses shared transitions and repeating status animation', async ({ launchOverlook }) => {
@@ -73,4 +83,29 @@ test('shell, Settings, grid, and Lightbox controls remain reachable at 200% Elec
   await expect(lightbox.getByLabel('Image zoom controls')).toBeVisible();
   await expectInsideViewport('.ovl-lightbox__top button:last-of-type', page);
   await expectInsideViewport('.ovl-lightbox__zoom', page);
+});
+
+test('fresh-profile recovery actions remain vertically scrollable at 200% Electron zoom', async ({ launchOverlook }) => {
+  const { app, page } = await launchOverlook({
+    prefix: 'overlook-e2e-visual-onboarding-zoom-',
+    readyTestId: 'restore-onboarding',
+  });
+  const zoomFactor = await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    window?.setContentSize(1280, 600);
+    window?.webContents.setZoomFactor(2);
+    return window?.webContents.getZoomFactor();
+  });
+  expect(zoomFactor).toBe(2);
+  await expect.poll(() => page.evaluate<boolean>('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
+  await expect.poll(() => page.evaluate<boolean>('document.documentElement.scrollHeight > window.innerHeight')).toBe(true);
+
+  const startNew = page.getByRole('button', { name: 'Start a new library' });
+  await startNew.scrollIntoViewIfNeeded();
+  await expectControlInsideViewport(startNew, page);
+  expect(await page.evaluate<number>('document.scrollingElement?.scrollTop ?? 0')).toBeGreaterThan(0);
+
+  const discover = page.getByRole('button', { name: 'Discover backups' });
+  await discover.scrollIntoViewIfNeeded();
+  await expectControlInsideViewport(discover, page);
 });
