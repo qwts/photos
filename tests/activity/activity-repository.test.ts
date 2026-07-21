@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
+import { activityBackupSnapshot, createActivityFacade, mutateWithActivity } from '../../src/main/activity/activity-publication.js';
 import { ActivityRepository } from '../../src/main/activity/activity-repository.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
 
@@ -29,6 +30,43 @@ function append(repo: ActivityRepository, id: string, occurredAt = '2026-07-20T0
 }
 
 describe('ActivityRepository (#614, ADR-0025)', () => {
+  test('facade publishes trusted mutations, notifies readers, and snapshots activity', () => {
+    const { db } = world();
+    let changes = 0;
+    const activity = createActivityFacade(db, () => {
+      changes += 1;
+    });
+
+    activity.record({ eventType: 'import.completed', outcome: 'succeeded', payload: { imported: 2 } });
+    assert.equal(
+      mutateWithActivity(
+        () => activity,
+        () => 3,
+        (favoriteCount) => ({
+          eventType: 'photo.favorite-changed',
+          outcome: 'succeeded',
+          payload: { favorite: favoriteCount > 0 },
+        }),
+      ),
+      3,
+    );
+    assert.equal(
+      mutateWithActivity(
+        undefined,
+        () => 'unchanged',
+        () => undefined,
+      ),
+      'unchanged',
+    );
+    assert.equal(changes, 2);
+    assert.deepEqual(
+      activity.page(10).events.map((event) => event.eventType),
+      ['photo.favorite-changed', 'import.completed'],
+    );
+    assert.equal(activityBackupSnapshot(db).length, 2);
+    db.close();
+  });
+
   test('orders and cursor-pages append-only events across restart', () => {
     const { db, repo } = world();
     append(repo, 'a');
