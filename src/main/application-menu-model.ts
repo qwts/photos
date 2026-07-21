@@ -70,6 +70,7 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
     case 'view.lightbox.rotateLeft':
     case 'view.lightbox.rotateRight':
     case 'view.lightbox.flipHorizontal':
+    case 'view.lightbox.flipVertical':
     case 'view.lightbox.orientationReset':
     case 'grid.focus.left':
     case 'grid.focus.right':
