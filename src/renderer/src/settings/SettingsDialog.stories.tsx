@@ -9,8 +9,8 @@ import type { QuickActionCommandId } from '../../../shared/commands/registry.js'
 
 // #112–#114 exit criteria: the 640px two-pane frame (Storage & Backup opens
 // by default, nav switches panes, keyboard-operable, Esc closes), the
-// General section (sort segmented wired to the store stub, Light disabled
-// with the dark-only hint, thumbnails locked on), and the Storage & Backup
+// General section (sort segmented and appearance wired to the store stub,
+// thumbnails locked on), and the Storage & Backup
 // section (connection card + disconnected-disables-everything). The
 // decorator installs in-memory window.overlook settings + backup stubs.
 
@@ -629,10 +629,13 @@ export const GeneralSection: Story = {
     await userEvent.click(body.getByRole('radio', { name: '90 days' }));
     await waitFor(() => expect(body.getByRole('radio', { name: '90 days' })).toBeChecked());
 
-    // Appearance: dark on, Light rendered but disabled, hint present.
+    // Appearance applies all persisted first-party modes live.
     await expect(body.getByRole('radio', { name: 'Dark' })).toBeChecked();
-    await expect(body.getByRole('radio', { name: 'Light' })).toBeDisabled();
-    await expect(body.getByText("Dark only for now — a light theme isn't part of the design system yet.")).toBeVisible();
+    await userEvent.click(body.getByRole('radio', { name: 'Light' }));
+    await waitFor(() => expect(body.getByRole('radio', { name: 'Light' })).toBeChecked());
+    await userEvent.click(body.getByRole('radio', { name: 'System' }));
+    await waitFor(() => expect(body.getByRole('radio', { name: 'System' })).toBeChecked());
+    await expect(body.getByText('Changes apply immediately. System follows your operating-system appearance.')).toBeVisible();
 
     // Quick Actions are profile-scoped, ordered, and may be disabled.
     await expect(body.getByRole('switch', { name: 'Export…' })).toBeChecked();

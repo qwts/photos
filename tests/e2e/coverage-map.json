@@ -807,7 +807,16 @@
         },
         {
           "type": "unit-dom",
-          "path": "tests/db/library-db.test.ts"
+          "paths": [
+            "tests/db/library-db.test.ts",
+            "tests/main/appearance-runtime.test.ts",
+            "tests/theme/appearance.test.ts",
+            "tests/tooling/renderer-colors.test.ts"
+          ]
+        },
+        {
+          "type": "manual",
+          "reason": "Follow docs/acceptance/Acceptance-Test-Appearance-Themes.md in a packaged macOS build to verify first-frame flash, native title-bar chrome, and live operating-system appearance changes that hidden automation cannot observe."
         }
       ]
     },

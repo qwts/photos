@@ -1,10 +1,4 @@
-/* Core controls (#57) — pixel-matched to components/core/core.card.html.
-   Tokens only; the three literal colors the mock hardcodes are named here
-   once (source: Button.jsx primary hover/press, danger hover foreground). */
-:root {
-  --btn-primary-hover: oklch(0.76 0.15 278);
-  --btn-primary-press: oklch(0.63 0.16 278);
-}
+/* Core controls (#57) — pixel-matched to components/core/core.card.html. */
 
 /* ---- Button ---- */
 .ovl-button {

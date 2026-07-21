@@ -726,10 +726,13 @@
     "defaultMessage": "Dark"
   },
   "settings.general.appearance.hint": {
-    "defaultMessage": "Dark only for now — a light theme isn't part of the design system yet."
+    "defaultMessage": "Changes apply immediately. System follows your operating-system appearance."
   },
   "settings.general.appearance.light": {
     "defaultMessage": "Light"
+  },
+  "settings.general.appearance.system": {
+    "defaultMessage": "System"
   },
   "settings.general.language": {
     "defaultMessage": "Language"

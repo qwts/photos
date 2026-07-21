@@ -12,7 +12,7 @@
   padding: 3px;
   border: 1px solid var(--border-2);
   border-radius: var(--radius-2);
-  background: oklch(0.16 0.008 250 / 0.94);
+  background: color-mix(in oklch, var(--surface-panel) 94%, transparent);
   box-shadow: var(--shadow-2);
   transform: translateX(-50%);
 }

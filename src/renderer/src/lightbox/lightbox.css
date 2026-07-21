@@ -47,22 +47,22 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-photo-overlay);
   border-radius: var(--radius-sm);
-  background: oklch(0.1 0.005 250 / 0.78);
+  background: var(--surface-photo-overlay-medium);
   font: var(--type-meta);
   letter-spacing: 0.04em;
   backdrop-filter: blur(12px);
 }
 
 .ovl-lightbox__loading {
-  color: var(--text-muted);
+  color: var(--text-photo-muted);
 }
 
 .ovl-lightbox__loading-spinner {
   width: 12px;
   height: 12px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-photo-overlay);
   border-top-color: var(--accent-cyan);
   border-radius: 50%;
   animation: ovl-lightbox-loading-spin 800ms linear infinite;
@@ -87,8 +87,8 @@
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: oklch(0.1 0.005 250 / 0.82);
-  color: var(--text-muted);
+  background: var(--surface-photo-overlay-strong);
+  color: var(--text-photo-muted);
   font: var(--type-meta);
   letter-spacing: 0.04em;
   text-align: center;
@@ -156,7 +156,7 @@
   position: absolute;
   top: calc(64px + var(--space-2));
   inset-inline-end: var(--space-3);
-  color: var(--text-faint);
+  color: var(--text-photo-muted);
   font: var(--type-meta);
   letter-spacing: 0.04em;
   pointer-events: none;
@@ -197,7 +197,7 @@
   align-items: flex-start;
   gap: calc(var(--space-1) * 1.5);
   padding: calc(var(--space-2) + var(--space-1) / 2) var(--space-3);
-  background: linear-gradient(to bottom, oklch(0.1 0.005 250 / 0.75), transparent);
+  background: var(--photo-top-gradient);
 }
 
 /* Electron drag regions swallow real clicks regardless of stacking. Keep the
@@ -207,13 +207,26 @@
   -webkit-app-region: no-drag;
 }
 
+.ovl-lightbox__top .ovl-icon-button,
+.ovl-lightbox__nav .ovl-icon-button,
+.ovl-lightbox__strip .ovl-icon-button {
+  color: var(--text-photo-muted);
+}
+
+.ovl-lightbox__top .ovl-icon-button:hover,
+.ovl-lightbox__nav .ovl-icon-button:hover,
+.ovl-lightbox__strip .ovl-icon-button:hover {
+  background: var(--photo-hover-overlay);
+  color: var(--text-photo-overlay);
+}
+
 .ovl-lightbox__title {
   flex: 1;
   text-align: center;
   padding-top: var(--space-1);
   font: var(--type-meta);
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text-photo-muted);
 }
 
 .ovl-lightbox__nav {
@@ -266,7 +279,7 @@
 .ovl-lightbox__strip .mono-data {
   font: var(--type-meta);
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--text-photo-muted);
 }
 
 @media (max-width: 860px) {

@@ -13,7 +13,7 @@ import type { RuleCounts, ViolationBudget } from '../tests/a11y/budget';
 // The a11y gate for the story lane (#398). Every story in test:stories:ci is audited by
 // axe against the WCAG 2.2 AA tag set and checked against tests/a11y/violation-budget.json.
 // This rides the EXISTING gate rather than adding a lane: the test-runner already boots
-// chromium and visits every story, so the marginal cost is one axe pass per story.
+// chromium and visits every story, so the marginal cost is one axe pass per theme.
 //
 // Stories render components in isolation, which is the lane's strength (a violation names
 // one component) and its blind spot: landmark uniqueness, focus order across regions, and
@@ -65,20 +65,37 @@ const config: TestRunnerConfig = {
     // The third argument is axe's RunOptions DIRECTLY — not the {axeOptions} wrapper that
     // checkA11y takes. The wrapper shape is silently ignored here, which audits against
     // axe's full default rule set instead of the WCAG 2.2 AA tags the budget declares.
-    const violations = await getViolations(page, '#storybook-root', { runOnly: { type: 'tag', values: [...budget.tags] } });
-
     if (visitedPath !== undefined) appendFileSync(visitedPath, `${context.id}\n`);
 
-    if (reportPath !== undefined) {
-      const record = { id: context.id, title: storyContext.title, name: storyContext.name, rules: countByRule(violations), violations };
-      appendFileSync(reportPath, `${JSON.stringify(record)}\n`);
-      return;
-    }
+    for (const theme of ['dark', 'light'] as const) {
+      await page.evaluate((nextTheme) => {
+        document.documentElement.dataset['theme'] = nextTheme;
+        document.documentElement.style.colorScheme = nextTheme;
+      }, theme);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
 
-    const verdict = evaluateSurface({ id: context.id, observed: countByRule(violations), entries: budget.stories });
-    if (!verdict.ok) {
-      const detail = violations.map((violation) => `  - [${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help}`).join('\n');
-      throw new Error(`${verdict.reason}\n${detail}`);
+      const violations = await getViolations(page, '#storybook-root', { runOnly: { type: 'tag', values: [...budget.tags] } });
+
+      if (reportPath !== undefined) {
+        const record = {
+          id: context.id,
+          title: storyContext.title,
+          name: storyContext.name,
+          theme,
+          rules: countByRule(violations),
+          violations,
+        };
+        appendFileSync(reportPath, `${JSON.stringify(record)}\n`);
+        continue;
+      }
+
+      const verdict = evaluateSurface({ id: context.id, observed: countByRule(violations), entries: budget.stories });
+      if (!verdict.ok) {
+        const detail = violations
+          .map((violation) => `  - [${violation.impact ?? 'unknown'}] ${violation.id}: ${violation.help}`)
+          .join('\n');
+        throw new Error(`[${theme}] ${verdict.reason}\n${detail}`);
+      }
     }
   },
 };

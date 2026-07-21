@@ -2,13 +2,19 @@ import { app } from 'electron';
 import path from 'node:path';
 
 import { ScopedSettingsStore } from './scoped-settings-store.js';
+import { installAppearanceHost } from '../appearance-host.js';
 
 let settingsStore: ScopedSettingsStore | undefined;
 let libraryDataDir = (): string => path.join(app.getPath('userData'), 'library');
+let appearanceHostInstalled = false;
 
 export function configureSettingsLibrary(dataDir: () => string): void {
   libraryDataDir = dataDir;
   if (settingsStore !== undefined) activateSettingsLibrary();
+  if (!appearanceHostInstalled) {
+    installAppearanceHost(getSettingsStore());
+    appearanceHostInstalled = true;
+  }
 }
 
 export function getSettingsStore(): ScopedSettingsStore {

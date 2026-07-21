@@ -1,12 +1,4 @@
-/* PhotoTile (#64) — media/PhotoTile.jsx. The grid's cell: selection ring,
-   hover overlay, select circle, favorite star, status capsule. The two
-   literal overlay colors are the mock's own values, named once here. */
-:root {
-  --tile-hover-overlay: oklch(1 0 0 / 0.06);
-  --tile-circle-bg: oklch(0.12 0.005 250 / 0.55);
-  --tile-circle-ring: oklch(1 0 0 / 0.6);
-  --tile-star-fg: oklch(0.95 0.005 250);
-}
+/* PhotoTile (#64) — media/PhotoTile.jsx. */
 
 .ovl-tile {
   position: relative;
@@ -79,7 +71,7 @@
 .ovl-tile__hover-overlay {
   position: absolute;
   inset: 0;
-  background: var(--tile-hover-overlay);
+  background: var(--photo-hover-overlay);
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-out);
@@ -114,8 +106,8 @@
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: var(--tile-circle-bg);
-  border: 1px solid var(--tile-circle-ring);
+  background: var(--surface-photo-overlay-soft);
+  border: 1px solid var(--border-photo-overlay);
 }
 
 .ovl-tile__select > svg {
@@ -148,8 +140,8 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--tile-star-fg);
-  filter: drop-shadow(0 1px 2px oklch(0 0 0 / 0.6));
+  color: var(--text-photo-overlay);
+  filter: drop-shadow(var(--shadow-photo-overlay));
   cursor: pointer;
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-out);
@@ -175,9 +167,9 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--tile-star-fg);
+  color: var(--text-photo-overlay);
   cursor: pointer;
-  filter: drop-shadow(0 1px 2px oklch(0 0 0 / 0.6));
+  filter: drop-shadow(var(--shadow-photo-overlay));
   opacity: 0;
 }
 
@@ -241,8 +233,8 @@
   padding: 3px 6px;
   overflow: hidden;
   border-radius: var(--radius-1);
-  background: oklch(0.12 0.005 250 / 0.78);
-  color: var(--text-on-accent);
+  background: var(--surface-photo-overlay-medium);
+  color: var(--text-photo-overlay);
   font-size: 9px;
   line-height: 1.2;
   text-overflow: ellipsis;

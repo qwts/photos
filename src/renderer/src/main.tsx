@@ -4,6 +4,13 @@ import { createRoot } from 'react-dom/client';
 import './styles/index.css';
 import { App } from './App';
 import { IntlHost } from './i18n/IntlHost';
+import { installAppearanceObserver } from './theme/appearance';
+
+installAppearanceObserver({
+  root: document.documentElement,
+  media: window.matchMedia('(prefers-color-scheme: dark)'),
+  settings: window.overlook.settings,
+});
 
 const container = document.getElementById('root');
 if (container === null) {

@@ -22,12 +22,14 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await page.getByTestId('virtual-grid').waitFor();
 
     // Fresh profile: the design defaults.
-    const defaults = await page.evaluate<{ settings: { sortOrder: string; bandwidthLimit: number; trashRetention: string } }>(
-      `window.overlook.settings.get()`,
-    );
+    const defaults = await page.evaluate<{
+      settings: { sortOrder: string; bandwidthLimit: number; trashRetention: string; appearance: string };
+    }>(`window.overlook.settings.get()`);
     expect(defaults.settings.sortOrder).toBe('date');
     expect(defaults.settings.bandwidthLimit).toBe(100);
     expect(defaults.settings.trashRetention).toBe('30');
+    expect(defaults.settings.appearance).toBe('dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
     const providerCatalog = await page.evaluate<{
       defaultProviderId: string;
@@ -76,8 +78,33 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await page.getByRole('radio', { name: '7 days' }).click();
     await expect(page.getByRole('radio', { name: '7 days' })).toBeChecked();
     await expect.poll(async () => page.evaluate<string>(`window.overlook.settings.get().then((r) => r.settings.trashRetention)`)).toBe('7');
-    // The locked controls render per the pattern: Light disabled, thumbs on.
-    await expect(page.getByRole('radio', { name: 'Light' })).toBeDisabled();
+    // #395: appearance changes apply live and round-trip through persistence.
+    await page.getByRole('radio', { name: 'Light' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(247, 248, 250)');
+    await expect.poll(async () => page.evaluate<string>(`window.overlook.settings.get().then((r) => r.settings.appearance)`)).toBe('light');
+    const lightNative = await app.evaluate(({ BrowserWindow, nativeTheme }) => ({
+      background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor(),
+      source: nativeTheme.themeSource,
+    }));
+    expect(lightNative).toEqual({ background: '#f7f8fa', source: 'light' });
+
+    await page.getByRole('radio', { name: 'Dark' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    const darkNative = await app.evaluate(({ BrowserWindow, nativeTheme }) => ({
+      background: BrowserWindow.getAllWindows()[0]?.getBackgroundColor(),
+      source: nativeTheme.themeSource,
+    }));
+    expect(darkNative).toEqual({ background: '#050708', source: 'dark' });
+
+    await page.getByRole('radio', { name: 'System' }).click();
+    await expect
+      .poll(async () => page.evaluate<string>(`window.overlook.settings.get().then((r) => r.settings.appearance)`))
+      .toBe('system');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', /^(dark|light)$/u);
+    expect(await app.evaluate(({ nativeTheme }) => nativeTheme.themeSource)).toBe('system');
+
+    // The thumbnail control remains intentionally locked on.
     await expect(page.getByRole('switch', { name: 'Generate thumbnails on import' })).toBeDisabled();
 
     await page.keyboard.press('Escape');

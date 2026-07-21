@@ -13,6 +13,7 @@
 
   /* Radii — tight; photos themselves get --radius-tile */
   --radius-1: 4px; /* buttons, inputs, chips */
+  --radius-sm: var(--radius-1);
   --radius-2: 6px; /* cards, popovers */
   --radius-3: 10px; /* dialogs */
   --radius-tile: 3px; /* photo tiles */
