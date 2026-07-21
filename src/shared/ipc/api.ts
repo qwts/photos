@@ -172,6 +172,15 @@ export interface OverlookApi {
     readonly set: (request: Req<typeof channels.settingsSet>) => Promise<Res<typeof channels.settingsSet>>;
     readonly onChanged: (listener: (payload: z.output<typeof events.settingsChanged.payload>) => void) => () => void;
   };
+  readonly llm: {
+    readonly providers: () => Promise<Res<typeof channels.llmProviders>>;
+    readonly connect: (request: Req<typeof channels.llmConnect>) => Promise<Res<typeof channels.llmConnect>>;
+    readonly disconnect: (request: Req<typeof channels.llmDisconnect>) => Promise<Res<typeof channels.llmDisconnect>>;
+    readonly estimate: (request: Req<typeof channels.llmEstimate>) => Promise<Res<typeof channels.llmEstimate>>;
+    readonly ask: (request: Req<typeof channels.llmAsk>) => Promise<Res<typeof channels.llmAsk>>;
+    readonly spend: () => Promise<Res<typeof channels.llmSpend>>;
+    readonly onInflight: (listener: (payload: z.output<typeof events.llmInflight.payload>) => void) => () => void;
+  };
   readonly diagnostics: {
     readonly list: () => Promise<Res<typeof channels.diagnosticsList>>;
     readonly delete: (request: Req<typeof channels.diagnosticsDelete>) => Promise<Res<typeof channels.diagnosticsDelete>>;
