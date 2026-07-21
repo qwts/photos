@@ -10,6 +10,7 @@ import { GoogleDrivePathStore } from '../../src/main/backup/google-drive/path-st
 import { PCloudTokenStore } from '../../src/main/backup/pcloud/token-store.js';
 import type { SafeStorageLike } from '../../src/main/crypto/keystore.js';
 import { DeterministicICloudDriveBridge } from '../../src/main/backup/icloud-drive/deterministic-bridge.js';
+import { ICloudDriveAuthorityStore } from '../../src/main/backup/icloud-drive/authority-store.js';
 
 // #256: provider-selection policy — packaged vs dev targets, the stale-mock
 // correction, and the persistent library id.
@@ -84,11 +85,7 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(runtime({ providerId: () => 'mock', isPackaged: true }).runtime.activeId(), null);
     assert.equal(runtime({ providerId: () => 'mock' }).runtime.activeId(), 'mock');
     assert.equal(runtime({ providerId: () => 'pcloud', isPackaged: true }).runtime.activeId(), 'pcloud');
-    assert.equal(
-      runtime({ providerId: () => 'icloud-drive', isPackaged: true }).runtime.activeId(),
-      'icloud-drive',
-      'persisted iCloud selection remains active before the async availability probe runs',
-    );
+    assert.equal(runtime({ providerId: () => 'icloud-drive', isPackaged: true }).runtime.activeId(), null);
     assert.equal(runtime({ providerId: () => 'google-drive' }).runtime.activeId(), null, 'an unconfigured Drive build is disconnected');
     assert.equal(
       runtime({ providerId: () => 'google-drive', googleDriveClientId: () => 'desktop.apps.googleusercontent.com' }).runtime.activeId(),
@@ -228,20 +225,37 @@ describe('provider runtime policy (#256)', () => {
   test('iCloud availability, account replacement, reconnect, and library rebinding fail closed', async () => {
     const bridge = new DeterministicICloudDriveBridge();
     let providerId: string | null = null;
-    const { runtime: r } = runtime({
+    const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-icloud-authority-'));
+    const options = {
+      dataDir: () => join(root, 'library'),
+      providerCredentialDir: (id: string) => join(root, 'provider-auth', id),
       iCloudDriveBridge: bridge,
       providerId: () => providerId,
-      setProviderId: (id) => {
+      setProviderId: (id: string | null) => {
         providerId = id;
       },
+    };
+    const { runtime: r } = runtime({
+      ...options,
     });
     r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud'), fault: undefined });
     assert.deepEqual(await r.connect('icloud-drive'), { ok: true, reason: null });
     assert.equal(providerId, 'icloud-drive');
     assert.equal((await r.status('icloud-drive')).connected, true);
 
+    const restarted = runtime(options).runtime;
+    restarted.buildProvider({ mockRootDir: join(root, 'restart-mock'), fault: undefined });
+    assert.equal(restarted.activeId(), 'icloud-drive', 'restart restores the sealed account authority');
+    assert.equal((await restarted.status('icloud-drive')).connected, true);
+
     bridge.changeAccount();
-    assert.equal((await r.status('icloud-drive')).connected, false, 'an OS-account replacement cannot inherit the old authority');
+    const afterAccountSwitch = runtime(options).runtime;
+    afterAccountSwitch.buildProvider({ mockRootDir: join(root, 'switched-account-mock'), fault: undefined });
+    assert.equal(
+      (await afterAccountSwitch.status('icloud-drive')).connected,
+      false,
+      'an OS-account replacement while Overlook is closed cannot inherit the old authority',
+    );
     assert.deepEqual(await r.connect('icloud-drive'), { ok: true, reason: null }, 'explicit reconnect pins the replacement account');
     assert.equal((await r.status('icloud-drive')).connected, true);
 
@@ -250,6 +264,40 @@ describe('provider runtime policy (#256)', () => {
     r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud'), fault: undefined, libraryId: 'LIBRARY_B' });
     assert.notEqual(r.provider('icloud-drive'), previous);
     assert.equal((await r.status('icloud-drive')).connected, true, 'a library rebind accepts the current account without stale authority');
+  });
+
+  test('iCloud authority custody is sealed, rejects malformed state, and clears on disconnect', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-icloud-custody-'));
+    const credentialDir = join(root, 'provider-auth', 'icloud-drive');
+    const sealedSafeStorage: SafeStorageLike = {
+      isEncryptionAvailable: () => true,
+      encryptString: (value) => Buffer.from(`sealed:${value}`, 'utf8'),
+      decryptString: (value) => value.toString('utf8').replace(/^sealed:/u, ''),
+    };
+    const store = new ICloudDriveAuthorityStore(sealedSafeStorage, credentialDir);
+    store.save('0123456789abcdef');
+    assert.equal(store.load(), '0123456789abcdef');
+    assert.notEqual(readFileSync(join(credentialDir, 'icloud-drive-authority.bin'), 'utf8'), '0123456789abcdef');
+
+    writeFileSync(join(credentialDir, 'icloud-drive-authority.bin'), Buffer.from('malformed'));
+    assert.equal(store.load(), null);
+
+    let providerId: string | null = null;
+    const { runtime: r } = runtime({
+      dataDir: () => join(root, 'library'),
+      providerCredentialDir: (id) => join(root, 'provider-auth', id),
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+      safeStorage: () => sealedSafeStorage,
+    });
+    r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
+    assert.equal((await r.connect('icloud-drive')).ok, true);
+    assert.equal(providerId, 'icloud-drive');
+    assert.equal((await r.disconnect('icloud-drive')).ok, true);
+    assert.equal(providerId, null);
+    assert.equal(store.load(), null);
   });
 
   test('iCloud unavailability is descriptor-driven and never changes selection', async () => {
@@ -271,6 +319,14 @@ describe('provider runtime policy (#256)', () => {
     );
     assert.deepEqual(await r.connect('icloud-drive'), { ok: false, reason: 'Sign in to iCloud Drive in macOS Settings.' });
     assert.equal(providerId, null);
+  });
+
+  test('a persisted iCloud selection without sealed authority cannot browse or mutate the current OS account', async () => {
+    const { runtime: r } = runtime({ providerId: () => 'icloud-drive' });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud-untrusted'), fault: undefined });
+    assert.equal(r.activeId(), null);
+    assert.equal(await r.provider('icloud-drive')?.authState(), 'not-connected');
+    await assert.rejects(r.restoreSources('icloud-drive'), /account authority is not connected/u);
   });
 
   test('pCloud custody migrates out of the replaceable library directory', () => {

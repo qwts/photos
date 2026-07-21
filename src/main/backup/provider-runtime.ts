@@ -16,6 +16,7 @@ import { PCloudTokenStore } from './pcloud/token-store.js';
 import type { StorageProvider } from './provider.js';
 import type { ProviderDescriptor } from '../../shared/backup/provider-descriptor.js';
 import { ICloudDriveProvider } from './icloud-drive/icloud-drive-provider.js';
+import { ICloudDriveAuthorityStore } from './icloud-drive/authority-store.js';
 import type { ICloudDriveNativeBridge, ICloudDriveUnavailableReason } from './icloud-drive/native-bridge.js';
 
 // Provider-selection + pCloud-custody runtime (#256), extracted from the
@@ -53,6 +54,7 @@ export class ProviderRuntime {
   private googleAuthInstance: GoogleDriveAuthClient | undefined;
   private googleConnectFlow: (() => Promise<PCloudConnectResult>) | undefined;
   private googleProviderInstance: GoogleDriveProvider | undefined;
+  private iCloudAuthorityStoreInstance: ICloudDriveAuthorityStore | undefined;
   private iCloudDriveProviderInstance: ICloudDriveProvider | undefined;
   private registryInstance: ProviderRegistry | undefined;
   private readonly disconnectInFlight = new Map<string, Promise<PCloudConnectResult>>();
@@ -89,6 +91,14 @@ export class ProviderRuntime {
   private googlePathStore(): GoogleDrivePathStore {
     this.googlePathStoreInstance ??= new GoogleDrivePathStore(this.credentialDirectory('google-drive'));
     return this.googlePathStoreInstance;
+  }
+
+  private iCloudAuthorityStore(): ICloudDriveAuthorityStore {
+    this.iCloudAuthorityStoreInstance ??= new ICloudDriveAuthorityStore(
+      this.options.safeStorage(),
+      this.credentialDirectory('icloud-drive'),
+    );
+    return this.iCloudAuthorityStoreInstance;
   }
 
   private googleAuth(): GoogleDriveAuthClient {
@@ -224,10 +234,16 @@ export class ProviderRuntime {
       return this.connectGoogleDrive();
     }
     if (providerId === 'icloud-drive' && provider instanceof ICloudDriveProvider) {
-      provider.resetAccountAuthority();
-      if ((await provider.authState()) !== 'connected') {
+      const status = await this.iCloudStatus();
+      if (!status.available || status.accountToken === null) {
         return { ok: false, reason: 'Sign in to iCloud Drive in macOS Settings, then try again.' };
       }
+      try {
+        this.iCloudAuthorityStore().save(status.accountToken);
+      } catch {
+        return { ok: false, reason: 'Could not securely save this iCloud account authority. Check Keychain access and try again.' };
+      }
+      provider.resetAccountAuthority(status.accountToken);
     }
     if (provider instanceof FaultInjectingProvider) {
       provider.disarm('auth-expired');
@@ -258,7 +274,10 @@ export class ProviderRuntime {
         this.googleAuth().clear();
         this.resetGoogleDriveAccountCache();
       }
-      if (providerId === 'icloud-drive') this.iCloudDriveProviderInstance?.resetAccountAuthority();
+      if (providerId === 'icloud-drive') {
+        this.iCloudAuthorityStore().clear();
+        this.iCloudDriveProviderInstance?.resetAccountAuthority();
+      }
       if (this.options.providerId() === providerId) this.options.setProviderId(null);
       if (this.options.providerId() === providerId) {
         return { ok: false, reason: 'Could not save the disconnected state. Try again.' };
@@ -350,6 +369,9 @@ export class ProviderRuntime {
     if (raw === 'google-drive' && this.googleClientId() === null) {
       return null;
     }
+    if (raw === 'icloud-drive' && this.iCloudAuthorityStore().load() === null) {
+      return null;
+    }
     if (this.registryInstance !== undefined && this.registryInstance.get(raw) === undefined) {
       return null;
     }
@@ -372,7 +394,12 @@ export class ProviderRuntime {
     });
     this.googleProviderInstance = googleProvider;
     registry.register(googleProvider);
-    const iCloudProvider = new ICloudDriveProvider({ bridge: this.options.iCloudDriveBridge, libraryId });
+    const iCloudProvider = new ICloudDriveProvider({
+      bridge: this.options.iCloudDriveBridge,
+      libraryId,
+      accountToken: this.iCloudAuthorityStore().load(),
+      requireExplicitAuthority: true,
+    });
     this.iCloudDriveProviderInstance = iCloudProvider;
     registry.register(iCloudProvider);
     if (!this.options.isPackaged) {
