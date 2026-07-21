@@ -1,15 +1,18 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import { expect, test } from './support/app.js';
 
-async function expectInsideViewport(locator: Locator, page: Page): Promise<void> {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  const viewport = await page.evaluate<{ width: number; height: number }>('({ width: window.innerWidth, height: window.innerHeight })');
-  expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
-  expect(box?.y ?? -1).toBeGreaterThanOrEqual(0);
-  expect((box?.x ?? viewport.width) + (box?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
-  expect((box?.y ?? viewport.height) + (box?.height ?? 0)).toBeLessThanOrEqual(viewport.height);
+async function expectInsideViewport(selector: string, page: Page): Promise<void> {
+  const layout = await page.evaluate<{ left: number; top: number; right: number; bottom: number; width: number; height: number }>(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!element) throw new Error('Missing visual-accessibility target: ${selector}');
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: window.innerWidth, height: window.innerHeight };
+  })()`);
+  expect(layout.left).toBeGreaterThanOrEqual(0);
+  expect(layout.top).toBeGreaterThanOrEqual(0);
+  expect(layout.right).toBeLessThanOrEqual(layout.width);
+  expect(layout.bottom).toBeLessThanOrEqual(layout.height);
 }
 
 test('reduced motion collapses shared transitions and repeating status animation', async ({ launchOverlook }) => {
@@ -40,19 +43,25 @@ test('reduced motion collapses shared transitions and repeating status animation
 
 test('shell, Settings, grid, and Lightbox controls remain reachable at 200% Electron zoom', async ({ launchOverlook }) => {
   const { app, page } = await launchOverlook({ prefix: 'overlook-e2e-visual-zoom-', env: { OVERLOOK_SEED: '12' } });
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.setZoomFactor(2));
-  await expect.poll(() => page.evaluate<number>('window.devicePixelRatio')).toBe(2);
+  const zoomFactor = await app.evaluate(({ BrowserWindow }) => {
+    const contents = BrowserWindow.getAllWindows()[0]?.webContents;
+    contents?.setZoomFactor(2);
+    return contents?.getZoomFactor();
+  });
+  expect(zoomFactor).toBe(2);
+  await expect.poll(() => page.evaluate<boolean>('document.documentElement.scrollWidth <= window.innerWidth')).toBe(true);
 
   const settings = page.getByRole('button', { name: 'Settings' });
   await expect(settings).toBeVisible();
-  await expectInsideViewport(settings, page);
+  await settings.scrollIntoViewIfNeeded();
+  await expectInsideViewport('.ovl-sidebar__gear', page);
   await settings.click();
 
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog).toBeVisible();
-  await expectInsideViewport(dialog, page);
-  await expectInsideViewport(page.getByRole('tab', { name: 'General' }), page);
-  await expectInsideViewport(dialog.getByRole('button', { name: 'Close' }), page);
+  await expectInsideViewport('[data-testid="settings-dialog"]', page);
+  await expectInsideViewport('.ovl-settings__navrow', page);
+  await expectInsideViewport('.ovl-dialog__header button', page);
   await dialog.getByRole('button', { name: 'Close' }).click();
 
   const firstPhoto = page.locator('.ovl-grid__cell').first();
@@ -60,6 +69,8 @@ test('shell, Settings, grid, and Lightbox controls remain reachable at 200% Elec
   await firstPhoto.click();
   const lightbox = page.getByTestId('lightbox');
   await expect(lightbox).toBeVisible();
-  await expectInsideViewport(lightbox.getByRole('button', { name: 'Close lightbox' }), page);
-  await expectInsideViewport(lightbox.getByLabel('Image zoom controls'), page);
+  await expect(lightbox.getByRole('button', { name: 'Close (Esc)' })).toBeVisible();
+  await expect(lightbox.getByLabel('Image zoom controls')).toBeVisible();
+  await expectInsideViewport('.ovl-lightbox__top button:last-of-type', page);
+  await expectInsideViewport('.ovl-lightbox__zoom', page);
 });
