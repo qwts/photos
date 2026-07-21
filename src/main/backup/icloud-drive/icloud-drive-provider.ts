@@ -33,6 +33,8 @@ interface ICloudDriveAuthorityState {
 export interface ICloudDriveProviderOptions {
   readonly bridge: ICloudDriveNativeBridge;
   readonly libraryId: string;
+  readonly accountToken?: string | null;
+  readonly requireExplicitAuthority?: boolean;
   readonly temporaryRoot?: string;
   /** Deterministic pagination seam; production uses the native maximum. */
   readonly pageSize?: number;
@@ -72,7 +74,7 @@ export class ICloudDriveProvider implements StorageProvider {
 
   constructor(
     private readonly options: ICloudDriveProviderOptions,
-    private readonly authority: ICloudDriveAuthorityState = { accountToken: null },
+    private readonly authority: ICloudDriveAuthorityState = { accountToken: options.accountToken ?? null },
   ) {
     if (!LIBRARY_ID.test(options.libraryId)) throw new ProviderError(`unsafe library id: ${options.libraryId}`, 'corrupt');
     if (options.pageSize !== undefined && (!Number.isInteger(options.pageSize) || options.pageSize < 1 || options.pageSize > PAGE_SIZE)) {
@@ -85,6 +87,7 @@ export class ICloudDriveProvider implements StorageProvider {
     try {
       const status = await this.options.bridge.status();
       if (!status.available || status.accountToken === null) return this.authority.accountToken === null ? 'not-connected' : 'expired';
+      if (this.authority.accountToken === null && this.options.requireExplicitAuthority === true) return 'not-connected';
       if (this.authority.accountToken !== null && this.authority.accountToken !== status.accountToken) return 'expired';
       this.authority.accountToken = status.accountToken;
       return 'connected';
@@ -96,8 +99,8 @@ export class ICloudDriveProvider implements StorageProvider {
   /** Explicit reconnect/account-recovery boundary. Ordinary operations never
    * accept a silently replaced macOS account; only the user's Connect action
    * may pin the provider to the account currently reported by the OS. */
-  resetAccountAuthority(): void {
-    this.authority.accountToken = null;
+  resetAccountAuthority(accountToken: string | null = null): void {
+    this.authority.accountToken = accountToken;
   }
 
   forLibrary(libraryId: string): StorageProvider {
@@ -203,6 +206,9 @@ export class ICloudDriveProvider implements StorageProvider {
       throw providerError(error);
     }
     if (!status.available || status.accountToken === null) throw new ProviderError('iCloud Drive is unavailable', 'auth');
+    if (this.authority.accountToken === null && this.options.requireExplicitAuthority === true) {
+      throw new ProviderError('iCloud Drive account authority is not connected', 'auth');
+    }
     if (this.authority.accountToken === null) this.authority.accountToken = status.accountToken;
     if (this.authority.accountToken !== status.accountToken) throw new ProviderError('iCloud Drive account changed', 'auth');
     return status.accountToken;
