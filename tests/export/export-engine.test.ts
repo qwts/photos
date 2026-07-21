@@ -279,3 +279,16 @@ describe('jpeg transcode export (#98)', () => {
     assert.deepEqual(readFileSync(join(world.destination, row?.fileName ?? '')), world.bytesById.get(row?.id ?? ''));
   });
 });
+
+describe('gif/webp export (ADR-0026 §4, #547)', () => {
+  const ANIMATED = join(import.meta.dirname, '../../../tests/fixtures/animated');
+
+  test('JPEG transcode renders the first frame of animated media', async () => {
+    for (const file of ['animated.gif', 'animated.webp', 'static.webp']) {
+      const bytes = readFileSync(join(ANIMATED, file));
+      const { jpeg, fromPreview } = await transcodeToJpeg(bytes, file.endsWith('.gif') ? 'gif' : 'webp');
+      assert.equal(fromPreview, false, file);
+      assert.equal(jpeg.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])), true, `${file} produced a JPEG`);
+    }
+  });
+});

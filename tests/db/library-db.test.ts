@@ -829,3 +829,39 @@ describe('albums (#117)', () => {
     db.close();
   });
 });
+
+describe('probed media info column (ADR-0026 §1, #547)', () => {
+  test('mediaInfo roundtrips through insert and reads; stills stay null', () => {
+    const { db, repo } = openSeeded();
+    const info = { animated: true, frameCount: 3, loopCount: 0 };
+    repo.insert(samplePhoto({ fileName: 'party.gif', fileKind: 'gif', mediaInfo: info }));
+    repo.insert(samplePhoto({ fileName: 'still.jpg', fileKind: 'jpeg' }));
+    const page = repo.page({ source: 'all', limit: 10, order: 'name' });
+    const gif = page.photos.find((photo) => photo.fileKind === 'gif');
+    const jpegRow = page.photos.find((photo) => photo.fileKind === 'jpeg');
+    assert.deepEqual(gif?.mediaInfo, info);
+    assert.equal(jpegRow?.mediaInfo, null);
+    db.close();
+  });
+
+  test('a corrupt media_info value degrades to null instead of breaking reads', () => {
+    const { db, repo } = openSeeded();
+    repo.insert(
+      samplePhoto({ fileName: 'sticker.webp', fileKind: 'webp', mediaInfo: { animated: false, frameCount: 1, loopCount: null } }),
+    );
+    // json_valid CHECK admits valid-but-wrong-shape JSON; the parser must not.
+    run(db, `UPDATE photos SET media_info = '{"animated":"yes"}'`);
+    const [row] = repo.page({ source: 'all', limit: 1 }).photos;
+    assert.equal(row?.mediaInfo, null);
+    db.close();
+  });
+
+  test('manifest snapshot carries mediaInfo and restore preserves it', () => {
+    const { db, repo } = openSeeded();
+    const info = { animated: true, frameCount: 3, loopCount: 2 };
+    repo.insert(samplePhoto({ fileName: 'loop.webp', fileKind: 'webp', mediaInfo: info }));
+    const snapshot = repo.manifestSnapshot();
+    assert.deepEqual(snapshot.photos[0]?.mediaInfo, info);
+    db.close();
+  });
+});

@@ -173,6 +173,19 @@ describe('FullService (#91)', () => {
     assert.equal(await service.getFull('4'), null, 'missing photo');
   });
 
+  test('gif/webp serve ORIGINAL bytes with their real mime — never a converted preview (ADR-0026 §5)', async () => {
+    const gifBytes = junkBytes(16);
+    const webpBytes = junkBytes(24);
+    const kinds: LoadedOriginal[] = [original(gifBytes, 'gif', 'gif-hash'), original(webpBytes, 'webp', 'webp-hash')];
+    const service = new FullService({
+      loadOriginal: (photoId) => Promise.resolve(kinds[Number(photoId)] ?? null),
+    });
+    const gif = await service.getFull('0');
+    assert.deepEqual(gif, { bytes: gifBytes, contentHash: 'gif-hash', mime: 'image/gif', preview: false });
+    const webp = await service.getFull('1');
+    assert.deepEqual(webp, { bytes: webpBytes, contentHash: 'webp-hash', mime: 'image/webp', preview: false });
+  });
+
   test('EXIT CRITERIA: decrypted buffers stay under the byte budget (LRU-evicted)', async () => {
     let loads = 0;
     const service = new FullService({

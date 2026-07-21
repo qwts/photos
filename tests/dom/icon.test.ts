@@ -54,6 +54,10 @@ const VOCABULARY = [
   // (#80): All Photos row and the albums + affordance.
   'images',
   'plus',
+  // Animated-media playback affordance (#547, ADR-0026 §7): reduced-motion
+  // play/stop toggle now, video controls later (#549).
+  'pause',
+  'play',
   // Lightbox glyphs the design's Lightbox.jsx uses beyond the readme list
   // (#92): back control and the side navigation arrows.
   'arrow-left',

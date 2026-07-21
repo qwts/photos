@@ -64,6 +64,7 @@ describe('channel registry', () => {
           id: 'P1',
           fileName: 'private.jpg',
           fileKind: 'jpeg',
+          mediaInfo: null,
           width: 10,
           height: 10,
           bytes: 42,

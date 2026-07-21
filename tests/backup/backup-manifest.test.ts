@@ -202,3 +202,29 @@ describe('backup manifest schema (#289)', () => {
     assert.throws(() => parseBackupManifest({ schema: BACKUP_MANIFEST_SCHEMA_VERSION + 1 }), /unsupported manifest schema 5/u);
   });
 });
+
+describe('media info in manifests (ADR-0026, #547)', () => {
+  test('pre-0026 manifests without mediaInfo parse with a null default', () => {
+    const source = manifest();
+    const legacy = JSON.parse(JSON.stringify(source)) as { photos: Array<Record<string, unknown>> };
+    delete legacy.photos[0]?.['mediaInfo'];
+    const parsed = backupManifestV2Schema.parse(legacy);
+    assert.equal(parsed.photos[0]?.mediaInfo, null);
+  });
+
+  test('probed facts roundtrip; playability tiers have no field to hide in', () => {
+    const source = manifest();
+    const withMedia = {
+      ...source,
+      photos: [{ ...source.photos[0], fileKind: 'gif', mediaInfo: { animated: true, frameCount: 3, loopCount: 0 } }],
+    };
+    const parsed = backupManifestV2Schema.parse(JSON.parse(JSON.stringify(withMedia)));
+    assert.deepEqual(parsed.photos[0]?.mediaInfo, { animated: true, frameCount: 3, loopCount: 0 });
+    assert.throws(() =>
+      backupManifestV2Schema.parse({
+        ...source,
+        photos: [{ ...source.photos[0], mediaInfo: { animated: true, frameCount: 3, loopCount: 0, playable: true } }],
+      }),
+    );
+  });
+});

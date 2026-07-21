@@ -361,3 +361,72 @@ describe('import engine (#87)', () => {
     });
   });
 });
+
+describe('signature-first classification and probed media info (ADR-0026, #547)', () => {
+  const ANIMATED = join(import.meta.dirname, '../../../tests/fixtures/animated');
+  const animatedGif = readFileSync(join(ANIMATED, 'animated.gif'));
+  const staticWebp = readFileSync(join(ANIMATED, 'static.webp'));
+  const jpeg = readFileSync(join(FIXTURES, 'exif-full.jpg'));
+
+  test('animated GIF imports with kind gif and probed animation facts', async () => {
+    const world = harness();
+    world.sources.set('/card/party.gif', animatedGif);
+    const summary = await world.engine().importFiles([{ path: '/card/party.gif', fileName: 'party.gif', kind: 'gif' }], 'copy', '/card');
+    assert.equal(summary.imported, 1);
+    const row = [...world.rows.values()][0];
+    assert.equal(row?.fileKind, 'gif');
+    assert.deepEqual(row?.mediaInfo, { animated: true, frameCount: 3, loopCount: 0 });
+  });
+
+  test('static WebP imports with kind webp and single-frame facts', async () => {
+    const world = harness();
+    world.sources.set('/card/still.webp', staticWebp);
+    await world.engine().importFiles([{ path: '/card/still.webp', fileName: 'still.webp', kind: 'webp' }], 'copy', '/card');
+    const row = [...world.rows.values()][0];
+    assert.equal(row?.fileKind, 'webp');
+    assert.deepEqual(row?.mediaInfo, { animated: false, frameCount: 1, loopCount: null });
+  });
+
+  test('a JPEG wearing a .gif suffix records what the bytes are (spoofed extension)', async () => {
+    const world = harness();
+    world.sources.set('/card/fake.gif', jpeg);
+    await world.engine().importFiles([{ path: '/card/fake.gif', fileName: 'fake.gif', kind: 'gif' }], 'copy', '/card');
+    const row = [...world.rows.values()][0];
+    assert.equal(row?.fileKind, 'jpeg', 'signature wins over suffix');
+    assert.equal(row?.mediaInfo ?? null, null);
+    assert.equal(row?.fileName, 'fake.gif', 'original name and extension preserved verbatim');
+  });
+
+  test('still-image kinds keep null media info', async () => {
+    const world = harness();
+    const files = [addSource(world, 'plain.jpg', jpeg)];
+    await world.engine().importFiles(files, 'copy', '/card');
+    const row = [...world.rows.values()][0];
+    assert.equal(row?.mediaInfo ?? null, null);
+  });
+
+  test('an undecodable gif imports as a placeholder with honest preview-failure state', async () => {
+    const failures: Array<{ id: string; failure: unknown }> = [];
+    const world = harness();
+    const truncated = animatedGif.subarray(0, 24); // valid signature, unusable body
+    world.sources.set('/card/broken.gif', Buffer.from(truncated));
+    const deps: ImportEngineDeps = {
+      ...world.deps,
+      repo: {
+        ...world.deps.repo,
+        setPreviewFailure: (id, failure) => {
+          failures.push({ id, failure });
+          return true;
+        },
+      },
+      generateThumbs: () => Promise.resolve({ generated: false, width: null, height: null }),
+    };
+    const summary = await new ImportEngine(deps).importFiles(
+      [{ path: '/card/broken.gif', fileName: 'broken.gif', kind: 'gif' }],
+      'copy',
+      '/card',
+    );
+    assert.equal(summary.imported, 1, 'placeholder import, never a failed item');
+    assert.deepEqual(failures, [{ id: [...world.rows.keys()][0], failure: 'decode-failed' }]);
+  });
+});

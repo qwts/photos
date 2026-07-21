@@ -1,0 +1,27 @@
+{
+  "license": "CC0-1.0",
+  "source": "Generated in-repo by generate-fixtures.mjs (deterministic; re-run to verify byte identity)",
+  "fixtures": [
+    {
+      "file": "animated.gif",
+      "sha256": "59905bde091d6188ade4b80e77ef311e0dae19f46b9e1d3918d746bf8d4f27ed",
+      "dimensions": "8x8",
+      "frames": 3,
+      "loop": "infinite (NETSCAPE2.0 loop count 0)"
+    },
+    {
+      "file": "animated.webp",
+      "sha256": "c071f5d33587a5bf9af42171871061e860087b8854ac2ada699ec956ba9b3974",
+      "dimensions": "8x8",
+      "frames": 3,
+      "loop": "infinite (ANIM loop count 0)"
+    },
+    {
+      "file": "static.webp",
+      "sha256": "ca31c45419ee2616495d957619eb2afcd2e13c63a50755782ac5de2fbcb0163b",
+      "dimensions": "8x8",
+      "frames": 1,
+      "loop": null
+    }
+  ]
+}
