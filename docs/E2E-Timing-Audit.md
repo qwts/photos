@@ -48,7 +48,7 @@ the wait for a fault-injected process to die, with the exit signal captured at
 launch so it is safe to await after the process is already gone.
 
 Migrated onto the fixture: `library-relocation`, `albums`, `lightbox`,
-`album-drag-drop`, `keyboard-navigation`. Those are the known failure classes
+`album-drag-drop`, `keyboard-navigation`, `offload-ui`. Those are the known failure classes
 named by #630. Remaining hand-rolled launches are tracked as mechanical fixture
 adoption; they do not use one-shot reload events and are outside the missed
 lifecycle class this issue set out to close.
