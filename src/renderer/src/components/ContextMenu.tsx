@@ -19,9 +19,10 @@ export interface ContextMenuProps {
   readonly y: number;
   readonly items: readonly ContextMenuItem[];
   readonly onClose: () => void;
+  readonly closeOnSelect?: boolean | undefined;
 }
 
-export function ContextMenu({ label, x, y, items, onClose }: ContextMenuProps): ReactElement {
+export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true }: ContextMenuProps): ReactElement {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -85,7 +86,7 @@ export function ContextMenu({ label, x, y, items, onClose }: ContextMenuProps): 
             aria-disabled={item.disabledReason === undefined ? undefined : true}
             title={item.disabledReason}
             onClick={() => {
-              onClose();
+              if (closeOnSelect) onClose();
               item.action();
             }}
           >
