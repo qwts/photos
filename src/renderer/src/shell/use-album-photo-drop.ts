@@ -22,10 +22,10 @@ export interface AlbumDropChoice {
 }
 
 interface AlbumDropTargetProps {
-  readonly onDragEnter: (event: DragEvent<HTMLDivElement>) => void;
-  readonly onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  readonly onDragLeave: (event: DragEvent<HTMLDivElement>) => void;
-  readonly onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  readonly onDragEnter: (event: DragEvent<HTMLElement>) => void;
+  readonly onDragOver: (event: DragEvent<HTMLElement>) => void;
+  readonly onDragLeave: (event: DragEvent<HTMLElement>) => void;
+  readonly onDrop: (event: DragEvent<HTMLElement>) => void;
 }
 
 function noun(count: number): string {
@@ -116,7 +116,7 @@ interface DropTargetContext extends DropEffects {
 
 function targetPropsFor(target: AlbumSummary, context: DropTargetContext): AlbumDropTargetProps {
   const { formatCount } = context;
-  const accept = (event: DragEvent<HTMLDivElement>): PhotoDragPayload | null => {
+  const accept = (event: DragEvent<HTMLElement>): PhotoDragPayload | null => {
     if (!hasPhotoDrag(event.dataTransfer)) return null;
     const payload = readPhotoDrag(event.dataTransfer);
     if (payload === null) return null;

@@ -852,7 +852,7 @@ void externalOpen.whenReady().then(async () => {
     authorizePassword: (password) => lock.authorize(password),
     safeStorage: pickSafeStorage,
     providerBusy: custodyWorkActive,
-    onDeleted: markManifestDebt,
+    onManifestChanged: markManifestDebt,
     onImported: () => {
       getBackupEngine();
       autoBackupTrigger?.();

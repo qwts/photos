@@ -71,7 +71,7 @@ export interface AppServicesOptions {
   readonly authorizePassword: (password: string) => Promise<AppAuthorizationResult>;
   readonly backup: BackupFacadeOptions;
   readonly providerBusy: () => boolean;
-  readonly onDeleted: () => void;
+  readonly onManifestChanged: () => void;
   readonly onImported: () => void;
   readonly onImportRendererReady: () => void;
   readonly broadcast: (name: string, payload: unknown) => void;
@@ -107,8 +107,8 @@ export function registerAppServices(options: AppServicesOptions): void {
     authorizePassword: options.authorizePassword,
     deletePermanently: (photoIds) => options.getPurge().deletePermanently(photoIds),
   });
-  registerLibraryHandlers(options.getLibrary, options.onDeleted, options.getActivity);
-  registerAlbumHandlers(options.getLibrary, ulid, options.getActivity);
+  registerLibraryHandlers(options.getLibrary, options.onManifestChanged, options.getActivity);
+  registerAlbumHandlers(options.getLibrary, ulid, options.getActivity, options.onManifestChanged);
   registerActivityHandlers(options.getActivity, options.requireContentAccess);
   registerHistoryHandlers(options.getHistory, options.requireContentAccess);
   registerProtectedAlbumHandlers(

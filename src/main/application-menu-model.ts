@@ -71,6 +71,10 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
     case 'album.rename':
     case 'album.delete':
     case 'album.transfer':
+    case 'album.reorder.up':
+    case 'album.reorder.down':
+    case 'album.reorder.top':
+    case 'album.reorder.bottom':
     case 'photo.open':
     case 'photo.export':
     case 'photo.offload':

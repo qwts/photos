@@ -61,6 +61,12 @@ const VOCABULARY = [
   // Lightbox glyphs the design's Lightbox.jsx uses beyond the readme list
   // (#92): back control and the side navigation arrows.
   'arrow-left',
+  // Album reorder controls (#225).
+  'arrow-down',
+  'arrow-up',
+  'chevrons-down',
+  'chevrons-up',
+  'grip-vertical',
   'chevron-left',
   'chevron-right',
   // Library-switcher trigger glyph (#386).

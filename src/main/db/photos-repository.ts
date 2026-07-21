@@ -10,6 +10,7 @@ import { parseMediaInfo, type MediaInfo } from '../../shared/library/media-info.
 import type { DimensionStatus } from '../../shared/library/types.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 import { setOriginalClassification, softDeleteOrdinary } from './photo-original-policy-repository.js';
+import { moveAlbum, readAlbumOrder, readAlbumSummaries, replaceAlbumOrder, type AlbumOrderResult } from './album-order-repository.js';
 
 import type {
   AlbumSummary,
@@ -504,15 +505,21 @@ export class PhotosRepository {
 
   /** Sidebar albums list (#80): names + live membership counts. */
   albums(): AlbumSummary[] {
-    return queryAll<{ id: string; name: string; n: number }>(
-      this.db,
-      `SELECT a.id, a.name, count(ap.photo_id) AS n
-       FROM albums a
-       LEFT JOIN album_photos ap
-         ON ap.album_id = a.id
-        AND ap.photo_id IN (SELECT id FROM ordinary_visible_photos)
-       GROUP BY a.id ORDER BY a.position`,
-    ).map((row) => ({ id: row.id, name: row.name, count: row.n }));
+    return readAlbumSummaries(this.db);
+  }
+
+  albumOrder(): string[] {
+    return readAlbumOrder(this.db);
+  }
+
+  /** Replaces the complete ordinary-album order atomically. The exact-set
+   * check prevents a stale renderer from dropping a concurrently-added row. */
+  setAlbumOrder(order: readonly string[]): AlbumOrderResult {
+    return replaceAlbumOrder(this.db, order);
+  }
+
+  reorderAlbum(albumId: string, position: number): AlbumOrderResult {
+    return moveAlbum(this.db, albumId, position);
   }
 
   /** Album members — the rows an album edit dirties (manifest-relevant

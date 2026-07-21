@@ -1,4 +1,5 @@
 import type { CommandDraft } from '../activity/activity-publication.js';
+import type { CommandId } from '../../shared/commands/registry.js';
 
 export function favoriteCommand(photoId: string, favorite: boolean): CommandDraft {
   return {
@@ -38,6 +39,20 @@ export function albumMembershipCommand(
       before: operation === 'add' ? 'absent' : 'present',
       after: operation === 'add' ? 'present' : 'absent',
     },
+  };
+}
+
+export function albumOrderCommand(
+  commandId: Extract<CommandId, `album.reorder.${string}`>,
+  albumId: string,
+  before: readonly string[],
+  after: readonly string[],
+): CommandDraft | undefined {
+  if (before.length === after.length && before.every((id, index) => id === after[index])) return undefined;
+  return {
+    commandId,
+    classification: 'immediately-reversible',
+    inverse: { kind: 'album-order', albumId, before: [...before], after: [...after] },
   };
 }
 

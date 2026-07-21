@@ -205,7 +205,7 @@ test('album management: rename, delete, remove membership, and collapsed keyboar
   await selectedCell.locator('.ovl-tile__select').click();
   await expect(pill).toContainText('1 selected');
   await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-  const collapsedAlbum = page.getByRole('button', { name: 'Keyboard album · 0' });
+  const collapsedAlbum = page.getByRole('button', { name: 'Keyboard album · 0 · album 1 of 1' });
   await collapsedAlbum.focus();
   await collapsedAlbum.press('Shift+F10');
   const keyboardMenu = page.getByRole('menu', { name: 'Actions for Keyboard album' });

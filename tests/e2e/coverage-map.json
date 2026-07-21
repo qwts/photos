@@ -1153,12 +1153,20 @@
       ]
     },
     {
-      "id": "deferred-album-reorder",
-      "wiki": "User-Stories",
+      "id": "m10-album-reorder",
+      "wiki": "User-Story-M10-Albums-organization-deletion",
       "coverage": [
         {
-          "type": "deferred",
-          "issue": 225
+          "type": "playwright-e2e",
+          "path": "tests/e2e/album-reorder.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/Sidebar.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/db/album-order.test.ts"
         }
       ]
     },

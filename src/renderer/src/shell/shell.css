@@ -392,6 +392,15 @@
   color: var(--text-faint);
 }
 
+.ovl-sidebar__albumlist {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .ovl-sidebar__albumrow {
   position: relative;
   width: 100%;
@@ -402,7 +411,57 @@
 }
 
 .ovl-sidebar__albumrow .ovl-siderow:not(.ovl-siderow--collapsed) {
-  padding-inline-end: 34px;
+  padding-inline: 34px;
+}
+
+.ovl-sidebar__album-reorder {
+  position: absolute;
+  inset-inline-start: 4px;
+  top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: grab;
+  opacity: 0;
+}
+
+.ovl-sidebar__albumrow:hover .ovl-sidebar__album-reorder,
+.ovl-sidebar__albumrow:focus-within .ovl-sidebar__album-reorder,
+.ovl-sidebar__albumrow--grabbed .ovl-sidebar__album-reorder,
+.ovl-sidebar__albumrow--dragging .ovl-sidebar__album-reorder {
+  opacity: 1;
+}
+
+.ovl-sidebar__album-reorder:hover,
+.ovl-sidebar__album-reorder:focus-visible {
+  background: var(--gray-2);
+  color: var(--text-body);
+}
+
+.ovl-sidebar__album-reorder:active,
+.ovl-sidebar__albumrow--dragging .ovl-sidebar__album-reorder {
+  cursor: grabbing;
+}
+
+.ovl-sidebar__albumrow--grabbed .ovl-siderow,
+.ovl-sidebar__albumrow--dragging .ovl-siderow {
+  background: var(--accent-cyan-dim);
+  box-shadow: inset 0 0 0 1px var(--accent-cyan);
+}
+
+.ovl-sidebar--reorder-invalid {
+  cursor: not-allowed;
+}
+
+.ovl-sidebar--reorder-invalid .ovl-sidebar__albumrow--dragging .ovl-siderow {
+  box-shadow: inset 0 0 0 1px var(--accent-red);
 }
 
 .ovl-sidebar__albumrow--drop-allowed .ovl-siderow,
@@ -448,6 +507,13 @@
 .ovl-sidebar__albumrow:focus-within .ovl-sidebar__album-actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-sidebar__albumrow,
+  .ovl-sidebar__album-reorder {
+    transition: none;
+  }
 }
 
 .ovl-album-menu {

@@ -32,6 +32,54 @@
   "album.context.actions": {
     "defaultMessage": "Actions for {album}"
   },
+  "album.reorder.alreadyFirst": {
+    "defaultMessage": "{name} is already first."
+  },
+  "album.reorder.alreadyFirstShort": {
+    "defaultMessage": "Already first"
+  },
+  "album.reorder.alreadyLast": {
+    "defaultMessage": "{name} is already last."
+  },
+  "album.reorder.alreadyLastShort": {
+    "defaultMessage": "Already last"
+  },
+  "album.reorder.cancelled": {
+    "defaultMessage": "Move cancelled. {name} returned to position {position} of {total}."
+  },
+  "album.reorder.failed": {
+    "defaultMessage": "Could not reorder {name}."
+  },
+  "album.reorder.grabbed": {
+    "defaultMessage": "Grabbed {name}. Use Up and Down arrows to move, Space to drop, Escape to cancel."
+  },
+  "album.reorder.handle": {
+    "defaultMessage": "Reorder {name}, position {position} of {total}"
+  },
+  "album.reorder.handleMoving": {
+    "defaultMessage": "Moving {name}, position {position} of {total}. Arrow keys move, Space drops, Escape cancels."
+  },
+  "album.reorder.instructions": {
+    "defaultMessage": "Press Space or Enter to grab. Use arrow keys to move, Space or Enter to drop, and Escape to cancel."
+  },
+  "album.reorder.listChanged": {
+    "defaultMessage": "Album list changed — move cancelled."
+  },
+  "album.reorder.moved": {
+    "defaultMessage": "{name} moved to position {position} of {total}."
+  },
+  "album.reorder.position": {
+    "defaultMessage": "{name}, position {position} of {total}."
+  },
+  "album.reorder.positionSuffix": {
+    "defaultMessage": "album {position} of {total}"
+  },
+  "album.reorder.stayed": {
+    "defaultMessage": "{name} stays at position {position} of {total}."
+  },
+  "album.reorder.tooltip": {
+    "defaultMessage": "Reorder album"
+  },
   "appLock.password": {
     "defaultMessage": "App password"
   },
@@ -46,6 +94,18 @@
   },
   "commands.album.rename": {
     "defaultMessage": "Rename album…"
+  },
+  "commands.album.reorder.bottom": {
+    "defaultMessage": "Move to bottom"
+  },
+  "commands.album.reorder.down": {
+    "defaultMessage": "Move down"
+  },
+  "commands.album.reorder.top": {
+    "defaultMessage": "Move to top"
+  },
+  "commands.album.reorder.up": {
+    "defaultMessage": "Move up"
   },
   "commands.album.transfer": {
     "defaultMessage": "Transfer & Sync…"

@@ -115,6 +115,39 @@ describe('HistoryService (#615, ADR-0025)', () => {
     state.db.close();
   });
 
+  test('undoes and redoes one committed album order and marks manifest debt (#225)', async () => {
+    let manifestDebts = 0;
+    const state = world(() => {
+      manifestDebts += 1;
+    });
+    state.service.createAlbum('album-one', 'One');
+    state.service.createAlbum('album-two', 'Two');
+    state.service.createAlbum('album-three', 'Three');
+    mutateWithActivity(
+      () => state.activity,
+      () => state.service.reorderAlbum('album-three', 0),
+      () => ({ eventType: 'album.reordered', entityIds: ['album-three'], outcome: 'succeeded' }),
+      (result) => ({
+        commandId: 'album.reorder.top',
+        classification: 'immediately-reversible',
+        inverse: {
+          kind: 'album-order',
+          albumId: 'album-three',
+          before: result.before,
+          after: result.after,
+        },
+      }),
+    );
+    assert.deepEqual(state.service.albumOrder(), ['album-three', 'album-one', 'album-two']);
+
+    assert.equal((await state.history.undo('undo-album-order')).applied, true);
+    assert.deepEqual(state.service.albumOrder(), ['album-one', 'album-two', 'album-three']);
+    assert.equal((await state.history.redo('redo-album-order')).applied, true);
+    assert.deepEqual(state.service.albumOrder(), ['album-three', 'album-one', 'album-two']);
+    assert.equal(manifestDebts, 2, 'undo and redo both refresh the manifest, including empty albums');
+    state.db.close();
+  });
+
   test('fails closed when a recorded resource disappears', async () => {
     const state = world();
     mutateWithActivity(
