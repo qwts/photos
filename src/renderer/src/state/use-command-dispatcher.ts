@@ -147,8 +147,8 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         event.preventDefault();
       }
     };
-    window.addEventListener('keydown', onKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [direction, dispatch, helpOpen, onHelp, platform, state]);
 }
 
