@@ -77,6 +77,7 @@ export function Shell({
   const emptyTrash = useEmptyTrash();
   const [shortcutSurface, setShortcutSurface] = useState<CommandSurface | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>();
+  const [exportPhotoIds, setExportPhotoIds] = useState<readonly string[] | null>(null);
   const handledNativeSequenceRef = useRef(0);
   const [editableFocus, setEditableFocus] = useState(false);
   useCommandDispatcher(platform, setShortcutSurface, shortcutSurface !== null);
