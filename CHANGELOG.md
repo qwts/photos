@@ -1,5 +1,12 @@
 # photos
 
+## 0.49.0
+
+### Minor Changes
+
+- 3c88d97: Define and validate the encrypted Move message and original-blob wire contract.
+- 4a6fb8b: Add protected pairing custody, isolated pCloud interoperability authorization, and durable inbound Move discovery state.
+
 ## 0.48.0
 
 ### Minor Changes
