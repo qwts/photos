@@ -24,6 +24,8 @@ const getLocale = createInvoker(channels.getLocale, invokeTransport);
 const minimizeWindow = createInvoker(channels.windowMinimize, invokeTransport);
 const toggleMaximizeWindow = createInvoker(channels.windowToggleMaximize, invokeTransport);
 const closeWindow = createInvoker(channels.windowClose, invokeTransport);
+const commandRendererReady = createInvoker(channels.commandRendererReady, invokeTransport);
+const commandContextUpdate = createInvoker(channels.commandContextUpdate, invokeTransport);
 
 const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
 const settingsGet = createInvoker(channels.settingsGet, invokeTransport);
@@ -62,6 +64,15 @@ const appLockTouchIdUnlock = createInvoker(channels.appLockTouchIdUnlock, invoke
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
   onFocusChanged: createSubscriber(events.focusChanged, subscribeTransport),
+  commands: Object.freeze({
+    ready: async (context) => {
+      await commandRendererReady(context);
+    },
+    updateContext: async (context) => {
+      await commandContextUpdate(context);
+    },
+    onInvoked: createSubscriber(events.commandInvoked, subscribeTransport),
+  }),
   appLock: Object.freeze({
     status: async () => appLockStatus({}),
     unlock: createInvoker(channels.appLockUnlock, invokeTransport),

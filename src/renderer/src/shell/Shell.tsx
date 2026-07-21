@@ -11,7 +11,7 @@ import { ToastHost, type ToastItem } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ExportDialog } from '../export/ExportDialog';
-import { SettingsDialog } from '../settings/SettingsDialog';
+import { SettingsDialog, type SettingsSection } from '../settings/SettingsDialog';
 import { ImportDialog } from '../import/ImportDialog';
 import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
@@ -32,6 +32,8 @@ import { ProtectedAlbumView } from '../protected/ProtectedAlbumView';
 import { createBoundedExternalDropReporter, installExternalFileDropBoundary } from './external-file-drop';
 import { ShortcutHelp } from '../commands/ShortcutHelp';
 import type { CommandSurface } from '../../../shared/commands/registry.js';
+import type { CommandId } from '../../../shared/commands/registry.js';
+import type { CommandMenuContext } from '../../../shared/commands/menu-contract.js';
 
 function mergeDropPaths(current: readonly string[] | null, incoming: readonly string[]): readonly string[] {
   return [...new Set([...(current ?? []), ...incoming])];
@@ -42,13 +44,40 @@ type RestorableDialog = 'export' | 'settings' | 'libraries';
 // Composition shell (#73): fixed chrome per README §1. The toolbar, grid,
 // sidebar internals, and status bar semantics land with #74–#81 — this keeps
 // their regions real (token dims, live counts) so each issue fills in place.
-export function Shell({ platform, lockConfigured }: { readonly platform: string; readonly lockConfigured: boolean }): ReactElement {
+export function Shell({
+  platform,
+  lockConfigured,
+  nativeCommand,
+}: {
+  readonly platform: string;
+  readonly lockConfigured: boolean;
+  readonly nativeCommand: { readonly id: CommandId; readonly sequence: number } | null;
+}): ReactElement {
   const { formatCount, formatRelativeTime } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
   const offload = useOffloadWorkflow();
   const [shortcutSurface, setShortcutSurface] = useState<CommandSurface | null>(null);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>();
+  const handledNativeSequenceRef = useRef(0);
+  const [editableFocus, setEditableFocus] = useState(false);
   useCommandDispatcher(platform, setShortcutSurface, shortcutSurface !== null);
+
+  useEffect(() => {
+    const update = (): void => {
+      setEditableFocus(
+        document.activeElement instanceof HTMLElement &&
+          document.activeElement.closest('input, textarea, select, [contenteditable="true"]') !== null,
+      );
+    };
+    update();
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', update);
+    return () => {
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', update);
+    };
+  }, []);
 
   const [counts, setCounts] = useState<SourceCounts | null>(null);
   // Window drag-and-drop (#237): dropped photo paths pre-seed the dialog's
@@ -138,6 +167,155 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
   >([]);
   const [unlockAlbumId, setUnlockAlbumId] = useState<string | null>(null);
   const unlockOriginRef = useRef<HTMLButtonElement | null>(null);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- #531 native IPC commands intentionally synchronize renderer state. */
+  useEffect(() => {
+    if (nativeCommand === null || handledNativeSequenceRef.current === nativeCommand.sequence) return;
+    handledNativeSequenceRef.current = nativeCommand.sequence;
+    const closeOverlays = (): void => {
+      setShortcutSurface(null);
+      setInteropEntry(null);
+      setUnlockAlbumId(null);
+      offload.close();
+      setDropped(null);
+      dispatch({ type: 'lightbox/closed' });
+      dispatch({ type: 'dialog/set', dialog: 'import', open: false });
+      dispatch({ type: 'dialog/set', dialog: 'export', open: false });
+      dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
+      dispatch({ type: 'dialog/set', dialog: 'libraries', open: false });
+    };
+    const openSettings = (section: SettingsSection): void => {
+      closeOverlays();
+      setSettingsSection(section);
+      dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
+    };
+    switch (nativeCommand.id) {
+      case 'app.settings.open':
+        openSettings('general');
+        return;
+      case 'app.settings.open.storage':
+        openSettings('storage');
+        return;
+      case 'app.settings.open.transfer':
+        openSettings('transfer');
+        return;
+      case 'app.settings.open.privacy':
+        openSettings('privacy');
+        return;
+      case 'library.switch':
+        closeOverlays();
+        dispatch({ type: 'dialog/set', dialog: 'libraries', open: true });
+        return;
+      case 'library.import':
+        closeOverlays();
+        dispatch({ type: 'dialog/set', dialog: 'import', open: true });
+        return;
+      case 'library.source.all':
+      case 'library.source.favorites':
+      case 'library.source.recent':
+      case 'library.source.trash':
+        closeOverlays();
+        dispatch({
+          type: 'source/set',
+          source:
+            nativeCommand.id === 'library.source.all'
+              ? 'all'
+              : nativeCommand.id === 'library.source.favorites'
+                ? 'favorites'
+                : nativeCommand.id === 'library.source.recent'
+                  ? 'recent'
+                  : 'deleted',
+        });
+        return;
+      case 'selection.selectAll':
+        dispatch({ type: 'selection/all', photoIds: state.photos.map(({ id }) => id) });
+        return;
+      case 'view.inspector.toggle':
+        dispatch({ type: 'inspector/toggled' });
+        return;
+      case 'view.mode.grid':
+      case 'view.mode.list':
+        dispatch({ type: 'view/set', view: nativeCommand.id === 'view.mode.grid' ? 'grid' : 'list' });
+        return;
+      case 'view.lightbox.close':
+        dispatch({ type: 'lightbox/closed' });
+        return;
+      case 'photo.favorite.toggle': {
+        const target = state.photos.find(({ id }) => id === state.lightboxId);
+        if (target !== undefined) {
+          void window.overlook.library.toggleFavorite({ id: target.id }).then(({ pendingCount }) => {
+            dispatch({ type: 'pendingCount/set', count: pendingCount });
+          });
+        }
+        return;
+      }
+      case 'photo.trash': {
+        const target = state.photos.find(({ id }) => id === state.lightboxId && id !== null);
+        if (target?.deletedAt === null) {
+          void window.overlook.library.delete({ photoIds: [target.id] }).then(() => {
+            dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Trash', tone: 'neutral' } });
+          });
+        }
+        return;
+      }
+      case 'help.shortcuts':
+        setShortcutSurface(state.lightboxId === null ? 'grid' : 'lightbox');
+        return;
+      case 'app.lock.now':
+      case 'help.open':
+      case 'app.search.focus':
+      case 'selection.clear':
+      case 'view.lightbox.previous':
+      case 'view.lightbox.next':
+      case 'view.lightbox.zoomIn':
+      case 'view.lightbox.zoomOut':
+      case 'view.lightbox.zoomReset':
+      case 'view.lightbox.rotateLeft':
+      case 'view.lightbox.rotateRight':
+      case 'view.lightbox.flipHorizontal':
+      case 'view.lightbox.orientationReset':
+      case 'grid.focus.left':
+      case 'grid.focus.right':
+      case 'grid.focus.up':
+      case 'grid.focus.down':
+      case 'grid.focus.home':
+      case 'grid.focus.end':
+      case 'grid.focus.pageUp':
+      case 'grid.focus.pageDown':
+        return;
+    }
+  }, [dispatch, nativeCommand, offload, state.lightboxId, state.photos]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    const target = state.photos.find(({ id }) => id === state.lightboxId);
+    const context: CommandMenuContext = {
+      surface: state.lightboxId === null ? 'grid' : 'lightbox',
+      dialog: state.importOpen
+        ? 'import'
+        : state.exportOpen
+          ? 'export'
+          : state.settingsOpen
+            ? 'settings'
+            : state.librariesOpen
+              ? 'libraries'
+              : shortcutSurface !== null || interopEntry !== null || unlockAlbumId !== null || offload.activePhotoIds !== null
+                ? 'other'
+                : 'none',
+      editable: editableFocus,
+      hasLibrary: true,
+      hasPhotos: state.photos.length > 0,
+      hasTarget: target !== undefined,
+      targetTrashable: target?.deletedAt === null,
+      selectionCount: state.selection.size,
+      appLockConfigured: lockConfigured,
+      providerBusy: false,
+      inspectorOpen: state.inspectorOpen,
+      view: state.view,
+      source: state.source,
+    };
+    void window.overlook.commands.updateContext(context);
+  }, [editableFocus, interopEntry, lockConfigured, offload.activePhotoIds, shortcutSurface, state, unlockAlbumId]);
 
   const refreshProtected = useCallback((): void => {
     void window.overlook.protectedAlbums.list().then(async ({ albums: opaque }) => {
@@ -412,9 +590,11 @@ export function Shell({ platform, lockConfigured }: { readonly platform: string;
       {state.settingsOpen ? (
         <SettingsDialog
           open
+          requestedSection={settingsSection}
           selectedPhotoIds={[...state.selection]}
           onTransfer={() => openInterop('settings', [...state.selection])}
           onClose={() => {
+            setSettingsSection(undefined);
             dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
           }}
         />

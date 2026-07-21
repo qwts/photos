@@ -10,6 +10,11 @@ type Res<C extends { response: z.ZodType }> = z.output<C['response']>;
 export interface OverlookApi {
   readonly ping: (request: PingRequest) => Promise<PingResponse>;
   readonly onFocusChanged: (listener: (payload: FocusChangedPayload) => void) => () => void;
+  readonly commands: {
+    readonly ready: (context: Req<typeof channels.commandRendererReady>) => Promise<void>;
+    readonly updateContext: (context: Req<typeof channels.commandContextUpdate>) => Promise<void>;
+    readonly onInvoked: (listener: (payload: z.output<typeof events.commandInvoked.payload>) => void) => () => void;
+  };
   readonly getPlatform: () => Promise<string>;
   /** Active UI locale resolved in main (setting → OS → en; ADR-0020 §2). */
   readonly getLocale: () => Promise<string>;

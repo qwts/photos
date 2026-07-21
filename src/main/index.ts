@@ -7,7 +7,7 @@ import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { configureAppProfile } from './app-profile.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
-import { reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
+import { registerWindowAllClosedQuit, reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
 import { drainWithCancellationFence } from './crypto/library-shutdown.js';
@@ -63,6 +63,7 @@ import { runDevSeeds } from './library/dev-seed.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
+import { installApplicationMenu, refreshApplicationMenu } from './application-menu.js';
 
 // Test/dev steering hooks (#72/#129) are unpackaged-only; runtime tuning stays outside this gate.
 function harnessEnv(name: string): string | undefined {
@@ -347,6 +348,7 @@ const providerIdleWaiters = new Set<() => void>();
 
 function changeProviderWork(delta: 1 | -1): void {
   providerWorkCount += delta;
+  refreshApplicationMenu();
   if (providerWorkCount === 0) {
     for (const resolve of providerIdleWaiters) resolve();
     providerIdleWaiters.clear();
@@ -810,6 +812,7 @@ void externalOpen.whenReady().then(async () => {
   await recoverInterruptedActivation(restorePaths(libraryDataDir()));
   const lock = getAppLockController();
   await lock.initialize();
+  installApplicationMenu(lock, () => providerWorkCount > 0);
   externalOpen.followAuthorization(lock);
   registerIpcHandlers(() => getSettingsStore().get().language);
   registerRelocationHandlers(getRelocationRuntime);
@@ -886,11 +889,7 @@ void externalOpen.whenReady().then(async () => {
   externalOpen.finishBootstrap();
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+registerWindowAllClosedQuit();
 
 registerQuitTeardown({
   isLibraryOpen: () => libraryService !== undefined,

@@ -80,6 +80,7 @@
     "@eslint-react/eslint-plugin": "5.17.1",
     "@eslint/js": "10.0.1",
     "@formatjs/cli": "6.16.14",
+    "@formatjs/intl": "4.1.17",
     "@happy-dom/global-registrator": "20.10.6",
     "@playwright/test": "1.61.1",
     "@storybook/addon-a11y": "10.5.2",

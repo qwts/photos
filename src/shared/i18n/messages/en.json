@@ -1,6 +1,21 @@
 {
+  "commands.app.lock.now": {
+    "defaultMessage": "Lock Now"
+  },
   "commands.app.search.focus": {
     "defaultMessage": "Focus search"
+  },
+  "commands.app.settings.open": {
+    "defaultMessage": "Settings…"
+  },
+  "commands.app.settings.open.privacy": {
+    "defaultMessage": "Privacy & Diagnostics"
+  },
+  "commands.app.settings.open.storage": {
+    "defaultMessage": "Storage & Backup"
+  },
+  "commands.app.settings.open.transfer": {
+    "defaultMessage": "Transfer & Sync"
   },
   "commands.grid.focus.down": {
     "defaultMessage": "Move focus down"
@@ -34,6 +49,24 @@
   },
   "commands.help.title": {
     "defaultMessage": "Keyboard shortcuts"
+  },
+  "commands.library.import": {
+    "defaultMessage": "Import Photos…"
+  },
+  "commands.library.source.all": {
+    "defaultMessage": "All Photos"
+  },
+  "commands.library.source.favorites": {
+    "defaultMessage": "Favorites"
+  },
+  "commands.library.source.recent": {
+    "defaultMessage": "Recent Imports"
+  },
+  "commands.library.source.trash": {
+    "defaultMessage": "Trash"
+  },
+  "commands.library.switch": {
+    "defaultMessage": "Switch Library…"
   },
   "commands.photo.favorite.toggle": {
     "defaultMessage": "Toggle favorite"
@@ -79,6 +112,12 @@
   },
   "commands.view.lightbox.zoomReset": {
     "defaultMessage": "Reset zoom"
+  },
+  "commands.view.mode.grid": {
+    "defaultMessage": "Grid"
+  },
+  "commands.view.mode.list": {
+    "defaultMessage": "List"
   },
   "favorite.add": {
     "defaultMessage": "Add to Favorites"
@@ -340,6 +379,24 @@
   },
   "lightbox.image.loading": {
     "defaultMessage": "Loading full-resolution image…"
+  },
+  "menu.edit": {
+    "defaultMessage": "Edit"
+  },
+  "menu.file": {
+    "defaultMessage": "File"
+  },
+  "menu.photo": {
+    "defaultMessage": "Photo"
+  },
+  "menu.settingsSections": {
+    "defaultMessage": "Settings Sections"
+  },
+  "menu.view": {
+    "defaultMessage": "View"
+  },
+  "menu.window": {
+    "defaultMessage": "Window"
   },
   "preview.unavailable": {
     "defaultMessage": "PREVIEW UNAVAILABLE"

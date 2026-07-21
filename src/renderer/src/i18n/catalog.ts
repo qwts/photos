@@ -1,5 +1,5 @@
 import { SOURCE_LOCALE, fallbackChain } from '../../../shared/i18n/locales.js';
-import { catalogs } from './generated/index.js';
+import { catalogs } from '../../../shared/i18n/generated/index.js';
 import { isPseudoLocale, toPseudoCatalog } from './pseudo.js';
 
 // Catalog loader for the react-intl runtime (#403, ADR-0020 §1/§6). Resolves a

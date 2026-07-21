@@ -67,6 +67,7 @@ test('native menu exposure is typed, unique, and queues only idempotent commands
   assert.equal(commandById('app.settings.open').native?.queueable, true);
   assert.equal(commandById('app.lock.now').native?.queueable, false);
   assert.equal(commandById('photo.trash').native?.queueable, false);
+  assert.equal(commandById('help.open').target, 'application');
   assert.ok(
     native
       .filter(({ native: exposure }) => exposure?.queueable === true)

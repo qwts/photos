@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useCallback, useState, type ReactElement } from 'react';
 
 import { useAppDispatch } from '../state/app-state-context';
 import { useFormats } from '../i18n/use-formats.js';
@@ -13,6 +13,7 @@ interface Request {
 
 export interface OffloadWorkflow {
   readonly open: (photoIds: readonly string[], clearSelection?: boolean, afterSuccess?: () => void) => void;
+  readonly close: () => void;
   readonly activePhotoIds: readonly string[] | null;
   readonly dialog: ReactElement | null;
 }
@@ -21,9 +22,10 @@ export function useOffloadWorkflow(): OffloadWorkflow {
   const formats = useFormats();
   const dispatch = useAppDispatch();
   const [request, setRequest] = useState<Request | null>(null);
-  const open = (photoIds: readonly string[], clearSelection = false, afterSuccess?: () => void): void => {
+  const open = useCallback((photoIds: readonly string[], clearSelection = false, afterSuccess?: () => void): void => {
     setRequest({ photoIds: [...new Set(photoIds)], clearSelection, afterSuccess });
-  };
+  }, []);
+  const close = useCallback((): void => setRequest(null), []);
   const dialog =
     request === null ? null : (
       <OffloadDialog
@@ -46,5 +48,5 @@ export function useOffloadWorkflow(): OffloadWorkflow {
         }}
       />
     );
-  return { open, activePhotoIds: request?.photoIds ?? null, dialog };
+  return { open, close, activePhotoIds: request?.photoIds ?? null, dialog };
 }

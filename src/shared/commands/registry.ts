@@ -60,6 +60,7 @@ export type CommandId =
   | 'view.lightbox.flipHorizontal'
   | 'view.lightbox.orientationReset'
   | 'help.shortcuts'
+  | 'help.open'
   | 'grid.focus.left'
   | 'grid.focus.right'
   | 'grid.focus.up'
@@ -78,7 +79,50 @@ export interface KeyboardLike {
 }
 
 const GLOBAL_SURFACES: readonly CommandSurface[] = ['global', 'grid', 'lightbox'];
-const label = (id: CommandId, defaultMessage: string): CommandDescriptor['label'] => ({ id: `commands.${id}`, defaultMessage });
+const defineMessages = <T extends Record<string, CommandDescriptor['label']>>(messages: T): T => messages;
+const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessages({
+  'app.settings.open': { id: 'commands.app.settings.open', defaultMessage: 'Settings…' },
+  'app.settings.open.storage': { id: 'commands.app.settings.open.storage', defaultMessage: 'Storage & Backup' },
+  'app.settings.open.transfer': { id: 'commands.app.settings.open.transfer', defaultMessage: 'Transfer & Sync' },
+  'app.settings.open.privacy': { id: 'commands.app.settings.open.privacy', defaultMessage: 'Privacy & Diagnostics' },
+  'app.lock.now': { id: 'commands.app.lock.now', defaultMessage: 'Lock Now' },
+  'app.search.focus': { id: 'commands.app.search.focus', defaultMessage: 'Focus search' },
+  'library.switch': { id: 'commands.library.switch', defaultMessage: 'Switch Library…' },
+  'library.import': { id: 'commands.library.import', defaultMessage: 'Import Photos…' },
+  'library.source.all': { id: 'commands.library.source.all', defaultMessage: 'All Photos' },
+  'library.source.favorites': { id: 'commands.library.source.favorites', defaultMessage: 'Favorites' },
+  'library.source.recent': { id: 'commands.library.source.recent', defaultMessage: 'Recent Imports' },
+  'library.source.trash': { id: 'commands.library.source.trash', defaultMessage: 'Trash' },
+  'selection.selectAll': { id: 'commands.selection.selectAll', defaultMessage: 'Select all photos' },
+  'selection.clear': { id: 'commands.selection.clear', defaultMessage: 'Clear selection' },
+  'view.inspector.toggle': { id: 'commands.view.inspector.toggle', defaultMessage: 'Show or hide Inspector' },
+  'view.mode.grid': { id: 'commands.view.mode.grid', defaultMessage: 'Grid' },
+  'view.mode.list': { id: 'commands.view.mode.list', defaultMessage: 'List' },
+  'view.lightbox.close': { id: 'commands.view.lightbox.close', defaultMessage: 'Exit lightbox' },
+  'view.lightbox.previous': { id: 'commands.view.lightbox.previous', defaultMessage: 'Previous photo' },
+  'view.lightbox.next': { id: 'commands.view.lightbox.next', defaultMessage: 'Next photo' },
+  'photo.favorite.toggle': { id: 'commands.photo.favorite.toggle', defaultMessage: 'Toggle favorite' },
+  'photo.trash': { id: 'commands.photo.trash', defaultMessage: 'Move photo to Trash' },
+  'view.lightbox.zoomIn': { id: 'commands.view.lightbox.zoomIn', defaultMessage: 'Zoom in' },
+  'view.lightbox.zoomOut': { id: 'commands.view.lightbox.zoomOut', defaultMessage: 'Zoom out' },
+  'view.lightbox.zoomReset': { id: 'commands.view.lightbox.zoomReset', defaultMessage: 'Reset zoom' },
+  'view.lightbox.rotateLeft': { id: 'commands.view.lightbox.rotateLeft', defaultMessage: 'Rotate left' },
+  'view.lightbox.rotateRight': { id: 'commands.view.lightbox.rotateRight', defaultMessage: 'Rotate right' },
+  'view.lightbox.flipHorizontal': { id: 'commands.view.lightbox.flipHorizontal', defaultMessage: 'Flip horizontally' },
+  'view.lightbox.orientationReset': { id: 'commands.view.lightbox.orientationReset', defaultMessage: 'Reset orientation' },
+  'help.shortcuts': { id: 'commands.help.shortcuts', defaultMessage: 'Keyboard shortcuts' },
+  'help.open': { id: 'commands.help.open', defaultMessage: 'Overlook Help' },
+  'grid.focus.left': { id: 'commands.grid.focus.left', defaultMessage: 'Move focus left' },
+  'grid.focus.right': { id: 'commands.grid.focus.right', defaultMessage: 'Move focus right' },
+  'grid.focus.up': { id: 'commands.grid.focus.up', defaultMessage: 'Move focus up' },
+  'grid.focus.down': { id: 'commands.grid.focus.down', defaultMessage: 'Move focus down' },
+  'grid.focus.home': { id: 'commands.grid.focus.home', defaultMessage: 'Move to row start' },
+  'grid.focus.end': { id: 'commands.grid.focus.end', defaultMessage: 'Move to row end' },
+  'grid.focus.pageUp': { id: 'commands.grid.focus.pageUp', defaultMessage: 'Move up one page' },
+  'grid.focus.pageDown': { id: 'commands.grid.focus.pageDown', defaultMessage: 'Move down one page' },
+});
+
+const label = (id: CommandId, _defaultMessage: string): CommandDescriptor['label'] => commandLabels[id];
 
 export const COMMANDS: readonly CommandDescriptor[] = [
   {
@@ -303,6 +347,13 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     key: '?',
     alternateKeys: ['/'],
     native: { menu: 'help', lockSafe: true, queueable: true },
+  },
+  {
+    id: 'help.open',
+    label: label('help.open', 'Overlook Help'),
+    surfaces: [],
+    target: 'application',
+    native: { menu: 'help', lockSafe: true, queueable: false },
   },
   {
     id: 'grid.focus.left',
