@@ -139,6 +139,8 @@ export const en: Readonly<Record<string, string>> = {
   "libswitch.move.one": "Move {name}…",
   "libswitch.move.select": "Select {name} to move",
   "libswitch.move.selected": "Move {count} selected…",
+  "lightbox.animation.play": "Play animation",
+  "lightbox.animation.stop": "Show static poster",
   "lightbox.image.loading": "Loading full-resolution image…",
   "menu.edit": "Edit",
   "menu.file": "File",

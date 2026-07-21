@@ -25,6 +25,7 @@ function manifest(): BackupManifestV2 {
         id: 'P1',
         fileName: 'IMG_0001.JPG',
         fileKind: 'jpeg',
+        mediaInfo: null,
         width: 10,
         height: 20,
         bytes: 42,

@@ -30,6 +30,7 @@ function fullRow(
     id,
     fileName,
     fileKind,
+    mediaInfo: null,
     width: 1,
     height: 1,
     bytes,

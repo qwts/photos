@@ -17,6 +17,7 @@ const PHOTO: PhotoRecord = {
   id: '01J8SEEDPHOTO0001',
   fileName: 'IMG_4028.JPG',
   fileKind: 'jpeg',
+  mediaInfo: null,
   width: 1280,
   height: 838,
   bytes: 8_400_000,

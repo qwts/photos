@@ -24,6 +24,7 @@ function photo(index: number): PhotoRecord {
     id: `P${index}`,
     fileName: `IMG_${index}.JPG`,
     fileKind: 'jpeg',
+    mediaInfo: null,
     width: 200,
     height: 200,
     bytes: 1000,

@@ -404,6 +404,12 @@
   "libswitch.move.selected": {
     "defaultMessage": "Move {count} selected…"
   },
+  "lightbox.animation.play": {
+    "defaultMessage": "Play animation"
+  },
+  "lightbox.animation.stop": {
+    "defaultMessage": "Show static poster"
+  },
   "lightbox.image.loading": {
     "defaultMessage": "Loading full-resolution image…"
   },

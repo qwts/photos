@@ -4,6 +4,8 @@ import { Readable } from 'node:stream';
 import type { ExtractedMetadata } from './exif.js';
 import type { ThumbnailOutcome, ThumbnailRequest } from './thumbnail-service.js';
 import type { EnvelopeKey, KeyResolver } from '../crypto/envelope.js';
+import { probeMediaInfo, sniffImageKind } from '../../shared/library/media-signatures.js';
+import type { MediaInfo } from '../../shared/library/media-info.js';
 import type { FileKind, PhotoInsert, PhotoRecord } from '../../shared/library/types.js';
 
 // Import engine (#87): source files → encrypted, verified library records —
@@ -211,6 +213,13 @@ export class ImportEngine {
     try {
       const contentHash = createHash('sha256').update(bytes).digest('hex');
       file.contentHash = contentHash;
+      // Signature-first classification (ADR-0026 §2): the scanner's
+      // extension-derived kind is a hint; recognized byte signatures win, so
+      // a spoofed suffix records the format the bytes actually are. The name
+      // and extension stay untouched (custody, §4). Deterministic from bytes,
+      // so resumed batches re-derive the same answer.
+      const kind = sniffImageKind(bytes) ?? file.kind;
+      const mediaInfo = probeMediaInfo(bytes, kind);
 
       if (file.stage === 'pending') {
         // A resumed file whose row already committed under OUR photoId (crash
@@ -231,11 +240,11 @@ export class ImportEngine {
           await persist();
           const key = this.deps.currentKey();
           const ref = await this.deps.blobs.putOriginal(Readable.from([bytes]), key, file.photoId);
-          const meta = await this.deps.extractMetadata(bytes, file.kind);
+          const meta = await this.deps.extractMetadata(bytes, kind);
           // Single transaction per file (repo.insert): the row and its dirty
           // sync-ledger entry commit together or not at all — partial records
           // are never visible to queries.
-          this.deps.repo.insert(this.toRecord(file, manifest.source, meta, ref.bytes, ref.keyId));
+          this.deps.repo.insert(this.toRecord(file, kind, mediaInfo, manifest.source, meta, ref.bytes, ref.keyId));
           file.status = 'imported';
           file.stage = 'recorded';
           await persist();
@@ -250,14 +259,17 @@ export class ImportEngine {
           bytes,
           contentHash,
           key: this.deps.currentKey(),
-          fileKind: file.kind,
+          fileKind: kind,
         });
         if (outcome.width !== null && outcome.height !== null) {
           this.deps.repo.repairGeneratedDimensions(file.photoId ?? '', outcome.width, outcome.height);
         } else {
           this.deps.repo.setDimensionStatus(file.photoId ?? '', 'unavailable');
         }
-        if (file.kind === 'heic') {
+        if (kind === 'heic' || kind === 'gif' || kind === 'webp') {
+          // Formats whose poster comes from decoding the original directly:
+          // a placeholder outcome is an imported photo with an honest,
+          // actionable display state (ADR-0026 §6), never a failed import.
           this.deps.repo.setPreviewFailure(file.photoId ?? '', outcome.generated ? null : (outcome.failure ?? 'decode-failed'));
         }
         file.stage = 'thumbed';
@@ -282,11 +294,20 @@ export class ImportEngine {
     }
   }
 
-  private toRecord(file: ManifestFile, source: string, meta: ExtractedMetadata, bytes: number, keyId: number): PhotoInsert {
+  private toRecord(
+    file: ManifestFile,
+    kind: FileKind,
+    mediaInfo: MediaInfo | null,
+    source: string,
+    meta: ExtractedMetadata,
+    bytes: number,
+    keyId: number,
+  ): PhotoInsert {
     return {
       id: file.photoId ?? '',
       fileName: file.fileName,
-      fileKind: file.kind,
+      fileKind: kind,
+      mediaInfo,
       width: meta.width ?? 0,
       height: meta.height ?? 0,
       bytes,

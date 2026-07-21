@@ -24,6 +24,7 @@ function raw(overrides: Partial<PhotoRecord> = {}): PhotoRecord {
     id: 'RAW1',
     fileName: 'legacy.nef',
     fileKind: 'raw',
+    mediaInfo: null,
     width: 0,
     height: 0,
     bytes: 512,

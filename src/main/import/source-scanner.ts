@@ -41,7 +41,7 @@ export interface SourceScanSummary {
   /** RAW/JPG split of the NEW files (the card's "812 RAW / 392 JPG"). */
   readonly newRaw: number;
   readonly newJpg: number;
-  /** New non-RAW, non-JPEG media (HEIC/PNG) — not JPGs (PR #174 review). */
+  /** New non-RAW, non-JPEG media (HEIC/PNG/GIF/WebP) — not JPGs (PR #174 review). */
   readonly newOther: number;
 }
 

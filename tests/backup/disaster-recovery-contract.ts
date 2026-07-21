@@ -66,6 +66,7 @@ export async function exerciseDisasterRecoveryContract(
         id,
         fileName: `RECOVERED_${String(index + 1)}.JPG`,
         fileKind: 'jpeg',
+        mediaInfo: null,
         width: 1,
         height: 1,
         bytes: ref.bytes,

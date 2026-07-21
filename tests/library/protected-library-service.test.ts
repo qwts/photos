@@ -46,6 +46,7 @@ async function world() {
       id: PHOTO_ID,
       fileName: 'private-name.jpg',
       fileKind: 'jpeg',
+      mediaInfo: null,
       width: 20,
       height: 10,
       bytes: original.length,

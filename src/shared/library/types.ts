@@ -2,9 +2,10 @@
 // renderer imports these for grid/list/inspector rendering; the repository
 // and (later) the IPC service speak them natively.
 
+import type { MediaInfo } from './media-info.js';
 import type { PreviewFailureReason } from './preview.js';
 
-export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'other';
+export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'gif' | 'webp' | 'other';
 
 /** sync_ledger.status vocabulary (ADR-0005; 'error' added by #104). */
 export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offloaded' | 'error';
@@ -39,12 +40,16 @@ export interface PhotoRecord {
   readonly previewFailure: PreviewFailureReason | null;
   /** Local integrity hint; metadata-mismatch means the original may have corrupt metadata. */
   readonly dimensionStatus: DimensionStatus;
+  /** Probed container facts (ADR-0026 §1); null for kinds without them. */
+  readonly mediaInfo: MediaInfo | null;
   /** From the sync_ledger join; new rows start 'local'. */
   readonly syncState: SyncStatus;
 }
 
-export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'previewFailure' | 'dimensionStatus' | 'syncState'> & {
+export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'previewFailure' | 'dimensionStatus' | 'syncState' | 'mediaInfo'> & {
   readonly favorite?: boolean;
+  /** Optional like favorite: most kinds have no probed facts to record. */
+  readonly mediaInfo?: MediaInfo | null;
 };
 
 /** The sidebar's library sources (design §Sidebar). */

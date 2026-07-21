@@ -11,6 +11,7 @@ const PHOTO: PhotoRecord = {
   id: '01J8SEEDPHOTO0000',
   fileName: 'IMG_4021.RAF',
   fileKind: 'raw',
+  mediaInfo: null,
   width: 6240,
   height: 4160,
   bytes: 8_400_000,

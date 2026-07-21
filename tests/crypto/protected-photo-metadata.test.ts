@@ -16,6 +16,7 @@ const metadata: ProtectedPhotoMetadata = {
     id: 'photo-a',
     fileName: 'secret.jpg',
     fileKind: 'jpeg',
+    mediaInfo: null,
     width: 4000,
     height: 3000,
     bytes: 10,

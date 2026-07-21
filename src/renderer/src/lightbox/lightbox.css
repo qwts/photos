@@ -162,6 +162,16 @@
   pointer-events: none;
 }
 
+/* Reduced-motion animation toggle (ADR-0026 §7): never chrome-faded — the
+ * intentional playback action must not require waking hover chrome. */
+.ovl-lightbox__animation {
+  position: absolute;
+  bottom: calc(54px + var(--space-3));
+  left: 50%;
+  translate: -50%;
+  z-index: 1;
+}
+
 /* Shared chrome fade: hidden by default, 200ms ease-out both ways. */
 .ovl-lightbox__chrome {
   opacity: 0;

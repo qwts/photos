@@ -6,6 +6,7 @@ import type { BackupManifestPhotoV2, BackupManifestSnapshot, RestorableBackupMan
 import type { WrappedKeyRecord } from '../crypto/keystore.js';
 import type { ExtractedMetadata } from '../import/exif.js';
 import type { PreviewFailureReason } from '../../shared/library/preview.js';
+import { parseMediaInfo, type MediaInfo } from '../../shared/library/media-info.js';
 import type { DimensionStatus } from '../../shared/library/types.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
 
@@ -48,8 +49,14 @@ interface PhotoRow {
   deleted_at: string | null;
   preview_failure: string | null;
   dimension_status: string;
+  media_info: string | null;
   sync_state: string | null;
   sort_key: string | number;
+}
+
+/** Serializes probed facts for the media_info JSON column. */
+function mediaInfoJson(mediaInfo: MediaInfo | null | undefined): string | null {
+  return mediaInfo === null || mediaInfo === undefined ? null : JSON.stringify(mediaInfo);
 }
 
 function toRecord(row: PhotoRow): PhotoRecord {
@@ -78,6 +85,7 @@ function toRecord(row: PhotoRow): PhotoRecord {
     deletedAt: row.deleted_at,
     previewFailure: row.preview_failure as PreviewFailureReason | null,
     dimensionStatus: row.dimension_status as DimensionStatus,
+    mediaInfo: parseMediaInfo(row.media_info),
     // New rows always get a ledger row; LEFT JOIN keeps reads total anyway.
     syncState: (row.sync_state ?? 'local') as PhotoRecord['syncState'],
   };
@@ -161,13 +169,15 @@ export class PhotosRepository {
         `INSERT INTO photos (
            id, file_name, file_kind, width, height, bytes, content_hash,
            camera, lens, iso, aperture, shutter, focal_length, taken_at,
-           gps_lat, gps_lon, place, imported_at, import_source, favorite, key_id
+           gps_lat, gps_lon, place, imported_at, import_source, favorite, key_id,
+           media_info
          ) VALUES (
            @id, @fileName, @fileKind, @width, @height, @bytes, @contentHash,
            @camera, @lens, @iso, @aperture, @shutter, @focalLength, @takenAt,
-           @gpsLat, @gpsLon, @place, @importedAt, @importSource, @favorite, @keyId
+           @gpsLat, @gpsLon, @place, @importedAt, @importSource, @favorite, @keyId,
+           @mediaInfoJson
          )`,
-        { ...photo, favorite: photo.favorite === true ? 1 : 0 },
+        { ...photo, favorite: photo.favorite === true ? 1 : 0, mediaInfo: null, mediaInfoJson: mediaInfoJson(photo.mediaInfo) },
       );
       run(this.db, `INSERT INTO sync_ledger (photo_id, status, dirty) VALUES (?, 'local', 1)`, photo.id);
     })();
@@ -848,14 +858,14 @@ export class PhotosRepository {
              id, file_name, file_kind, width, height, bytes, content_hash,
              camera, lens, iso, aperture, shutter, focal_length, taken_at,
              gps_lat, gps_lon, place, imported_at, import_source, favorite,
-             key_id, deleted_at
+             key_id, deleted_at, media_info
            ) VALUES (
              @id, @fileName, @fileKind, @width, @height, @bytes, @contentHash,
              @camera, @lens, @iso, @aperture, @shutter, @focalLength, @takenAt,
              @gpsLat, @gpsLon, @place, @importedAt, @importSource, @favorite,
-             @keyId, @deletedAt
+             @keyId, @deletedAt, @mediaInfoJson
            )`,
-          { ...photo, favorite: photo.favorite ? 1 : 0 },
+          { ...photo, favorite: photo.favorite ? 1 : 0, mediaInfo: null, mediaInfoJson: mediaInfoJson(photo.mediaInfo) },
         );
         run(
           this.db,

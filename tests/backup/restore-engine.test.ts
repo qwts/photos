@@ -151,6 +151,7 @@ async function restoreWorld(count = 1): Promise<RestoreWorld> {
       id,
       fileName: `IMG_${String(index + 1)}.JPG`,
       fileKind: 'jpeg',
+      mediaInfo: null,
       width: 1,
       height: 1,
       bytes: ref.bytes,
