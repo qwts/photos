@@ -52,11 +52,12 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
 
   return (
     // Menu focus belongs on its menuitems per the APG composite pattern.
-    // eslint-disable-next-line jsx-a11y/interactive-supports-focus
+
     <div
       ref={menuRef}
       role="menu"
       aria-label={label}
+      tabIndex={-1}
       className="ovl-context-menu"
       style={{ left: x, top: y }}
       onPointerDown={(event) => event.stopPropagation()}

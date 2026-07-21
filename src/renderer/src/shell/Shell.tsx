@@ -103,7 +103,6 @@ export function Shell({
   // Dropped source; `dragging` shows the full-window overlay.
   const [dropped, setDropped] = useState<readonly string[] | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [exportPhotoIds, setExportPhotoIds] = useState<readonly string[] | null>(null);
   const dialogStateRef = useRef(state);
   useEffect(() => {
     dialogStateRef.current = state;
