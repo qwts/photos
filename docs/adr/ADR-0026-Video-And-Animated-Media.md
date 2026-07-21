@@ -77,6 +77,13 @@ defect. `'other'` stays inert. Audio-only files whose signature proves an
 audio elementary stream (e.g. bare MP2/MP3) classify as `audio`, never as
 `video`.
 
+The native row shape does not change: `photos.width`/`height` stay
+`NOT NULL`. Media without probed display dimensions — every `audio` row, and
+any `video` row whose probe could not establish them — stores the existing
+0×0 + `dimension_status = 'unavailable'` sentinel that undecodable images
+use today; dimensions are never fabricated, and 0×0 rows already render as
+dimensionless in grid, sort, and Inspector surfaces.
+
 ### §2 Signature-first classification and bounded probes
 
 Content decides; names hint. A shared pure module owns magic-byte
@@ -171,6 +178,14 @@ modules (ADR-0006's native set is unchanged by this cluster). Delivery:
   bytes** over `overlook-full://` and Chromium's `<img>` animates them with
   source timing and loop behavior. (Today `FullService` would serve HEIC's
   converted preview for stills — animated kinds must bypass any conversion.)
+- **The renderer CSP is part of this contract.** Today `overlook-full:` is
+  allowlisted only under `img-src`/`connect-src` (`src/renderer/index.html`,
+  mirrored in `electron.vite.config.ts`), so `<video>`/`<audio>` loads would
+  fall through to `default-src 'self'` and be blocked. The change that
+  introduces range serving MUST add a `media-src` directive for
+  `overlook-full:` in the same PR, and the MPEG-TS MediaSource path adds
+  `blob:` to `media-src` when it lands — never a broadening beyond those two
+  sources.
 
 ### §6 Posters: deterministic, decode-derived, placeholder otherwise
 
@@ -212,11 +227,17 @@ posters regenerate freely because derivatives are cache.
 
 ### §8 Interoperability: additive within contract v1
 
-The Image Trail contract stays at v1 (the v2 boundary is separately parked):
-the shared record schema gains an **optional media block** — media kind plus
+The Image Trail contract stays at v1, and **the strict v1 record schema does
+not change**: `interopRecordSchema` (and the vendored JSON schema with
+`additionalProperties: false`) rejects unknown keys, so a new top-level
+field would break every pre-media peer. The media block therefore travels in
+the location v1 already reserves for product-specific data: the open
+`roundTripMetadata.overlook` object, under a `media` key — media kind plus
 the media-info record and original MIME/extension — attached to the existing
-`photo` record kind. Absence means still image; peers that predate the block
-ignore it losslessly. Transfers preserve original bytes, hash, MIME,
+`photo` record kind. Pre-media peers preserve `roundTripMetadata` verbatim
+by existing contract, so the block round-trips losslessly through them;
+absence means still image. A first-class schema field is contract-v2 work
+(separately parked). Transfers preserve original bytes, hash, MIME,
 extension, and the probed metadata with no drift in either direction
 (mirrored by image-trail#677/#678/#679). Playability tiers never cross the
 wire (§3). **Live Photo pairing is explicitly deferred**: photo and MOV
