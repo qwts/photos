@@ -11,6 +11,7 @@ export function useDetachedInspector(
   const windowState = useMemo(
     () => ({
       photoId: state.inspectorPhotoId,
+      providerLabel: state.providerLabel,
       selectionPosition:
         state.inspectorSource === 'selection' && selection.length > 1
           ? {
@@ -22,7 +23,7 @@ export function useDetachedInspector(
             }
           : null,
     }),
-    [selection, state.inspectorPhotoId, state.inspectorSource],
+    [selection, state.inspectorPhotoId, state.inspectorSource, state.providerLabel],
   );
 
   useEffect(() => {

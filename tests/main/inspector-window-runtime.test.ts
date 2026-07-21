@@ -10,7 +10,7 @@ test('Inspector window IPC validates requests, admits content, and delegates eve
   const updated: unknown[] = [];
   let closed = 0;
   let admitted = 0;
-  const snapshot = { photoId: 'photo-1', selectionPosition: { index: 0, count: 2 } };
+  const snapshot = { photoId: 'photo-1', providerLabel: 'Local mock', selectionPosition: { index: 0, count: 2 } };
 
   registerInspectorWindowHandlerContract({
     admitContent: () => admitted++,

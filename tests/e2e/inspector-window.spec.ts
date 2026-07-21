@@ -13,6 +13,17 @@ test('detached Inspector follows and pages the stable gallery selection (#503)',
   await expect(inspector.getByText('1 of 2 selected')).toBeVisible();
   await expect(inspector.getByTestId('inspector')).toContainText('IMG_4021.RAF');
 
+  await page.getByRole('button', { name: 'Add to Favorites' }).first().click();
+  await expect(inspector.getByTestId('inspector')).toContainText('Favorite');
+
+  const reloaded = inspector.reload();
+  await page.getByRole('button', { name: 'Deselect IMG_4021.RAF' }).click();
+  await reloaded;
+  await expect(inspector.getByTestId('inspector')).toContainText('IMG_4028.JPG');
+  await page.getByRole('button', { name: 'Select IMG_4021.RAF' }).click();
+  await inspector.getByRole('button', { name: 'Previous selected photo' }).click();
+  await expect(inspector.getByTestId('inspector')).toContainText('IMG_4021.RAF');
+
   await inspector.getByRole('button', { name: 'Next selected photo' }).click();
   await expect(inspector.getByText('2 of 2 selected')).toBeVisible();
   await expect(inspector.getByTestId('inspector')).toContainText('IMG_4028.JPG');

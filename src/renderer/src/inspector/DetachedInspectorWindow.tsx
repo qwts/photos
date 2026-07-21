@@ -14,7 +14,7 @@ const messages = defineMessages({
 
 export function DetachedInspectorWindow(): ReactElement {
   const intl = useIntl();
-  const [state, setState] = useState<InspectorWindowState>({ photoId: null, selectionPosition: null });
+  const [state, setState] = useState<InspectorWindowState>({ photoId: null, providerLabel: 'Cloud', selectionPosition: null });
   const [photo, setPhoto] = useState<PhotoRecord | null>(null);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function DetachedInspectorWindow(): ReactElement {
     return () => {
       current = false;
     };
-  }, [state.photoId]);
+  }, [state]);
 
   const step = useCallback((delta: 1 | -1) => {
     void window.overlook.inspectorWindow.step(delta);
@@ -45,6 +45,7 @@ export function DetachedInspectorWindow(): ReactElement {
     <main className="ovl-detachedInspector" aria-label={intl.formatMessage(messages.windowLabel)}>
       <Inspector
         photo={photo?.id === state.photoId ? photo : null}
+        providerLabel={state.providerLabel}
         selectionPosition={state.selectionPosition ?? undefined}
         onPrevious={() => step(-1)}
         onNext={() => step(1)}
