@@ -72,7 +72,7 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
     await firstCell.click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Offload original…' }).click();
     await confirmOffload(page);
-    await firstCell.getByRole('button', { name: 'Select' }).click();
+    await expect(pill).toContainText('1 selected');
     await page.getByRole('button', { name: 'Settings' }).click();
     const settings = page.getByTestId('settings-dialog');
     await expect(settings.getByText(/stored only in your verified cloud backup/u)).toBeVisible();
