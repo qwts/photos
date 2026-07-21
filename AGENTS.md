@@ -228,8 +228,8 @@ this file in the same PR as the change — never after the fact.
 - **`uuid` is overridden to 11.1.1** because `@storybook/test-runner` 0.24.4
   resolves vulnerable 8.3.2 through its direct dependency, `jest-junit`, and
   `nyc` (CVE-2026-41907). Remove the override when the Storybook testing stack
-  resolves only `uuid` 11.1.1 or later, after its interaction/report lane passes
-  without the override.
+  resolves only versions not affected by CVE-2026-41907, the interaction/report
+  lane passes without the override, and the security scan remains clean.
 - Behavior-changing PRs include a changeset (`npx changeset`); docs/tooling-only
   PRs may skip it. 0.x semantics (minor = behavior-changing, patch = fixes):
   [ADR-0002 Versioning Policy](docs/adr/ADR-0002-Versioning-Policy.md).
