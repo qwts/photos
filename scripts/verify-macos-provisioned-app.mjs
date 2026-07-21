@@ -7,6 +7,7 @@ import { readProvisioningProfile, validateProvisioningProfile } from './provisio
 const TEAM_ID = 'Z5DM34QS5U';
 const BUNDLE_ID = 'com.zts1.overlook';
 const APPLICATION_ID = `${TEAM_ID}.${BUNDLE_ID}`;
+const ICLOUD_CONTAINER_ID = `iCloud.${BUNDLE_ID}`;
 const BIOMETRIC_REASON = 'Unlock Overlook with Touch ID.';
 
 function fail(message) {
@@ -59,7 +60,11 @@ const profilePath = join(appPath, 'Contents', 'embedded.provisionprofile');
 if (!existsSync(profilePath)) fail('embedded.provisionprofile is missing');
 try {
   const profile = readProvisioningProfile(profilePath);
-  validateProvisioningProfile(profile, { applicationId: APPLICATION_ID, teamId: TEAM_ID });
+  validateProvisioningProfile(profile, {
+    applicationId: APPLICATION_ID,
+    teamId: TEAM_ID,
+    iCloudContainerId: ICLOUD_CONTAINER_ID,
+  });
 } catch (error) {
   fail(`embedded profile is invalid: ${error instanceof Error ? error.message : 'unknown error'}`);
 }
@@ -71,10 +76,24 @@ if (stringEntitlement(mainEntitlements, 'com.apple.application-identifier') !== 
 if (stringEntitlement(mainEntitlements, 'com.apple.developer.team-identifier') !== TEAM_ID) {
   fail(`main executable lacks team identifier ${TEAM_ID}`);
 }
+for (const key of ['com.apple.developer.icloud-container-identifiers', 'com.apple.developer.ubiquity-container-identifiers']) {
+  if (!mainEntitlements.includes(`[Key] ${key}`) || !mainEntitlements.includes(`[String] ${ICLOUD_CONTAINER_ID}`)) {
+    fail(`main executable lacks ${key} authorization for ${ICLOUD_CONTAINER_ID}`);
+  }
+}
+if (!mainEntitlements.includes('[Key] com.apple.developer.icloud-services') || !mainEntitlements.includes('[String] CloudDocuments')) {
+  fail('main executable lacks CloudDocuments authorization');
+}
 
 const rendererHelper = join(appPath, 'Contents', 'Frameworks', 'Overlook Helper (Renderer).app');
 const helperEntitlements = signedEntitlements(rendererHelper);
-for (const key of ['com.apple.application-identifier', 'com.apple.developer.team-identifier']) {
+for (const key of [
+  'com.apple.application-identifier',
+  'com.apple.developer.team-identifier',
+  'com.apple.developer.icloud-container-identifiers',
+  'com.apple.developer.icloud-services',
+  'com.apple.developer.ubiquity-container-identifiers',
+]) {
   if (stringEntitlement(helperEntitlements, key) !== null) fail(`renderer helper unexpectedly claims ${key}`);
 }
 

@@ -28,6 +28,20 @@ export function validateProvisioningProfile(metadata, expected, now = Date.now()
   if (!Array.isArray(metadata.teams) || !metadata.teams.includes(expected.teamId)) {
     throw new Error(`profile TeamIdentifier does not contain ${expected.teamId}`);
   }
+  if (expected.iCloudContainerId !== undefined) {
+    const containers = metadata.entitlements?.['com.apple.developer.icloud-container-identifiers'];
+    const ubiquityContainers = metadata.entitlements?.['com.apple.developer.ubiquity-container-identifiers'];
+    const services = metadata.entitlements?.['com.apple.developer.icloud-services'];
+    if (!Array.isArray(containers) || !containers.includes(expected.iCloudContainerId)) {
+      throw new Error(`profile does not authorize iCloud container ${expected.iCloudContainerId}`);
+    }
+    if (!Array.isArray(ubiquityContainers) || !ubiquityContainers.includes(expected.iCloudContainerId)) {
+      throw new Error(`profile does not authorize ubiquity container ${expected.iCloudContainerId}`);
+    }
+    if (!Array.isArray(services) || !services.includes('CloudDocuments')) {
+      throw new Error('profile does not authorize iCloud Documents');
+    }
+  }
   if (!Number.isFinite(metadata.expiresAt) || metadata.expiresAt <= now) {
     throw new Error('provisioning profile is expired or has no valid expiry');
   }
