@@ -15,6 +15,7 @@ const PHOTOS: readonly ProtectedPhotoRecord[] = NAMES.map((fileName, index) => (
   id: `protected-photo-${String(index + 1)}`,
   fileName,
   fileKind: 'jpeg',
+  mediaInfo: null,
   width: 1200,
   height: 800,
   bytes: 2_400_000,

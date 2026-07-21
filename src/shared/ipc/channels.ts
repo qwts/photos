@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { settingsPatchSchema, settingsSchema } from '../settings/settings.js';
 import { libraryDescriptorSchema, libraryIdSchema } from '../library/registry.js';
+import { mediaInfoSchema } from '../library/media-info.js';
 import {
   relocationFailureReasonSchema,
   relocationModeSchema,
@@ -168,7 +169,7 @@ const restoreOriginalFailureReasonSchema = z.enum([
 const photoRecordSchema = z.object({
   id: z.string(),
   fileName: z.string(),
-  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'other']),
+  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'gif', 'webp', 'other']),
   width: z.number(),
   height: z.number(),
   bytes: z.number(),
@@ -190,6 +191,7 @@ const photoRecordSchema = z.object({
   deletedAt: z.string().nullable(),
   previewFailure: z.enum(['corrupt', 'unsupported-codec', 'decode-failed']).nullable(),
   dimensionStatus: z.enum(['legacy', 'verified', 'metadata-mismatch', 'unavailable']),
+  mediaInfo: mediaInfoSchema.nullable(),
   syncState: syncStatusSchema,
 });
 

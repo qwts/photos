@@ -1,11 +1,15 @@
-import { useEffect, useRef, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import { directionOf } from '../../../shared/i18n/locales.js';
 import type { ProtectedPhotoRecord } from '../../../shared/library/protected-types.js';
 import { protectedFullUrl } from '../../../shared/library/full-url.js';
+import { protectedThumbUrl } from '../../../shared/library/thumb-url.js';
+import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { useFormats } from '../i18n/use-formats.js';
+import { animationMessages } from '../lightbox/Lightbox';
+import { usePrefersReducedMotion } from '../lightbox/use-reduced-motion.js';
 import { lightboxStepForKey } from '../state/lightbox-direction';
 
 interface ProtectedLightboxProps {
@@ -27,10 +31,20 @@ export function ProtectedLightbox({
   onNext,
   onToggleFavorite,
 }: ProtectedLightboxProps): ReactElement {
+  const intl = useIntl();
   const { formatCalendarDate } = useFormats();
-  const direction = directionOf(useIntl().locale);
+  const direction = directionOf(intl.locale);
   const panelRef = useRef<HTMLDivElement>(null);
   const priorFocusRef = useRef<HTMLElement | null>(null);
+
+  // Same reduced-motion contract as the ordinary lightbox (ADR-0026 §7):
+  // animated media opens on the static poster with an intentional play action.
+  const animated = (photo.fileKind === 'gif' || photo.fileKind === 'webp') && photo.mediaInfo?.animated === true;
+  const reducedMotion = usePrefersReducedMotion();
+  // Derived, not effect-reset: consent is held per photo id (see Lightbox).
+  const [animationStartedFor, setAnimationStartedFor] = useState<string | null>(null);
+  const animationStarted = animationStartedFor === photo.id;
+  const posterHeld = animated && reducedMotion && !animationStarted;
 
   useEffect(() => {
     priorFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -72,7 +86,23 @@ export function ProtectedLightbox({
       aria-label={`Viewing ${photo.fileName}`}
       tabIndex={-1}
     >
-      <img src={imageSrc ?? protectedFullUrl(albumId, photo.id)} alt={photo.fileName} draggable={false} />
+      <img
+        src={posterHeld ? protectedThumbUrl(albumId, photo.id, 'mid') : (imageSrc ?? protectedFullUrl(albumId, photo.id))}
+        alt={photo.fileName}
+        draggable={false}
+      />
+      {animated && reducedMotion ? (
+        <div className="ovl-protected-lightbox__animation" data-testid="protected-lightbox-animation-toggle">
+          <Button
+            size="sm"
+            icon={posterHeld ? 'play' : 'pause'}
+            aria-pressed={!posterHeld}
+            onClick={() => setAnimationStartedFor(posterHeld ? photo.id : null)}
+          >
+            {intl.formatMessage(posterHeld ? animationMessages.play : animationMessages.stop)}
+          </Button>
+        </div>
+      ) : null}
       <div className="ovl-protected-lightbox__top">
         <IconButton icon="arrow-left" label="Back to protected album (Esc)" onClick={onClose} />
         <span className="ovl-protected-lightbox__title mono-data">

@@ -18,6 +18,7 @@ function photo(index: number, syncState: SyncStatus, favorite = false): PhotoRec
   return {
     id: `P${index}`,
     fileName: `IMG_${4021 + index}.JPG`,
+    mediaInfo: null,
     fileKind: 'jpeg',
     width: 6240,
     height: 4160,

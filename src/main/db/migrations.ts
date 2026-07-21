@@ -554,6 +554,21 @@ const SCHEMA_V13: Migration = {
   },
 };
 
+const SCHEMA_V14: Migration = {
+  version: 14,
+  name: 'media-info',
+  // #547 per ADR-0026 §1: probed container facts (animation for GIF/WebP;
+  // video/audio streams later) as validated JSON. Facts only — per-device
+  // playability is derived at runtime and never persisted (ADR-0026 §3).
+  up(db) {
+    db.exec(`
+      ALTER TABLE photos ADD COLUMN media_info TEXT CHECK (
+        media_info IS NULL OR json_valid(media_info)
+      );
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -568,6 +583,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V11,
   SCHEMA_V12,
   SCHEMA_V13,
+  SCHEMA_V14,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */

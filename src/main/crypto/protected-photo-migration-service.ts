@@ -56,6 +56,7 @@ function photoMetadata(photo: PhotoRecord): ProtectedPhotoMetadata['photo'] {
     id: photo.id,
     fileName: photo.fileName,
     fileKind: photo.fileKind,
+    mediaInfo: photo.mediaInfo,
     width: photo.width,
     height: photo.height,
     bytes: photo.bytes,

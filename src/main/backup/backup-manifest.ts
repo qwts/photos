@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { activityEventTypes } from '../../shared/activity/types.js';
 import type { ActivityEvent } from '../../shared/activity/types.js';
 
+import { mediaInfoSchema } from '../../shared/library/media-info.js';
+
 export const BACKUP_MANIFEST_SCHEMA_VERSION = 4 as const;
 
 const ulidSchema = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u, 'expected a Crockford ULID');
@@ -26,12 +28,16 @@ export const backupManifestV1Schema = z.strictObject({
 export const backupManifestPhotoV2Schema = z.strictObject({
   id: z.string().min(1),
   fileName: z.string().min(1),
-  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'other']),
+  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'gif', 'webp', 'other']),
   width: z.number().int().nonnegative(),
   height: z.number().int().nonnegative(),
   bytes: z.number().int().nonnegative(),
   contentHash: sha256Schema,
   blobPath: z.string().min(1),
+  // ADR-0026 §1 probed facts. Defaulted so pre-0026 manifests and sealed
+  // protected metadata parse unchanged; device-derived playability is
+  // deliberately NOT here (ADR-0026 §3).
+  mediaInfo: mediaInfoSchema.nullable().default(null),
   camera: z.string().nullable(),
   lens: z.string().nullable(),
   iso: z.number().int().positive().nullable(),

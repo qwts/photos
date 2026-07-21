@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
 import { fullUrl } from '../../../shared/library/full-url.js';
+import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { destructiveActions } from '../../../shared/destructive-actions.js';
 import { LightboxViewport } from './LightboxViewport';
 import { DEFAULT_VIEW_INTENT } from './geometry.js';
 import { useLightboxChrome } from './use-lightbox-chrome';
+import { usePrefersReducedMotion } from './use-reduced-motion.js';
 import { useFormats } from '../i18n/use-formats.js';
 import { directionOf } from '../../../shared/i18n/locales.js';
 
@@ -22,11 +24,24 @@ import './lightbox.css';
 // fades), waking on photo change. Keyboard lands with #93, Inspector with
 // #94; delete stays a disabled stub until M10's soft-delete.
 
+export const animationMessages = defineMessages({
+  play: {
+    id: 'lightbox.animation.play',
+    defaultMessage: 'Play animation',
+  },
+  stop: {
+    id: 'lightbox.animation.stop',
+    defaultMessage: 'Show static poster',
+  },
+});
+
 export interface LightboxProps {
   readonly platform?: string | undefined;
   readonly photo: PhotoRecord;
   /** Storybook supplies a bundled real-photo URL; production uses the decrypted protocol. */
   readonly imageSrc?: string | undefined;
+  /** Static poster for reduced-motion animated media; defaults to the mid derivative. */
+  readonly posterSrc?: string | undefined;
   readonly onClose: () => void;
   readonly onPrev: () => void;
   readonly onNext: () => void;
@@ -64,6 +79,7 @@ export function Lightbox({
   platform = 'darwin',
   photo,
   imageSrc,
+  posterSrc,
   onClose,
   onPrev,
   onNext,
@@ -78,8 +94,9 @@ export function Lightbox({
   suppressRehydrate = false,
   onDelete,
 }: LightboxProps): ReactElement {
+  const intl = useIntl();
   const { formatCalendarDate } = useFormats();
-  const direction = directionOf(useIntl().locale);
+  const direction = directionOf(intl.locale);
   const [ephemeralState, setEphemeralState] = useState<{
     readonly photoId: string;
     readonly stage: 'fetching' | 'verifying' | 'ready' | 'released' | 'error';
@@ -114,7 +131,19 @@ export function Lightbox({
   }, [offloaded, photo.id, suppressRehydrate]);
 
   const ephemeralStage = ephemeralState?.photoId === photo.id ? ephemeralState.stage : null;
-  const source = imageSrc ?? fullUrl(photo.id);
+
+  // ADR-0026 §7: the full viewer plays animated GIF/WebP with source timing,
+  // but under prefers-reduced-motion it opens on the static poster and waits
+  // for an intentional play action. The choice resets on every photo change.
+  const animated = (photo.fileKind === 'gif' || photo.fileKind === 'webp') && photo.mediaInfo?.animated === true;
+  const reducedMotion = usePrefersReducedMotion();
+  // Derived, not effect-reset: playback consent is held per photo id, so
+  // paging to another item naturally returns to the poster.
+  const [animationStartedFor, setAnimationStartedFor] = useState<string | null>(null);
+  const animationStarted = animationStartedFor === photo.id;
+  const posterHeld = animated && reducedMotion && !animationStarted;
+  const animatedSource = imageSrc ?? fullUrl(photo.id);
+  const source = posterHeld ? (posterSrc ?? thumbUrl(photo.id, 'mid')) : animatedSource;
   const sourceCustody = offloaded && !suppressRehydrate ? 'offloaded' : 'local';
   const requestKey = `${photo.id}:${sourceCustody}:${source}`;
 
@@ -154,6 +183,20 @@ export function Lightbox({
       />
       {photo.fileKind === 'raw' ? (
         <span className={`ovl-lightbox__preview ovl-lightbox__chrome${chromeClass} mono-data`}>PREVIEW</span>
+      ) : null}
+      {animated && reducedMotion ? (
+        // Always visible (never chrome-faded): reduced-motion users must not
+        // have to wake hover chrome to find the intentional playback action.
+        <div className="ovl-lightbox__animation" data-testid="lightbox-animation-toggle">
+          <Button
+            size="sm"
+            icon={posterHeld ? 'play' : 'pause'}
+            aria-pressed={!posterHeld}
+            onClick={() => setAnimationStartedFor(posterHeld ? photo.id : null)}
+          >
+            {intl.formatMessage(posterHeld ? animationMessages.play : animationMessages.stop)}
+          </Button>
+        </div>
       ) : null}
       <div className={`ovl-lightbox__top ovl-lightbox__chrome${chromeClass}`}>
         <IconButton icon="arrow-left" label="Back to library (Esc)" onClick={onClose} />

@@ -1,9 +1,10 @@
 import type { FileKind } from './types.js';
 
-// Media-file allowlist (#84) per ADR-0006: only these extensions are import
-// candidates; everything else on a card (sidecars, videos, DCIM cruft) is
-// ignored by the scanner. RAW list mirrors the ADR's embedded-preview
-// vocabulary.
+// Media-file allowlist (#84) per ADR-0006 + ADR-0026: only these extensions
+// are import candidates; everything else on a card (sidecars, videos, DCIM
+// cruft) is ignored by the scanner. RAW list mirrors ADR-0006's
+// embedded-preview vocabulary; the extension is only a hint — the import
+// engine re-classifies from the byte signature (ADR-0026 §2).
 
 const KIND_BY_EXTENSION: Readonly<Record<string, FileKind>> = {
   jpg: 'jpeg',
@@ -11,6 +12,8 @@ const KIND_BY_EXTENSION: Readonly<Record<string, FileKind>> = {
   png: 'png',
   heic: 'heic',
   heif: 'heic',
+  gif: 'gif',
+  webp: 'webp',
   raf: 'raw',
   cr2: 'raw',
   cr3: 'raw',

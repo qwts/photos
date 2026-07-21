@@ -38,9 +38,13 @@ export interface FullServiceOptions {
 const DEFAULT_CACHE_BYTES = 256 * 1024 * 1024;
 const DEFAULT_CONCURRENT = 2;
 
+// GIF/WebP serve their ORIGINAL bytes (never a converted preview) so the
+// renderer's <img> plays animation with source timing/loop (ADR-0026 §5).
 const MIME_BY_KIND: Partial<Record<FileKind, string>> = {
   jpeg: 'image/jpeg',
   png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
 };
 
 export class FullService {
