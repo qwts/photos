@@ -57,3 +57,18 @@ describe('protected photo metadata', () => {
     assert.throws(() => openProtectedPhotoMetadata(context, albumKey, sealed), ProtectedPhotoMetadataError);
   });
 });
+
+describe('pre-0026 sealed metadata (no mediaInfo key)', () => {
+  test('legacy plaintext opens unchanged — parsing never inserts keys (PR #626 review)', () => {
+    const albumKey = randomBytes(32);
+    // The legacy shape: exactly the pre-0026 field set, no mediaInfo. With
+    // mediaInfo optional (not defaulted), seal writes the same bytes legacy
+    // code wrote, and open's exact re-stringification check still holds.
+    const { mediaInfo: _mediaInfo, ...legacyPhoto } = metadata.photo;
+    const legacy = { ...metadata, photo: legacyPhoto } as ProtectedPhotoMetadata;
+    const sealed = sealProtectedPhotoMetadata(context, albumKey, legacy);
+    const opened = openProtectedPhotoMetadata(context, albumKey, sealed);
+    assert.equal('mediaInfo' in opened.photo, false, 'no key inserted into legacy metadata');
+    assert.equal(opened.photo.fileName, 'secret.jpg');
+  });
+});

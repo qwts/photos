@@ -58,7 +58,9 @@ interface AuthorizedPhoto {
 
 function visiblePhoto(metadata: ProtectedPhotoMetadata): ProtectedPhotoRecord {
   const { contentHash: _contentHash, ...photo } = metadata.photo;
-  return photo;
+  // mediaInfo is optional in sealed metadata (pre-0026 blobs verify by exact
+  // re-stringification, so parsing may not insert keys); records are not.
+  return { ...photo, mediaInfo: photo.mediaInfo ?? null };
 }
 
 function matchesSource(photo: ProtectedPhotoRecord, source: NonNullable<ProtectedPageRequest['source']>): boolean {
@@ -205,7 +207,14 @@ export class ProtectedLibraryService {
   exportPhoto(albumId: string, photoId: string): PhotoRecord {
     return this.opaque(() => {
       const metadata = this.requirePhoto(albumId, photoId).metadata.photo;
-      return { ...metadata, keyId: 1, previewFailure: null, dimensionStatus: 'verified', syncState: 'local' };
+      return {
+        ...metadata,
+        mediaInfo: metadata.mediaInfo ?? null,
+        keyId: 1,
+        previewFailure: null,
+        dimensionStatus: 'verified',
+        syncState: 'local',
+      };
     });
   }
 
@@ -232,6 +241,7 @@ export class ProtectedLibraryService {
       return {
         photo: {
           ...authorized.metadata.photo,
+          mediaInfo: authorized.metadata.photo.mediaInfo ?? null,
           keyId: 1,
           previewFailure: null,
           dimensionStatus: 'verified',

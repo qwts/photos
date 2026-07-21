@@ -34,10 +34,13 @@ export const backupManifestPhotoV2Schema = z.strictObject({
   bytes: z.number().int().nonnegative(),
   contentHash: sha256Schema,
   blobPath: z.string().min(1),
-  // ADR-0026 §1 probed facts. Defaulted so pre-0026 manifests and sealed
-  // protected metadata parse unchanged; device-derived playability is
-  // deliberately NOT here (ADR-0026 §3).
-  mediaInfo: mediaInfoSchema.nullable().default(null),
+  // ADR-0026 §1 probed facts. OPTIONAL, not defaulted: sealed protected
+  // metadata is verified by exact re-stringification, so parsing must not
+  // insert keys into pre-0026 plaintext (a default would make every legacy
+  // protected photo read as corrupt). Absent means "not probed"; consumers
+  // normalize to null. Device-derived playability is deliberately NOT here
+  // (ADR-0026 §3).
+  mediaInfo: mediaInfoSchema.nullable().optional(),
   camera: z.string().nullable(),
   lens: z.string().nullable(),
   iso: z.number().int().positive().nullable(),
