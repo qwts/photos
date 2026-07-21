@@ -166,6 +166,26 @@ test('links verified native duplicates and metadata-only records without fabrica
   world.db.close();
 });
 
+test('retains a locally classified conflict even when its bytes match native custody', async () => {
+  const world = await harness();
+  const first = availableRecord();
+  await world.importer.acceptOriginal(first, [], 'eligible', imageBytes(), hooks().value);
+  const conflictBase = availableRecord();
+  const conflict = interopRecordSchema.parse({
+    ...conflictBase,
+    identity: {
+      ...conflictBase.identity,
+      interopId: '19618411-4c0c-4a41-8750-840c95169b4a',
+      origin: { product: 'image-trail', localId: 'bookmark-conflict' },
+    },
+  });
+  const retained = await world.importer.acceptOriginal(conflict, [], 'conflict', imageBytes(), hooks().value);
+  assert.equal(retained.accepted, false);
+  assert.equal(retained.reviewCategory, 'conflict');
+  assert.equal(world.interop.getRecord(conflict.identity.interopId), undefined);
+  world.db.close();
+});
+
 test('database failure rolls back photo and ledger while leaving the verified blob resumable', async () => {
   const baseline = await harness();
   const failing = new InboundPhotoImporter({

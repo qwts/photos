@@ -52,7 +52,7 @@ export interface InboundMoveRuntimeOptions {
   readonly translation: Pick<InteropTranslationService, 'previewRecord'>;
   readonly importer: Pick<InboundPhotoImporter, 'acceptOriginal' | 'acceptWithoutOriginal'>;
   readonly journals: MoveJournalRepository;
-  readonly objects: InboundMoveObjectJournal;
+  readonly objects: Pick<InboundMoveObjectJournal, 'discover' | 'advance' | 'require'>;
   readonly now?: (() => string) | undefined;
   readonly createMessageId?: (() => string) | undefined;
   readonly onPhotoChanged?: ((photoId: string) => void) | undefined;
@@ -226,12 +226,15 @@ export class InboundMoveRuntime {
   }
 
   private async acceptItem(item: IncomingMoveItem, custody: InteropKeyCustody): Promise<InboundAcceptance> {
+    const paths = [item.recordMessage.logicalPath, ...(item.blobMessage === null ? [] : [item.blobMessage.logicalPath])];
     const prior = this.options.journals.responseForReceipt(item.request.header.pairingId, item.request.header.messageId);
     if (prior !== undefined) {
+      if (prior.payload.kind !== 'acknowledgement') throw new InboundMoveRuntimeError('Stored Move response is not an acknowledgement.');
+      const phase = prior.payload.status === 'accepted' ? 'ack-journaled' : 'retained';
+      paths.forEach((path) => this.advanceIf(path, item.request.header.transferId, phase, prior.header.messageId));
       await this.uploadAcknowledgement(item, prior, custody);
       return this.acceptanceFromAcknowledgement(prior);
     }
-    const paths = [item.recordMessage.logicalPath, ...(item.blobMessage === null ? [] : [item.blobMessage.logicalPath])];
     for (const path of paths) this.advanceIf(path, item.request.header.transferId, 'validated');
     let acceptance: InboundAcceptance;
     if (item.request.payload.record.original.state === 'available') {

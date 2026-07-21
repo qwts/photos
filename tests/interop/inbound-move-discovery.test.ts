@@ -129,10 +129,11 @@ test('record discovery is durable and rejects replay identity changes before acc
   if (fixture.payload.kind !== 'record') throw new Error('Expected a record fixture.');
   const recordPayload = fixture.payload;
   const journals = new MoveJournalRepository(db);
-  const first = journals.recordDiscovery(fixture, 'metadata-only', '2026-07-21T18:00:00.000Z');
+  const first = journals.recordDiscovery(fixture, 'duplicate', '2026-07-21T18:00:00.000Z');
   assert.equal(first.phase, 'reviewing');
+  assert.equal(journals.items(fixture.header.transferId)[0]?.reviewCategory, 'duplicate');
   assert.equal(journals.items(fixture.header.transferId).length, 1);
-  assert.equal(journals.recordDiscovery(fixture, 'metadata-only', '2026-07-21T18:00:01.000Z').counts.total, 1);
+  assert.equal(journals.recordDiscovery(fixture, 'duplicate', '2026-07-21T18:00:01.000Z').counts.total, 1);
   assert.throws(
     () =>
       journals.recordDiscovery(
@@ -140,7 +141,7 @@ test('record discovery is durable and rejects replay identity changes before acc
           ...fixture,
           payload: { ...recordPayload, record: { ...recordPayload.record, title: 'replayed content' } },
         }),
-        'metadata-only',
+        'duplicate',
         '2026-07-21T18:00:02.000Z',
       ),
     /identity was replayed/u,
