@@ -60,25 +60,24 @@ test**, not padded past a symptom. The 30 s config default
 (`playwright.config.ts`) is correct only for tests whose bounded-wait sum fits
 inside it; the tests below document why they exceed it.
 
-| spec:line                                                                                                 | budget | dominant bounded waits                         | why > 30 s default                           |
-| --------------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------- | -------------------------------------------- |
-| library-relocation:100                                                                                    | 300 s  | 4 fault-inject launch+crash+relaunch cycles    | serial relaunch loop                         |
-| protected-albums:235                                                                                      | 180 s  | multi-launch relock/interrupt ceremony         | serial launches + scrypt                     |
-| library-relocation:184                                                                                    | 120 s  | multi-select move (copy+verify)                | copy/verify per library                      |
-| keys-recovery:29                                                                                          | 120 s  | 2 scrypt derivations + 3 launches              | real KDF cost                                |
-| protected-albums:203                                                                                      | 120 s  | protect ceremony (copy+encrypt+relock)         | crypto + relaunch                            |
-| backup:73                                                                                                 | 120 s  | 504-photo seed boot + backup traffic           | large seed + `firstWindow({timeout:60_000})` |
-| offload-ui:23                                                                                             | 120 s  | staged launch + backup + 4 state cycles        | bounded-wait sum structurally > 60 s         |
-| album-management (albums:63)                                                                              | 120 s  | **3× backup completion @ 20 s** + long journey | bounded-wait sum structurally > 30 s         |
-| album-drag-drop:129                                                                                       | 90 s   | 80-row seed + many drag/drop + sync settle     | seed + serial DnD                            |
-| jfif-lightbox:49                                                                                          | 90 s   | large JFIF import + backup + full-res decode   | decode-bound                                 |
-| library-relocation:73                                                                                     | 90 s   | copy-mode move + **renderer reload**           | staged reload (`expectRendererReload`)       |
-| library-relocation:154                                                                                    | 90 s   | wizard probe → progress → results              | move pipeline                                |
-| library-switcher-ui:28 / :150                                                                             | 90 s   | switch/reinstall (multi-launch)                | serial launches                              |
-| lightbox transform (lightbox:164)                                                                         | 60 s   | 3 composed transform journeys, decode-gated    | bounded-wait sum > 30 s                      |
-| albums:6                                                                                                  | 60 s   | 2× backup completion @ 20 s                    | bounded-wait sum > 30 s                      |
-| library-relocation:59 / :141                                                                              | 60 s   | inactive move / refusal                        | staged launch + IPC                          |
-| app-lock:35, trash:111, restore-cloud:82, library-switch:53/:141, backup:186, library-switcher-ui:74/:116 | 60 s   | relaunch or sync-transition cycles             | serial launches / background sync            |
+| spec:line                                                                                                                | budget | dominant bounded waits                         | why > 30 s default                           |
+| ------------------------------------------------------------------------------------------------------------------------ | ------ | ---------------------------------------------- | -------------------------------------------- |
+| library-relocation:100                                                                                                   | 300 s  | 4 fault-inject launch+crash+relaunch cycles    | serial relaunch loop                         |
+| protected-albums:235                                                                                                     | 180 s  | multi-launch relock/interrupt ceremony         | serial launches + scrypt                     |
+| library-relocation:184                                                                                                   | 120 s  | multi-select move (copy+verify)                | copy/verify per library                      |
+| keys-recovery:29                                                                                                         | 120 s  | 2 scrypt derivations + 3 launches              | real KDF cost                                |
+| protected-albums:203                                                                                                     | 120 s  | protect ceremony (copy+encrypt+relock)         | crypto + relaunch                            |
+| backup:73                                                                                                                | 120 s  | 504-photo seed boot + backup traffic           | large seed + `firstWindow({timeout:60_000})` |
+| album-management (albums:63)                                                                                             | 120 s  | **3× backup completion @ 20 s** + long journey | bounded-wait sum structurally > 30 s         |
+| album-drag-drop:129                                                                                                      | 90 s   | 80-row seed + many drag/drop + sync settle     | seed + serial DnD                            |
+| jfif-lightbox:49                                                                                                         | 90 s   | large JFIF import + backup + full-res decode   | decode-bound                                 |
+| library-relocation:73                                                                                                    | 90 s   | copy-mode move + **renderer reload**           | staged reload (`expectRendererReload`)       |
+| library-relocation:154                                                                                                   | 90 s   | wizard probe → progress → results              | move pipeline                                |
+| library-switcher-ui:28 / :150                                                                                            | 90 s   | switch/reinstall (multi-launch)                | serial launches                              |
+| lightbox transform (lightbox:164)                                                                                        | 60 s   | 3 composed transform journeys, decode-gated    | bounded-wait sum > 30 s                      |
+| albums:6                                                                                                                 | 60 s   | 2× backup completion @ 20 s                    | bounded-wait sum > 30 s                      |
+| library-relocation:59 / :141                                                                                             | 60 s   | inactive move / refusal                        | staged launch + IPC                          |
+| app-lock:35, trash:111, offload-ui:23, restore-cloud:82, library-switch:53/:141, backup:186, library-switcher-ui:74/:116 | 60 s   | relaunch or sync-transition cycles             | serial launches / background sync            |
 
 The two entries called out in bold — `album-management` and `lightbox
 transform` — are the tests that repeatedly hit the 30 s default **exactly**:
