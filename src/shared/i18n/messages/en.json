@@ -32,6 +32,9 @@
   "album.context.actions": {
     "defaultMessage": "Actions for {album}"
   },
+  "appLock.password": {
+    "defaultMessage": "App password"
+  },
   "commands.album.delete": {
     "defaultMessage": "Delete album…"
   },
@@ -211,6 +214,9 @@
   },
   "commands.view.mode.list": {
     "defaultMessage": "List"
+  },
+  "common.cancel": {
+    "defaultMessage": "Cancel"
   },
   "favorite.add": {
     "defaultMessage": "Add to Favorites"
@@ -556,6 +562,45 @@
   },
   "menu.window": {
     "defaultMessage": "Window"
+  },
+  "originalDelete.action.authenticate": {
+    "defaultMessage": "Authenticate"
+  },
+  "originalDelete.action.delete": {
+    "defaultMessage": "Delete permanently"
+  },
+  "originalDelete.authenticate.help": {
+    "defaultMessage": "Confirm your app password before overriding Original protection."
+  },
+  "originalDelete.confirm.help": {
+    "defaultMessage": "This overrides Original protection for {count, plural, one {# protected photo} other {# protected photos}}. {sideEffects} This cannot be undone."
+  },
+  "originalDelete.error.commit": {
+    "defaultMessage": "Deletion failed"
+  },
+  "originalDelete.error.password": {
+    "defaultMessage": "The app password is incorrect."
+  },
+  "originalDelete.error.preflight": {
+    "defaultMessage": "Deletion authorization failed"
+  },
+  "originalDelete.error.throttled": {
+    "defaultMessage": "Too many attempts. Try again in {seconds, plural, one {# second} other {# seconds}}."
+  },
+  "originalDelete.error.unavailable": {
+    "defaultMessage": "Authorization is unavailable."
+  },
+  "originalDelete.preparing": {
+    "defaultMessage": "Preparing protected deletion…"
+  },
+  "originalDelete.target": {
+    "defaultMessage": "{count, plural, one {# photo} other {# photos}}"
+  },
+  "originalDelete.title.authenticate": {
+    "defaultMessage": "Authenticate Original deletion"
+  },
+  "originalDelete.title.confirm": {
+    "defaultMessage": "Delete {target} permanently?"
   },
   "photo.context.actions": {
     "defaultMessage": "Actions for {target}"
