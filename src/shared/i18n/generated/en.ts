@@ -157,6 +157,7 @@ export const en: Readonly<Record<string, string>> = {
   "library.quickActions.availableOnlyInTrash": "Available only for photos in Trash",
   "library.quickActions.disabledActionLabel": "{action}. {target}. {reason}",
   "library.quickActions.disabledTooltip": "{action} · {reason}",
+  "library.quickActions.export": "Export",
   "library.quickActions.favorite.add": "Add to Favorites",
   "library.quickActions.favorite.busy": "Favorite update in progress",
   "library.quickActions.favorite.remove": "Remove from Favorites",

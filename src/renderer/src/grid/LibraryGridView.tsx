@@ -50,6 +50,7 @@ const messages = defineMessages({
   favoriteAdd: { id: 'library.quickActions.favorite.add', defaultMessage: 'Add to Favorites' },
   favoriteRemove: { id: 'library.quickActions.favorite.remove', defaultMessage: 'Remove from Favorites' },
   favoriteBusy: { id: 'library.quickActions.favorite.busy', defaultMessage: 'Favorite update in progress' },
+  export: { id: 'library.quickActions.export', defaultMessage: 'Export' },
   unavailableInTrash: { id: 'library.quickActions.unavailableInTrash', defaultMessage: 'Unavailable for photos in Trash' },
   availableOnlyInTrash: { id: 'library.quickActions.availableOnlyInTrash', defaultMessage: 'Available only for photos in Trash' },
   targetPhoto: { id: 'library.quickActions.target.photo', defaultMessage: 'This photo' },
@@ -237,7 +238,9 @@ export function LibraryGridView({
         label:
           command.id === 'photo.favorite.toggle'
             ? intl.formatMessage(photo.favorite ? messages.favoriteRemove : messages.favoriteAdd)
-            : intl.formatMessage(command.label),
+            : command.id === 'photo.export'
+              ? intl.formatMessage(messages.export)
+              : intl.formatMessage(command.label),
         icon: command.quickAction.icon,
         enabled: availability.enabled && !busy,
         reason: busy
@@ -547,7 +550,12 @@ export function LibraryGridView({
           }}
           onPurge={() => setPurgeIds(contextPhoto.targetIds)}
           quickActions={quickActionItems(contextPhoto.photo)}
-          onQuickAction={(id) => invokeQuickAction(id, contextPhoto.photo)}
+          onQuickAction={(id) => {
+            invokeQuickAction(id, contextPhoto.photo);
+            if (id === 'photo.export') {
+              dispatch({ type: 'selection/all', photoIds: contextPhoto.selectionBeforeOpen });
+            }
+          }}
         />
       )}
       {albumPicker === null ? null : (
