@@ -242,6 +242,13 @@ describe('MoveProtocolService', () => {
     assert.equal(accepted.payload.originalVerification, 'verified');
     assert.deepEqual(accepted.payload.acknowledgedMessageIds, [request.header.messageId, SOURCE_BLOB_MESSAGE_ID]);
     assert.notEqual(accepted.header.messageId, rejected.header.messageId, 'retry emitted a fresh acknowledgement');
+
+    const incompleteAccepted = interopEnvelopeSchema.parse({
+      ...accepted,
+      header: { ...accepted.header, messageId: STALE_ACK_ID },
+      payload: { ...accepted.payload, acknowledgedMessageIds: [request.header.messageId] },
+    });
+    assert.throws(() => source.service.acknowledge(incompleteAccepted), /did not cover the source original-blob message/u);
     source.service.acknowledge(accepted);
 
     const staleRejection = interopEnvelopeSchema.parse({

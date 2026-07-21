@@ -288,6 +288,9 @@ export class MoveProtocolService {
       throw new MoveProtocolError('Accepted Move acknowledgement did not prove metadata durability.');
     }
     if (item.record.original.state === 'available') {
+      if (!acknowledgement.payload.acknowledgedMessageIds.some((messageId) => messageId !== item.sourceMessageId)) {
+        throw new MoveProtocolError('Accepted Move acknowledgement did not cover the source original-blob message.');
+      }
       if (acknowledgement.payload.originalVerification !== 'verified') {
         throw new MoveProtocolError('Accepted Move acknowledgement did not prove original durability.');
       }

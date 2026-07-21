@@ -10,7 +10,7 @@ const canonicalBase64Schema = z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z
 const uuidSchema = z.string().uuid();
 const keyIdSchema = z.string().regex(/^interop:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu);
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
-const ivSchema = canonicalBase64Schema.refine((value) => value.length === 16, 'AES-GCM IV must encode 12 bytes.');
+const ivSchema = z.string().regex(/^[A-Za-z0-9+/]{16}$/u, 'AES-GCM IV must be canonical Base64 encoding exactly 12 bytes.');
 
 export const interopSealedMessageSchema = z
   .object({
