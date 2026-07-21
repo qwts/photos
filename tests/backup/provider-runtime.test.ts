@@ -321,6 +321,19 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(providerId, null);
   });
 
+  test('iCloud connect preserves the precise reason when availability changes after descriptor probing', async () => {
+    const bridge = new DeterministicICloudDriveBridge();
+    let probes = 0;
+    const status = bridge.status.bind(bridge);
+    bridge.status = () => {
+      probes += 1;
+      return probes === 1 ? status() : Promise.resolve({ available: false, reason: 'unentitled', accountToken: null });
+    };
+    const { runtime: r } = runtime({ iCloudDriveBridge: bridge });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud-status-race'), fault: undefined });
+    assert.deepEqual(await r.connect('icloud-drive'), { ok: false, reason: 'This build is not entitled for iCloud Drive.' });
+  });
+
   test('a persisted iCloud selection without sealed authority cannot browse or mutate the current OS account', async () => {
     const { runtime: r } = runtime({ providerId: () => 'icloud-drive' });
     r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud-untrusted'), fault: undefined });
