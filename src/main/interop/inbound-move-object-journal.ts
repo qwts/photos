@@ -175,7 +175,7 @@ export class InboundMoveObjectJournal {
 
   retry(transferId: string, objectPath: string, retryAtInput: string, error: unknown, atInput: string): StoredInboundObject {
     const current = this.require(z.string().uuid().parse(transferId), z.string().min(1).max(1024).parse(objectPath));
-    if (current.phase === 'ack-uploaded' || current.phase === 'retained') {
+    if (current.phase === 'ack-uploaded' || current.phase === 'retained' || current.phase === 'failed') {
       throw new InboundMoveObjectJournalError(`Inbound Move ${current.phase} objects cannot be retried.`);
     }
     const retryAt = timestampSchema.parse(retryAtInput);
@@ -196,7 +196,7 @@ export class InboundMoveObjectJournal {
     return queryAll<InboundObjectRow>(
       this.db,
       `SELECT * FROM interop_move_inbound_objects
-       WHERE phase NOT IN ('ack-uploaded', 'retained') AND (retry_at IS NULL OR retry_at <= @at)
+       WHERE phase NOT IN ('ack-uploaded', 'retained', 'failed') AND (retry_at IS NULL OR retry_at <= @at)
        ORDER BY transfer_id, sequence, object_path`,
       { at },
     ).map(hydrate);
