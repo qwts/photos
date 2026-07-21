@@ -140,6 +140,7 @@ export function SettingsDialog({
         <div
           className="ovl-settings__nav"
           role="tablist"
+          aria-orientation="vertical"
           tabIndex={-1}
           aria-label={intl.formatMessage(messages.sections)}
           onKeyDown={(event) => {
