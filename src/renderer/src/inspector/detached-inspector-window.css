@@ -1,0 +1,6 @@
+.ovl-detachedInspector {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--surface-1);
+}

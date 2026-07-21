@@ -38,6 +38,7 @@ import { ActivityDialog } from '../activity/ActivityDialog';
 import { useAnnouncer } from '../components/LiveAnnouncer';
 import { SelectionAnnouncer } from '../components/SelectionAnnouncer';
 import { useEmptyTrash } from '../grid/use-empty-trash';
+import { useDetachedInspector } from '../inspector/use-detached-inspector';
 
 const viewMessages = defineMessages({
   all: { id: 'shell.view.all', defaultMessage: 'All Photos' },
@@ -271,6 +272,9 @@ export function Shell({
       case 'view.inspector.toggle':
         dispatch({ type: 'inspector/toggled' });
         return;
+      case 'view.inspector.detach':
+        dispatch({ type: 'inspector/detached' });
+        return;
       case 'view.mode.grid':
       case 'view.mode.list':
         dispatch({ type: 'view/set', view: nativeCommand.id === 'view.mode.grid' ? 'grid' : 'list' });
@@ -338,6 +342,8 @@ export function Shell({
     }
   }, [dispatch, nativeCommand, offload, state.lightboxId, state.photos]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  const inspectorSelection = useDetachedInspector(state, dispatch);
 
   useEffect(() => {
     const target = state.photos.find(({ id }) => id === state.lightboxId);
@@ -833,15 +839,13 @@ export function Shell({
               providerLabel={state.providerLabel}
               photo={state.photos.find((photo) => photo.id === state.inspectorPhotoId) ?? null}
               selectionPosition={
-                state.inspectorSource === 'selection' && state.selection.size > 1
+                state.inspectorSource === 'selection' && inspectorSelection.length > 1
                   ? {
                       index: Math.max(
                         0,
-                        state.photos
-                          .filter((photo) => state.selection.has(photo.id))
-                          .findIndex((photo) => photo.id === state.inspectorPhotoId),
+                        inspectorSelection.findIndex((photo) => photo.id === state.inspectorPhotoId),
                       ),
-                      count: state.selection.size,
+                      count: inspectorSelection.length,
                     }
                   : undefined
               }

@@ -53,6 +53,7 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
     case 'history.redo':
       return context.hasLibrary && context.dialog === 'none' && !context.editable;
     case 'view.inspector.toggle':
+    case 'view.inspector.detach':
       return (context.surface === 'grid' || context.surface === 'lightbox') && context.dialog === 'none';
     case 'view.mode.grid':
     case 'view.mode.list':
@@ -208,6 +209,7 @@ export function buildApplicationMenuTemplate(
         commandItem('library.source.trash', context, dispatch, translate, { type: 'radio', checked: context.source === 'deleted' }),
         { type: 'separator' },
         commandItem('view.inspector.toggle', context, dispatch, translate, { type: 'checkbox', checked: context.inspectorOpen }),
+        commandItem('view.inspector.detach', context, dispatch, translate),
         commandItem('view.mode.grid', context, dispatch, translate, { type: 'radio', checked: context.view === 'grid' }),
         commandItem('view.mode.list', context, dispatch, translate, { type: 'radio', checked: context.view === 'list' }),
         { type: 'separator' },

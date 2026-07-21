@@ -7,12 +7,62 @@ import { createEmitter } from '../shared/ipc/registry.js';
 import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/renderer-lock-reload.js';
 import { initialWindowBehavior } from './e2e-window-visibility.js';
 import { installWindowNavigationPolicy } from './window-navigation-policy.js';
+import type { InspectorWindowState } from '../shared/inspector-window-contract.js';
 
 export function broadcast(send: (win: BrowserWindow) => void): void {
   for (const win of BrowserWindow.getAllWindows()) send(win);
 }
 
 export function createWindow(): BrowserWindow {
+  return createContentWindow('primary');
+}
+
+let inspectorWindow: BrowserWindow | undefined;
+let inspectorState: InspectorWindowState = { photoId: null, selectionPosition: null };
+
+export function openInspectorWindow(state: InspectorWindowState): void {
+  inspectorState = state;
+  if (inspectorWindow === undefined || inspectorWindow.isDestroyed()) {
+    inspectorWindow = createContentWindow('inspector');
+    inspectorWindow.once('closed', () => {
+      inspectorWindow = undefined;
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!isInspectorWindow(win)) win.webContents.send(events.inspectorWindowClosed.name, {});
+      }
+    });
+    inspectorWindow.webContents.once('did-finish-load', () => sendInspectorState());
+  } else {
+    sendInspectorState();
+  }
+  if (process.env['OVERLOOK_E2E'] === undefined) {
+    inspectorWindow.show();
+    inspectorWindow.focus();
+  }
+}
+
+export function updateInspectorWindow(state: InspectorWindowState): void {
+  inspectorState = state;
+  sendInspectorState();
+}
+
+export function closeInspectorWindow(): void {
+  inspectorWindow?.close();
+}
+
+export function inspectorWindowSnapshot(): InspectorWindowState {
+  return inspectorState;
+}
+
+export function isInspectorWindow(win: BrowserWindow): boolean {
+  return win === inspectorWindow;
+}
+
+function sendInspectorState(): void {
+  if (inspectorWindow === undefined || inspectorWindow.isDestroyed() || inspectorWindow.webContents.isLoading()) return;
+  inspectorWindow.webContents.send(events.inspectorWindowChanged.name, inspectorState);
+}
+
+function createContentWindow(surface: 'primary' | 'inspector'): BrowserWindow {
   const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
   if (devIcon !== undefined && process.platform === 'darwin') app.dock?.setIcon(devIcon);
   const windowBehavior = initialWindowBehavior({
@@ -22,13 +72,14 @@ export function createWindow(): BrowserWindow {
   });
   const win = new BrowserWindow({
     ...(devIcon !== undefined && process.platform !== 'darwin' ? { icon: devIcon } : {}),
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 600,
+    width: surface === 'inspector' ? 360 : 1280,
+    height: surface === 'inspector' ? 720 : 800,
+    minWidth: surface === 'inspector' ? 320 : 960,
+    minHeight: surface === 'inspector' ? 480 : 600,
+    ...(surface === 'inspector' ? { title: 'Inspector' } : {}),
     backgroundColor: '#050708',
     show: windowBehavior.show,
-    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : { frame: false }),
+    ...(surface === 'inspector' ? {} : process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : { frame: false }),
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
       nodeIntegration: false,
@@ -41,9 +92,17 @@ export function createWindow(): BrowserWindow {
   installWindowNavigationPolicy(win.webContents);
   win.on('focus', () => emitFocusChanged({ focused: true }));
   win.on('blur', () => emitFocusChanged({ focused: false }));
+  if (surface === 'primary') win.once('closed', closeInspectorWindow);
   const devServerUrl = process.env['ELECTRON_RENDERER_URL'];
-  if (devServerUrl !== undefined) void win.loadURL(devServerUrl);
-  else void win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'));
+  if (devServerUrl !== undefined) {
+    const url = new URL(devServerUrl);
+    if (surface === 'inspector') url.searchParams.set('surface', 'inspector');
+    void win.loadURL(url.toString());
+  } else {
+    void win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'), {
+      query: surface === 'inspector' ? { surface: 'inspector' } : {},
+    });
+  }
   return win;
 }
 

@@ -37,6 +37,7 @@ test('macOS menu follows the accepted hierarchy and registry accelerators (#531)
     ['Overlook', 'File', 'Edit', 'View', 'Photo', 'Window', 'help'],
   );
   assert.equal(find(template, 'app.settings.open')?.accelerator, 'CommandOrControl+,');
+  assert.equal(find(template, 'view.inspector.detach')?.accelerator, 'CommandOrControl+Shift+I');
   assert.equal(new Set(ids(template)).size, ids(template).length);
   const privacy = find(template, 'app.settings.open.privacy');
   if (privacy?.click !== undefined) Reflect.apply(privacy.click, privacy, [{}, {}, {}]);

@@ -66,6 +66,7 @@ export type CommandId =
   | 'album.delete'
   | 'album.transfer'
   | 'view.inspector.toggle'
+  | 'view.inspector.detach'
   | 'view.mode.grid'
   | 'view.mode.list'
   | 'view.lightbox.close'
@@ -134,6 +135,7 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'album.delete': { id: 'commands.album.delete', defaultMessage: 'Delete album…' },
   'album.transfer': { id: 'commands.album.transfer', defaultMessage: 'Transfer & Sync…' },
   'view.inspector.toggle': { id: 'commands.view.inspector.toggle', defaultMessage: 'Show or hide Inspector' },
+  'view.inspector.detach': { id: 'commands.view.inspector.detach', defaultMessage: 'Open Inspector in Separate Window' },
   'view.mode.grid': { id: 'commands.view.mode.grid', defaultMessage: 'Grid' },
   'view.mode.list': { id: 'commands.view.mode.list', defaultMessage: 'List' },
   'view.lightbox.close': { id: 'commands.view.lightbox.close', defaultMessage: 'Exit lightbox' },
@@ -316,6 +318,16 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     surfaces: ['grid', 'lightbox'],
     target: 'window',
     key: 'i',
+    native: { menu: 'view', lockSafe: false, queueable: false },
+  },
+  {
+    id: 'view.inspector.detach',
+    label: label('view.inspector.detach', 'Open Inspector in Separate Window'),
+    surfaces: ['grid', 'lightbox'],
+    target: 'window',
+    key: 'i',
+    primaryModifier: true,
+    shift: true,
     native: { menu: 'view', lockSafe: false, queueable: false },
   },
   {

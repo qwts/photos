@@ -161,6 +161,9 @@
   "commands.trash.empty": {
     "defaultMessage": "Empty Trash…"
   },
+  "commands.view.inspector.detach": {
+    "defaultMessage": "Open Inspector in Separate Window"
+  },
   "commands.view.inspector.toggle": {
     "defaultMessage": "Show or hide Inspector"
   },
@@ -233,8 +236,20 @@
   "inspector.file.metadata": {
     "defaultMessage": "Metadata"
   },
+  "inspector.selection.next": {
+    "defaultMessage": "Next selected photo"
+  },
+  "inspector.selection.position": {
+    "defaultMessage": "{current} of {count} selected"
+  },
+  "inspector.selection.previous": {
+    "defaultMessage": "Previous selected photo"
+  },
   "inspector.title": {
     "defaultMessage": "Inspector"
+  },
+  "inspector.window.label": {
+    "defaultMessage": "Inspector window"
   },
   "libmove.badge.active": {
     "defaultMessage": "Moving…"

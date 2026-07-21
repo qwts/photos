@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
 
-import { createWindow } from './app-window.js';
+import { createWindow, isInspectorWindow } from './app-window.js';
 import { requestNativeWindowAttention } from './e2e-window-visibility.js';
 import { buildApplicationMenuTemplate, commandEnabled } from './application-menu-model.js';
 import { channels, events } from '../shared/ipc/channels.js';
@@ -89,7 +89,9 @@ export class ApplicationMenuController {
   }
 
   private activeWindow(): BrowserWindow | undefined {
-    return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    const focused = BrowserWindow.getFocusedWindow();
+    if (focused !== null && !isInspectorWindow(focused)) return focused;
+    return BrowserWindow.getAllWindows().find((win) => !isInspectorWindow(win));
   }
 
   private activeContext(): CommandMenuContext {
