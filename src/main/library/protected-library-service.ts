@@ -210,6 +210,7 @@ export class ProtectedLibraryService {
       return {
         ...metadata,
         mediaInfo: metadata.mediaInfo ?? null,
+        isOriginal: false,
         keyId: 1,
         previewFailure: null,
         dimensionStatus: 'verified',
@@ -242,6 +243,7 @@ export class ProtectedLibraryService {
         photo: {
           ...authorized.metadata.photo,
           mediaInfo: authorized.metadata.photo.mediaInfo ?? null,
+          isOriginal: false,
           keyId: 1,
           previewFailure: null,
           dimensionStatus: 'verified',

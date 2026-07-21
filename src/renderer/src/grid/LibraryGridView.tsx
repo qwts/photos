@@ -14,6 +14,7 @@ import { PhotoContextMenu } from './PhotoContextMenu';
 import { AlbumPicker } from './AlbumPicker';
 import { PurgeConfirm } from './PurgeConfirm';
 import { SelectionPill } from './SelectionPill';
+import { OriginalDeleteDialog } from './OriginalDeleteDialog';
 import { VirtualGrid, type VirtualGridItemKeyboard } from './VirtualGrid';
 import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
 import { PHOTO_PURGE_AUTHORIZATION } from '../../../shared/destructive-actions.js';
@@ -87,6 +88,7 @@ export function LibraryGridView({
   // the modal is open, and the destructive set must be exactly what the
   // user confirmed (PR #220 review).
   const [purgeIds, setPurgeIds] = useState<readonly string[] | null>(null);
+  const [originalDeleteIds, setOriginalDeleteIds] = useState<readonly string[] | null>(null);
   const [contextPhoto, setContextPhoto] = useState<{
     readonly photo: PhotoRecord;
     readonly targetIds: readonly string[];
@@ -180,9 +182,24 @@ export function LibraryGridView({
     state.librariesOpen ||
     state.lightboxId !== null ||
     purgeIds !== null ||
+    originalDeleteIds !== null ||
     quickAlbumIds !== null ||
     contextPhoto !== null;
   const retentionDays = trashRetentionDays(trashRetention);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Delete' || !event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || originalDeleteIds !== null) return;
+      if (state.importOpen || state.exportOpen || state.settingsOpen || state.activityOpen || state.librariesOpen) return;
+      const targetIds = state.selection.size > 0 ? [...state.selection] : state.lightboxId === null ? [] : [state.lightboxId];
+      const containsOriginal = state.photos.some((photo) => targetIds.includes(photo.id) && photo.isOriginal);
+      if (!containsOriginal) return;
+      event.preventDefault();
+      setOriginalDeleteIds(targetIds);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [originalDeleteIds, state]);
   const trashPolicy = intl.formatMessage(retentionDays === null ? messages.trashPolicyOff : messages.trashPolicyDays, {
     days: retentionDays,
   });
@@ -270,10 +287,16 @@ export function LibraryGridView({
         setQuickAlbumIds(photoIds);
         return;
       case 'photo.trash':
-        void window.overlook.library.delete({ photoIds: [...photoIds] }).then(({ deleted }) => {
+        void window.overlook.library.delete({ photoIds: [...photoIds] }).then(({ deleted, protected: protectedCount }) => {
           dispatch({
             type: 'toast/shown',
-            toast: { title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`, tone: 'neutral' },
+            toast: {
+              title:
+                protectedCount === 0
+                  ? `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`
+                  : `Moved ${formatCount(deleted)} to Trash · preserved ${formatCount(protectedCount)} protected ${protectedCount === 1 ? 'Original' : 'Originals'}`,
+              tone: protectedCount === 0 ? 'neutral' : 'amber',
+            },
           });
         });
         return;
@@ -363,6 +386,7 @@ export function LibraryGridView({
         alt={photo.fileName}
         accessibleName={accessibleName}
         favorite={photo.favorite}
+        isOriginal={photo.isOriginal}
         status={photo.syncState}
         previewFailure={photo.previewFailure}
         selected={state.selection.has(photo.id)}
@@ -414,6 +438,22 @@ export function LibraryGridView({
           }}
           onOffload={() => onOffload([...state.selection], true)}
           onTransfer={() => onTransfer('selection', [...state.selection])}
+          onMarkOriginal={
+            state.photos.some((photo) => state.selection.has(photo.id) && !photo.isOriginal)
+              ? () => {
+                  const photoIds = state.photos.filter((photo) => state.selection.has(photo.id) && !photo.isOriginal).map(({ id }) => id);
+                  void window.overlook.library.setOriginal({ photoIds, isOriginal: true });
+                }
+              : undefined
+          }
+          onUnmarkOriginal={
+            state.photos.some((photo) => state.selection.has(photo.id) && photo.isOriginal)
+              ? () => {
+                  const photoIds = state.photos.filter((photo) => state.selection.has(photo.id) && photo.isOriginal).map(({ id }) => id);
+                  void window.overlook.library.setOriginal({ photoIds, isOriginal: false });
+                }
+              : undefined
+          }
           // Soft delete / restore (#120): the visible page refreshes off
           // the change push; the reducer intersects the selection away.
           {...(state.source === 'deleted'
@@ -452,12 +492,15 @@ export function LibraryGridView({
                     }),
                 onDelete: () => {
                   const photoIds = [...state.selection];
-                  void window.overlook.library.delete({ photoIds }).then(({ deleted }) => {
+                  void window.overlook.library.delete({ photoIds }).then(({ deleted, protected: protectedCount }) => {
                     dispatch({
                       type: 'toast/shown',
                       toast: {
-                        title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`,
-                        tone: 'neutral',
+                        title:
+                          protectedCount === 0
+                            ? `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`
+                            : `Moved ${formatCount(deleted)} to Trash · preserved ${formatCount(protectedCount)} protected ${protectedCount === 1 ? 'Original' : 'Originals'}`,
+                        tone: protectedCount === 0 ? 'neutral' : 'amber',
                       },
                     });
                   });
@@ -492,6 +535,9 @@ export function LibraryGridView({
           onToggleFavorite={() => {
             const targetIds = new Set(contextPhoto.targetIds);
             for (const photo of state.photos.filter(({ id }) => targetIds.has(id))) toggleFavorite(photo);
+          }}
+          onSetOriginal={(isOriginal) => {
+            void window.overlook.library.setOriginal({ photoIds: [...contextPhoto.targetIds], isOriginal });
           }}
           onExport={() => {
             onExport(contextPhoto.targetIds);
@@ -530,12 +576,20 @@ export function LibraryGridView({
           }}
           onTransfer={() => onTransfer(contextPhoto.targetIds.length === 1 ? 'lightbox' : 'selection', contextPhoto.targetIds)}
           onTrash={() => {
-            void window.overlook.library.delete({ photoIds: [...contextPhoto.targetIds] }).then(({ deleted }) => {
-              dispatch({
-                type: 'toast/shown',
-                toast: { title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`, tone: 'neutral' },
+            void window.overlook.library
+              .delete({ photoIds: [...contextPhoto.targetIds] })
+              .then(({ deleted, protected: protectedCount }) => {
+                dispatch({
+                  type: 'toast/shown',
+                  toast: {
+                    title:
+                      protectedCount === 0
+                        ? `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`
+                        : `Moved ${formatCount(deleted)} to Trash · preserved ${formatCount(protectedCount)} protected ${protectedCount === 1 ? 'Original' : 'Originals'}`,
+                    tone: protectedCount === 0 ? 'neutral' : 'amber',
+                  },
+                });
               });
-            });
           }}
           onRestore={() => {
             void window.overlook.library.restore({ photoIds: [...contextPhoto.targetIds] }).then(({ restored }) => {
@@ -615,26 +669,50 @@ export function LibraryGridView({
             setPurgeIds(null);
             void window.overlook.library
               .purge({ photoIds, authorization: PHOTO_PURGE_AUTHORIZATION })
-              .then(({ purged, remoteFailures }) => {
+              .then(({ purged, protected: protectedCount, remoteFailures }) => {
                 dispatch({
                   type: 'toast/shown',
                   toast:
-                    remoteFailures > 0
-                      ? // Honest partial result: local copies are gone, some
-                        // remote copies are orphaned (audited for retry).
-                        {
-                          title: intl.formatMessage(messages.purgedWithCloudRetry, {
-                            purged: formatCount(purged),
-                            remoteFailures: formatCount(remoteFailures),
-                          }),
+                    protectedCount > 0
+                      ? {
+                          title: `Deleted ${formatCount(purged)} permanently · preserved ${formatCount(protectedCount)} protected ${protectedCount === 1 ? 'Original' : 'Originals'}`,
                           tone: 'amber',
                         }
-                      : { title: intl.formatMessage(messages.purged, { count: purged }), tone: 'neutral' },
+                      : remoteFailures > 0
+                        ? // Honest partial result: local copies are gone, some
+                          // remote copies are orphaned (audited for retry).
+                          {
+                            title: intl.formatMessage(messages.purgedWithCloudRetry, {
+                              purged: formatCount(purged),
+                              remoteFailures: formatCount(remoteFailures),
+                            }),
+                            tone: 'amber',
+                          }
+                        : { title: intl.formatMessage(messages.purged, { count: purged }), tone: 'neutral' },
                 });
               });
           }}
         />
       ) : null}
+      {originalDeleteIds === null ? null : (
+        <OriginalDeleteDialog
+          photoIds={originalDeleteIds}
+          onClose={() => setOriginalDeleteIds(null)}
+          onDeleted={({ purged, remoteFailures }) => {
+            setOriginalDeleteIds(null);
+            dispatch({
+              type: 'toast/shown',
+              toast: {
+                title:
+                  remoteFailures === 0
+                    ? `Deleted ${formatCount(purged)} ${purged === 1 ? 'photo' : 'photos'} permanently`
+                    : `Deleted ${formatCount(purged)} locally · ${formatCount(remoteFailures)} cloud pending retry`,
+                tone: remoteFailures === 0 ? 'neutral' : 'amber',
+              },
+            });
+          }}
+        />
+      )}
     </>
   );
 }

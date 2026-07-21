@@ -9,6 +9,7 @@ class FakeCredentials {
   credentialStatus: AppLockStatus = { state: 'locked', libraryId: 'library-a' };
   unlockResult: UnlockResult = { ok: true, masterKey: Buffer.alloc(32, 7) };
   recoveries = 0;
+  readonly unlockPasswords: string[] = [];
 
   status(): AppLockStatus {
     return this.credentialStatus;
@@ -18,7 +19,8 @@ class FakeCredentials {
     return Promise.resolve();
   }
 
-  unlock(_password: string): Promise<UnlockResult> {
+  unlock(password: string): Promise<UnlockResult> {
+    this.unlockPasswords.push(password);
     return Promise.resolve(this.unlockResult);
   }
 
@@ -103,6 +105,39 @@ describe('app-lock authority state machine (#311)', () => {
     assert.deepEqual(await controller.unlock('wrong'), { ok: false, reason: 'wrong-password' });
     assert.equal(opened, false);
     assert.equal(controller.snapshot().state, 'locked');
+  });
+
+  test('re-authentication verifies an unlocked app without reopening or changing lock state', async () => {
+    const credentials = new FakeCredentials();
+    let opens = 0;
+    const controller = new AppLockController({
+      credentials,
+      openAuthorized: () => {
+        opens += 1;
+      },
+      closeAuthorized: () => undefined,
+    });
+    assert.deepEqual(await controller.unlock('unlock-password'), { ok: true });
+    credentials.unlockResult = { ok: true, masterKey: Buffer.alloc(32, 9) };
+
+    assert.deepEqual(await controller.authorize('confirm-password'), { ok: true });
+    assert.equal(controller.snapshot().state, 'unlocked');
+    assert.equal(opens, 1);
+    assert.deepEqual(credentials.unlockPasswords, ['unlock-password', 'confirm-password']);
+  });
+
+  test('failed re-authentication preserves the unlocked app while applying the failure result', async () => {
+    const credentials = new FakeCredentials();
+    const controller = new AppLockController({
+      credentials,
+      openAuthorized: () => undefined,
+      closeAuthorized: () => undefined,
+    });
+    await controller.unlock('unlock-password');
+    credentials.unlockResult = { ok: false, reason: 'wrong-password' };
+
+    assert.deepEqual(await controller.authorize('wrong'), { ok: false, reason: 'wrong-password' });
+    assert.equal(controller.snapshot().state, 'unlocked');
   });
 
   test('throttle write failure restores locked state after a wrong password', async () => {

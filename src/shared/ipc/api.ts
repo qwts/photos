@@ -54,13 +54,25 @@ export interface OverlookApi {
       request: Req<typeof channels.libraryRepairDimensions>,
     ) => Promise<Res<typeof channels.libraryRepairDimensions>>;
     readonly toggleFavorite: (request: Req<typeof channels.libraryToggleFavorite>) => Promise<Res<typeof channels.libraryToggleFavorite>>;
+    readonly setOriginal: (request: Req<typeof channels.librarySetOriginal>) => Promise<Res<typeof channels.librarySetOriginal>>;
     readonly counts: (request: Req<typeof channels.libraryCounts>) => Promise<Res<typeof channels.libraryCounts>>;
     readonly stats: () => Promise<Res<typeof channels.libraryStats>>;
     readonly albums: () => Promise<Res<typeof channels.libraryAlbums>>;
     readonly delete: (request: Req<typeof channels.libraryDelete>) => Promise<Res<typeof channels.libraryDelete>>;
     readonly restore: (request: Req<typeof channels.libraryRestore>) => Promise<Res<typeof channels.libraryRestore>>;
     readonly purge: (request: Req<typeof channels.libraryPurge>) => Promise<Res<typeof channels.libraryPurge>>;
+    readonly originalDeletePreflight: (
+      request: Req<typeof channels.libraryOriginalDeletePreflight>,
+    ) => Promise<Res<typeof channels.libraryOriginalDeletePreflight>>;
+    readonly originalDeleteAuthorize: (
+      request: Req<typeof channels.libraryOriginalDeleteAuthorize>,
+    ) => Promise<Res<typeof channels.libraryOriginalDeleteAuthorize>>;
+    readonly originalDeleteCommit: (
+      request: Req<typeof channels.libraryOriginalDeleteCommit>,
+    ) => Promise<Res<typeof channels.libraryOriginalDeleteCommit>>;
+    readonly originalDeleteCancel: (request: Req<typeof channels.libraryOriginalDeleteCancel>) => Promise<void>;
     readonly onChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
+    readonly onOriginalClassificationChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
     readonly onSyncStateChanged: (
       listener: (payload: { updates: { id: string; syncState: 'local' | 'syncing' | 'synced' | 'offloaded' | 'error' }[] }) => void,
     ) => () => void;

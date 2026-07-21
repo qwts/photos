@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { test, expect, _electron as electron } from '@playwright/test';
 
 import { mkE2eTmpDir } from './support/tmp-dir.js';
+import type { OverlookApi } from '../../src/shared/ipc/api.js';
 
 /** Recursive file count — the mock provider's remote blob tree. */
 function fileCount(dir: string): number {
@@ -174,6 +175,65 @@ test('purge: confirm ceremony removes DB row, local blob, and remote copy', asyn
     expect(stillListed).toBe(false);
     await page.getByRole('button', { name: /All Photos/u }).click();
     await expect(page.locator('.ovl-tile__img')).toHaveCount(2);
+  } finally {
+    await app.close();
+  }
+});
+
+test('protected Original: ordinary deletion preserves it and Shift+Delete requires fresh password authority', async () => {
+  const password = 'correct horse battery staple';
+  const userData = mkE2eTmpDir('overlook-e2e-original-delete-');
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '2',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+      OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    const target = await page.evaluate<{ id: string; fileName: string }>(`window.overlook.library
+      .page({ source: 'all', limit: 1 })
+      .then((result) => ({ id: result.photos[0].id, fileName: result.photos[0].fileName }))`);
+    await page.evaluate(
+      (photoId) =>
+        (globalThis as unknown as { overlook: OverlookApi }).overlook.library.setOriginal({ photoIds: [photoId], isOriginal: true }),
+      target.id,
+    );
+    await expect(page.getByRole('img', { name: 'Protected Original' })).toBeVisible();
+
+    const configuring = page.evaluate(
+      (nextPassword) => (globalThis as unknown as { overlook: OverlookApi }).overlook.appLock.configure({ password: nextPassword }),
+      password,
+    );
+    await expect(page.getByTestId('lock-screen')).toBeVisible();
+    await configuring;
+    await page.getByLabel('App password').fill(password);
+    await page.getByRole('button', { name: 'Unlock' }).click();
+    await page.getByTestId('virtual-grid').waitFor();
+
+    await page.getByRole('button', { name: `Select ${target.fileName}` }).click();
+    await page.getByTestId('selection-pill').getByRole('button', { name: 'Move to Trash' }).click();
+    await expect(page.locator('.ovl-toast-host')).toContainText('Preserved 1 protected Original');
+    await expect(page.getByRole('button', { name: `Open ${target.fileName}` })).toBeVisible();
+
+    await page.keyboard.press('Shift+Delete');
+    const authenticate = page.getByRole('dialog', { name: 'Authenticate Original deletion' });
+    await authenticate.getByLabel('App password').fill('wrong password');
+    await authenticate.getByRole('button', { name: 'Authenticate' }).click();
+    await expect(authenticate.getByRole('alert')).toContainText('incorrect');
+    await authenticate.getByLabel('App password').fill(password);
+    await authenticate.getByRole('button', { name: 'Authenticate' }).click();
+
+    const confirm = page.getByRole('dialog', { name: `Delete ${target.fileName} permanently?` });
+    await expect(confirm).toContainText('overrides Original protection');
+    await confirm.getByRole('button', { name: 'Delete permanently' }).click();
+    await expect(page.locator('.ovl-toast-host')).toContainText('Deleted 1 photo permanently');
+    await expect(page.getByRole('button', { name: `Open ${target.fileName}` })).toHaveCount(0);
   } finally {
     await app.close();
   }

@@ -230,3 +230,17 @@ describe('media info in manifests (ADR-0026, #547)', () => {
     );
   });
 });
+
+describe('Original preservation metadata (#482)', () => {
+  test('legacy manifests omit the field while marked Originals roundtrip', () => {
+    const source = manifest();
+    const legacy = backupManifestV2Schema.parse(JSON.parse(JSON.stringify(source)));
+    assert.equal('isOriginal' in (legacy.photos[0] ?? {}), false);
+
+    const marked = backupManifestV2Schema.parse({
+      ...source,
+      photos: [{ ...source.photos[0], isOriginal: true }],
+    });
+    assert.equal(marked.photos[0]?.isOriginal, true);
+  });
+});

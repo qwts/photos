@@ -48,6 +48,7 @@ function fullRow(
     importedAt: '2026-07-13T00:00:00.000Z',
     importSource: 'test',
     favorite: false,
+    isOriginal: false,
     keyId: 1,
     deletedAt: null,
     previewFailure: null,

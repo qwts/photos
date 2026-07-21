@@ -66,6 +66,16 @@ export const SingleSelection: Story = {
   args: { count: 1, onClear: fn() },
 };
 
+export const MixedOriginalSelection: Story = {
+  args: { count: 3, onClear: fn(), onMarkOriginal: fn(), onUnmarkOriginal: fn() },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'More selection actions' }));
+    await userEvent.click(canvas.getByRole('menuitem', { name: 'Mark as Original' }));
+    await expect(args.onMarkOriginal).toHaveBeenCalledOnce();
+  },
+};
+
 export const ActiveAlbumMode: Story = {
   args: { count: 3, onClear: fn(), onDelete: fn(), onAddToAlbum: fn(), onRemoveFromAlbum: fn() },
   play: async ({ canvasElement, args }) => {

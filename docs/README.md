@@ -23,6 +23,7 @@ existing links resolve — never add content there.
 ## Canonical Documentation Groups
 
 - [Activity History](./Activity-History.md) — encrypted per-library audit timeline, privacy, backup, and retention
+- [Original Preservation Policy](./Original-Preservation-Policy.md) — protected marker, deletion override, duplicate boundary, and custody invariants
 - [Testing Strategy](./Testing-Strategy.md) — test lanes, coverage floors, when each lane must grow
 - [E2E & Storybook Timing Audit](./E2E-Timing-Audit.md) — every wall-clock wait classified, its synchronization contract, and the shared launch/reload/teardown fixture (#630)
 - [Localization Workflow](./Localization.md) — adding and reviewing catalogs, pseudo-locales, and RTL evidence

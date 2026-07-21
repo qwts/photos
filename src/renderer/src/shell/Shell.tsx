@@ -39,6 +39,7 @@ import { useAnnouncer } from '../components/LiveAnnouncer';
 import { SelectionAnnouncer } from '../components/SelectionAnnouncer';
 import { useEmptyTrash } from '../grid/use-empty-trash';
 import { useDetachedInspector } from '../inspector/use-detached-inspector';
+import { deletePhoto } from './delete-photo';
 
 const viewMessages = defineMessages({
   all: { id: 'shell.view.all', defaultMessage: 'All Photos' },
@@ -294,9 +295,7 @@ export function Shell({
       case 'photo.trash': {
         const target = state.photos.find(({ id }) => id === state.lightboxId && id !== null);
         if (target?.deletedAt === null) {
-          void window.overlook.library.delete({ photoIds: [target.id] }).then(() => {
-            dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Trash', tone: 'neutral' } });
-          });
+          deletePhoto(target.id, dispatch);
         }
         return;
       }
@@ -772,9 +771,7 @@ export function Shell({
             onDelete={() => {
               // Soft delete (#120): the change push drops the row from the
               // visible set, which closes the lightbox in the reducer.
-              void window.overlook.library.delete({ photoIds: [current.id] }).then(() => {
-                dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Trash', tone: 'neutral' } });
-              });
+              deletePhoto(current.id, dispatch);
             }}
           />
         );

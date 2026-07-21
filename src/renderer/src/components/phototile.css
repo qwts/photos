@@ -212,6 +212,26 @@
   z-index: 2;
 }
 
+.ovl-tile__original {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 6px;
+  border: 1px solid oklch(0.82 0.13 82 / 0.8);
+  border-radius: var(--radius-1);
+  background: oklch(0.18 0.025 82 / 0.88);
+  color: oklch(0.9 0.12 82);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .ovl-tile__retention {
   position: absolute;
   bottom: 6px;

@@ -50,6 +50,8 @@ export const en: Readonly<Record<string, string>> = {
   "commands.photo.favorite.toggle": "Toggle favorite",
   "commands.photo.offload": "Offload original…",
   "commands.photo.open": "Open",
+  "commands.photo.original.mark": "Mark as Original",
+  "commands.photo.original.unmark": "Remove Original protection",
   "commands.photo.purge": "Delete permanently…",
   "commands.photo.restore": "Restore photo",
   "commands.photo.restoreOriginal": "Restore original",

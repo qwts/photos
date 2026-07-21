@@ -44,6 +44,23 @@ export const StateMatrix: Story = {
   render: () => <Matrix />,
 };
 
+export const ProtectedOriginal: Story = {
+  args: {
+    src: realPhoto,
+    alt: 'IMG_4021.RAF',
+    isOriginal: true,
+    status: 'synced',
+  },
+  render: (args) => (
+    <div style={{ width: 180, height: 180, padding: 'var(--space-7)', boxSizing: 'content-box' }}>
+      <PhotoTile {...args} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole('img', { name: 'Protected Original' })).toBeVisible();
+  },
+};
+
 export const ClickTargetsAreIndependent: Story = {
   args: {
     src: realPhoto,

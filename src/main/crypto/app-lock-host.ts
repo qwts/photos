@@ -23,6 +23,7 @@ export type AppLockControllerLike = Pick<
   | 'touchIdStatus'
   | 'requireContentAccess'
   | 'unlock'
+  | 'authorize'
   | 'unlockWithTouchId'
   | 'enableTouchId'
   | 'disableTouchId'
@@ -38,6 +39,7 @@ export class AppLockHost implements AppLockControllerLike {
   private readonly stateListeners = new Set<(snapshot: LockStateSnapshot) => void>();
   private readonly touchIdListeners = new Set<(status: TouchIdStatus) => void>();
   private detach: () => void;
+  private epoch = 0;
 
   constructor(initial: AppLockControllerLike) {
     this.inner = initial;
@@ -46,6 +48,7 @@ export class AppLockHost implements AppLockControllerLike {
 
   private attach(): () => void {
     const offState = this.inner.subscribe((snapshot) => {
+      this.epoch += 1;
       for (const listener of this.stateListeners) listener(snapshot);
     });
     const offTouchId = this.inner.subscribeTouchId((status) => {
@@ -66,6 +69,7 @@ export class AppLockHost implements AppLockControllerLike {
     this.detach = this.attach();
     await next.initialize();
     const snapshot = next.snapshot();
+    this.epoch += 1;
     for (const listener of this.stateListeners) listener(snapshot);
   }
 
@@ -77,6 +81,9 @@ export class AppLockHost implements AppLockControllerLike {
   }
   retryAfterMs(): number {
     return this.inner.retryAfterMs();
+  }
+  authorizationEpoch(): number {
+    return this.epoch;
   }
   subscribe(listener: (snapshot: LockStateSnapshot) => void): () => void {
     this.stateListeners.add(listener);
@@ -94,6 +101,9 @@ export class AppLockHost implements AppLockControllerLike {
   }
   unlock(password: string): Promise<AppUnlockResult> {
     return this.inner.unlock(password);
+  }
+  authorize(password: string): Promise<AppUnlockResult> {
+    return this.inner.authorize(password);
   }
   unlockWithTouchId(): Promise<AppTouchIdUnlockResult> {
     return this.inner.unlockWithTouchId();

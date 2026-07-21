@@ -606,6 +606,21 @@ const SCHEMA_V15: Migration = {
   },
 };
 
+const SCHEMA_V16: Migration = {
+  version: 16,
+  name: 'protected-original-marker',
+  // #482: durable user-declared preservation state. This stays on the photo
+  // row so every destructive SQL boundary can fail closed without consulting
+  // renderer state or a derived duplicate index.
+  up(db) {
+    db.exec(`
+      ALTER TABLE photos ADD COLUMN is_original INTEGER NOT NULL DEFAULT 0
+        CHECK (is_original IN (0, 1));
+      CREATE INDEX idx_photos_original ON photos (is_original) WHERE is_original = 1;
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -622,6 +637,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V13,
   SCHEMA_V14,
   SCHEMA_V15,
+  SCHEMA_V16,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */

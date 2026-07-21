@@ -131,6 +131,11 @@ export function Inspector({ photo, providerLabel = 'Cloud', selectionPosition, o
               Favorite
             </Badge>
           ) : null}
+          {photo.isOriginal ? (
+            <Badge tone="amber" icon="shield-check">
+              Original
+            </Badge>
+          ) : null}
         </div>
       </Section>
       <Section title="Capture">

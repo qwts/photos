@@ -128,6 +128,11 @@ export function ListRow({
           {retentionLabel ?? `${photo.place ?? '—'} · ${photo.takenAt === null ? '—' : formatCalendarDate(photo.takenAt)}`}
         </div>
       </div>
+      {photo.isOriginal ? (
+        <span role="img" aria-label="Protected Original" title="Protected Original">
+          <Icon name="shield-check" size={15} color="var(--accent-amber)" />
+        </span>
+      ) : null}
       {quickActions}
       <div className="ovl-listrow__camera mono-data">{photo.camera ?? '—'}</div>
       <div className="ovl-listrow__size mono-data">{formatBytes(photo.bytes)}</div>

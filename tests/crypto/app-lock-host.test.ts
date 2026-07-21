@@ -46,6 +46,10 @@ function fakeController(libraryId: string | null): AppLockControllerLike & {
       log.push(`unlock:${password}`);
       return Promise.resolve({ ok: true as const });
     },
+    authorize: (password) => {
+      log.push(`authorize:${password}`);
+      return Promise.resolve({ ok: true as const });
+    },
     unlockWithTouchId: () => Promise.resolve({ ok: true as const }),
     enableTouchId: () => Promise.resolve({ ok: true as const }),
     disableTouchId: () => Promise.resolve(true),

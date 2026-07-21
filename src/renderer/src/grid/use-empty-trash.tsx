@@ -40,15 +40,17 @@ export function useEmptyTrash(): { readonly open: () => void; readonly dialog: R
           setPhotoIds(null);
           void window.overlook.library
             .purge({ photoIds: confirmedIds, authorization: PHOTO_PURGE_AUTHORIZATION })
-            .then(({ purged, remoteFailures }) => {
+            .then(({ purged, protected: protectedCount, remoteFailures }) => {
               dispatch({
                 type: 'toast/shown',
                 toast: {
                   title:
-                    remoteFailures === 0
-                      ? `Deleted ${formatCount(purged)} ${purged === 1 ? 'photo' : 'photos'} permanently`
-                      : `Deleted permanently: ${formatCount(purged)} local; ${formatCount(remoteFailures)} cloud pending retry`,
-                  tone: remoteFailures === 0 ? 'neutral' : 'amber',
+                    protectedCount > 0
+                      ? `Deleted ${formatCount(purged)} permanently · preserved ${formatCount(protectedCount)} protected ${protectedCount === 1 ? 'Original' : 'Originals'}`
+                      : remoteFailures === 0
+                        ? `Deleted ${formatCount(purged)} ${purged === 1 ? 'photo' : 'photos'} permanently`
+                        : `Deleted permanently: ${formatCount(purged)} local; ${formatCount(remoteFailures)} cloud pending retry`,
+                  tone: remoteFailures === 0 && protectedCount === 0 ? 'neutral' : 'amber',
                 },
               });
             });
