@@ -5,6 +5,8 @@ prefix_rule(
     pattern = [
         "git",
         [
+            "--help",
+            "--version",
             "add",
             "am",
             "apply",
@@ -20,6 +22,7 @@ prefix_rule(
             "fetch",
             "format-patch",
             "grep",
+            "help",
             "init",
             "log",
             "merge",
@@ -63,17 +66,96 @@ prefix_rule(
     ],
 )
 
+# Trust GitHub CLI development operations while leaving extensions and shell
+# aliases under the normal approval policy.
+prefix_rule(
+    pattern = [
+        "gh",
+        [
+            "--help",
+            "--version",
+            "api",
+            "auth",
+            "browse",
+            "cache",
+            "codespace",
+            "gist",
+            "help",
+            "issue",
+            "label",
+            "pr",
+            "project",
+            "release",
+            "repo",
+            "ruleset",
+            "run",
+            "search",
+            "secret",
+            "ssh-key",
+            "status",
+            "variable",
+            "workflow",
+        ],
+    ],
+    decision = "allow",
+    justification = "GitHub CLI development operations are trusted in this environment.",
+    match = [
+        "gh pr view 641",
+        "gh run watch 12345 --exit-status",
+        "gh api /repos/qwts/photos/pulls/641",
+    ],
+    not_match = [
+        "gh alias set unsafe '!sh -c id'",
+        "gh extension exec arbitrary-extension",
+    ],
+)
+
+# Use the protected wrapper when a host does not expose gh on its initial PATH.
+prefix_rule(
+    pattern = ["/bin/zsh", ".codex/scripts/gh.zsh"],
+    decision = "allow",
+    justification = "The protected GitHub CLI wrapper supplies the platform PATH.",
+    match = [
+        "/bin/zsh .codex/scripts/gh.zsh pr view 641",
+        "/bin/zsh .codex/scripts/gh.zsh run watch 12345 --exit-status",
+    ],
+    not_match = [
+        "/bin/zsh -lc 'gh pr view 641'",
+        "/bin/zsh .codex/scripts/git-with-nvm.zsh status",
+    ],
+)
+
+# Git commits need Node on PATH for the repository hooks. Allow only the
+# protected zsh wrapper that loads nvm and then dispatches the Git allowlist.
+prefix_rule(
+    pattern = ["/bin/zsh", ".codex/scripts/git-with-nvm.zsh"],
+    decision = "allow",
+    justification = "The protected Git wrapper loads nvm for repository hooks.",
+    match = [
+        "/bin/zsh .codex/scripts/git-with-nvm.zsh status --short --branch",
+        "/bin/zsh .codex/scripts/git-with-nvm.zsh commit -m example",
+        "/bin/zsh .codex/scripts/git-with-nvm.zsh push origin example",
+    ],
+    not_match = [
+        "/bin/zsh -lc 'git status'",
+        "/bin/zsh .codex/scripts/nvm.zsh use",
+    ],
+)
+
 # nvm is loaded by environment.toml. Trust version-management operations while
 # keeping its arbitrary command runners under the normal approval policy.
 prefix_rule(
     pattern = [
         "nvm",
         [
+            "--help",
+            "--version",
             "alias",
             "cache",
             "current",
             "deactivate",
             "install",
+            "help",
             "ls",
             "ls-remote",
             "unalias",
@@ -94,5 +176,22 @@ prefix_rule(
     not_match = [
         "nvm exec 24.18.0 sh -c id",
         "nvm run 24.18.0 arbitrary-script",
+    ],
+)
+
+# nvm is a shell function rather than an executable. Allow its protected zsh
+# wrapper; the wrapper independently rejects exec, run, and unknown commands.
+prefix_rule(
+    pattern = ["/bin/zsh", ".codex/scripts/nvm.zsh"],
+    decision = "allow",
+    justification = "The protected NVM wrapper dispatches version-management commands only.",
+    match = [
+        "/bin/zsh .codex/scripts/nvm.zsh use",
+        "/bin/zsh .codex/scripts/nvm.zsh install 24.18.0",
+        "/bin/zsh .codex/scripts/nvm.zsh alias default 24.18.0",
+    ],
+    not_match = [
+        "/bin/zsh -lc 'nvm use'",
+        "/bin/zsh .codex/scripts/git-with-nvm.zsh status",
     ],
 )
