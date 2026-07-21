@@ -38,7 +38,9 @@ hidden Electron harness cannot reproduce.
    remain reachable; scroll each pane through its final control.
 4. Open a photo. Confirm Back, Close, navigation, orientation, and zoom controls
    remain inside the viewport and the photo can still be panned when enlarged.
-5. Repeat at the minimum supported window size. Confirm controls wrap or scroll
+5. Launch a fresh profile. Confirm the recovery card scrolls vertically and its
+   **Start a new library** and **Discover backups** actions remain reachable.
+6. Repeat at the minimum supported window size. Confirm controls wrap or scroll
    within their owning region; no label overlaps another control.
 
 ## High-contrast appearance decision
