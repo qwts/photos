@@ -84,16 +84,18 @@ async function exerciseOrientationControls(page: Page, viewport: Locator): Promi
   await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
   await toolbar.getByRole('button', { name: 'Flip horizontally (H)' }).click();
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'true');
+  await page.keyboard.press('+');
   await page.keyboard.press('Shift+r');
   await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
-  await page.keyboard.press('+');
+  await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.keyboard.press('r');
+  await expect(viewport).toHaveAttribute('data-orientation-turns', '1');
+  await page.keyboard.press('Shift+r');
+  await expect(viewport).toHaveAttribute('data-orientation-turns', '0');
   await page.keyboard.press('x');
   await expect(page.getByTestId('lightbox')).toHaveAttribute('data-chrome', 'on');
   await expect(toolbar).toHaveCSS('pointer-events', 'auto');
-  await toolbar.getByRole('button', { name: 'Reset orientation (⇧R)' }).dispatchEvent('click');
-  await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.keyboard.press('0');
 }
 
