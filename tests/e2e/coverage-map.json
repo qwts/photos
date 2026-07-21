@@ -1432,6 +1432,29 @@
           ]
         }
       ]
+    },
+    {
+      "id": "gif-webp-animated-media",
+      "wiki": "acceptance-test-gif-webp-animated-media",
+      "coverage": [
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/lightbox/Lightbox.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/library/media-signatures.test.ts",
+            "tests/import/import-engine.test.ts",
+            "tests/fullres/full-service.test.ts",
+            "tests/interop/media-block.test.ts"
+          ]
+        },
+        {
+          "type": "manual",
+          "reason": "docs/acceptance/acceptance-test-gif-webp-animated-media.md covers OS-level reduced-motion toggling, real animation timing/loop playback, and protected-album parity that the hidden Electron harness and Storybook cannot observe (prefers-reduced-motion is forced via a scoped matchMedia patch in stories)."
+        }
+      ]
     }
   ]
 }
