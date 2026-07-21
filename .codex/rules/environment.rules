@@ -1,0 +1,25 @@
+# Trust every Git subcommand for this repository, including networked and
+# metadata-writing operations.
+prefix_rule(
+    pattern = ["git"],
+    decision = "allow",
+    justification = "All Git commands are explicitly trusted in this environment.",
+    match = [
+        "git status --short --branch",
+        "git commit -m example",
+        "git push --set-upstream origin example",
+        "git reset --hard HEAD",
+    ],
+)
+
+# nvm is loaded by environment.toml; trust every nvm subcommand and argument.
+prefix_rule(
+    pattern = ["nvm"],
+    decision = "allow",
+    justification = "All nvm commands are explicitly trusted in this environment.",
+    match = [
+        "nvm use",
+        "nvm install 24.18.0",
+        "nvm alias default 24.18.0",
+    ],
+)
