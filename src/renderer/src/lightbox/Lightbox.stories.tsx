@@ -185,8 +185,8 @@ export const PortraitFillZoomAndReset: Story = {
     await expect(viewport).toHaveAttribute('data-mode', 'fit');
     await expect(viewport).toHaveAttribute('data-zoom', '1.000');
     await userEvent.dblClick(image);
-    await expect(viewport).toHaveAttribute('data-mode', 'fill');
-    await expect(viewport).toHaveAttribute('data-zoom', '2.000');
+    await waitFor(() => expect(viewport).toHaveAttribute('data-mode', 'fill'));
+    await waitFor(() => expect(viewport).toHaveAttribute('data-zoom', '2.000'));
     await expect(canvas.getByTestId('lightbox')).toHaveAttribute('data-chrome', 'on');
     await userEvent.click(canvas.getByRole('button', { name: 'Fit image (0)' }));
     await expect(viewport).toHaveAttribute('data-mode', 'fit');

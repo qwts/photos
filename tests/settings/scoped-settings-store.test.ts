@@ -64,12 +64,19 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
 
   test('profile settings follow the user while library settings remain isolated', () => {
     const h = harness();
-    h.store.set({ appearance: 'light', language: 'en-XB', shareDiagnostics: true, sortOrder: 'name' });
+    h.store.set({
+      appearance: 'light',
+      language: 'en-XB',
+      quickActions: ['photo.export', 'photo.favorite.toggle'],
+      shareDiagnostics: true,
+      sortOrder: 'name',
+    });
     h.switchTo('library-b');
 
     assert.equal(h.store.get().appearance, 'light');
     assert.equal(h.store.get().language, 'en-XB');
     assert.equal(h.store.get().shareDiagnostics, true);
+    assert.deepEqual(h.store.get().quickActions, ['photo.export', 'photo.favorite.toggle']);
     assert.equal(h.store.get().diagnosticsConsentVersion, 1);
     assert.equal(h.store.get().sortOrder, 'date');
   });
@@ -113,6 +120,7 @@ describe('scoped settings store (#387, ADR-0017 §6)', () => {
     assert.deepEqual(JSON.parse(readFileSync(profileFilePath, 'utf8')), {
       appearance: 'light',
       language: null,
+      quickActions: defaultSettings.quickActions,
       shareDiagnostics: false,
       diagnosticsConsentVersion: 0,
     });

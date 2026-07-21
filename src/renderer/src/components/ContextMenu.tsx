@@ -8,6 +8,7 @@ export interface ContextMenuItem {
   readonly label: string;
   readonly icon: IconName;
   readonly action: () => void;
+  readonly detail?: string | undefined;
   readonly disabledReason?: string | undefined;
   readonly danger?: boolean | undefined;
   readonly separatorBefore?: boolean | undefined;
@@ -72,7 +73,7 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
               ? menuItems.at(-1)
               : event.key === 'ArrowDown'
                 ? menuItems[(current + 1) % menuItems.length]
-                : menuItems[(current - 1 + menuItems.length) % menuItems.length];
+                : menuItems[current === -1 ? menuItems.length - 1 : (current - 1 + menuItems.length) % menuItems.length];
         target?.focus();
       }}
     >
@@ -91,7 +92,14 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
             }}
           >
             <Icon name={item.icon} size={14} />
-            <span>{item.label}</span>
+            {item.detail === undefined ? (
+              <span>{item.label}</span>
+            ) : (
+              <span className="ovl-context-menu__body">
+                <span>{item.label}</span>
+                <span className="ovl-context-menu__meta">{item.detail}</span>
+              </span>
+            )}
           </button>
         </div>
       ))}

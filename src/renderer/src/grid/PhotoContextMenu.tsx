@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
-import { commandById, type CommandId } from '../../../shared/commands/registry.js';
+import { commandById, type CommandId, type QuickActionCommandId } from '../../../shared/commands/registry.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { ContextMenu, type ContextMenuItem } from '../components/ContextMenu';
 import type { IconName } from '../components/Icon';
+import type { QuickActionItem } from './QuickActions';
 
 export interface PhotoContextMenuProps {
   readonly photo: PhotoRecord;
@@ -24,6 +25,8 @@ export interface PhotoContextMenuProps {
   readonly onRestore: () => void;
   readonly onPurge: () => void;
   readonly onClose: () => void;
+  readonly quickActions?: readonly QuickActionItem[];
+  readonly onQuickAction?: ((id: QuickActionCommandId) => void) | undefined;
 }
 
 export function PhotoContextMenu({
@@ -44,6 +47,8 @@ export function PhotoContextMenu({
   onRestore,
   onPurge,
   onClose,
+  quickActions = [],
+  onQuickAction,
 }: PhotoContextMenuProps): ReactElement {
   const intl = useIntl();
   const item = (
@@ -52,20 +57,35 @@ export function PhotoContextMenu({
     action: () => void,
     options?: Pick<ContextMenuItem, 'danger' | 'separatorBefore'>,
   ): ContextMenuItem => ({ id, label: intl.formatMessage(commandById(id).label), icon, action, ...options });
+  const quickActionIds = new Set<CommandId>(quickActions.map(({ id }) => id));
+  const quickActionItems: readonly ContextMenuItem[] = quickActions.map((quickAction) => ({
+    id: quickAction.id,
+    label: quickAction.label,
+    icon: quickAction.icon,
+    action: () => onQuickAction?.(quickAction.id),
+    detail: quickAction.reason ?? quickAction.targetLabel,
+    disabledReason: quickAction.enabled ? undefined : (quickAction.reason ?? 'Unavailable'),
+    danger: quickAction.id === 'photo.trash',
+  }));
   const inTrash = photo.deletedAt !== null;
   const items: readonly ContextMenuItem[] = inTrash
-    ? [item('photo.restore', 'rotate-ccw', onRestore), item('photo.purge', 'trash-2', onPurge, { danger: true, separatorBefore: true })]
+    ? [
+        ...quickActionItems,
+        ...(quickActionIds.has('photo.restore') ? [] : [item('photo.restore', 'rotate-ccw', onRestore)]),
+        item('photo.purge', 'trash-2', onPurge, { danger: true, separatorBefore: true }),
+      ]
     : [
         item('photo.open', 'image', onOpen),
-        item('photo.favorite.toggle', 'star', onToggleFavorite),
-        item('photo.export', 'share', onExport),
-        item('album.membership.add', 'album', onAddToAlbum),
+        ...quickActionItems,
+        ...(quickActionIds.has('photo.favorite.toggle') ? [] : [item('photo.favorite.toggle', 'star', onToggleFavorite)]),
+        ...(quickActionIds.has('photo.export') ? [] : [item('photo.export', 'share', onExport)]),
+        ...(quickActionIds.has('album.membership.add') ? [] : [item('album.membership.add', 'album', onAddToAlbum)]),
         ...(inAlbum ? [item('album.membership.remove', 'x', onRemoveFromAlbum)] : []),
         photo.syncState === 'offloaded'
           ? item('photo.restoreOriginal', 'cloud-download', onRestoreOriginal)
           : item('photo.offload', 'cloud-upload', onOffload),
         item('photo.transfer', 'refresh-cw', onTransfer),
-        item('photo.trash', 'trash-2', onTrash, { danger: true, separatorBefore: true }),
+        ...(quickActionIds.has('photo.trash') ? [] : [item('photo.trash', 'trash-2', onTrash, { danger: true, separatorBefore: true })]),
       ];
   return (
     <ContextMenu

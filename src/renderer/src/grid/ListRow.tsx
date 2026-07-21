@@ -1,4 +1,5 @@
-import type { DragEvent, KeyboardEvent, ReactElement } from 'react';
+import type { DragEvent, KeyboardEvent, ReactElement, ReactNode } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import './list.css';
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -24,6 +25,8 @@ export interface ListRowProps {
   readonly favoritePending?: boolean;
   readonly retentionLabel?: string | undefined;
   readonly onContextAction?: ((point: { readonly x: number; readonly y: number; readonly origin: HTMLButtonElement }) => void) | undefined;
+  readonly quickActions?: ReactNode;
+  readonly onQuickActionTargetChange?: ((active: boolean) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
   readonly tabIndex?: 0 | -1 | undefined;
@@ -31,6 +34,10 @@ export interface ListRowProps {
   readonly onFocus?: (() => void) | undefined;
   readonly onKeyDown?: ((event: KeyboardEvent<HTMLButtonElement>) => void) | undefined;
 }
+
+const messages = defineMessages({
+  moreActions: { id: 'library.photo.moreActions', defaultMessage: 'More actions for {photo}' },
+});
 
 // Dense 52px row (#77) — the mock's ListRow: same selection contract as
 // PhotoTile. Open and select are sibling buttons so both keep their native
@@ -46,6 +53,8 @@ export function ListRow({
   favoritePending = false,
   retentionLabel,
   onContextAction,
+  quickActions,
+  onQuickActionTargetChange,
   onDragStart,
   onDragEnd,
   tabIndex,
@@ -54,9 +63,27 @@ export function ListRow({
   onKeyDown,
 }: ListRowProps): ReactElement {
   const { formatBytes, formatCalendarDate } = useFormats();
+  const intl = useIntl();
   const photoName = (accessibleName ?? photo.fileName).replace(/^Open /u, '');
   return (
-    <div role="group" className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}>
+    <div
+      role="group"
+      className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}
+      data-quick-action-photo-id={photo.id}
+      onPointerEnter={() => onQuickActionTargetChange?.(true)}
+      onPointerLeave={(event) => {
+        if (!event.currentTarget.contains(document.activeElement)) onQuickActionTargetChange?.(false);
+      }}
+      onFocusCapture={() => onQuickActionTargetChange?.(true)}
+      onBlurCapture={(event) => {
+        if (
+          (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) &&
+          !event.currentTarget.matches(':hover')
+        ) {
+          onQuickActionTargetChange?.(false);
+        }
+      }}
+    >
       <PhotoOpenButton
         label={accessibleName ?? `Open ${photo.fileName}`}
         className="ovl-listrow__open"
@@ -101,9 +128,26 @@ export function ListRow({
           {retentionLabel ?? `${photo.place ?? '—'} · ${photo.takenAt === null ? '—' : formatCalendarDate(photo.takenAt)}`}
         </div>
       </div>
+      {quickActions}
       <div className="ovl-listrow__camera mono-data">{photo.camera ?? '—'}</div>
       <div className="ovl-listrow__size mono-data">{formatBytes(photo.bytes)}</div>
       <FavoriteButton favorite={photo.favorite} pending={favoritePending} className="ovl-listrow__favorite" onToggle={onToggleFavorite} />
+      {onContextAction === undefined ? null : (
+        <button
+          type="button"
+          className="ovl-listrow__more"
+          aria-label={intl.formatMessage(messages.moreActions, { photo: photoName })}
+          aria-haspopup="menu"
+          onClick={(event) => {
+            event.stopPropagation();
+            const rect = event.currentTarget.getBoundingClientRect();
+            onContextAction({ x: rect.right, y: rect.bottom, origin: event.currentTarget });
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <Icon name="sliders-horizontal" size={14} />
+        </button>
+      )}
       <span className="ovl-listrow__status">
         <StatusGlyph state={photo.syncState} size={16} />
       </span>

@@ -443,6 +443,48 @@
   "libmove.title.one": {
     "defaultMessage": "Move library"
   },
+  "library.photo.moreActions": {
+    "defaultMessage": "More actions for {photo}"
+  },
+  "library.quickActions.actionLabel": {
+    "defaultMessage": "{action}. {target}"
+  },
+  "library.quickActions.availableOnlyInTrash": {
+    "defaultMessage": "Available only for photos in Trash"
+  },
+  "library.quickActions.disabledActionLabel": {
+    "defaultMessage": "{action}. {target}. {reason}"
+  },
+  "library.quickActions.disabledTooltip": {
+    "defaultMessage": "{action} · {reason}"
+  },
+  "library.quickActions.favorite.add": {
+    "defaultMessage": "Add to Favorites"
+  },
+  "library.quickActions.favorite.busy": {
+    "defaultMessage": "Favorite update in progress"
+  },
+  "library.quickActions.favorite.remove": {
+    "defaultMessage": "Remove from Favorites"
+  },
+  "library.quickActions.target.photo": {
+    "defaultMessage": "This photo"
+  },
+  "library.quickActions.target.selection": {
+    "defaultMessage": "Selection ({count})"
+  },
+  "library.quickActions.targetPair": {
+    "defaultMessage": "{first} / {second}"
+  },
+  "library.quickActions.toolbar": {
+    "defaultMessage": "Quick Actions for {photo}"
+  },
+  "library.quickActions.tooltip": {
+    "defaultMessage": "{action} · {target}"
+  },
+  "library.quickActions.unavailableInTrash": {
+    "defaultMessage": "Unavailable for photos in Trash"
+  },
   "library.trash.purge.complete": {
     "defaultMessage": "Deleted {count, plural, one {# photo} other {# photos}} permanently"
   },
@@ -631,6 +673,27 @@
   },
   "settings.general.language.system": {
     "defaultMessage": "System default"
+  },
+  "settings.general.quickActions": {
+    "defaultMessage": "Quick Actions"
+  },
+  "settings.general.quickActions.down": {
+    "defaultMessage": "Down"
+  },
+  "settings.general.quickActions.hint": {
+    "defaultMessage": "Choose and order up to five actions shown while you hold Command over a photo."
+  },
+  "settings.general.quickActions.maxReached": {
+    "defaultMessage": "Disable an action before enabling another."
+  },
+  "settings.general.quickActions.moveDown": {
+    "defaultMessage": "Move {action} down"
+  },
+  "settings.general.quickActions.moveUp": {
+    "defaultMessage": "Move {action} up"
+  },
+  "settings.general.quickActions.up": {
+    "defaultMessage": "Up"
   },
   "settings.general.sort.date": {
     "defaultMessage": "Date"

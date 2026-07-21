@@ -17,6 +17,16 @@ export interface CommandContext {
   readonly platform: CommandPlatform;
 }
 
+export type QuickActionIcon = 'album' | 'refresh-cw' | 'share' | 'star' | 'trash-2';
+export type QuickActionAvailability = 'anywhere' | 'library' | 'trash';
+
+export interface QuickActionExposure {
+  readonly icon: QuickActionIcon;
+  readonly availability: QuickActionAvailability;
+  /** Selection commands act on the selection only when it contains the surfaced photo. */
+  readonly target: 'photo' | 'selection-if-included';
+}
+
 export interface CommandDescriptor {
   readonly id: CommandId;
   readonly label: { readonly id: string; readonly defaultMessage: string };
@@ -30,6 +40,7 @@ export interface CommandDescriptor {
   readonly alt?: boolean | undefined;
   readonly shift?: boolean | undefined;
   readonly native?: NativeCommandExposure | undefined;
+  readonly quickAction?: QuickActionExposure | undefined;
 }
 
 export type CommandId =
@@ -288,6 +299,7 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     label: label('album.membership.add', 'Add to album'),
     surfaces: [],
     target: 'selection',
+    quickAction: { icon: 'album', availability: 'library', target: 'selection-if-included' },
   },
   {
     id: 'album.membership.remove',
@@ -349,9 +361,16 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     target: 'focused-item',
     key: 'f',
     native: { menu: 'photo', lockSafe: false, queueable: false },
+    quickAction: { icon: 'star', availability: 'anywhere', target: 'photo' },
+  },
+  {
+    id: 'photo.export',
+    label: label('photo.export', 'Export…'),
+    surfaces: [],
+    target: 'selection',
+    quickAction: { icon: 'share', availability: 'anywhere', target: 'selection-if-included' },
   },
   { id: 'photo.open', label: label('photo.open', 'Open'), surfaces: [], target: 'focused-item' },
-  { id: 'photo.export', label: label('photo.export', 'Export…'), surfaces: [], target: 'selection' },
   { id: 'photo.offload', label: label('photo.offload', 'Offload original…'), surfaces: [], target: 'selection' },
   { id: 'photo.restoreOriginal', label: label('photo.restoreOriginal', 'Restore original'), surfaces: [], target: 'selection' },
   { id: 'photo.transfer', label: label('photo.transfer', 'Transfer & Sync…'), surfaces: [], target: 'selection' },
@@ -362,12 +381,14 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     target: 'focused-item',
     key: 'Delete',
     native: { menu: 'photo', lockSafe: false, queueable: false },
+    quickAction: { icon: 'trash-2', availability: 'library', target: 'selection-if-included' },
   },
   {
     id: 'photo.restore',
     label: label('photo.restore', 'Restore photo'),
     surfaces: [],
     target: 'selection',
+    quickAction: { icon: 'refresh-cw', availability: 'trash', target: 'selection-if-included' },
   },
   { id: 'photo.purge', label: label('photo.purge', 'Delete permanently…'), surfaces: [], target: 'selection' },
   { id: 'trash.empty', label: label('trash.empty', 'Empty Trash…'), surfaces: [], target: 'route' },
@@ -581,4 +602,23 @@ export function commandById(id: CommandId): CommandDescriptor {
 
 export function nativeCommands(menu?: NativeMenu): readonly CommandDescriptor[] {
   return COMMANDS.filter((command) => command.native !== undefined && (menu === undefined || command.native.menu === menu));
+}
+
+export type QuickActionCommandId = Extract<
+  CommandId,
+  'album.membership.add' | 'photo.export' | 'photo.favorite.toggle' | 'photo.restore' | 'photo.trash'
+>;
+
+export const QUICK_ACTION_COMMANDS: readonly (CommandDescriptor & {
+  readonly id: QuickActionCommandId;
+  readonly quickAction: QuickActionExposure;
+})[] = COMMANDS.filter(
+  (command): command is CommandDescriptor & { readonly id: QuickActionCommandId; readonly quickAction: QuickActionExposure } =>
+    command.quickAction !== undefined,
+);
+
+export const QUICK_ACTION_IDS: readonly QuickActionCommandId[] = QUICK_ACTION_COMMANDS.map(({ id }) => id);
+
+export function isQuickActionCommandId(value: string): value is QuickActionCommandId {
+  return QUICK_ACTION_IDS.includes(value as QuickActionCommandId);
 }

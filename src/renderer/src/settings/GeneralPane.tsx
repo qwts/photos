@@ -4,6 +4,7 @@ import { defineMessages, useIntl } from 'react-intl';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
 import { Field } from './Field';
+import { QuickActionsSettings } from './QuickActionsSettings';
 import { SHIPPED_LOCALES } from '../../../shared/i18n/locales.js';
 import type { AppSettings } from '../../../shared/settings/settings.js';
 
@@ -31,6 +32,11 @@ const messages = defineMessages({
   trashRetentionOff: { id: 'settings.general.trashRetention.off', defaultMessage: 'Off' },
   trashRetentionDays: { id: 'settings.general.trashRetention.days', defaultMessage: '{days} days' },
   appearance: { id: 'settings.general.appearance', defaultMessage: 'Appearance' },
+  quickActions: { id: 'settings.general.quickActions', defaultMessage: 'Quick Actions' },
+  quickActionsHint: {
+    id: 'settings.general.quickActions.hint',
+    defaultMessage: 'Choose and order up to five actions shown while you hold Command over a photo.',
+  },
   appearanceHint: {
     id: 'settings.general.appearance.hint',
     defaultMessage: "Dark only for now — a light theme isn't part of the design system yet.",
@@ -46,7 +52,9 @@ const messages = defineMessages({
 
 export interface GeneralPaneProps {
   readonly settings: AppSettings;
-  readonly onPatch: (patch: Partial<Pick<AppSettings, 'sortOrder' | 'language' | 'appearance' | 'trashRetention'>>) => void;
+  readonly onPatch: (
+    patch: Partial<Pick<AppSettings, 'sortOrder' | 'language' | 'appearance' | 'quickActions' | 'trashRetention'>>,
+  ) => void;
 }
 
 export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactElement {
@@ -109,6 +117,14 @@ export function GeneralPane({ settings, onPatch }: GeneralPaneProps): ReactEleme
           ]}
           onChange={(appearance) => {
             onPatch({ appearance });
+          }}
+        />
+      </Field>
+      <Field wide label={intl.formatMessage(messages.quickActions)} hint={intl.formatMessage(messages.quickActionsHint)}>
+        <QuickActionsSettings
+          value={settings.quickActions}
+          onChange={(quickActions) => {
+            onPatch({ quickActions: [...quickActions] });
           }}
         />
       </Field>
