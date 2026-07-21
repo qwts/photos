@@ -236,7 +236,7 @@ export class ProviderRuntime {
     if (providerId === 'icloud-drive' && provider instanceof ICloudDriveProvider) {
       const status = await this.iCloudStatus();
       if (!status.available || status.accountToken === null) {
-        return { ok: false, reason: 'Sign in to iCloud Drive in macOS Settings, then try again.' };
+        return { ok: false, reason: iCloudUnavailableCopy(status.reason ?? 'native-unavailable') };
       }
       try {
         this.iCloudAuthorityStore().save(status.accountToken);
