@@ -61,9 +61,9 @@ test('keyboard-only browse, search, selection, help, and lightbox tour (#399)', 
     await expect(lightboxHelp).toContainText('Toggle favorite');
     await expect(lightboxHelp).toContainText('Move photo to Trash');
     await expect(lightboxHelp).toContainText('Rotate clockwise');
-    await expect(lightboxHelp).toContainText('⌥R');
+    await expect(lightboxHelp).toContainText(/(?:⌥|Alt\+)R/u);
     await expect(lightboxHelp).toContainText('Flip vertically');
-    await expect(lightboxHelp).toContainText('⌥H');
+    await expect(lightboxHelp).toContainText(/(?:⌥|Alt\+)H/u);
     await page.keyboard.press('Escape');
     await expect(lightboxHelp).toHaveCount(0);
     await page.keyboard.press('i');
