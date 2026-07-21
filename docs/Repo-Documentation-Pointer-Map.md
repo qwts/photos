@@ -17,6 +17,7 @@ only so existing issue, PR, and comment links continue to resolve.
 | User-story / milestone planning    | [User Stories](./stories/User-Stories.md)                                                          |
 | Testing strategy                   | [Testing Strategy](./Testing-Strategy.md)                                                          |
 | E2E timing / flake synchronization | [E2E & Storybook Timing Audit](./E2E-Timing-Audit.md)                                              |
+| Visual accessibility acceptance    | [Visual Accessibility Acceptance](./acceptance/Acceptance-Test-Visual-Accessibility.md)            |
 
 ## Rules
 

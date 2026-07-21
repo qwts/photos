@@ -232,6 +232,7 @@ WCAG 2.2 AA is the bar (epic #381). Three gates, two of which need a browser:
 | Gate                        | Where                                                  | What it catches                                                                                                                                                |
 | --------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run check:a11y-budget` | `npm run ci` + the CI `ci` job                         | Budget shape, path existence, unowned debt, a raised number. No browser, so it fails fast. Also runs as `--visited` after the story lane for the orphan check. |
+| `npm run lint:contrast`     | `npm run lint` inside `npm run ci`                     | Declared semantic token pairs: 4.5:1 normal text and 3:1 UI/status contrast, using the shared WCAG luminance module consumed by theme validation.              |
 | axe per story               | `test:stories:ci` (existing chromium runner, +0 lanes) | Component-level violations across all 107 stories, scoped to `#storybook-root`.                                                                                |
 | axe per composed flow       | `test:e2e` (`tests/e2e/a11y.spec.ts`)                  | What isolated stories structurally cannot show: landmark uniqueness, focus order across regions, an overlay leaving the shell in the a11y tree.                |
 
@@ -257,6 +258,15 @@ violations, keyed by story id / flow id, each naming the issue that owns the fix
 **`axe-core` is pinned exact and overridden into `axe-playwright`'s floating
 `^4.10.1`.** Its rule set _defines_ every count, so a Dependabot bump is _expected_
 to move numbers: re-audit and re-baseline in that PR.
+
+Reduced motion is centralized in the renderer motion tokens: under
+`prefers-reduced-motion: reduce`, transitions and animations complete in 1 ms
+and repeating animations run once. The nonzero duration preserves lifecycle
+events used by dialog teardown. `tests/e2e/visual-accessibility.spec.ts` also
+sets the real Electron page zoom to 200% and proves the shell, Settings, grid,
+and Lightbox remain reachable without root-document horizontal scrolling. The
+[manual visual-accessibility pass](./acceptance/Acceptance-Test-Visual-Accessibility.md)
+covers physical OS settings and text-over-photo readability.
 
 Re-baseline (this is how the audit was produced):
 
