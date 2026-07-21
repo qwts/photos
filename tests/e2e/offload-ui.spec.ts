@@ -27,7 +27,7 @@ async function prepareBackedUpPhoto(page: Page): Promise<void> {
   await expect(page.getByTestId('sync-state')).toContainText('All backed up · now', { timeout: 20_000 });
 }
 
-test('selection Offload, Undo, and Settings restore use independent verified transitions', async ({ launchOverlook }) => {
+test('selection Offload and Undo complete verified transitions', async ({ launchOverlook }) => {
   test.setTimeout(60_000);
   const { page } = await launchOverlook({
     prefix: 'overlook-e2e-offload-ui-',
@@ -62,6 +62,17 @@ test('selection Offload, Undo, and Settings restore use independent verified tra
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect.poll(() => syncState(page)).toBe('synced');
   await expect(page.locator('.ovl-toast-host')).toContainText('Restored 1 original');
+});
+
+test('context-menu Offload and Settings restore complete verified transitions', async ({ launchOverlook }) => {
+  test.setTimeout(60_000);
+  const { page } = await launchOverlook({
+    prefix: 'overlook-e2e-offload-settings-',
+    env: { OVERLOOK_SEED: '4' },
+  });
+  await prepareBackedUpPhoto(page);
+  const firstCell = page.locator('.ovl-grid__cell').first();
+  const pill = page.getByTestId('selection-pill');
 
   // Context entry executes the same preflight, then Settings restores the
   // selected original and reports the verified result.
