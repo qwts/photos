@@ -74,3 +74,17 @@ test('native menu exposure is typed, unique, and queues only idempotent commands
       .every(({ target }) => target !== 'focused-item' && target !== 'selection'),
   );
 });
+
+test('transient orientation commands use physical keys and Option/Alt inverse bindings (#510)', () => {
+  const lightbox = { ...gridContext, surface: 'lightbox' as const };
+
+  assert.equal(resolveCommand({ key: 'r', code: 'KeyR' }, lightbox)?.id, 'view.lightbox.rotateRight');
+  assert.equal(resolveCommand({ key: 'r', code: 'KeyR', altKey: true }, lightbox)?.id, 'view.lightbox.rotateLeft');
+  assert.equal(resolveCommand({ key: 'h', code: 'KeyH' }, lightbox)?.id, 'view.lightbox.flipHorizontal');
+  assert.equal(resolveCommand({ key: 'h', code: 'KeyH', altKey: true }, lightbox)?.id, 'view.lightbox.flipVertical');
+
+  assert.equal(resolveCommand({ key: 'р', code: 'KeyR' }, lightbox)?.id, 'view.lightbox.rotateRight');
+  assert.equal(resolveCommand({ key: 'р', code: 'KeyR', altKey: true }, lightbox)?.id, 'view.lightbox.rotateLeft');
+  assert.equal(resolveCommand({ key: 'r', code: 'KeyR' }, { ...lightbox, editable: true }), null);
+  assert.equal(resolveCommand({ key: 'r', code: 'KeyR' }, { ...lightbox, dialogOpen: true }), null);
+});
