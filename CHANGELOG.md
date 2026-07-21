@@ -1,5 +1,16 @@
 # photos
 
+## 0.47.0
+
+### Minor Changes
+
+- 501daf6: Add persisted Dark, Light, and System appearance modes with synchronized native chrome and dual-theme Storybook coverage.
+- 5d0bb96: Add a protected Original marker, duplicate-policy boundary, and authenticated Shift+Delete override.
+
+### Patch Changes
+
+- 69442ed: Honor reduced-motion preferences across the renderer and keep core controls reachable at 200% application zoom.
+
 ## 0.46.1
 
 ### Patch Changes
