@@ -1,26 +1,9 @@
-import { expect, test, _electron as electron } from '@playwright/test';
-import type { ElectronApplication, Page } from '@playwright/test';
+import { expect, test } from './support/app.js';
 
-import { mkE2eTmpDir } from './support/tmp-dir.js';
-
-async function launchSeeded(): Promise<{ app: ElectronApplication; page: Page }> {
-  const app = await electron.launch({
-    args: ['.'],
-    env: {
-      ...process.env,
-      OVERLOOK_USER_DATA: mkE2eTmpDir('overlook-e2e-keyboard-'),
-      OVERLOOK_SEED: '12',
-      OVERLOOK_INSECURE_KEYSTORE: '1',
-    },
-  });
-  const page = await app.firstWindow();
+test('keyboard-only browse, search, selection, help, and lightbox tour (#399)', async ({ launchOverlook }) => {
+  const { page } = await launchOverlook({ prefix: 'overlook-e2e-keyboard-', env: { OVERLOOK_SEED: '12' } });
   await page.locator('.ovl-tile__img').first().waitFor();
-  return { app, page };
-}
-
-test('keyboard-only browse, search, selection, help, and lightbox tour (#399)', async () => {
-  const { app, page } = await launchSeeded();
-  try {
+  {
     const skipLink = page.getByRole('link', { name: 'Skip to photos' });
     await skipLink.focus();
     await expect(skipLink).toBeVisible();
@@ -71,7 +54,5 @@ test('keyboard-only browse, search, selection, help, and lightbox tour (#399)', 
     await expect(page.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('lightbox')).toHaveCount(0);
-  } finally {
-    await app.close();
   }
 });
