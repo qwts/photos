@@ -113,6 +113,9 @@
   "commands.view.lightbox.flipHorizontal": {
     "defaultMessage": "Flip horizontally"
   },
+  "commands.view.lightbox.flipVertical": {
+    "defaultMessage": "Flip vertically"
+  },
   "commands.view.lightbox.next": {
     "defaultMessage": "Next photo"
   },
@@ -123,10 +126,10 @@
     "defaultMessage": "Previous photo"
   },
   "commands.view.lightbox.rotateLeft": {
-    "defaultMessage": "Rotate left"
+    "defaultMessage": "Rotate counterclockwise"
   },
   "commands.view.lightbox.rotateRight": {
-    "defaultMessage": "Rotate right"
+    "defaultMessage": "Rotate clockwise"
   },
   "commands.view.lightbox.zoomIn": {
     "defaultMessage": "Zoom in"

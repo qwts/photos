@@ -124,8 +124,12 @@
   background: var(--border-subtle);
 }
 
+.ovl-lightbox__flip-vertical svg {
+  rotate: 90deg;
+}
+
 .ovl-lightbox__zoom {
-  inset-inline-start: calc(50% + 88px);
+  inset-inline-start: calc(50% + 105px);
   translate: 0 0;
 }
 

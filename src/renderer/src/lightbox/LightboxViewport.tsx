@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement, SyntheticEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
-import { resolveCommand } from '../../../shared/commands/registry.js';
+import { COMMANDS, formatAriaShortcut, formatShortcut, resolveCommand, type CommandId } from '../../../shared/commands/registry.js';
 import { commandPlatform } from '../state/use-command-dispatcher';
 
 import type { PhotoRecord } from '../../../shared/library/types.js';
@@ -13,6 +13,7 @@ import {
   DEFAULT_VIEW_INTENT,
   clampTransform,
   fillZoom,
+  flipVerticalOrientation,
   fitSize,
   orientedSize,
   panBy,
@@ -168,6 +169,10 @@ export function LightboxViewport({
     applyOrientation({ ...orientation, flipped: !orientation.flipped });
   }, [applyOrientation, orientation]);
 
+  const flipVertical = useCallback(() => {
+    applyOrientation(flipVerticalOrientation(orientation));
+  }, [applyOrientation, orientation]);
+
   const resetOrientation = useCallback(() => {
     applyOrientation(DEFAULT_ORIENTATION);
   }, [applyOrientation]);
@@ -184,13 +189,14 @@ export function LightboxViewport({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      const inField = event.target instanceof HTMLElement && event.target.closest('input, textarea, select') !== null;
+      const inField =
+        event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]') !== null;
       const modalOpen = document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
-      if (inField || modalOpen || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (inField || modalOpen || event.metaKey || event.ctrlKey) return;
       const horizontalOverflow = fitted.width * transform.zoom > viewport.width + 1;
       const verticalOverflow = fitted.height * transform.zoom > viewport.height + 1;
       const panDelta =
-        event.key === 'ArrowLeft' && horizontalOverflow
+        !event.altKey && !event.shiftKey && event.key === 'ArrowLeft' && horizontalOverflow
           ? { x: KEYBOARD_PAN_STEP, y: 0 }
           : event.key === 'ArrowRight' && horizontalOverflow
             ? { x: -KEYBOARD_PAN_STEP, y: 0 }
@@ -219,6 +225,7 @@ export function LightboxViewport({
       else if (command?.id === 'view.lightbox.rotateLeft') rotateBy(-1);
       else if (command?.id === 'view.lightbox.rotateRight') rotateBy(1);
       else if (command?.id === 'view.lightbox.flipHorizontal') flipHorizontal();
+      else if (command?.id === 'view.lightbox.flipVertical') flipVertical();
       else if (command?.id === 'view.lightbox.orientationReset') resetOrientation();
       else return;
       event.preventDefault();
@@ -230,6 +237,7 @@ export function LightboxViewport({
   }, [
     fitted,
     flipHorizontal,
+    flipVertical,
     mode,
     onActivity,
     onViewIntentChange,
@@ -299,6 +307,17 @@ export function LightboxViewport({
       });
   };
 
+  const shortcutLabel = (id: CommandId): string => {
+    const command = COMMANDS.find((candidate) => candidate.id === id);
+    if (command === undefined) return id;
+    return `${intl.formatMessage(command.label)} (${formatShortcut(command, commandPlatform(platform))})`;
+  };
+
+  const ariaShortcut = (id: CommandId): string | undefined => {
+    const command = COMMANDS.find((candidate) => candidate.id === id);
+    return command === undefined ? undefined : formatAriaShortcut(command, commandPlatform(platform));
+  };
+
   return (
     <div
       ref={viewportRef}
@@ -361,18 +380,43 @@ export function LightboxViewport({
         aria-label="Image orientation controls"
         style={{ top: toolbarTop }}
       >
-        <IconButton icon="refresh-cw" size="md" label="Reset orientation (R)" aria-keyshortcuts="R" onClick={resetOrientation} />
+        <IconButton
+          icon="refresh-cw"
+          size="md"
+          label={shortcutLabel('view.lightbox.orientationReset')}
+          aria-keyshortcuts={ariaShortcut('view.lightbox.orientationReset')}
+          onClick={resetOrientation}
+        />
         <IconButton
           icon="flip-horizontal-2"
           size="md"
-          label="Flip horizontal (Backslash)"
-          aria-keyshortcuts="\\"
-          active={orientation.flipped}
+          label={shortcutLabel('view.lightbox.flipHorizontal')}
+          aria-keyshortcuts={ariaShortcut('view.lightbox.flipHorizontal')}
           onClick={flipHorizontal}
         />
+        <IconButton
+          icon="flip-horizontal-2"
+          size="md"
+          className="ovl-lightbox__flip-vertical"
+          label={shortcutLabel('view.lightbox.flipVertical')}
+          aria-keyshortcuts={ariaShortcut('view.lightbox.flipVertical')}
+          onClick={flipVertical}
+        />
         <span className="ovl-lightbox__orientation-divider" role="separator" aria-orientation="vertical" />
-        <IconButton icon="rotate-ccw" size="md" label="Rotate left ([)" aria-keyshortcuts="[" onClick={() => rotateBy(-1)} />
-        <IconButton icon="rotate-cw" size="md" label="Rotate right (])" aria-keyshortcuts="]" onClick={() => rotateBy(1)} />
+        <IconButton
+          icon="rotate-ccw"
+          size="md"
+          label={shortcutLabel('view.lightbox.rotateLeft')}
+          aria-keyshortcuts={ariaShortcut('view.lightbox.rotateLeft')}
+          onClick={() => rotateBy(-1)}
+        />
+        <IconButton
+          icon="rotate-cw"
+          size="md"
+          label={shortcutLabel('view.lightbox.rotateRight')}
+          aria-keyshortcuts={ariaShortcut('view.lightbox.rotateRight')}
+          onClick={() => rotateBy(1)}
+        />
       </div>
       <div className={`ovl-lightbox__zoom ovl-lightbox__chrome${chromeClass}`} aria-label="Image zoom controls" style={{ top: toolbarTop }}>
         <IconButton icon="minus" size="sm" label="Zoom out (−)" onClick={() => zoomBy(1 / KEYBOARD_ZOOM_STEP)} />

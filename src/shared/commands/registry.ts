@@ -23,8 +23,11 @@ export interface CommandDescriptor {
   readonly surfaces: readonly CommandSurface[];
   readonly target: CommandTarget;
   readonly key?: string | undefined;
+  /** Physical-key binding for position-stable image commands across layouts. */
+  readonly code?: string | undefined;
   readonly alternateKeys?: readonly string[] | undefined;
   readonly primaryModifier?: boolean | undefined;
+  readonly alt?: boolean | undefined;
   readonly shift?: boolean | undefined;
   readonly native?: NativeCommandExposure | undefined;
 }
@@ -58,6 +61,7 @@ export type CommandId =
   | 'view.lightbox.rotateLeft'
   | 'view.lightbox.rotateRight'
   | 'view.lightbox.flipHorizontal'
+  | 'view.lightbox.flipVertical'
   | 'view.lightbox.orientationReset'
   | 'help.shortcuts'
   | 'help.open'
@@ -72,6 +76,7 @@ export type CommandId =
 
 export interface KeyboardLike {
   readonly key: string;
+  readonly code?: string | undefined;
   readonly metaKey?: boolean | undefined;
   readonly ctrlKey?: boolean | undefined;
   readonly altKey?: boolean | undefined;
@@ -106,9 +111,10 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'view.lightbox.zoomIn': { id: 'commands.view.lightbox.zoomIn', defaultMessage: 'Zoom in' },
   'view.lightbox.zoomOut': { id: 'commands.view.lightbox.zoomOut', defaultMessage: 'Zoom out' },
   'view.lightbox.zoomReset': { id: 'commands.view.lightbox.zoomReset', defaultMessage: 'Reset zoom' },
-  'view.lightbox.rotateLeft': { id: 'commands.view.lightbox.rotateLeft', defaultMessage: 'Rotate left' },
-  'view.lightbox.rotateRight': { id: 'commands.view.lightbox.rotateRight', defaultMessage: 'Rotate right' },
+  'view.lightbox.rotateLeft': { id: 'commands.view.lightbox.rotateLeft', defaultMessage: 'Rotate counterclockwise' },
+  'view.lightbox.rotateRight': { id: 'commands.view.lightbox.rotateRight', defaultMessage: 'Rotate clockwise' },
   'view.lightbox.flipHorizontal': { id: 'commands.view.lightbox.flipHorizontal', defaultMessage: 'Flip horizontally' },
+  'view.lightbox.flipVertical': { id: 'commands.view.lightbox.flipVertical', defaultMessage: 'Flip vertically' },
   'view.lightbox.orientationReset': { id: 'commands.view.lightbox.orientationReset', defaultMessage: 'Reset orientation' },
   'help.shortcuts': { id: 'commands.help.shortcuts', defaultMessage: 'Keyboard shortcuts' },
   'help.open': { id: 'commands.help.open', defaultMessage: 'Overlook Help' },
@@ -312,32 +318,47 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     key: '0',
   },
   {
-    id: 'view.lightbox.rotateLeft',
-    label: label('view.lightbox.rotateLeft', 'Rotate left'),
+    id: 'view.lightbox.rotateRight',
+    label: label('view.lightbox.rotateRight', 'Rotate clockwise'),
     surfaces: ['lightbox'],
     target: 'focused-item',
-    key: '[',
+    key: 'R',
+    code: 'KeyR',
   },
   {
-    id: 'view.lightbox.rotateRight',
-    label: label('view.lightbox.rotateRight', 'Rotate right'),
+    id: 'view.lightbox.rotateLeft',
+    label: label('view.lightbox.rotateLeft', 'Rotate counterclockwise'),
     surfaces: ['lightbox'],
     target: 'focused-item',
-    key: ']',
+    key: 'R',
+    code: 'KeyR',
+    alt: true,
   },
   {
     id: 'view.lightbox.flipHorizontal',
     label: label('view.lightbox.flipHorizontal', 'Flip horizontally'),
     surfaces: ['lightbox'],
     target: 'focused-item',
-    key: '\\',
+    key: 'H',
+    code: 'KeyH',
+  },
+  {
+    id: 'view.lightbox.flipVertical',
+    label: label('view.lightbox.flipVertical', 'Flip vertically'),
+    surfaces: ['lightbox'],
+    target: 'focused-item',
+    key: 'H',
+    code: 'KeyH',
+    alt: true,
   },
   {
     id: 'view.lightbox.orientationReset',
     label: label('view.lightbox.orientationReset', 'Reset orientation'),
     surfaces: ['lightbox'],
     target: 'focused-item',
-    key: 'r',
+    key: 'R',
+    code: 'KeyR',
+    shift: true,
   },
   {
     id: 'help.shortcuts',
@@ -406,11 +427,13 @@ function primaryPressed(event: KeyboardLike, platform: CommandPlatform): boolean
 function matches(command: CommandDescriptor, event: KeyboardLike, platform: CommandPlatform): boolean {
   if (command.key === undefined) return false;
   const keys = [command.key, ...(command.alternateKeys ?? [])];
-  if (!keys.some((key) => normalizedKey(event.key) === normalizedKey(key))) return false;
+  const keyMatches =
+    command.code === undefined ? keys.some((key) => normalizedKey(event.key) === normalizedKey(key)) : event.code === command.code;
+  if (!keyMatches) return false;
   if (primaryPressed(event, platform) !== (command.primaryModifier === true)) return false;
   const printableSymbol = event.key.length === 1 && !/[a-z0-9]/iu.test(event.key);
-  if (!printableSymbol && (event.shiftKey === true) !== (command.shift === true)) return false;
-  if (event.altKey === true) return false;
+  if ((command.code !== undefined || !printableSymbol) && (event.shiftKey === true) !== (command.shift === true)) return false;
+  if ((event.altKey === true) !== (command.alt === true)) return false;
   if (platform === 'darwin' ? event.ctrlKey === true : event.metaKey === true) return false;
   return true;
 }
@@ -427,7 +450,7 @@ export function findShortcutConflicts(commands: readonly CommandDescriptor[]): r
     if (command.key === undefined) continue;
     for (const surface of command.surfaces) {
       for (const key of [command.key, ...(command.alternateKeys ?? [])]) {
-        const binding = `${surface}:${command.primaryModifier === true ? 'primary+' : ''}${command.shift === true ? 'shift+' : ''}${normalizedKey(key)}`;
+        const binding = `${surface}:${command.primaryModifier === true ? 'primary+' : ''}${command.alt === true ? 'alt+' : ''}${command.shift === true ? 'shift+' : ''}${command.code ?? normalizedKey(key)}`;
         const prior = seen.get(binding);
         if (prior === undefined) seen.set(binding, command.id);
         else conflicts.push(`${binding}: ${prior}, ${command.id}`);
@@ -445,6 +468,7 @@ export function formatShortcut(command: CommandDescriptor, platform: CommandPlat
   if (command.key === undefined) return '';
   const parts: string[] = [];
   if (command.primaryModifier === true) parts.push(platform === 'darwin' ? '⌘' : 'Ctrl+');
+  if (command.alt === true) parts.push(platform === 'darwin' ? '⌥' : 'Alt+');
   if (command.shift === true) parts.push(platform === 'darwin' ? '⇧' : 'Shift+');
   const display =
     command.key === 'ArrowLeft'
@@ -460,6 +484,16 @@ export function formatShortcut(command: CommandDescriptor, platform: CommandPlat
               : command.key;
   parts.push(display);
   return parts.join('');
+}
+
+export function formatAriaShortcut(command: CommandDescriptor, platform: CommandPlatform): string {
+  if (command.key === undefined) return '';
+  const parts: string[] = [];
+  if (command.primaryModifier === true) parts.push(platform === 'darwin' ? 'Meta' : 'Control');
+  if (command.alt === true) parts.push('Alt');
+  if (command.shift === true) parts.push('Shift');
+  parts.push(command.key);
+  return parts.join('+');
 }
 
 export function commandById(id: CommandId): CommandDescriptor {
