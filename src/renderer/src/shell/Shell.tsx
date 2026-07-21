@@ -343,7 +343,7 @@ export function Shell({
   }, [dispatch, nativeCommand, offload, state.lightboxId, state.photos]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const inspectorSelection = useDetachedInspector(state, dispatch);
+  const inspectorSelectionPosition = useDetachedInspector(state, dispatch);
 
   useEffect(() => {
     const target = state.photos.find(({ id }) => id === state.lightboxId);
@@ -838,17 +838,7 @@ export function Shell({
             <Inspector
               providerLabel={state.providerLabel}
               photo={state.photos.find((photo) => photo.id === state.inspectorPhotoId) ?? null}
-              selectionPosition={
-                state.inspectorSource === 'selection' && inspectorSelection.length > 1
-                  ? {
-                      index: Math.max(
-                        0,
-                        inspectorSelection.findIndex((photo) => photo.id === state.inspectorPhotoId),
-                      ),
-                      count: inspectorSelection.length,
-                    }
-                  : undefined
-              }
+              selectionPosition={inspectorSelectionPosition}
               onPrevious={() => dispatch({ type: 'inspector/stepped', delta: -1 })}
               onNext={() => dispatch({ type: 'inspector/stepped', delta: 1 })}
             />
