@@ -257,11 +257,13 @@ describe('published interoperability artifacts', () => {
       'rejected-future-version.json',
       'replay-message.json',
       'round-trip-record-message.json',
+      'sealed-transport.json',
       'valid-pairing-bundle.json',
       'valid-record-message.json',
     ]) {
       assert.ok(coveredPaths.has(path.join('fixtures', fixtureName)));
     }
+    assert.ok(coveredPaths.has('sealed-blob.md'));
   });
 
   test('uses a password-derived wrapping key distinct from the random interoperability key', () => {

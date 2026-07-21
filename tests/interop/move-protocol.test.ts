@@ -20,6 +20,7 @@ const TARGET_KEY = randomBytes(32);
 const FIRST_ACK_ID = '37813aa3-a4f4-4d23-8f35-43f64127388a';
 const RETRY_ACK_ID = '0e3d566f-626d-4a94-9cb1-c20c11db0e76';
 const STALE_ACK_ID = '72612e33-901d-40f6-b2f5-e9c4592343a6';
+const SOURCE_BLOB_MESSAGE_ID = 'de544b78-c183-4f3a-8665-7c5897aabf30';
 
 function databasePath(name: string): string {
   return join(mkdtempSync(join(tmpdir(), `overlook-move-${name}-`)), 'library.db');
@@ -228,12 +229,18 @@ describe('MoveProtocolService', () => {
     assert.equal(sourceRemoved, false);
 
     const accepted = await target.service.receive(request, {
-      verify: () => Promise.resolve({ verified: true, targetLocalId: 'target-photo' }),
+      verify: () =>
+        Promise.resolve({
+          verified: true,
+          targetLocalId: 'target-photo',
+          sourceMessageIds: [SOURCE_BLOB_MESSAGE_ID],
+        }),
     });
     assert.equal(accepted.payload.kind, 'acknowledgement');
     if (accepted.payload.kind !== 'acknowledgement') return assert.fail('acknowledgement expected');
     assert.equal(accepted.payload.status, 'accepted');
     assert.equal(accepted.payload.originalVerification, 'verified');
+    assert.deepEqual(accepted.payload.acknowledgedMessageIds, [request.header.messageId, SOURCE_BLOB_MESSAGE_ID]);
     assert.notEqual(accepted.header.messageId, rejected.header.messageId, 'retry emitted a fresh acknowledgement');
     source.service.acknowledge(accepted);
 
