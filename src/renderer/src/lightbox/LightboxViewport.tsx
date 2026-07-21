@@ -196,15 +196,17 @@ export function LightboxViewport({
       const horizontalOverflow = fitted.width * transform.zoom > viewport.width + 1;
       const verticalOverflow = fitted.height * transform.zoom > viewport.height + 1;
       const panDelta =
-        !event.altKey && !event.shiftKey && event.key === 'ArrowLeft' && horizontalOverflow
-          ? { x: KEYBOARD_PAN_STEP, y: 0 }
-          : event.key === 'ArrowRight' && horizontalOverflow
-            ? { x: -KEYBOARD_PAN_STEP, y: 0 }
-            : event.key === 'ArrowUp' && verticalOverflow
-              ? { x: 0, y: KEYBOARD_PAN_STEP }
-              : event.key === 'ArrowDown' && verticalOverflow
-                ? { x: 0, y: -KEYBOARD_PAN_STEP }
-                : null;
+        event.altKey || event.shiftKey
+          ? null
+          : event.key === 'ArrowLeft' && horizontalOverflow
+            ? { x: KEYBOARD_PAN_STEP, y: 0 }
+            : event.key === 'ArrowRight' && horizontalOverflow
+              ? { x: -KEYBOARD_PAN_STEP, y: 0 }
+              : event.key === 'ArrowUp' && verticalOverflow
+                ? { x: 0, y: KEYBOARD_PAN_STEP }
+                : event.key === 'ArrowDown' && verticalOverflow
+                  ? { x: 0, y: -KEYBOARD_PAN_STEP }
+                  : null;
       if (panDelta !== null) {
         event.preventDefault();
         const next = panBy(transform, panDelta, fitted, viewport);

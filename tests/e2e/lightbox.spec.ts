@@ -146,6 +146,11 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   const wheelPanX = Number(await viewport.getAttribute('data-pan-x'));
   const wheelPanY = Number(await viewport.getAttribute('data-pan-y'));
 
+  await page.locator('body').dispatchEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', altKey: true, bubbles: true });
+  await page.locator('body').dispatchEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', altKey: true, bubbles: true });
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-x'))).toBe(wheelPanX);
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBe(wheelPanY);
+
   const fileName = await viewport.getByRole('img').getAttribute('alt');
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowDown');
