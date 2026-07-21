@@ -36,7 +36,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
       providers: { id: string; label: string; available: boolean; capabilities: { quota: string; verification: string } }[];
     }>(`window.overlook.backup.providers()`);
     expect(providerCatalog.defaultProviderId).toBe('mock');
-    expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['pcloud', 'google-drive', 'mock']);
+    expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['pcloud', 'google-drive', 'icloud-drive', 'mock']);
     expect(providerCatalog.providers.find(({ id }) => id === 'google-drive')).toMatchObject({
       label: 'Google Drive',
       available: false,
@@ -45,6 +45,11 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     expect(providerCatalog.providers.find(({ id }) => id === 'mock')?.capabilities).toMatchObject({
       quota: 'known',
       verification: 'server-checksum',
+    });
+    expect(providerCatalog.providers.find(({ id }) => id === 'icloud-drive')).toMatchObject({
+      label: 'iCloud Drive',
+      available: false,
+      capabilities: { quota: 'unknown', verification: 'download-hash' },
     });
 
     // Subscribe, patch, and require the push to arrive with the snapshot.
@@ -133,6 +138,8 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(card).toContainText('Not connected');
     await expect(page.getByRole('radio', { name: 'Google Drive' })).toBeDisabled();
     await expect(page.getByText('Google Drive: Google Drive OAuth is not configured in this build.')).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'iCloud Drive' })).toBeDisabled();
+    await expect(page.getByText('iCloud Drive: iCloud Drive requires a provisioned signed macOS build.')).toBeVisible();
     await expect(page.getByRole('switch', { name: 'Back up new imports automatically' })).toBeHidden();
     await expect(page.getByRole('switch', { name: 'Wi-Fi only' })).toBeHidden();
     await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeHidden();

@@ -1585,6 +1585,28 @@
       ]
     },
     {
+      "id": "icloud-drive-production-composition",
+      "wiki": "Provider-Contract-Matrix",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/icloud-provider.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/backup/provider-runtime.test.ts", "tests/backup/icloud-drive-provider.test.ts"]
+        },
+        {
+          "type": "manual",
+          "reason": "Issue #659 owns the signed provisioned macOS acceptance pass for real Apple Account state changes, File Provider materialization, process restart, and fresh-profile disaster recovery that the deterministic Electron harness cannot reproduce."
+        }
+      ]
+    },
+    {
       "id": "gif-webp-animated-media",
       "wiki": "acceptance-test-gif-webp-animated-media",
       "coverage": [

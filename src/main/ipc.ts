@@ -752,7 +752,7 @@ export interface BackupFacade {
   ephemeralStatus(photoId: string): 'fetching' | 'verifying' | 'ready' | 'released' | 'error' | null;
   prepareEphemeral(photoId: string): Promise<'durable' | 'ephemeral'>;
   restoreOriginals(photoIds?: readonly string[]): Promise<RestoreOriginalsSummary>;
-  providers(): { providers: readonly ProviderDescriptor[]; defaultProviderId: string };
+  providers(): Promise<{ providers: readonly ProviderDescriptor[]; defaultProviderId: string }>;
   providerStatus(providerId: string): Promise<{
     provider: ProviderDescriptor;
     connected: boolean;

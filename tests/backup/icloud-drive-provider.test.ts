@@ -120,6 +120,18 @@ describe('iCloud Drive deterministic failure contracts (#657)', () => {
     }
   });
 
+  test('rejects a replacement that leaves a conflicted iCloud version', async () => {
+    const state = world();
+    try {
+      state.bridge.arm('conflict');
+      await assert.rejects(state.provider.put('blobs/aa/conflicted', Readable.from([PAYLOAD])), providerError('transient'));
+      state.bridge.disarm();
+      await assert.rejects(state.provider.verify('blobs/aa/conflicted'), providerError('transient'));
+    } finally {
+      rmSync(state.temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
   test('never reports interrupted or cancelled replacement as verified and survives provider restart', async () => {
     const state = world();
     try {

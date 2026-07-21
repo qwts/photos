@@ -93,6 +93,13 @@ export class ICloudDriveProvider implements StorageProvider {
     }
   }
 
+  /** Explicit reconnect/account-recovery boundary. Ordinary operations never
+   * accept a silently replaced macOS account; only the user's Connect action
+   * may pin the provider to the account currently reported by the OS. */
+  resetAccountAuthority(): void {
+    this.authority.accountToken = null;
+  }
+
   forLibrary(libraryId: string): StorageProvider {
     if (!LIBRARY_ID.test(libraryId)) throw new ProviderError(`unsafe library id: ${libraryId}`, 'corrupt');
     return new ICloudDriveProvider({ ...this.options, libraryId }, this.authority);

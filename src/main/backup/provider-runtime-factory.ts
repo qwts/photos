@@ -5,6 +5,8 @@ import { app, shell } from 'electron';
 import { ProviderRuntime } from './provider-runtime.js';
 import { pickSafeStorage } from '../crypto/safe-storage-runtime.js';
 import { getSettingsStore } from '../settings/settings-runtime.js';
+import { createNativeICloudDriveBridge } from './icloud-drive/native-bridge.js';
+import { DeterministicICloudDriveBridge } from './icloud-drive/deterministic-bridge.js';
 
 // ProviderRuntime wiring (#256), extracted from the composition root.
 // Provider credentials are profile-level (they survive library replacement
@@ -18,6 +20,10 @@ export interface ProviderRuntimeFactoryDeps {
 }
 
 export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): ProviderRuntime {
+  const iCloudDriveBridge =
+    deps.harnessEnv('OVERLOOK_ICLOUD_FAKE') === '1'
+      ? new DeterministicICloudDriveBridge()
+      : createNativeICloudDriveBridge({ platform: process.platform, packaged: app.isPackaged });
   return new ProviderRuntime({
     dataDir: deps.dataDir,
     providerCredentialDir: (providerId) => path.join(app.getPath('userData'), 'provider-auth', providerId),
@@ -28,5 +34,6 @@ export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): Provide
     isWorkActive: deps.isWorkActive,
     isPackaged: app.isPackaged,
     harnessEnv: deps.harnessEnv,
+    iCloudDriveBridge,
   });
 }
