@@ -1,5 +1,11 @@
 # photos
 
+## 0.44.0
+
+### Minor Changes
+
+- be3330b: Add durable, capability-aware Undo and Redo for favorites, album membership, Trash, restore, and verified Move compensation.
+
 ## 0.43.0
 
 ### Minor Changes
