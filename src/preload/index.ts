@@ -44,6 +44,8 @@ const backupProviders = createInvoker(channels.backupProviders, invokeTransport)
 const backupProviderStatus = createInvoker(channels.backupProviderStatus, invokeTransport);
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
+const llmProviders = createInvoker(channels.llmProviders, invokeTransport);
+const llmSpend = createInvoker(channels.llmSpend, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
 const historyStatus = createInvoker(channels.historyStatus, invokeTransport);
 const protectedAlbumsList = createInvoker(channels.protectedAlbumsList, invokeTransport);
@@ -218,6 +220,15 @@ const overlook: OverlookApi = {
     get: async () => settingsGet({}),
     set: createInvoker(channels.settingsSet, invokeTransport),
     onChanged: createSubscriber(events.settingsChanged, subscribeTransport),
+  }),
+  llm: Object.freeze({
+    providers: async () => llmProviders({}),
+    connect: createInvoker(channels.llmConnect, invokeTransport),
+    disconnect: createInvoker(channels.llmDisconnect, invokeTransport),
+    estimate: createInvoker(channels.llmEstimate, invokeTransport),
+    ask: createInvoker(channels.llmAsk, invokeTransport),
+    spend: async () => llmSpend({}),
+    onInflight: createSubscriber(events.llmInflight, subscribeTransport),
   }),
   diagnostics: Object.freeze({
     list: async () => diagnosticsList({}),

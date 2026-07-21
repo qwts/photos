@@ -10,6 +10,8 @@ import {
   relocationStateSchema,
 } from '../library/relocation.js';
 import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
+import { diagnosticsChannels } from './diagnostics-channels.js';
+import { llmChannels, llmEvents } from './llm-channels.js';
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
 import { PHOTO_PURGE_AUTHORIZATION } from '../destructive-actions.js';
 import { commandIdSchema, commandMenuContextSchema } from '../commands/menu-contract.js';
@@ -74,19 +76,6 @@ const touchIdStatusSchema = z.object({
   enabled: z.boolean(),
   reenrollmentRequired: z.boolean(),
 });
-
-const diagnosticKindSchema = z.enum(['main-process-runtime-error', 'renderer-process-gone', 'child-process-gone', 'renderer-unresponsive']);
-const queuedDiagnosticSchema = z.object({
-  eventId: z.string().uuid(),
-  capturedAt: z.string().datetime({ offset: true }),
-  kind: diagnosticKindSchema,
-  payload: z.string().max(4096),
-  encryptedBytes: z.number().int().nonnegative(),
-});
-const diagnosticEventIdsSchema = z
-  .array(z.string().uuid())
-  .max(50)
-  .refine((ids) => new Set(ids).size === ids.length);
 
 const importSourceSchema = z.object({
   path: z.string(),
@@ -681,19 +670,13 @@ export const channels = {
     z.object({ providerId: providerIdSchema }),
     z.object({ ok: z.boolean(), reason: z.string().nullable() }),
   ),
+  ...llmChannels,
   // Settings store (#111): typed get + validated partial patch. The locked
   // key (thumbnailsOnImport) is a literal, so a patch flipping it rejects
   // at this boundary.
   settingsGet: defineChannel('settings:get', z.object({}), z.object({ settings: settingsSchema })),
   settingsSet: defineChannel('settings:set', z.object({ patch: settingsPatchSchema }), z.object({ settings: settingsSchema })),
-  diagnosticsList: defineChannel('diagnostics:list', z.object({}), z.object({ reports: z.array(queuedDiagnosticSchema) })),
-  diagnosticsDelete: defineChannel('diagnostics:delete', z.object({ eventId: z.string().uuid() }), z.object({ deleted: z.boolean() })),
-  diagnosticsPurge: defineChannel('diagnostics:purge', z.object({}), z.object({ deleted: z.number().int().nonnegative() })),
-  diagnosticsExport: defineChannel(
-    'diagnostics:export',
-    z.object({ eventIds: diagnosticEventIdsSchema }),
-    z.object({ exported: z.boolean(), count: z.number().int().nonnegative() }),
-  ),
+  ...diagnosticsChannels,
   libraryStats: defineChannel(
     'library:stats',
     z.object({}),
@@ -882,6 +865,7 @@ export const events = {
   // Settings changes (#111) push the full snapshot — consumers (dialog,
   // sidebar, backup engine surface) re-render from one truth.
   settingsChanged: defineEvent('settings:changed', z.object({ settings: settingsSchema })),
+  ...llmEvents,
   // Backup progress (#105): per-item + aggregate for the sidebar card.
   backupProgress: defineEvent(
     'backup:progress',
