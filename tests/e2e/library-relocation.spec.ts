@@ -118,7 +118,8 @@ test('ACCEPTANCE: pre-commit crashes offer verified resume; post-commit recovery
     // Relaunch clean: pre-commit copy staging stays inert and explicit; the
     // source remains authoritative until Resume re-verifies and commits it.
     // The post-commit fault still finishes cleanup automatically.
-    const { page: relaunched } = await launchOverlook({ userData });
+    const relaunchedApp = await launchOverlook({ userData });
+    const relaunched = relaunchedApp.page;
     const after = await libraryPath(relaunched, secondId);
     const preCommit = point !== 'after-commit';
     expect(after?.path).toBe(preCommit ? sourcePath : dest);
@@ -135,6 +136,10 @@ test('ACCEPTANCE: pre-commit crashes offer verified resume; post-commit recovery
       expect(existsSync(sourcePath)).toBe(false);
     }
     expect(existsSync(`${dest}.relocate-staging`)).toBe(false);
+    // Close this iteration's instance before the next fault point launches:
+    // fixture teardown would otherwise keep all four recovery apps alive to
+    // the end of the test, stacking Electron processes in one worker.
+    await relaunchedApp.close();
   }
 });
 

@@ -106,6 +106,13 @@ export interface LaunchedApp {
   readonly hasExited: () => boolean;
   /** Resolves when the Electron root process exits. Captured at launch, so it is safe to await after a fault already killed the app. */
   readonly exited: Promise<void>;
+  /**
+   * Bounded, force-kill-backed close — the same shutdown fixture teardown
+   * uses. Call it inside multi-launch loops (crash/recovery, relaunch flows)
+   * so earlier instances do not stay alive across iterations; teardown skips
+   * already-exited instances, so an explicit close is never double-closed.
+   */
+  readonly close: () => Promise<void>;
 }
 
 interface TrackedApp {
@@ -115,7 +122,7 @@ interface TrackedApp {
   readonly kill: () => void;
 }
 
-async function launchStages(spec: LaunchSpec, track: (tracked: TrackedApp) => void): Promise<LaunchedApp> {
+async function launchStages(spec: LaunchSpec, track: (tracked: TrackedApp) => void, testInfo: TestInfo): Promise<LaunchedApp> {
   if (spec.userData === undefined && spec.prefix === undefined)
     throw new Error('launchOverlook needs a prefix (fresh profile) or userData (relaunch)');
   const userData = spec.userData ?? mkE2eTmpDir(spec.prefix ?? 'overlook-e2e-');
@@ -148,10 +155,18 @@ async function launchStages(spec: LaunchSpec, track: (tracked: TrackedApp) => vo
   const describe = (): string => diagnostics.describe(exitedFlag);
   // Track for teardown BEFORE any further stage: a stall in first-window or
   // renderer-ready must still end with this instance closed or killed.
-  track({ app, describe, hasExited: () => exitedFlag, kill: () => child.kill('SIGKILL') });
+  const tracked: TrackedApp = { app, describe, hasExited: () => exitedFlag, kill: () => child.kill('SIGKILL') };
+  track(tracked);
   const page = await stage('first-window', describe, LAUNCH_STAGE_TIMEOUT_MS, app.firstWindow());
   const readyTestId = spec.readyTestId === undefined ? 'virtual-grid' : spec.readyTestId;
-  const launched: LaunchedApp = { app, page, userData, hasExited: () => exitedFlag, exited };
+  const launched: LaunchedApp = {
+    app,
+    page,
+    userData,
+    hasExited: () => exitedFlag,
+    exited,
+    close: () => closeApp(tracked, testInfo),
+  };
   if (readyTestId !== null) {
     await stage(
       `renderer-ready [${readyTestId}]`,
@@ -199,7 +214,7 @@ export const test = base.extend<OverlookFixtures>({
   // eslint-disable-next-line no-empty-pattern -- Playwright's fixture signature; consuming any built-in fixture here (e.g. page) would launch a plain browser alongside the Electron app under test
   launchOverlook: async ({}, use, testInfo) => {
     const launched: TrackedApp[] = [];
-    await use((spec) => launchStages(spec, (tracked) => launched.push(tracked)));
+    await use((spec) => launchStages(spec, (tracked) => launched.push(tracked), testInfo));
     for (const tracked of launched.reverse()) await closeApp(tracked, testInfo);
   },
 });
@@ -222,8 +237,17 @@ export async function expectRendererReload<T>(
   const timeoutMs = options.timeoutMs ?? LAUNCH_STAGE_TIMEOUT_MS;
   const readyTestId = options.readyTestId ?? 'virtual-grid';
   const navigated = page.waitForEvent('framenavigated', { timeout: timeoutMs + 1_000 });
-  const result = await trigger();
-  await stage('renderer-reload [framenavigated]', null, timeoutMs, navigated);
+  // The trigger itself shares the stage bound: a trigger that never settles
+  // (an IPC call severed mid-reload the catch didn't match) must fail with
+  // the staged label, not stall here while the armed listener rejects
+  // unobserved in the background.
+  navigated.catch(() => undefined);
+  const result = await stage(
+    'renderer-reload [trigger + framenavigated]',
+    null,
+    timeoutMs,
+    Promise.all([trigger(), navigated]).then(([value]) => value),
+  );
   await stage(
     `renderer-ready-after-reload [${readyTestId}]`,
     null,
