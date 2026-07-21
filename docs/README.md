@@ -24,6 +24,7 @@ existing links resolve — never add content there.
 
 - [Activity History](./Activity-History.md) — encrypted per-library audit timeline, privacy, backup, and retention
 - [Testing Strategy](./Testing-Strategy.md) — test lanes, coverage floors, when each lane must grow
+- [E2E & Storybook Timing Audit](./E2E-Timing-Audit.md) — every wall-clock wait classified, its synchronization contract, and the shared launch/reload/teardown fixture (#630)
 - [Localization Workflow](./Localization.md) — adding and reviewing catalogs, pseudo-locales, and RTL evidence
 - [Architecture Decision Records](./adr/Architecture-Decision-Records.md) — ADR index + template
 - [Deterministic Reviewed Sync acceptance](./acceptance/Acceptance-Test-Deterministic-Reviewed-Sync.md) — replay, conflict, tombstone, and restart evidence
