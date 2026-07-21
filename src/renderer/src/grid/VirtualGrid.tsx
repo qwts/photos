@@ -169,6 +169,10 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
       <div
         key={index}
         className="ovl-grid__cell"
+        role="listitem"
+        aria-posinset={index + 1}
+        aria-setsize={total}
+        aria-busy={photo === undefined ? true : undefined}
         data-index={index}
         data-grid-index={index}
         style={{ transform: `translate(${left}px, ${top}px)`, width: layout.cellWidth, height: layout.tileSize }}
@@ -189,7 +193,7 @@ export function VirtualGrid<Photo extends { readonly id: string }>({
     <div
       ref={containerRef}
       id="photo-grid"
-      role="region"
+      role="list"
       aria-label={intl.formatMessage({ id: 'grid.regionLabel', defaultMessage: 'Photos' })}
       tabIndex={-1}
       className={`ovl-grid${topInset ? ' ovl-grid--inset' : ''}`}

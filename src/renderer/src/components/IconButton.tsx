@@ -15,12 +15,12 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
 }
 
 // components/core/IconButton.jsx — square control, 24/28/34px.
-export function IconButton({ icon, label, size = 'md', active = false, className, ...rest }: IconButtonProps): ReactElement {
+export function IconButton({ icon, label, size = 'md', active, className, ...rest }: IconButtonProps): ReactElement {
   const classes = ['ovl-icon-button', `ovl-icon-button--${size}`, active ? 'ovl-icon-button--active' : undefined, className]
     .filter(Boolean)
     .join(' ');
   return (
-    <button type="button" aria-label={label} className={classes} {...rest}>
+    <button type="button" aria-label={label} aria-pressed={active} className={classes} {...rest}>
       <Icon name={icon} size={size === 'lg' ? 20 : 16} />
     </button>
   );
