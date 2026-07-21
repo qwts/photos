@@ -273,7 +273,16 @@ jobs:
         run: node node_modules/electron/install.js
 
       - name: Playwright E2E tests (Electron under Xvfb)
-        run: xvfb-run --auto-servernum -- node scripts/measure-runner-capacity.mjs -- npm run test:e2e
+        run: |
+          set +e
+          xvfb-run --auto-servernum -- node scripts/measure-runner-capacity.mjs -- npm run test:e2e 2>&1 | tee test-results/e2e-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            detail=$(tail -n 120 test-results/e2e-output.log | sed -e 's/%/%25/g' -e 's/\r/%0D/g' -e 's/$/%0A/' | tr -d '\n')
+            echo "::error title=E2E failure detail::$detail"
+          fi
+          exit "$status"
 
       # See the CI job's "Guard diagnostics" step — same record, for the e2e ceiling.
       - name: Guard diagnostics

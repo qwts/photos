@@ -21,10 +21,7 @@ async function confirmOffload(page: Page): Promise<void> {
 }
 
 test('manual offload entry points, responsive controls, Undo, and Settings restore round-trip', async ({ launchOverlook }) => {
-  // Budget contract (#630): staged launch (≤30s) + backup completion (≤20s)
-  // + four serial offload/restore transitions whose semantic polls can each
-  // consume their 5s bound. The 60s budget was structurally below that sum.
-  test.setTimeout(120_000);
+  test.setTimeout(60_000);
   const { page, userData } = await launchOverlook({
     prefix: 'overlook-e2e-offload-ui-',
     env: { OVERLOOK_SEED: '4' },
