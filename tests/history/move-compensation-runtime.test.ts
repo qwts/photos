@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -24,7 +24,9 @@ async function world() {
   const sourcePath = join(sourceDir, 'photo.jpg');
   return {
     bytes,
+    sourceDir,
     sourcePath,
+    store,
     runtime: createMoveCompensationRuntime(store, () => key.key),
     inverse: {
       kind: 'move-compensation' as const,
@@ -55,5 +57,18 @@ describe('verified Move compensation (#615, ADR-0025)', () => {
       (error: unknown) => error instanceof MoveCompensationError && error.reason === 'path-occupied',
     );
     assert.equal((await readFile(state.sourcePath)).toString(), 'external file');
+  });
+
+  test('removes partial plaintext staging when decryption streaming fails', async () => {
+    const state = await world();
+    state.store.getStream = () =>
+      Readable.from(
+        (function* () {
+          yield Buffer.from('partial plaintext');
+          throw new Error('injected stream failure');
+        })(),
+      );
+    await assert.rejects(state.runtime.restore(state.inverse), /injected stream failure/u);
+    assert.deepEqual(await readdir(state.sourceDir), []);
   });
 });

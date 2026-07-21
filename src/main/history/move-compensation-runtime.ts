@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { constants, createReadStream, createWriteStream, existsSync, statfsSync, statSync } from 'node:fs';
 import { access, link, open, rm } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -47,6 +48,14 @@ async function fsyncDirectory(path: string): Promise<void> {
   }
 }
 
+async function closeHandle(handle: FileHandle): Promise<void> {
+  try {
+    await handle.close();
+  } catch (error) {
+    if (errno(error) !== 'EBADF') throw error;
+  }
+}
+
 export function createMoveCompensationRuntime(blobs: BlobStore, resolveKey: KeyResolver): MoveCompensationRuntime {
   return {
     capability(record) {
@@ -88,16 +97,16 @@ export function createMoveCompensationRuntime(blobs: BlobStore, resolveKey: KeyR
       });
       const handle = await open(stage, 'wx', 0o600);
       try {
-        await pipeline(
-          blobs.getStream(record.contentHash, resolveKey, record.photoId),
-          hasher,
-          createWriteStream(stage, { fd: handle.fd, autoClose: false }),
-        );
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
-      try {
+        try {
+          await pipeline(
+            blobs.getStream(record.contentHash, resolveKey, record.photoId),
+            hasher,
+            createWriteStream(stage, { fd: handle.fd, autoClose: false }),
+          );
+          await handle.sync();
+        } finally {
+          await closeHandle(handle);
+        }
         if (hash.digest('hex') !== record.contentHash) throw new MoveCompensationError('bytes-unavailable');
         if (identity(parent) !== record.parentIdentity) throw new MoveCompensationError('state-changed');
         try {

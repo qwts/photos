@@ -12,7 +12,7 @@ import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { HistoryService } from '../../src/main/history/history-service.js';
 import { LibraryService } from '../../src/main/library/library-service.js';
 
-function world() {
+function world(onTrash?: () => void) {
   const db = openLibraryDatabase({
     path: join(mkdtempSync(join(tmpdir(), 'overlook-undo-')), 'library.db'),
     dbKey: randomBytes(32),
@@ -45,7 +45,7 @@ function world() {
   }
   const service = new LibraryService(db, { libraryChanged: () => undefined, pendingCountChanged: () => undefined });
   const activity = createActivityFacade(db, () => undefined);
-  return { db, service, activity, history: new HistoryService(db, service) };
+  return { db, service, activity, history: new HistoryService(db, service, undefined, onTrash) };
 }
 
 describe('HistoryService (#615, ADR-0025)', () => {
@@ -97,8 +97,8 @@ describe('HistoryService (#615, ADR-0025)', () => {
       }),
     );
     await state.history.undo('undo-album');
-    assert.equal(state.service.albumMembership('album-one', ['photo-one']).get('photo-one'), true, 'preexisting membership remains');
-    assert.equal(state.service.albumMembership('album-one', ['photo-two']).get('photo-two'), false);
+    assert.equal(state.service.albumMembership('album-one', ['photo-one'])?.get('photo-one'), true, 'preexisting membership remains');
+    assert.equal(state.service.albumMembership('album-one', ['photo-two'])?.get('photo-two'), false);
 
     mutateWithActivity(
       () => state.activity,
@@ -131,6 +131,48 @@ describe('HistoryService (#615, ADR-0025)', () => {
     const result = await state.history.undo('missing-photo');
     assert.equal(result.applied, false);
     assert.equal(result.capability.reason, 'resource-missing');
+    state.db.close();
+  });
+
+  test('reports a deleted album as missing instead of consuming its command', async () => {
+    const state = world();
+    state.service.createAlbum('album-one', 'One');
+    mutateWithActivity(
+      () => state.activity,
+      () => state.service.addToAlbum('album-one', ['photo-one']),
+      () => ({ eventType: 'album.membership-added', outcome: 'succeeded' }),
+      () => ({
+        commandId: 'album.membership.add',
+        classification: 'immediately-reversible',
+        inverse: { kind: 'album-membership', albumId: 'album-one', photoIds: ['photo-one'], before: 'absent', after: 'present' },
+      }),
+    );
+    state.service.deleteAlbum('album-one');
+    const result = await state.history.undo('deleted-album');
+    assert.equal(result.applied, false);
+    assert.equal(result.capability.reason, 'resource-missing');
+    state.db.close();
+  });
+
+  test('marks manifest debt when Redo moves restored photos back to Trash', async () => {
+    let manifestDebts = 0;
+    const state = world(() => {
+      manifestDebts += 1;
+    });
+    mutateWithActivity(
+      () => state.activity,
+      () => state.service.deletePhotos(['photo-one']),
+      () => ({ eventType: 'photo.trashed', outcome: 'succeeded' }),
+      (result) => ({
+        commandId: 'photo.trash',
+        classification: 'conditionally-reversible',
+        inverse: { kind: 'trash', photoIds: result.changedPhotoIds, before: 'live', after: 'trashed' },
+      }),
+    );
+    await state.history.undo('restore-photo');
+    assert.equal(manifestDebts, 0);
+    await state.history.redo('retrash-photo');
+    assert.equal(manifestDebts, 1);
     state.db.close();
   });
 });

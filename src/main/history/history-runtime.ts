@@ -9,6 +9,7 @@ import { createMoveCompensationRuntime } from './move-compensation-runtime.js';
 export function createHistoryService(
   parts: { db: BetterSqlite3.Database; blobStore: BlobStore; keyStore: { resolver(): KeyResolver } },
   library: LibraryService,
+  onTrash: () => void,
 ): HistoryService {
-  return new HistoryService(parts.db, library, createMoveCompensationRuntime(parts.blobStore, parts.keyStore.resolver()));
+  return new HistoryService(parts.db, library, createMoveCompensationRuntime(parts.blobStore, parts.keyStore.resolver()), onTrash);
 }

@@ -26,7 +26,8 @@ export class HistoryLibraryRepository {
     return row === undefined ? undefined : row.favorite === 1;
   }
 
-  albumMembership(albumId: string, photoIds: readonly string[]): ReadonlyMap<string, boolean> {
+  albumMembership(albumId: string, photoIds: readonly string[]): ReadonlyMap<string, boolean> | undefined {
+    if (queryGet(this.db, 'SELECT 1 AS one FROM albums WHERE id = ?', albumId) === undefined) return undefined;
     return new Map(
       photoIds.map((photoId) => [
         photoId,
