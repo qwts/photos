@@ -457,7 +457,7 @@ export const DirectPrivacyRoute: Story = {
   args: { requestedSection: 'privacy' },
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await expect(body.getByRole('button', { name: 'Privacy' })).toHaveAttribute('aria-current', 'true');
+    await expect(body.getByRole('tab', { name: 'Privacy' })).toHaveAttribute('aria-selected', 'true');
     await waitFor(() => expect(body.getByText('End-to-end encryption')).toBeVisible());
   },
 };
