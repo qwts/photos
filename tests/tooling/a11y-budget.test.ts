@@ -98,7 +98,8 @@ describe('a11y budget file and gate wiring (#398)', () => {
     const budget: unknown = JSON.parse(source('tests/a11y/violation-budget.json'));
     const { stories, flows } = budget as { stories: BudgetEntry[]; flows: BudgetEntry[] };
 
-    assert.ok(stories.length > 0, 'the audited baseline is not empty');
+    assert.ok(Array.isArray(stories), 'the story budget is an array, including when every violation has been fixed');
+    assert.ok(Array.isArray(flows), 'the flow budget is an array, including when every violation has been fixed');
     for (const entry of [...stories, ...flows]) {
       assert.ok(totalViolations(entry.rules) > 0, `${entry.id}: zeroed entries are deleted, not kept`);
       for (const [rule, count] of Object.entries(entry.rules)) {
