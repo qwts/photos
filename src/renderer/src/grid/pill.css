@@ -39,6 +39,10 @@
   display: none;
 }
 
+.ovl-pill__more--visible {
+  display: block;
+}
+
 .ovl-pill__menu {
   position: absolute;
   inset-inline-end: 0;

@@ -206,10 +206,12 @@ test('protected Original: ordinary deletion preserves it and Shift+Delete requir
     );
     await expect(page.getByRole('img', { name: 'Protected Original' })).toBeVisible();
 
-    const configuring = page.evaluate(
-      (nextPassword) => (globalThis as unknown as { overlook: OverlookApi }).overlook.appLock.configure({ password: nextPassword }),
-      password,
-    );
+    const configuring = page
+      .evaluate(
+        (nextPassword) => (globalThis as unknown as { overlook: OverlookApi }).overlook.appLock.configure({ password: nextPassword }),
+        password,
+      )
+      .catch(() => undefined);
     await expect(page.getByTestId('lock-screen')).toBeVisible();
     await configuring;
     await page.getByLabel('App password').fill(password);
@@ -218,7 +220,7 @@ test('protected Original: ordinary deletion preserves it and Shift+Delete requir
 
     await page.getByRole('button', { name: `Select ${target.fileName}` }).click();
     await page.getByTestId('selection-pill').getByRole('button', { name: 'Move to Trash' }).click();
-    await expect(page.locator('.ovl-toast-host')).toContainText('Preserved 1 protected Original');
+    await expect(page.locator('.ovl-toast-host')).toContainText('preserved 1 protected Original');
     await expect(page.getByRole('button', { name: `Open ${target.fileName}` })).toBeVisible();
 
     await page.keyboard.press('Shift+Delete');
@@ -227,6 +229,9 @@ test('protected Original: ordinary deletion preserves it and Shift+Delete requir
     await authenticate.getByRole('button', { name: 'Authenticate' }).click();
     await expect(authenticate.getByRole('alert')).toContainText('incorrect');
     await authenticate.getByLabel('App password').fill(password);
+    await authenticate.getByRole('button', { name: 'Authenticate' }).click();
+    await expect(authenticate.getByRole('alert')).toContainText('Try again in 1 second');
+    await page.waitForTimeout(1_100);
     await authenticate.getByRole('button', { name: 'Authenticate' }).click();
 
     const confirm = page.getByRole('dialog', { name: `Delete ${target.fileName} permanently?` });

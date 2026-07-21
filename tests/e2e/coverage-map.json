@@ -978,6 +978,42 @@
       ]
     },
     {
+      "id": "original-preservation-policy",
+      "wiki": "Original-Preservation-Policy",
+      "repoPath": "docs/Original-Preservation-Policy.md",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/trash.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "paths": [
+            "src/renderer/src/grid/OriginalDeleteDialog.stories.tsx",
+            "src/renderer/src/grid/PhotoContextMenu.stories.tsx",
+            "src/renderer/src/grid/SelectionPill.stories.tsx",
+            "src/renderer/src/components/PhotoTile.stories.tsx",
+            "src/renderer/src/grid/ListRow.stories.tsx",
+            "src/renderer/src/inspector/Inspector.stories.tsx"
+          ]
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/library/original-deletion-service.test.ts",
+            "tests/library/duplicate-policy.test.ts",
+            "tests/library/library-service.test.ts",
+            "tests/library/purge-service.test.ts",
+            "tests/db/library-db.test.ts",
+            "tests/db/soft-delete.test.ts",
+            "tests/backup/backup-manifest.test.ts",
+            "tests/crypto/app-lock-controller.test.ts",
+            "tests/crypto/app-lock-host.test.ts"
+          ]
+        }
+      ]
+    },
+    {
       "id": "m10-purge-retention",
       "wiki": "User-Story-M10-Albums-organization-deletion",
       "coverage": [

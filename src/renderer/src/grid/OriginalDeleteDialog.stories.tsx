@@ -79,7 +79,7 @@ export const PasswordAndError: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement.ownerDocument.body);
     const dialog = await canvas.findByRole('dialog', { name: 'Authenticate Original deletion' });
-    await userEvent.type(within(dialog).getByLabelText('App password'), 'wrong password');
+    await userEvent.type(await within(dialog).findByLabelText('App password'), 'wrong password');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Authenticate' }));
     await expect(within(dialog).getByRole('alert')).toHaveTextContent('incorrect');
     await userEvent.clear(within(dialog).getByLabelText('App password'));

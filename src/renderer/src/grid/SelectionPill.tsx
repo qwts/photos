@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useIntl } from 'react-intl';
 
 import './pill.css';
+import { commandById } from '../../../shared/commands/registry.js';
 import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { IconButton } from '../components/IconButton';
@@ -45,6 +47,7 @@ export function SelectionPill({
   onMarkOriginal,
   onUnmarkOriginal,
 }: SelectionPillProps): ReactElement {
+  const intl = useIntl();
   const { formatCount } = useFormats();
   const actions = destructiveActions;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -116,7 +119,9 @@ export function SelectionPill({
                 </Button>
               )}
             </div>
-            <div className="ovl-pill__more">
+            <div
+              className={`ovl-pill__more${onMarkOriginal !== undefined || onUnmarkOriginal !== undefined ? ' ovl-pill__more--visible' : ''}`}
+            >
               <IconButton
                 ref={moreTriggerRef}
                 icon="sliders-horizontal"
@@ -162,13 +167,27 @@ export function SelectionPill({
                     Export
                   </button>
                   {onMarkOriginal === undefined ? null : (
-                    <button type="button" role="menuitem" onClick={onMarkOriginal}>
-                      Mark as Original
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        closeMore();
+                        onMarkOriginal();
+                      }}
+                    >
+                      {intl.formatMessage(commandById('photo.original.mark').label)}
                     </button>
                   )}
                   {onUnmarkOriginal === undefined ? null : (
-                    <button type="button" role="menuitem" onClick={onUnmarkOriginal}>
-                      Remove Original protection
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        closeMore();
+                        onUnmarkOriginal();
+                      }}
+                    >
+                      {intl.formatMessage(commandById('photo.original.unmark').label)}
                     </button>
                   )}
                   <button
