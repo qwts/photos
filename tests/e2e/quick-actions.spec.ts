@@ -60,8 +60,17 @@ test('configured Quick Actions drive platform-neutral More Actions menus (#532)'
   const first = cells.first();
   await first.locator('.ovl-tile__select').click();
   await cells.nth(1).locator('.ovl-tile__select').click();
+  const third = cells.nth(2);
+  await third.getByRole('button', { name: /More actions for/u }).click();
+  let menu = page.getByRole('menu', { name: /Actions for/u });
+  await menu.getByRole('menuitem', { name: /Export This photo/u }).click();
+  const exportDialog = page.getByRole('dialog', { name: 'Export' });
+  await expect(exportDialog).toContainText('1 photo selected');
+  await exportDialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('2 selected')).toBeVisible();
+
   await first.getByRole('button', { name: /More actions for/u }).click();
-  const menu = page.getByRole('menu', { name: /Actions for/u });
+  menu = page.getByRole('menu', { name: /Actions for/u });
   await expect(menu.getByRole('menuitem', { name: /Export Selection \(2\)/u })).toBeVisible();
   await page.keyboard.press('Escape');
 
