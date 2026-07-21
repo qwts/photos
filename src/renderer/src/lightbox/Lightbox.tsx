@@ -189,7 +189,7 @@ export function Lightbox({
         // have to wake hover chrome to find the intentional playback action.
         <div className="ovl-lightbox__animation" data-testid="lightbox-animation-toggle">
           <Button
-            size="sm"
+            size="md"
             icon={posterHeld ? 'play' : 'pause'}
             aria-pressed={!posterHeld}
             onClick={() => setAnimationStartedFor(posterHeld ? photo.id : null)}

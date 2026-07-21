@@ -159,10 +159,11 @@
 }
 
 /* Reduced-motion animation toggle (ADR-0026 §7), mirroring the ordinary
- * lightbox: always visible, centered above the bottom edge. */
+ * lightbox: always visible, top-centered below the title bar so it never
+ * obscures another target (SC 2.5.8). */
 .ovl-protected-lightbox__animation {
   position: absolute;
-  bottom: var(--space-4);
+  top: calc(48px + var(--space-2));
   left: 50%;
   z-index: 1;
   translate: -50%;
