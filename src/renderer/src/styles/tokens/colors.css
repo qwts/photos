@@ -53,6 +53,9 @@
   --text-photo-overlay: oklch(0.95 0.005 250);
   --text-photo-muted: oklch(0.78 0.008 250);
   --text-photo-danger: #ff8880;
+  --border-photo-original: oklch(0.82 0.13 82 / 0.8);
+  --surface-photo-original: oklch(0.18 0.025 82 / 0.88);
+  --text-photo-original: oklch(0.9 0.12 82);
   --photo-hover-overlay: oklch(1 0 0 / 0.06);
   --shadow-photo-overlay: 0 1px 2px oklch(0 0 0 / 0.6);
   --photo-top-gradient: linear-gradient(to bottom, oklch(0.1 0.005 250 / 0.75), transparent);
