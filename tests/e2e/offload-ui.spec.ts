@@ -20,17 +20,21 @@ async function confirmOffload(page: Page): Promise<void> {
   await expect.poll(() => syncState(page)).toBe('offloaded');
 }
 
-test('manual offload entry points, responsive controls, Undo, and Settings restore round-trip', async ({ launchOverlook }) => {
-  test.setTimeout(60_000);
-  const { page, userData } = await launchOverlook({
-    prefix: 'overlook-e2e-offload-ui-',
-    env: { OVERLOOK_SEED: '4' },
-  });
+async function prepareBackedUpPhoto(page: Page): Promise<void> {
   const firstCell = page.locator('.ovl-grid__cell').first();
-  await page.getByTestId('virtual-grid').waitFor();
   await firstCell.locator('.ovl-tile__img').waitFor();
   await page.getByRole('button', { name: 'Back up' }).click();
   await expect(page.getByTestId('sync-state')).toContainText('All backed up · now', { timeout: 20_000 });
+}
+
+test('selection Offload, Undo, and Settings restore use independent verified transitions', async ({ launchOverlook }) => {
+  test.setTimeout(60_000);
+  const { page } = await launchOverlook({
+    prefix: 'overlook-e2e-offload-ui-',
+    env: { OVERLOOK_SEED: '4' },
+  });
+  await prepareBackedUpPhoto(page);
+  const firstCell = page.locator('.ovl-grid__cell').first();
 
   // Minimum-width selection layout keeps Offload visible and moves the
   // secondary actions into the keyboard-accessible overflow.
@@ -76,6 +80,16 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
   await notification.getByRole('button', { name: 'Dismiss notification' }).click();
   await expect(notification).toBeHidden();
   await pill.getByRole('button', { name: 'Clear selection' }).click();
+});
+
+test('lightbox offload streams temporarily and releases encrypted custody on close', async ({ launchOverlook }) => {
+  test.setTimeout(60_000);
+  const { page, userData } = await launchOverlook({
+    prefix: 'overlook-e2e-offload-stream-',
+    env: { OVERLOOK_SEED: '4' },
+  });
+  await prepareBackedUpPhoto(page);
+  const firstCell = page.locator('.ovl-grid__cell').first();
 
   // Lightbox entry stays open through preflight, then closes after the
   // confirmed offload instead of immediately rehydrating its own photo.
@@ -98,6 +112,21 @@ test('manual offload entry points, responsive controls, Undo, and Settings resto
   await expect
     .poll(() => readdirSync(join(userData, 'library', 'ephemeral')).length, { message: 'close releases encrypted temporary custody' })
     .toBe(0);
+});
+
+test('Keep downloaded promotes a streamed original back to durable custody', async ({ launchOverlook }) => {
+  test.setTimeout(60_000);
+  const { page } = await launchOverlook({
+    prefix: 'overlook-e2e-offload-keep-',
+    env: { OVERLOOK_SEED: '4' },
+  });
+  await prepareBackedUpPhoto(page);
+  const firstCell = page.locator('.ovl-grid__cell').first();
+  await firstCell.click();
+  const lightbox = page.getByTestId('lightbox');
+  await lightbox.getByRole('button', { name: 'Offload original' }).click();
+  await confirmOffload(page);
+  await expect(lightbox).toBeHidden();
 
   // A new view fetches again after close. Explicit promotion verifies and
   // atomically restores durable bytes before the ledger becomes synced.
