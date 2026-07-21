@@ -1,4 +1,6 @@
 import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
+import { statfsSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import type {
   CapabilitySnapshot,
@@ -90,7 +92,7 @@ export class CommandRepository {
         "SELECT coalesce(sum(byte_charge), 0) AS total FROM command_records WHERE stack != 'discarded' AND expires_at > ?",
         draft.createdAt,
       )?.total ?? 0;
-    const admitted = charged + byteCharge <= this.policy.maxByteCharge;
+    const admitted = charged + byteCharge <= this.byteBudget();
     runNamed(
       this.db,
       `INSERT INTO command_records (
@@ -116,6 +118,17 @@ export class CommandRepository {
     const inserted = this.byId(draft.recordId);
     if (inserted === undefined) throw new Error('command record insert was not readable');
     return inserted;
+  }
+
+  private byteBudget(): number {
+    try {
+      const file = queryAll<{ file: string }>(this.db, 'PRAGMA database_list').find((row) => row.file !== '')?.file;
+      if (file === undefined) return this.policy.maxByteCharge;
+      const info = statfsSync(dirname(file));
+      return Math.min(this.policy.maxByteCharge, Math.floor(info.bavail * info.bsize * 0.1));
+    } catch {
+      return 0;
+    }
   }
 
   byId(recordId: string): CommandRecord | undefined {
@@ -172,6 +185,16 @@ export class CommandRepository {
       expected,
     );
     if (changed === undefined) throw new Error('command stack changed before execution completed');
+  }
+
+  discard(recordId: string, expected: 'undo' | 'redo'): void {
+    const changed = queryGet<{ record_id: string }>(
+      this.db,
+      "UPDATE command_records SET stack = 'discarded' WHERE record_id = ? AND stack = ? RETURNING record_id",
+      recordId,
+      expected,
+    );
+    if (changed === undefined) throw new Error('command stack changed before compensation completed');
   }
 
   execution(requestId: string): HistoryExecutionResult | undefined {

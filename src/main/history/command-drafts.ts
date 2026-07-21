@@ -40,3 +40,19 @@ export function albumMembershipCommand(
     },
   };
 }
+
+export function moveCompensationCommand(candidate: {
+  readonly photoId: string;
+  readonly contentHash: string;
+  readonly sourcePath: string;
+  readonly byteCharge: number;
+  readonly parentIdentity: string;
+}): CommandDraft {
+  return {
+    commandId: 'library.import',
+    classification: 'compensating-only',
+    inverse: { kind: 'move-compensation', ...candidate },
+    byteCharge: candidate.byteCharge,
+    sensitive: true,
+  };
+}

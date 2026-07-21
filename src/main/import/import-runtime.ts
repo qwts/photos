@@ -1,5 +1,6 @@
-import { readFile, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { readFile, stat, unlink } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import type { BlobStore } from '../blobs/blob-store.js';
 import type { EnvelopeKey, KeyResolver } from '../crypto/envelope.js';
@@ -71,6 +72,11 @@ export function createImportRuntime(options: ImportRuntimeOptions): ImportRuntim
     now: () => new Date().toISOString(),
     events: options.events,
     cleanupSource: (path) => options.googleDrive.cleanupRoot(path),
+    sourceExists: existsSync,
+    parentIdentity: async (path) => {
+      const info = await stat(dirname(path));
+      return `${info.dev}:${info.ino}`;
+    },
   });
   const service = new ImportService(
     options.repo,

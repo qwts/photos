@@ -22,7 +22,7 @@ import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
 import type { DiagnosticEvent } from './diagnostics/event-contract.js';
 import { mutateWithActivity } from './activity/activity-publication.js';
 import type { ActivityFacade } from './activity/activity-publication.js';
-import { albumMembershipCommand, favoriteCommand, trashCommand } from './history/command-drafts.js';
+import { albumMembershipCommand, favoriteCommand, moveCompensationCommand, trashCommand } from './history/command-drafts.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -611,19 +611,22 @@ export function registerImportHandlers(
       if (summary.imported > 0) {
         onImported?.();
       }
-      getActivity?.().record({
-        eventType: 'import.completed',
-        outcome: summary.failed > 0 || summary.cancelled > 0 ? 'partial' : 'succeeded',
-        payload: {
-          mode,
-          imported: summary.imported,
-          moved: summary.moved,
-          retained: summary.retained,
-          duplicates: summary.duplicates,
-          failed: summary.failed,
-          cancelled: summary.cancelled,
+      getActivity?.().record(
+        {
+          eventType: 'import.completed',
+          outcome: summary.failed > 0 || summary.cancelled > 0 ? 'partial' : 'succeeded',
+          payload: {
+            mode,
+            imported: summary.imported,
+            moved: summary.moved,
+            retained: summary.retained,
+            duplicates: summary.duplicates,
+            failed: summary.failed,
+            cancelled: summary.cancelled,
+          },
         },
-      });
+        summary.moveCompensations.map(moveCompensationCommand),
+      );
       return {
         imported: summary.imported,
         moved: summary.moved,

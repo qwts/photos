@@ -33,6 +33,15 @@ export interface ManifestFile {
   contentHash?: string | undefined;
   photoId?: string | undefined;
   error?: string | undefined;
+  moveLease?: MoveCompensationCandidate | undefined;
+}
+
+export interface MoveCompensationCandidate {
+  readonly photoId: string;
+  readonly contentHash: string;
+  readonly sourcePath: string;
+  readonly byteCharge: number;
+  readonly parentIdentity: string;
 }
 
 export interface ImportManifest {
@@ -55,6 +64,8 @@ export interface ImportSummary {
   /** User-cancelled remainder — never started, sources untouched (#88). */
   readonly cancelled: number;
   readonly photoIds: readonly string[];
+  /** Main-process-only inverse custody; IPC response schemas discard it. */
+  readonly moveCompensations: readonly MoveCompensationCandidate[];
 }
 
 export interface ImportProgressEvents {
@@ -94,6 +105,8 @@ export interface ImportEngineDeps {
   readonly now: () => string;
   readonly events: ImportProgressEvents;
   readonly cleanupSource?: ((path: string) => Promise<void>) | undefined;
+  readonly sourceExists: (path: string) => boolean;
+  readonly parentIdentity: (path: string) => Promise<string>;
 }
 
 export interface ImportFileInput {
@@ -197,6 +210,7 @@ export class ImportEngine {
       failed: manifest.files.filter((file) => file.status === 'failed').length,
       cancelled: manifest.files.filter((file) => file.status === 'cancelled').length,
       photoIds: manifest.files.flatMap((file) => (file.status === 'imported' && file.photoId !== undefined ? [file.photoId] : [])),
+      moveCompensations: manifest.files.flatMap((file) => (file.stage === 'done' && file.moveLease !== undefined ? [file.moveLease] : [])),
     };
   }
 
@@ -209,6 +223,13 @@ export class ImportEngine {
   }
 
   private async advance(file: ManifestFile, manifest: ImportManifest, persist: () => Promise<void>): Promise<void> {
+    if (manifest.mode === 'move' && file.stage === 'thumbed' && file.moveLease !== undefined && !this.deps.sourceExists(file.path)) {
+      const verified = await this.deps.blobs.verifyOriginal(file.moveLease.contentHash, this.deps.resolveKey, file.moveLease.photoId);
+      if (!verified) throw new Error(`blob verification failed for ${file.fileName}; source recovery remains pending`);
+      file.stage = 'done';
+      await persist();
+      return;
+    }
     const bytes = await this.deps.readFile(file.path);
     try {
       const contentHash = createHash('sha256').update(bytes).digest('hex');
@@ -284,6 +305,17 @@ export class ImportEngine {
           if (!verified) {
             throw new Error(`blob verification failed for ${file.fileName}; source retained`);
           }
+          file.moveLease = {
+            photoId: file.photoId ?? '',
+            contentHash,
+            sourcePath: file.path,
+            byteCharge: bytes.length,
+            parentIdentity: await this.deps.parentIdentity(file.path),
+          };
+          // Persist inverse custody before the cross-filesystem delete. A
+          // restart can finish from the verified encrypted original even if
+          // the process dies immediately after unlink succeeds.
+          await persist();
           await this.deps.deleteFile(file.path);
         }
         file.stage = 'done';

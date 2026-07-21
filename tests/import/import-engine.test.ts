@@ -105,6 +105,8 @@ function harness(overrides?: Partial<ImportEngineDeps>) {
       copyProgress: (done) => copyEvents.push(done),
       thumbProgress: (done) => thumbEvents.push(done),
     },
+    sourceExists: (path) => sources.has(path),
+    parentIdentity: () => Promise.resolve('card-parent'),
     ...overrides,
   };
   return {
@@ -178,6 +180,15 @@ describe('import engine (#87)', () => {
     const summary = await world.engine().importFiles([good], 'move', '/card');
     assert.equal(summary.imported, 1);
     assert.deepEqual({ moved: summary.moved, retained: summary.retained }, { moved: 1, retained: 0 });
+    assert.deepEqual(summary.moveCompensations, [
+      {
+        photoId: summary.photoIds[0],
+        contentHash: sha256(jpeg),
+        sourcePath: good.path,
+        byteCharge: jpeg.length,
+        parentIdentity: 'card-parent',
+      },
+    ]);
     assert.equal(world.sources.has(good.path), false, 'verified move removes the source');
 
     // Now a world whose store never verifies: the file fails, source stays.
@@ -195,6 +206,24 @@ describe('import engine (#87)', () => {
     assert.deepEqual({ moved: badSummary.moved, retained: badSummary.retained }, { moved: 0, retained: 1 });
     assert.equal(broken.sources.has(bad.path), true, 'unverified source must NEVER be deleted');
     assert.notEqual(broken.journalRaw(), null, 'unfinished cleanup keeps the journal');
+  });
+
+  test('a crash after Move unlink resumes from the persisted compensation lease', async () => {
+    const world = harness();
+    const source = addSource(world, 'crash.jpg', jpeg);
+    (world.deps as { deleteFile: (path: string) => Promise<void> }).deleteFile = (path) => {
+      world.sources.delete(path);
+      return Promise.reject(new Error('process died after unlink'));
+    };
+    const interrupted = await world.engine().importFiles([source], 'move', '/card');
+    assert.equal(interrupted.moved, 0);
+    assert.notEqual(world.journalRaw(), null);
+
+    (world.deps as { deleteFile: (path: string) => Promise<void> }).deleteFile = () => Promise.resolve();
+    const resumed = await world.engine().resume();
+    assert.equal(resumed?.moved, 1);
+    assert.equal(resumed?.moveCompensations[0]?.sourcePath, source.path);
+    assert.equal(world.journalRaw(), null);
   });
 
   test('#489: a source permission failure reports imported-but-retained and keeps the cleanup journal', async () => {

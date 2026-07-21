@@ -39,7 +39,7 @@ describe('import service serialization (#87)', () => {
       peak = Math.max(peak, active);
       await new Promise((resolve) => setTimeout(resolve, 20));
       active -= 1;
-      return { imported: 0, moved: 0, retained: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [] };
+      return { imported: 0, moved: 0, retained: 0, duplicates: 0, failed: 0, cancelled: 0, photoIds: [], moveCompensations: [] };
     };
     const engine = {
       importFiles: enter,

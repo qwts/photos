@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 
 import { randomBytes } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync } from 'node:fs';
-import { readFile, unlink } from 'node:fs/promises';
+import { readFile, stat, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
 import { extractMetadata } from '../../src/main/import/exif.js';
@@ -103,6 +103,11 @@ describe('import engine integration (#87)', () => {
       newId: ulid,
       now: () => '2026-07-12T00:00:00.000Z',
       events: { copyProgress: () => undefined, thumbProgress: () => undefined },
+      sourceExists: existsSync,
+      parentIdentity: async (path) => {
+        const info = await stat(dirname(path));
+        return `${info.dev}:${info.ino}`;
+      },
     };
 
     const files = ['exif-full.jpg', 'exif-stripped.jpg', 'sample.raf', 'corrupt.jpg'].map((name) => ({

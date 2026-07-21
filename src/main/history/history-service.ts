@@ -11,6 +11,7 @@ import type { LibraryService } from '../library/library-service.js';
 import { ActivityRepository } from '../activity/activity-repository.js';
 import { ulid } from '../import/ulid.js';
 import { CommandRepository } from './command-repository.js';
+import { MoveCompensationError } from './move-compensation-runtime.js';
 
 export interface MoveCompensationRuntime {
   capability(record: Extract<CommandRecord['inverse'], { kind: 'move-compensation' }>): CapabilityReason | 'ready';
@@ -88,16 +89,26 @@ export class HistoryService {
     const now = new Date();
     const record = this.commands.top(direction === 'undo' ? 'undo' : 'redo');
     const capability = this.revalidate(direction === 'undo' ? 'undo' : 'redo', now);
-    if (record === undefined || capability.reason !== 'ready') return { applied: false, direction, capability };
+    if (record === undefined) return { applied: false, direction, capability };
 
     if (record.inverse.kind === 'move-compensation') {
       if (direction === 'redo') {
         return { applied: false, direction, capability: unavailable(capability, 'irreversible') };
       }
       if (this.move === undefined) return { applied: false, direction, capability: unavailable(capability, 'bytes-unavailable') };
-      await this.move.restore(record.inverse);
+      if (capability.reason !== 'ready' && capability.reason !== 'path-occupied') return { applied: false, direction, capability };
+      try {
+        await this.move.restore(record.inverse);
+      } catch (error) {
+        if (error instanceof MoveCompensationError) {
+          return { applied: false, direction, capability: unavailable(capability, error.reason) };
+        }
+        throw error;
+      }
       return this.commands.transaction(() => this.complete(record, direction, requestId, capability, now, 'command.compensated'));
     }
+
+    if (capability.reason !== 'ready') return { applied: false, direction, capability };
 
     return this.commands.transaction(() => {
       this.applyLibraryChange(record, direction);
@@ -126,7 +137,8 @@ export class HistoryService {
       outcome: 'succeeded',
       payload: { commandId: record.commandId },
     });
-    this.commands.transition(record.recordId, direction);
+    if (eventType === 'command.compensated') this.commands.discard(record.recordId, 'undo');
+    else this.commands.transition(record.recordId, direction);
     this.commands.rememberExecution(requestId, record.recordId, result, now.toISOString());
     return result;
   }
