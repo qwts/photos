@@ -33,7 +33,13 @@ test('settings round-trip: set() persists in main and the changed event reaches 
 
     const providerCatalog = await page.evaluate<{
       defaultProviderId: string;
-      providers: { id: string; label: string; available: boolean; capabilities: { quota: string; verification: string } }[];
+      providers: {
+        id: string;
+        label: string;
+        available: boolean;
+        unavailableReason: string | null;
+        capabilities: { quota: string; verification: string };
+      }[];
     }>(`window.overlook.backup.providers()`);
     expect(providerCatalog.defaultProviderId).toBe('mock');
     expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['pcloud', 'google-drive', 'icloud-drive', 'mock']);
@@ -46,11 +52,13 @@ test('settings round-trip: set() persists in main and the changed event reaches 
       quota: 'known',
       verification: 'server-checksum',
     });
-    expect(providerCatalog.providers.find(({ id }) => id === 'icloud-drive')).toMatchObject({
+    const iCloudDescriptor = providerCatalog.providers.find(({ id }) => id === 'icloud-drive');
+    expect(iCloudDescriptor).toMatchObject({
       label: 'iCloud Drive',
       available: false,
       capabilities: { quota: 'unknown', verification: 'download-hash' },
     });
+    expect(iCloudDescriptor?.unavailableReason).not.toBeNull();
 
     // Subscribe, patch, and require the push to arrive with the snapshot.
     const pushed = await page.evaluate<{ sortOrder: string; wifiOnly: boolean }>(
@@ -139,7 +147,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     await expect(page.getByRole('radio', { name: 'Google Drive' })).toBeDisabled();
     await expect(page.getByText('Google Drive: Google Drive OAuth is not configured in this build.')).toBeVisible();
     await expect(page.getByRole('radio', { name: 'iCloud Drive' })).toBeDisabled();
-    await expect(page.getByText('iCloud Drive: iCloud Drive requires a provisioned signed macOS build.')).toBeVisible();
+    await expect(page.getByText(`iCloud Drive: ${String(iCloudDescriptor?.unavailableReason)}`)).toBeVisible();
     await expect(page.getByRole('switch', { name: 'Back up new imports automatically' })).toBeHidden();
     await expect(page.getByRole('switch', { name: 'Wi-Fi only' })).toBeHidden();
     await expect(page.getByRole('slider', { name: 'Upload bandwidth limit' })).toBeHidden();
