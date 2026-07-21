@@ -831,12 +831,22 @@ export function Shell({
           <aside className="ovl-shell__inspector" aria-label="Inspector">
             <Inspector
               providerLabel={state.providerLabel}
-              photo={
-                // The focused photo (#94): the lightbox photo wins; else a
-                // single grid selection; else the empty hint.
-                state.photos.find((photo) => photo.id === state.lightboxId) ??
-                (state.selection.size === 1 ? (state.photos.find((photo) => state.selection.has(photo.id)) ?? null) : null)
+              photo={state.photos.find((photo) => photo.id === state.inspectorPhotoId) ?? null}
+              selectionPosition={
+                state.inspectorSource === 'selection' && state.selection.size > 1
+                  ? {
+                      index: Math.max(
+                        0,
+                        state.photos
+                          .filter((photo) => state.selection.has(photo.id))
+                          .findIndex((photo) => photo.id === state.inspectorPhotoId),
+                      ),
+                      count: state.selection.size,
+                    }
+                  : undefined
               }
+              onPrevious={() => dispatch({ type: 'inspector/stepped', delta: -1 })}
+              onNext={() => dispatch({ type: 'inspector/stepped', delta: 1 })}
             />
           </aside>
         ) : null}
