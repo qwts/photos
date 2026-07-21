@@ -30,6 +30,7 @@ export class HistoryService {
     db: BetterSqlite3.Database,
     private readonly library: LibraryService,
     private readonly move?: MoveCompensationRuntime,
+    private readonly onTrash?: () => void,
   ) {
     this.commands = new CommandRepository(db);
     this.activity = new ActivityRepository(db);
@@ -70,7 +71,9 @@ export class HistoryService {
       case 'album-membership': {
         const expectedSource = source === 'present';
         const expectedTarget = target === 'present';
-        const states = [...this.library.albumMembership(record.inverse.albumId, record.inverse.photoIds).values()];
+        const membership = this.library.albumMembership(record.inverse.albumId, record.inverse.photoIds);
+        if (membership === undefined) return unavailable(capability, 'resource-missing');
+        const states = [...membership.values()];
         if (states.every((state) => state === expectedSource) || states.every((state) => state === expectedTarget)) return capability;
         return unavailable(capability, 'state-changed');
       }
@@ -110,10 +113,15 @@ export class HistoryService {
 
     if (capability.reason !== 'ready') return { applied: false, direction, capability };
 
-    return this.commands.transaction(() => {
+    const result = this.commands.transaction(() => {
       this.applyLibraryChange(record, direction);
       return this.complete(record, direction, requestId, capability, now, direction === 'undo' ? 'command.undone' : 'command.redone');
     });
+    if (record.inverse.kind === 'trash') {
+      const target = direction === 'undo' ? record.inverse.before : record.inverse.after;
+      if (target === 'trashed') this.onTrash?.();
+    }
+    return result;
   }
 
   private complete(

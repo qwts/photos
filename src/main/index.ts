@@ -389,6 +389,10 @@ const scheduleAutoBackup = createAutoBackupScheduler(() => {
   autoBackupTrigger?.();
 });
 let manifestSyncTrigger: (() => void) | undefined;
+function markManifestDebt(): void {
+  getBackupEngine();
+  manifestSyncTrigger?.();
+}
 let purgeService: PurgeService | undefined;
 let purgeRuntime: DrainablePurgeFacade | undefined;
 let consistencyChecker: ConsistencyChecker | undefined;
@@ -831,7 +835,7 @@ void externalOpen.whenReady().then(async () => {
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
     getLibrary: getLibraryService,
     getActivity: () => createActivityFacade(requireParts('activity').db, () => manifestSyncTrigger?.()),
-    getHistory: () => createHistoryService(requireParts('history'), getLibraryService()),
+    getHistory: () => createHistoryService(requireParts('history'), getLibraryService(), markManifestDebt),
     libraries: {
       ...registryRuntime.facade({
         openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
@@ -852,10 +856,7 @@ void externalOpen.whenReady().then(async () => {
     getPurge: getPurgeRuntime,
     safeStorage: pickSafeStorage,
     providerBusy: () => providerWorkCount > 0,
-    onDeleted: () => {
-      getBackupEngine();
-      manifestSyncTrigger?.();
-    },
+    onDeleted: markManifestDebt,
     onImported: () => {
       getBackupEngine();
       autoBackupTrigger?.();

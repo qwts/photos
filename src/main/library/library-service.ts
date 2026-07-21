@@ -110,7 +110,7 @@ export class LibraryService {
     return { removed: removed.length, changedPhotoIds: removed };
   }
 
-  albumMembership(albumId: string, photoIds: readonly string[]): ReadonlyMap<string, boolean> {
+  albumMembership(albumId: string, photoIds: readonly string[]): ReadonlyMap<string, boolean> | undefined {
     return this.historyRepo.albumMembership(albumId, photoIds);
   }
 
