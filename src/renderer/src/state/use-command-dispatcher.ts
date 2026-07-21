@@ -48,6 +48,7 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'photo.open':
         case 'photo.export':
         case 'photo.offload':
+        case 'photo.restoreOriginal':
         case 'photo.transfer':
         case 'photo.restore':
         case 'photo.purge':

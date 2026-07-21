@@ -41,6 +41,7 @@ export const en: Readonly<Record<string, string>> = {
   "commands.photo.open": "Open",
   "commands.photo.purge": "Delete permanently…",
   "commands.photo.restore": "Restore photo",
+  "commands.photo.restoreOriginal": "Restore original",
   "commands.photo.transfer": "Transfer & Sync…",
   "commands.photo.trash": "Move photo to Trash",
   "commands.selection.clear": "Clear selection",

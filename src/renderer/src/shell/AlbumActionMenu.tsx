@@ -19,7 +19,7 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, o
   const intl = useIntl();
   return (
     <ContextMenu
-      label={`Actions for ${album.name}`}
+      label={intl.formatMessage({ id: 'album.context.actions', defaultMessage: 'Actions for {album}' }, { album: album.name })}
       x={x}
       y={y}
       onClose={onClose}
