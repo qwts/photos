@@ -1,6 +1,7 @@
 import { expect, test } from './support/app.js';
 
-test('configurable Command-hover Quick Actions share targets and cleanup across gallery views (#532)', async ({ launchOverlook }) => {
+test('Command-hover Quick Actions share targets and cleanup across gallery views (#532)', async ({ launchOverlook }) => {
+  test.skip(process.platform !== 'darwin', 'Command-hover is a macOS interaction contract');
   const { page } = await launchOverlook({ prefix: 'overlook-e2e-quick-actions-', env: { OVERLOOK_SEED: '4' } });
   const cells = page.locator('.ovl-grid__cell');
   await expect(cells).toHaveCount(4);
@@ -27,13 +28,6 @@ test('configurable Command-hover Quick Actions share targets and cleanup across 
   await expect(toolbar).toHaveCount(0);
   await page.keyboard.up('Meta');
 
-  await first.hover();
-  await first.getByRole('button', { name: /More actions for/u }).click();
-  const menu = page.getByRole('menu', { name: /Actions for/u });
-  await expect(menu.getByRole('menuitem', { name: /Export Selection \(2\)/u })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(menu).toHaveCount(0);
-
   await page.getByRole('radio', { name: 'List' }).click();
   const firstRow = page.locator('.ovl-grid__cell').first();
   await firstRow.hover();
@@ -56,4 +50,32 @@ test('configurable Command-hover Quick Actions share targets and cleanup across 
   await page.keyboard.down('Meta');
   await expect(toolbar.getByRole('button', { name: /Restore photo.*Available only for photos in Trash/u })).toBeDisabled();
   await page.keyboard.up('Meta');
+});
+
+test('configured Quick Actions drive platform-neutral More Actions menus (#532)', async ({ launchOverlook }) => {
+  const { page } = await launchOverlook({ prefix: 'overlook-e2e-quick-actions-menu-', env: { OVERLOOK_SEED: '4' } });
+  const cells = page.locator('.ovl-grid__cell');
+  await expect(cells).toHaveCount(4);
+
+  const first = cells.first();
+  await first.locator('.ovl-tile__select').click();
+  await cells.nth(1).locator('.ovl-tile__select').click();
+  await first.getByRole('button', { name: /More actions for/u }).click();
+  const menu = page.getByRole('menu', { name: /Actions for/u });
+  await expect(menu.getByRole('menuitem', { name: /Export Selection \(2\)/u })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('tab', { name: 'General' }).click();
+  const pane = page.getByTestId('settings-pane');
+  await pane.getByRole('switch', { name: 'Move photo to Trash' }).click();
+  await pane.getByRole('switch', { name: 'Restore photo' }).click();
+  await pane.getByRole('button', { name: 'Move Restore photo up' }).click();
+  await expect
+    .poll(() => page.evaluate(`window.overlook.settings.get().then(({ settings }) => settings.quickActions)`))
+    .toEqual(['photo.favorite.toggle', 'album.membership.add', 'photo.restore', 'photo.export']);
+  await page.keyboard.press('Escape');
+
+  await first.getByRole('button', { name: /More actions for/u }).click();
+  await expect(menu.getByRole('menuitem', { name: /Restore photo.*Available only for photos in Trash/u })).toBeDisabled();
 });
