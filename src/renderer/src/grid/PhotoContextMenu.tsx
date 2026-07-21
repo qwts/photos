@@ -66,7 +66,10 @@ export function PhotoContextMenu({
     detail: quickAction.reason ?? quickAction.targetLabel,
     disabledReason: quickAction.enabled ? undefined : (quickAction.reason ?? 'Unavailable'),
     danger: quickAction.id === 'photo.trash',
+    separatorBefore: quickAction.id === 'photo.trash',
   }));
+  const libraryQuickActionItems = quickActionItems.filter(({ id }) => id !== 'photo.trash');
+  const trashQuickActionItem = quickActionItems.find(({ id }) => id === 'photo.trash');
   const inTrash = photo.deletedAt !== null;
   const items: readonly ContextMenuItem[] = inTrash
     ? [
@@ -76,7 +79,7 @@ export function PhotoContextMenu({
       ]
     : [
         item('photo.open', 'image', onOpen),
-        ...quickActionItems,
+        ...libraryQuickActionItems,
         ...(quickActionIds.has('photo.favorite.toggle') ? [] : [item('photo.favorite.toggle', 'star', onToggleFavorite)]),
         ...(quickActionIds.has('photo.export') ? [] : [item('photo.export', 'share', onExport)]),
         ...(quickActionIds.has('album.membership.add') ? [] : [item('album.membership.add', 'album', onAddToAlbum)]),
@@ -85,7 +88,9 @@ export function PhotoContextMenu({
           ? item('photo.restoreOriginal', 'cloud-download', onRestoreOriginal)
           : item('photo.offload', 'cloud-upload', onOffload),
         item('photo.transfer', 'refresh-cw', onTransfer),
-        ...(quickActionIds.has('photo.trash') ? [] : [item('photo.trash', 'trash-2', onTrash, { danger: true, separatorBefore: true })]),
+        ...(trashQuickActionItem === undefined
+          ? [item('photo.trash', 'trash-2', onTrash, { danger: true, separatorBefore: true })]
+          : [trashQuickActionItem]),
       ];
   return (
     <ContextMenu
