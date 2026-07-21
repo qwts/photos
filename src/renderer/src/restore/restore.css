@@ -182,8 +182,8 @@
 
 .ovl-restoreOnboarding__card {
   box-sizing: border-box;
-  min-width: 0;
   width: min(620px, 100%);
+  min-width: 0;
   padding: var(--space-6);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
