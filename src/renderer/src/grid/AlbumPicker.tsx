@@ -9,12 +9,13 @@ export interface AlbumPickerProps {
   /** Picked an existing album (or one just created inline). */
   readonly onPick: (album: AlbumSummary) => void;
   readonly onClose: () => void;
+  readonly position?: { readonly x: number; readonly y: number } | undefined;
 }
 
 // Add-to-album picker (#118): a popover anchored above the selection pill —
 // existing albums (live counts) + inline create, keyboard-first (Escape
 // closes; the create row works like the sidebar's, Enter commits).
-export function AlbumPicker({ onPick, onClose }: AlbumPickerProps): ReactElement {
+export function AlbumPicker({ onPick, onClose, position }: AlbumPickerProps): ReactElement {
   const { formatCount } = useFormats();
   const [albums, setAlbums] = useState<readonly AlbumSummary[] | null>(null);
 
@@ -56,7 +57,21 @@ export function AlbumPicker({ onPick, onClose }: AlbumPickerProps): ReactElement
   }, [albums]);
 
   return (
-    <div ref={rootRef} className="ovl-albumpicker" data-testid="album-picker" role="menu" aria-label="Add to album">
+    <div
+      ref={rootRef}
+      className={`ovl-albumpicker${position === undefined ? '' : ' ovl-albumpicker--context'}`}
+      style={
+        position === undefined
+          ? undefined
+          : {
+              left: Math.max(8, Math.min(position.x, window.innerWidth - 236)),
+              top: Math.max(8, Math.min(position.y, window.innerHeight - 280)),
+            }
+      }
+      data-testid="album-picker"
+      role="menu"
+      aria-label="Add to album"
+    >
       {(albums ?? []).map((album) => (
         <button
           key={album.id}

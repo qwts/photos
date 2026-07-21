@@ -65,7 +65,16 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
       return context.surface === 'lightbox' && context.dialog === 'none' && context.targetTrashable;
     case 'album.membership.add':
     case 'album.membership.remove':
+    case 'album.rename':
+    case 'album.delete':
+    case 'album.transfer':
+    case 'photo.open':
+    case 'photo.export':
+    case 'photo.offload':
+    case 'photo.transfer':
     case 'photo.restore':
+    case 'photo.purge':
+    case 'trash.empty':
       return false;
     case 'app.search.focus':
     case 'selection.clear':

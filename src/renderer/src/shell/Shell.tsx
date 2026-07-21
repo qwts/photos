@@ -37,6 +37,7 @@ import type { CommandMenuContext } from '../../../shared/commands/menu-contract.
 import { ActivityDialog } from '../activity/ActivityDialog';
 import { useAnnouncer } from '../components/LiveAnnouncer';
 import { SelectionAnnouncer } from '../components/SelectionAnnouncer';
+import { useEmptyTrash } from '../grid/use-empty-trash';
 
 const viewMessages = defineMessages({
   all: { id: 'shell.view.all', defaultMessage: 'All Photos' },
@@ -73,6 +74,7 @@ export function Shell({
   const dispatch = useAppDispatch();
   const { announce } = useAnnouncer();
   const offload = useOffloadWorkflow();
+  const emptyTrash = useEmptyTrash();
   const [shortcutSurface, setShortcutSurface] = useState<CommandSurface | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>();
   const handledNativeSequenceRef = useRef(0);
@@ -294,7 +296,16 @@ export function Shell({
       }
       case 'album.membership.add':
       case 'album.membership.remove':
+      case 'album.rename':
+      case 'album.delete':
+      case 'album.transfer':
+      case 'photo.open':
+      case 'photo.export':
+      case 'photo.offload':
+      case 'photo.transfer':
       case 'photo.restore':
+      case 'photo.purge':
+      case 'trash.empty':
         return;
       case 'help.shortcuts':
         setShortcutSurface(state.lightboxId === null ? 'grid' : 'lightbox');
@@ -765,6 +776,7 @@ export function Shell({
           stats={stats}
           albums={albums}
           onTransferAlbum={(album) => openInterop('album', album.count)}
+          onEmptyTrash={emptyTrash.open}
           protectedAlbums={protectedAlbums}
           onProtectedOpen={(albumId, origin) => {
             const album = protectedAlbums.find((candidate) => candidate.id === albumId);
@@ -776,6 +788,7 @@ export function Shell({
             setUnlockAlbumId(albumId);
           }}
         />
+        {emptyTrash.dialog}
         <main
           className="ovl-shell__content"
           data-testid="content-region"

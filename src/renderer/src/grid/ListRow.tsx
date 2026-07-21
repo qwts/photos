@@ -23,7 +23,7 @@ export interface ListRowProps {
   readonly onToggleFavorite: () => void;
   readonly favoritePending?: boolean;
   readonly retentionLabel?: string | undefined;
-  readonly onContextAction?: ((point: { readonly x: number; readonly y: number }) => void) | undefined;
+  readonly onContextAction?: ((point: { readonly x: number; readonly y: number; readonly origin: HTMLButtonElement }) => void) | undefined;
   readonly onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
   readonly onDragEnd?: (() => void) | undefined;
   readonly tabIndex?: 0 | -1 | undefined;

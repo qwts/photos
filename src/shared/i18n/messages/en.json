@@ -29,11 +29,20 @@
   "activity.undo": {
     "defaultMessage": "Undo"
   },
+  "commands.album.delete": {
+    "defaultMessage": "Delete album…"
+  },
   "commands.album.membership.add": {
     "defaultMessage": "Add to album"
   },
   "commands.album.membership.remove": {
     "defaultMessage": "Remove from album"
+  },
+  "commands.album.rename": {
+    "defaultMessage": "Rename album…"
+  },
+  "commands.album.transfer": {
+    "defaultMessage": "Transfer & Sync…"
   },
   "commands.app.lock.now": {
     "defaultMessage": "Lock Now"
@@ -113,11 +122,26 @@
   "commands.library.switch": {
     "defaultMessage": "Switch Library…"
   },
+  "commands.photo.export": {
+    "defaultMessage": "Export…"
+  },
   "commands.photo.favorite.toggle": {
     "defaultMessage": "Toggle favorite"
   },
+  "commands.photo.offload": {
+    "defaultMessage": "Offload original…"
+  },
+  "commands.photo.open": {
+    "defaultMessage": "Open"
+  },
+  "commands.photo.purge": {
+    "defaultMessage": "Delete permanently…"
+  },
   "commands.photo.restore": {
     "defaultMessage": "Restore photo"
+  },
+  "commands.photo.transfer": {
+    "defaultMessage": "Transfer & Sync…"
   },
   "commands.photo.trash": {
     "defaultMessage": "Move photo to Trash"
@@ -127,6 +151,9 @@
   },
   "commands.selection.selectAll": {
     "defaultMessage": "Select all photos"
+  },
+  "commands.trash.empty": {
+    "defaultMessage": "Empty Trash…"
   },
   "commands.view.inspector.toggle": {
     "defaultMessage": "Show or hide Inspector"
@@ -461,6 +488,9 @@
   "menu.window": {
     "defaultMessage": "Window"
   },
+  "photo.context.actions": {
+    "defaultMessage": "Actions for {target}"
+  },
   "preview.unavailable": {
     "defaultMessage": "PREVIEW UNAVAILABLE"
   },
@@ -793,6 +823,9 @@
   },
   "sidebar.storage.onDisk": {
     "defaultMessage": "{bytes} on disk"
+  },
+  "sidebar.trash.actions": {
+    "defaultMessage": "Trash actions"
   },
   "toast.announcement": {
     "defaultMessage": "{title} — {detail}"

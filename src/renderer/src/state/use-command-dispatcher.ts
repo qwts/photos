@@ -42,7 +42,16 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'help.open':
         case 'album.membership.add':
         case 'album.membership.remove':
+        case 'album.rename':
+        case 'album.delete':
+        case 'album.transfer':
+        case 'photo.open':
+        case 'photo.export':
+        case 'photo.offload':
+        case 'photo.transfer':
         case 'photo.restore':
+        case 'photo.purge':
+        case 'trash.empty':
           return false;
         case 'history.undo':
         case 'history.redo': {

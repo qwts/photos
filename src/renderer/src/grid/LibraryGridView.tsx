@@ -11,6 +11,7 @@ import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { useLibraryPhotos } from '../state/use-library-photos';
 import { ListRow } from './ListRow';
 import { PhotoContextMenu } from './PhotoContextMenu';
+import { AlbumPicker } from './AlbumPicker';
 import { PurgeConfirm } from './PurgeConfirm';
 import { SelectionPill } from './SelectionPill';
 import { VirtualGrid, type VirtualGridItemKeyboard } from './VirtualGrid';
@@ -65,7 +66,19 @@ export function LibraryGridView({
   // the modal is open, and the destructive set must be exactly what the
   // user confirmed (PR #220 review).
   const [purgeIds, setPurgeIds] = useState<readonly string[] | null>(null);
-  const [contextPhoto, setContextPhoto] = useState<{ readonly photo: PhotoRecord; readonly x: number; readonly y: number } | null>(null);
+  const [contextPhoto, setContextPhoto] = useState<{
+    readonly photo: PhotoRecord;
+    readonly targetIds: readonly string[];
+    readonly x: number;
+    readonly y: number;
+    readonly origin: HTMLButtonElement;
+  } | null>(null);
+  const [albumPicker, setAlbumPicker] = useState<{
+    readonly targetIds: readonly string[];
+    readonly x: number;
+    readonly y: number;
+    readonly origin: HTMLButtonElement;
+  } | null>(null);
   const favoritePendingRef = useRef<ReadonlySet<string>>(new Set());
   const [favoritePending, setFavoritePending] = useState<ReadonlySet<string>>(() => new Set());
   const [retentionNow] = useState(() => Date.now());
@@ -107,6 +120,21 @@ export function LibraryGridView({
         favoritePendingRef.current = remaining;
         setFavoritePending(remaining);
       });
+  };
+
+  const openContextMenu = (
+    photo: PhotoRecord,
+    point: { readonly x: number; readonly y: number; readonly origin: HTMLButtonElement },
+  ): void => {
+    const targetIds = state.selection.has(photo.id) ? [...state.selection] : [photo.id];
+    if (!state.selection.has(photo.id)) dispatch({ type: 'selection/all', photoIds: targetIds });
+    setContextPhoto({ photo, targetIds, ...point });
+  };
+
+  const restoreContextFocus = (origin: HTMLButtonElement): void => {
+    requestAnimationFrame(() => {
+      if (origin.isConnected) origin.focus();
+    });
   };
 
   // An active album narrows like query/chips do (#117): the sidebar count
@@ -167,7 +195,7 @@ export function LibraryGridView({
         onToggleFavorite={() => toggleFavorite(photo)}
         favoritePending={favoritePending.has(photo.id)}
         retentionLabel={retentionLabel}
-        onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
+        onContextAction={(point) => openContextMenu(photo, point)}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         {...keyboard}
@@ -190,7 +218,7 @@ export function LibraryGridView({
         onToggleFavorite={() => toggleFavorite(photo)}
         favoritePending={favoritePending.has(photo.id)}
         retentionLabel={retentionLabel}
-        onContextAction={({ x, y }) => setContextPhoto({ photo, x, y })}
+        onContextAction={(point) => openContextMenu(photo, point)}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         {...keyboard}
@@ -292,11 +320,88 @@ export function LibraryGridView({
       {contextPhoto === null ? null : (
         <PhotoContextMenu
           photo={contextPhoto.photo}
+          targetCount={contextPhoto.targetIds.length}
+          inAlbum={state.album !== null}
           x={contextPhoto.x}
           y={contextPhoto.y}
-          onClose={() => setContextPhoto(null)}
-          onOffload={() => onOffload([contextPhoto.photo.id])}
-          onTransfer={() => onTransfer('lightbox', [contextPhoto.photo.id])}
+          onClose={() => {
+            setContextPhoto(null);
+            restoreContextFocus(contextPhoto.origin);
+          }}
+          onOpen={() => dispatch({ type: 'lightbox/opened', photoId: contextPhoto.photo.id })}
+          onToggleFavorite={() => {
+            for (const photo of state.photos.filter(({ id }) => contextPhoto.targetIds.includes(id))) toggleFavorite(photo);
+          }}
+          onExport={() => dispatch({ type: 'dialog/set', dialog: 'export', open: true })}
+          onAddToAlbum={() => {
+            setAlbumPicker({ targetIds: contextPhoto.targetIds, x: contextPhoto.x, y: contextPhoto.y, origin: contextPhoto.origin });
+          }}
+          onRemoveFromAlbum={() => {
+            const albumId = state.album;
+            if (albumId === null) return;
+            void window.overlook.albums.removePhotos({ albumId, photoIds: [...contextPhoto.targetIds] }).then(({ removed }) => {
+              dispatch({
+                type: 'toast/shown',
+                toast: {
+                  title: `Removed ${formatCount(removed)} ${removed === 1 ? 'photo' : 'photos'} from ${activeAlbum?.name ?? 'album'}`,
+                  tone: 'neutral',
+                },
+              });
+            });
+          }}
+          onOffload={() => onOffload(contextPhoto.targetIds)}
+          onRestoreOriginal={() => {
+            void window.overlook.backup.restoreOriginals({ photoIds: [...contextPhoto.targetIds] }).then(({ restored, failed }) => {
+              dispatch({
+                type: 'toast/shown',
+                toast: {
+                  title:
+                    failed === 0
+                      ? `Restored ${formatCount(restored)} ${restored === 1 ? 'original' : 'originals'}`
+                      : `Restored ${formatCount(restored)} · ${formatCount(failed)} failed`,
+                  tone: failed === 0 ? 'green' : 'red',
+                },
+              });
+            });
+          }}
+          onTransfer={() => onTransfer(contextPhoto.targetIds.length === 1 ? 'lightbox' : 'selection', contextPhoto.targetIds)}
+          onTrash={() => {
+            void window.overlook.library.delete({ photoIds: [...contextPhoto.targetIds] }).then(({ deleted }) => {
+              dispatch({
+                type: 'toast/shown',
+                toast: { title: `Moved ${formatCount(deleted)} ${deleted === 1 ? 'photo' : 'photos'} to Trash`, tone: 'neutral' },
+              });
+            });
+          }}
+          onRestore={() => {
+            void window.overlook.library.restore({ photoIds: [...contextPhoto.targetIds] }).then(({ restored }) => {
+              dispatch({
+                type: 'toast/shown',
+                toast: { title: `Restored ${formatCount(restored)} ${restored === 1 ? 'photo' : 'photos'}`, tone: 'green' },
+              });
+            });
+          }}
+          onPurge={() => setPurgeIds(contextPhoto.targetIds)}
+        />
+      )}
+      {albumPicker === null ? null : (
+        <AlbumPicker
+          position={{ x: albumPicker.x, y: albumPicker.y }}
+          onClose={() => {
+            setAlbumPicker(null);
+            restoreContextFocus(albumPicker.origin);
+          }}
+          onPick={(album) => {
+            const targetIds = albumPicker.targetIds;
+            setAlbumPicker(null);
+            void window.overlook.albums.addPhotos({ albumId: album.id, photoIds: [...targetIds] }).then(({ added }) => {
+              dispatch({
+                type: 'toast/shown',
+                toast: { title: `Added ${formatCount(added)} ${added === 1 ? 'photo' : 'photos'} to ${album.name}`, tone: 'green' },
+              });
+              restoreContextFocus(albumPicker.origin);
+            });
+          }}
         />
       )}
       {purgeIds !== null && purgeIds.length > 0 ? (
