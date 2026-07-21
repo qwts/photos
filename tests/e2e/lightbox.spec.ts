@@ -89,6 +89,9 @@ async function exerciseOrientationControls(page: Page, viewport: Locator): Promi
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
   await page.keyboard.press('+');
   await page.keyboard.press('r');
+  await page.mouse.move(300, 300);
+  await page.mouse.move(320, 320);
+  await expect(toolbar).toBeVisible();
   await toolbar.getByRole('button', { name: 'Reset orientation (⇧R)' }).click();
   await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.keyboard.press('0');
@@ -140,14 +143,16 @@ async function exerciseCustomTransformPersistence(page: Page, viewport: Locator)
   await page.mouse.wheel(0, -600);
   await page.keyboard.up('Alt');
   await expect.poll(async () => Number(await viewport.getAttribute('data-zoom'))).toBeGreaterThan(2);
+  const preWheelPanX = Number(await viewport.getAttribute('data-pan-x'));
+  const preWheelPanY = Number(await viewport.getAttribute('data-pan-y'));
   await page.mouse.wheel(900, 700);
-  await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-x')))).toBeGreaterThan(0);
-  await expect.poll(async () => Math.abs(Number(await viewport.getAttribute('data-pan-y')))).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-x'))).not.toBe(preWheelPanX);
+  await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).not.toBe(preWheelPanY);
   const wheelPanX = Number(await viewport.getAttribute('data-pan-x'));
   const wheelPanY = Number(await viewport.getAttribute('data-pan-y'));
 
-  await page.locator('body').dispatchEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', altKey: true, bubbles: true });
-  await page.locator('body').dispatchEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', altKey: true, bubbles: true });
+  await viewport.dispatchEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', altKey: true, bubbles: true });
+  await viewport.dispatchEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', altKey: true, bubbles: true });
   await expect.poll(async () => Number(await viewport.getAttribute('data-pan-x'))).toBe(wheelPanX);
   await expect.poll(async () => Number(await viewport.getAttribute('data-pan-y'))).toBe(wheelPanY);
 
