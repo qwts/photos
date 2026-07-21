@@ -1614,7 +1614,7 @@
         },
         {
           "type": "manual",
-          "reason": "Issue #659 owns the signed provisioned macOS acceptance pass for real Apple Account state changes, File Provider materialization, process restart, and fresh-profile disaster recovery that the deterministic Electron harness cannot reproduce."
+          "reason": "The signed provisioned macOS acceptance pass in docs/acceptance/Manual-Test-iCloud-Drive.md covers real Apple Account state changes, File Provider materialization, process restart, and fresh-profile disaster recovery that the deterministic Electron harness cannot reproduce."
         }
       ]
     },

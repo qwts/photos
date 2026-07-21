@@ -35,7 +35,8 @@ existing links resolve — never add content there.
 - [User Stories](./stories/User-Stories.md) — milestone / user-story planning home
 - [Cloud Provider Contract Matrix](./Provider-Contract-Matrix.md) — adapter backup/restore readiness and live evidence
 - [iCloud Drive provider](./iCloud-Drive.md) — macOS container identity, native bridge, provisioned signing, and smoke contract
-- [Manual Test — M18 Cloud Disaster Recovery](./acceptance/Manual-Test-M18-Cloud-Disaster-Recovery.md) — isolated owner-run pCloud procedure
+- [iCloud Drive acceptance](./acceptance/Manual-Test-iCloud-Drive.md) — signed live contract, product checklist, evidence, and cleanup
+- [Manual Test — M18 Cloud Disaster Recovery](./acceptance/Manual-Test-M18-Cloud-Disaster-Recovery.md) — isolated owner-run provider procedures
 - [Accessibility Audit — WCAG 2.2 AA (July 2026)](./Accessibility-Audit-2026-07.md) — baseline, severity ranking, accepted exceptions (#398)
 - [Manual Test — VoiceOver](./acceptance/Manual-Test-A11y-VoiceOver.md) — the screen-reader half the axe gates cannot cover
 - [Visual accessibility acceptance](./acceptance/Acceptance-Test-Visual-Accessibility.md) — reduced motion, semantic contrast, 200% zoom, and high-contrast scope (#401)

@@ -58,6 +58,7 @@
     "test:icloud:native-smoke": "node scripts/run-guarded.mjs --label test:icloud:native-smoke --timeout-s 120 -- node scripts/verify-macos-icloud-native-smoke.mjs",
     "test:llm:live:inner": "npm run test:compile && OVERLOOK_LLM_LIVE=1 ELECTRON_RUN_AS_NODE=1 electron --test '.test-dist/tests/llm/live-contract.test.js'",
     "test:llm:live": "node scripts/run-guarded.mjs --label test:llm:live --timeout-s 300 -- npm run test:llm:live:inner",
+    "test:icloud:live": "node scripts/run-guarded.mjs --label test:icloud:live --timeout-s 1200 -- node scripts/verify-macos-icloud-live-contract.mjs",
     "diagnose:google-oauth": "node scripts/diagnose-google-oauth.ts",
     "test:e2e:inner": "playwright test",
     "test:e2e": "node scripts/run-guarded.mjs --label test:e2e --rss-mb 8192 --timeout-s 1800 -- npm run test:e2e:inner",

@@ -2,10 +2,8 @@
 
 Issue [#278](https://github.com/qwts/photos/issues/278) delivers iCloud Drive as
 a macOS-only encrypted backup and offload provider. This page records the
-native and signing contract established by
-[#656](https://github.com/qwts/photos/issues/656). Provider behavior and live
-acceptance remain tracked by #657–#659 until the contract matrix marks the
-provider ready.
+native, provider, runtime, and live-acceptance contract delivered by #656–#659.
+The contract matrix is the canonical readiness record.
 
 ## Container identity
 
@@ -81,8 +79,8 @@ be materialized and hashed.
 The deterministic local authority models pagination, placeholder delay,
 offline/account changes, conflicts, interrupted committed replacements,
 cancellation, and process restart. It runs the shared object, restore, and
-complete fresh-profile disaster-recovery contracts in CI. Production
-registration remains #658; signed live evidence remains #659.
+complete fresh-profile disaster-recovery contracts in CI. The production
+runtime uses the same adapter and shared contract implementations.
 
 ## Build and smoke verification
 
@@ -106,9 +104,23 @@ npm run test:icloud:native-smoke -- /path/to/Overlook.app
 
 The smoke creates a unique object under `Overlook/.native-smoke/`, coordinates
 replacement, lists it, materializes and byte-compares it, deletes it, and exits
-nonzero on any failure. Cleanup is attempted even after a partial failure. This
-is a native boundary smoke, not the complete provider/live disaster-recovery
-contract owned by #659.
+nonzero on any failure. Cleanup is attempted even after a partial failure.
+
+Run the complete signed live contract on the same artifact:
+
+```sh
+npm run test:icloud:live -- /path/to/Overlook.app
+```
+
+The command first revalidates the embedded profile, Team/application/container
+identity, main-process entitlements, helper isolation, and signature. The
+packaged app then uses four unique library ULIDs to run the exact shared object,
+restore-provider, and fresh-profile disaster-recovery contracts plus
+page-size-one listing, replacement, File Provider materialization, and SHA-256
+verification. It deletes only those scratch homes and writes redacted evidence
+to `test-results/icloud-live-contract-evidence.json`. Existing Overlook homes
+are permitted and are never selected or deleted. See
+[iCloud Drive acceptance](./acceptance/Manual-Test-iCloud-Drive.md).
 
 Unsigned, profile-free, non-macOS, unentitled, or signed-out builds remain
 unavailable. The normal profile-free release remains launchable and continues
