@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, within } from 'storybook/test';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { ActivityDialog } from './ActivityDialog';
 
@@ -43,6 +43,29 @@ const meta: Meta<typeof ActivityDialog> = {
     (Story) => {
       (globalThis as { overlook?: unknown }).overlook = {
         activity: { page: () => Promise.resolve({ events, nextCursor: null }) },
+        history: {
+          status: () =>
+            Promise.resolve({
+              undo: {
+                recordId: 'command-1',
+                commandId: 'photo.trash',
+                classification: 'immediately-reversible',
+                status: 'available',
+                reason: 'ready',
+                expiresAt: '2026-08-20T18:30:00.000Z',
+              },
+              redo: {
+                recordId: null,
+                commandId: null,
+                classification: null,
+                status: 'unavailable',
+                reason: 'empty-stack',
+                expiresAt: null,
+              },
+            }),
+          undo: fn(() => Promise.resolve({ applied: true })),
+          redo: fn(),
+        },
       };
       return <Story />;
     },
@@ -59,5 +82,9 @@ export const Populated: Story = {
     await expect(await canvas.findByText('Moved 2 photos to Trash')).toBeVisible();
     await expect(canvas.getByText('Imported 12 photos')).toBeVisible();
     await expect(canvas.getByText('Completed with some items unresolved')).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Undo' })).toBeEnabled();
+    await expect(canvas.getByRole('button', { name: 'Redo' })).toBeDisabled();
+    await expect(canvas.getByText('No action available')).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: 'Undo' }));
   },
 };

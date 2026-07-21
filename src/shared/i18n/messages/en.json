@@ -5,6 +5,9 @@
   "activity.failed": {
     "defaultMessage": "Activity could not be loaded."
   },
+  "activity.history": {
+    "defaultMessage": "History controls"
+  },
   "activity.loadMore": {
     "defaultMessage": "Load more"
   },
@@ -14,11 +17,23 @@
   "activity.partial": {
     "defaultMessage": "Completed with some items unresolved"
   },
+  "activity.redo": {
+    "defaultMessage": "Redo"
+  },
   "activity.timestamp": {
     "defaultMessage": "{date} · {time}"
   },
   "activity.title": {
     "defaultMessage": "Activity"
+  },
+  "activity.undo": {
+    "defaultMessage": "Undo"
+  },
+  "commands.album.membership.add": {
+    "defaultMessage": "Add to album"
+  },
+  "commands.album.membership.remove": {
+    "defaultMessage": "Remove from album"
   },
   "commands.app.lock.now": {
     "defaultMessage": "Lock Now"
@@ -74,6 +89,12 @@
   "commands.help.title": {
     "defaultMessage": "Keyboard shortcuts"
   },
+  "commands.history.redo": {
+    "defaultMessage": "Redo"
+  },
+  "commands.history.undo": {
+    "defaultMessage": "Undo"
+  },
   "commands.library.import": {
     "defaultMessage": "Import Photos…"
   },
@@ -94,6 +115,9 @@
   },
   "commands.photo.favorite.toggle": {
     "defaultMessage": "Toggle favorite"
+  },
+  "commands.photo.restore": {
+    "defaultMessage": "Restore photo"
   },
   "commands.photo.trash": {
     "defaultMessage": "Move photo to Trash"

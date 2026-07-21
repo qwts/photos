@@ -14,7 +14,7 @@ function launch(userData: string, seed = false): Promise<ElectronApplication> {
   });
 }
 
-test('ACCEPTANCE: trusted mutations appear in encrypted activity and survive restart (#614)', async () => {
+test('ACCEPTANCE: activity and capability-aware Undo/Redo survive restart (#614, #615)', async () => {
   const userData = mkE2eTmpDir('overlook-e2e-activity-');
   const first = await launch(userData, true);
   try {
@@ -23,7 +23,10 @@ test('ACCEPTANCE: trusted mutations appear in encrypted activity and survive res
     await page.getByRole('button', { name: 'Add to Favorites' }).first().click();
     await expect(page.getByRole('button', { name: 'Remove from Favorites' }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Activity' }).click();
-    await expect(page.getByRole('dialog', { name: 'Activity' })).toContainText('Changed a favorite');
+    const dialog = page.getByRole('dialog', { name: 'Activity' });
+    await expect(dialog).toContainText('Changed a favorite');
+    await dialog.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.getByRole('button', { name: 'Add to Favorites' }).first()).toBeVisible();
   } finally {
     await first.close();
   }
@@ -33,7 +36,10 @@ test('ACCEPTANCE: trusted mutations appear in encrypted activity and survive res
     const page = await second.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
     await page.getByRole('button', { name: 'Activity' }).click();
-    await expect(page.getByRole('dialog', { name: 'Activity' })).toContainText('Changed a favorite');
+    const dialog = page.getByRole('dialog', { name: 'Activity' });
+    await expect(dialog).toContainText('Undid an action');
+    await dialog.getByRole('button', { name: 'Redo' }).click();
+    await expect(page.getByRole('button', { name: 'Remove from Favorites' }).first()).toBeVisible();
   } finally {
     await second.close();
   }

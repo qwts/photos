@@ -2,6 +2,23 @@
   min-height: 240px;
 }
 
+.ovl-activity__history {
+  display: flex;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ovl-activity__history-action {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.ovl-activity__history-reason {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
 .ovl-activity__state {
   margin: 0;
   padding: var(--space-8) var(--space-4);

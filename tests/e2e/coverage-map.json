@@ -1407,6 +1407,28 @@
       ]
     },
     {
+      "id": "capability-aware-undo-redo",
+      "wiki": "Undo-Redo",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/activity.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/activity/ActivityDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/history/command-repository.test.ts",
+            "tests/history/history-service.test.ts",
+            "tests/history/move-compensation-runtime.test.ts"
+          ]
+        }
+      ]
+    },
+    {
       "id": "m22-library-relocation",
       "wiki": "Library-Management",
       "coverage": [
