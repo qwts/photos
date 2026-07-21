@@ -94,7 +94,7 @@ export function ProtectedLightbox({
       {animated && reducedMotion ? (
         <div className="ovl-protected-lightbox__animation" data-testid="protected-lightbox-animation-toggle">
           <Button
-            size="sm"
+            size="md"
             icon={posterHeld ? 'play' : 'pause'}
             aria-pressed={!posterHeld}
             onClick={() => setAnimationStartedFor(posterHeld ? photo.id : null)}

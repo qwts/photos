@@ -163,10 +163,12 @@
 }
 
 /* Reduced-motion animation toggle (ADR-0026 §7): never chrome-faded — the
- * intentional playback action must not require waking hover chrome. */
+ * intentional playback action must not require waking hover chrome. Sits
+ * top-center, clear of the bottom-centered transform/zoom toolbars so no
+ * target is ever obscured (SC 2.5.8). */
 .ovl-lightbox__animation {
   position: absolute;
-  bottom: calc(54px + var(--space-3));
+  top: calc(64px + var(--space-2));
   left: 50%;
   translate: -50%;
   z-index: 1;
