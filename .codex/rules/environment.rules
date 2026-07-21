@@ -1,25 +1,98 @@
-# Trust every Git subcommand for this repository, including networked and
-# metadata-writing operations.
+# Trust normal Git operations, including networked and metadata-writing
+# commands. Global options, custom aliases, and command runners remain subject
+# to the normal approval policy.
 prefix_rule(
-    pattern = ["git"],
+    pattern = [
+        "git",
+        [
+            "add",
+            "am",
+            "apply",
+            "blame",
+            "branch",
+            "checkout",
+            "cherry-pick",
+            "clean",
+            "clone",
+            "commit",
+            "describe",
+            "diff",
+            "fetch",
+            "format-patch",
+            "grep",
+            "init",
+            "log",
+            "merge",
+            "merge-base",
+            "mv",
+            "notes",
+            "pull",
+            "push",
+            "range-diff",
+            "rebase",
+            "reflog",
+            "remote",
+            "reset",
+            "restore",
+            "revert",
+            "rev-list",
+            "rev-parse",
+            "rm",
+            "show",
+            "show-ref",
+            "sparse-checkout",
+            "stash",
+            "status",
+            "switch",
+            "tag",
+            "worktree",
+        ],
+    ],
     decision = "allow",
-    justification = "All Git commands are explicitly trusted in this environment.",
+    justification = "Normal Git operations are explicitly trusted in this environment.",
     match = [
         "git status --short --branch",
         "git commit -m example",
         "git push --set-upstream origin example",
         "git reset --hard HEAD",
     ],
+    not_match = [
+        "git -c alias.x='!sh -c id' x",
+        "git config alias.x '!sh -c id'",
+        "git x",
+    ],
 )
 
-# nvm is loaded by environment.toml; trust every nvm subcommand and argument.
+# nvm is loaded by environment.toml. Trust version-management operations while
+# keeping its arbitrary command runners under the normal approval policy.
 prefix_rule(
-    pattern = ["nvm"],
+    pattern = [
+        "nvm",
+        [
+            "alias",
+            "cache",
+            "current",
+            "deactivate",
+            "install",
+            "ls",
+            "ls-remote",
+            "unalias",
+            "unload",
+            "use",
+            "version",
+            "version-remote",
+            "which",
+        ],
+    ],
     decision = "allow",
-    justification = "All nvm commands are explicitly trusted in this environment.",
+    justification = "NVM version-management commands are explicitly trusted in this environment.",
     match = [
         "nvm use",
         "nvm install 24.18.0",
         "nvm alias default 24.18.0",
+    ],
+    not_match = [
+        "nvm exec 24.18.0 sh -c id",
+        "nvm run 24.18.0 arbitrary-script",
     ],
 )
