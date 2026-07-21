@@ -70,6 +70,9 @@ function world(initialState: AppLockState) {
       state = next;
       authorizationEpoch += 1;
     },
+    setStateWithoutEpoch: (next: AppLockState) => {
+      state = next;
+    },
     switchLibrary: () => {
       libraryId = 'library-b';
     },
@@ -129,5 +132,18 @@ describe('protected Original deletion ceremony (#482)', () => {
     const lockedId = locked.service.preflight(['A']).challengeId;
     locked.setState('locked');
     await assert.rejects(locked.service.commit(lockedId), /authorization expired/u);
+  });
+
+  test('cancel and lock-state changes revoke a prepared ceremony', async () => {
+    const cancelled = world('unconfigured-unlocked');
+    const cancelledId = cancelled.service.preflight(['A']).challengeId;
+    cancelled.service.cancel(cancelledId);
+    await assert.rejects(cancelled.service.commit(cancelledId), /authorization is unavailable/u);
+
+    const changed = world('unlocked');
+    const changedId = changed.service.preflight(['A']).challengeId;
+    assert.deepEqual(await changed.service.authorize(changedId, 'correct'), { ok: true });
+    changed.setStateWithoutEpoch('unconfigured-unlocked');
+    await assert.rejects(changed.service.commit(changedId), /app lock state changed/u);
   });
 });
