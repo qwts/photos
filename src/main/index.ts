@@ -66,7 +66,6 @@ import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
 import { installApplicationMenu, refreshApplicationMenu } from './application-menu.js';
-import { registerInspectorWindowHandlers } from './inspector-window-runtime.js';
 
 // Test/dev steering hooks (#72/#129) are unpackaged-only; runtime tuning stays outside this gate.
 function harnessEnv(name: string): string | undefined {
@@ -817,7 +816,6 @@ void externalOpen.whenReady().then(async () => {
   installApplicationMenu(lock, () => providerWorkCount > 0);
   externalOpen.followAuthorization(lock);
   registerIpcHandlers(() => getSettingsStore().get().language);
-  registerInspectorWindowHandlers(() => lock.requireContentAccess());
   registerRelocationHandlers(getRelocationRuntime);
   registerAppLockIpc({
     controller: lock,

@@ -15,7 +15,7 @@ import { PHOTO_PURGE_AUTHORIZATION } from '../destructive-actions.js';
 import { commandIdSchema, commandMenuContextSchema } from '../commands/menu-contract.js';
 import { activityPageRequestSchema, activityPageResponseSchema } from '../activity/schemas.js';
 import { historyExecuteRequestSchema, historyExecuteResponseSchema, historyStatusSchema } from '../history/schemas.js';
-import { inspectorWindowChannels, inspectorWindowStateSchema } from '../inspector-window-contract.js';
+import { inspectorWindowChannels, windowEvents } from '../inspector-window-contract.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -820,10 +820,7 @@ export const channels = {
 } as const;
 
 export const events = {
-  focusChanged: defineEvent('window:focus-changed', z.object({ focused: z.boolean() })),
-  inspectorWindowChanged: defineEvent('inspector-window:changed', inspectorWindowStateSchema),
-  inspectorWindowClosed: defineEvent('inspector-window:closed', z.object({})),
-  inspectorWindowStepRequested: defineEvent('inspector-window:step-requested', z.object({ delta: z.union([z.literal(-1), z.literal(1)]) })),
+  ...windowEvents,
   commandInvoked: defineEvent('commands:invoked', z.object({ id: commandIdSchema })),
   appLockStateChanged: defineEvent('app-lock:state-changed', appLockStatusSchema),
   appLockTouchIdChanged: defineEvent('app-lock:touch-id-changed', touchIdStatusSchema),
