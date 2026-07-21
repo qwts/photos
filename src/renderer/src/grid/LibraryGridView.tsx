@@ -27,7 +27,7 @@ import {
   quickActionTargetIds,
   reduceQuickActionVisibility,
 } from '../../../shared/commands/quick-actions.js';
-import type { CommandPlatform, QuickActionCommandId } from '../../../shared/commands/registry.js';
+import { resolveCommand, type CommandPlatform, type QuickActionCommandId } from '../../../shared/commands/registry.js';
 import { DEFAULT_QUICK_ACTIONS } from '../../../shared/settings/settings.js';
 import { QuickActions, type QuickActionItem } from './QuickActions';
 
@@ -189,8 +189,24 @@ export function LibraryGridView({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Delete' || !event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || originalDeleteIds !== null) return;
-      if (state.importOpen || state.exportOpen || state.settingsOpen || state.activityOpen || state.librariesOpen) return;
+      if (event.defaultPrevented || originalDeleteIds !== null) return;
+      const editable =
+        event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]') !== null;
+      const dialogOpen =
+        state.importOpen ||
+        state.exportOpen ||
+        state.settingsOpen ||
+        state.activityOpen ||
+        state.librariesOpen ||
+        purgeIds !== null ||
+        quickAlbumIds !== null;
+      const command = resolveCommand(event, {
+        surface: state.lightboxId === null ? 'grid' : 'lightbox',
+        dialogOpen,
+        editable,
+        platform,
+      });
+      if (command?.id !== 'photo.purge') return;
       const targetIds = state.selection.size > 0 ? [...state.selection] : state.lightboxId === null ? [] : [state.lightboxId];
       const containsOriginal = state.photos.some((photo) => targetIds.includes(photo.id) && photo.isOriginal);
       if (!containsOriginal) return;
@@ -199,7 +215,7 @@ export function LibraryGridView({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [originalDeleteIds, state]);
+  }, [originalDeleteIds, platform, purgeIds, quickAlbumIds, state]);
   const trashPolicy = intl.formatMessage(retentionDays === null ? messages.trashPolicyOff : messages.trashPolicyDays, {
     days: retentionDays,
   });
