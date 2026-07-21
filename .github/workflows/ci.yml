@@ -16,6 +16,24 @@ on:
   # GITHUB_TOKEN-created PRs get no pull_request runs, yet main requires the
   # "CI" and "E2E gate" checks (contexts match by name across event types).
   workflow_dispatch:
+    inputs:
+      e2e_workers:
+        description: Electron E2E workers (capacity measurement; default 3)
+        required: false
+        type: choice
+        options: ['1', '2', '3']
+        default: '3'
+      e2e_retries:
+        description: Electron E2E retries (use 0 for capacity evidence)
+        required: false
+        type: choice
+        options: ['0', '1', '2']
+        default: '2'
+      capacity_label:
+        description: Label stored with runner-capacity evidence
+        required: false
+        type: string
+        default: default
   # The merge queue (agents run `gh pr merge --auto` once a PR is ready) builds the
   # up-to-date merged state and requires the same "CI" and "E2E gate" contexts on it,
   # so this workflow must run on merge_group and report both. This is what lets a PR
@@ -222,6 +240,10 @@ jobs:
     # before the guard records .guard/last-run.json or the report uploads (as perf.yml already
     # does for its own guarded step).
     timeout-minutes: 45
+    env:
+      OVERLOOK_E2E_WORKERS: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_workers || '3' }}
+      OVERLOOK_E2E_RETRIES: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_retries || '2' }}
+      OVERLOOK_CAPACITY_LABEL: ${{ github.event_name == 'workflow_dispatch' && inputs.capacity_label || 'default' }}
 
     steps:
       - name: Checkout
@@ -251,12 +273,24 @@ jobs:
         run: node node_modules/electron/install.js
 
       - name: Playwright E2E tests (Electron under Xvfb)
-        run: xvfb-run --auto-servernum -- npm run test:e2e
+        run: xvfb-run --auto-servernum -- node scripts/measure-runner-capacity.mjs -- npm run test:e2e
 
       # See the CI job's "Guard diagnostics" step — same record, for the e2e ceiling.
       - name: Guard diagnostics
         if: ${{ !cancelled() }}
         run: cat .guard/last-run.json || true
+
+      - name: Runner capacity summary
+        if: ${{ !cancelled() }}
+        run: cat test-results/runner-capacity.json || true
+
+      - name: Upload runner capacity evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: runner-capacity-${{ github.run_attempt }}-${{ env.OVERLOOK_E2E_WORKERS }}w
+          path: test-results/runner-capacity.json
+          retention-days: 30
 
       # The HTML report is a self-contained clickable app (per-test steps, and screenshots /
       # videos / time-travel traces on failure). Upload it even when the E2E step fails —

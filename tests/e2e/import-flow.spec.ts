@@ -78,6 +78,7 @@ test('Copy import: dialog flow, encrypted at rest, grid + toast + counts', async
 
     // Done: clean summary, then Show in library.
     await expect(page.getByText('All 3 photos imported and encrypted.')).toBeVisible({ timeout: 30_000 });
+    await page.clock.install();
     await page.getByRole('button', { name: 'Show in library' }).click();
 
     // Toast fires only after the modal is gone (#89 + PR #185 review).
@@ -91,7 +92,7 @@ test('Copy import: dialog flow, encrypted at rest, grid + toast + counts', async
 
     // Action stays reachable past the ordinary 4s timeout, then activating it
     // dismisses the toast (#411).
-    await page.waitForTimeout(4_200);
+    await page.clock.fastForward(4_200);
     await expect(toast).toBeVisible();
     await toast.getByRole('button', { name: 'Show' }).click();
     await expect(toast).toBeHidden();

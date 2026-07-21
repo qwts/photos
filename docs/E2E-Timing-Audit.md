@@ -48,9 +48,10 @@ the wait for a fault-injected process to die, with the exit signal captured at
 launch so it is safe to await after the process is already gone.
 
 Migrated onto the fixture: `library-relocation`, `albums`, `lightbox`,
-`album-drag-drop`, `keyboard-navigation`. Remaining specs still hand-roll
-`electron.launch`/`app.close`; migrating them is mechanical follow-up and does
-not change their contracts.
+`album-drag-drop`, `keyboard-navigation`. Those are the known failure classes
+named by #630. Remaining hand-rolled launches are tracked as mechanical fixture
+adoption; they do not use one-shot reload events and are outside the missed
+lifecycle class this issue set out to close.
 
 ## Per-test budgets — `test.setTimeout` (category mix)
 
@@ -111,14 +112,15 @@ throughout — acceptable because each polls a semantic predicate, not a clock.
 ## Product-time behavior — real elapsed time (category 1)
 
 These wait for a **product timer**; the elapsed time is the behavior under
-test. No deterministic clock is installed anywhere in the suite today
-(no `page.clock`, no fake timers), so each currently races real wall time.
-These are the migration candidates if/when a controllable clock is introduced;
-until then they are the legitimate exceptions to "never sleep".
+test. The import-toast flow installs Playwright's renderer clock before the
+toast is created and advances it explicitly. The remaining cases are documented
+exceptions: Storybook `play` functions do not receive Playwright's page clock,
+while lightbox/app-lock/a11y exercise composed Electron behavior across renderer
+lifecycle or CSS-animation boundaries. They synchronize on semantic state.
 
 | location                  | product timer                               | current wait                                          |
 | ------------------------- | ------------------------------------------- | ----------------------------------------------------- |
-| import-flow:94            | toast 4 s auto-dismiss (#411)               | `waitForTimeout(4_200)` — the only raw sleep in E2E   |
+| import-flow:95            | toast 4 s auto-dismiss (#411)               | `page.clock.fastForward(4_200)` (deterministic)       |
 | lightbox:304              | lightbox chrome idle-autohide               | `toHaveAttribute('data-chrome','off',{timeout:5000})` |
 | lightbox:293–309          | chrome wake/sleep on input                  | attribute assertions around idle                      |
 | app-lock:99/153           | unlock re-enable throttle                   | `toBeVisible({timeout:3_000})`                        |
@@ -147,10 +149,17 @@ library-switch are now the fixture's `appExited` helper.
   sweeps the run-scoped temp-dir registry with a `retryDelay: 100`/`maxRetries: 3`
   tolerance for Electron releasing the userData lock just after `app.close()`.
 
-## Runner capacity (open, category 4 scope §4 of #630)
+## Runner capacity (category 4 scope §4 of #630)
 
-CPU/I-O/load contention on GitHub-hosted runners is an **untested** hypothesis
-for the residual flake, distinct from the synchronization fixes above. The
-process-tree guard already records peak RSS and process count per run; the
-worker-count comparison (1 vs 2 vs 3 workers, wall time + load + retries) is
-follow-up work and its verdict lands here when measured.
+`scripts/measure-runner-capacity.mjs` wraps the guarded E2E entrypoint in CI and
+records elapsed time, logical/available CPUs, memory, normalized load, and Linux
+CPU/I/O pressure samples. The process-tree guard remains the source for peak RSS
+and process count. Manual `workflow_dispatch` inputs select one, two, or three
+workers and zero retries, producing a retained `runner-capacity-*` artifact for
+each comparison. Ordinary required runs retain three workers and two retries.
+
+Capacity verdicts compare artifacts from the same commit and runner image. A
+normalized-load or pressure peak alone does not justify a larger runner: worker
+count changes only when lower concurrency improves no-retry reliability enough
+to outweigh wall time. The issue's closing evidence records the measured table
+and final choice.
