@@ -5,7 +5,8 @@
 # CSC_LINK/CSC_KEY_PASSWORD and notarizing via notarytool with
 # APPLE_API_KEY (path to .p8) / APPLE_API_KEY_ID / APPLE_API_ISSUER.
 # `npm run package:signed:provisioned` validates and embeds a Developer ID
-# profile before enabling the restricted Touch ID identity entitlements.
+# profile before enabling the restricted Touch ID and iCloud Documents
+# entitlements.
 # Windows signing stays out until a cert exists (#128).
 appId: com.zts1.overlook
 productName: Overlook
@@ -26,6 +27,7 @@ files:
   - '!node_modules/@overlook/touch-id/install.cjs'
   - '!node_modules/@overlook/touch-id/prepare-prebuild.cjs'
   - '!node_modules/@overlook/touch-id/touch_id.mm'
+  - '!node_modules/@overlook/touch-id/icloud_drive.mm'
   - '!node_modules/@overlook/touch-id/raw_preview.mm'
 # Everything ships bundled by electron-vite (no runtime node_modules yet);
 # native modules must land in "dependencies" so npmRebuild picks them up
@@ -66,12 +68,12 @@ mac:
     - zip
   # Notarization requires the hardened runtime; entitlements come from
   # our pinned profile-free copy of electron-builder's Electron template.
-  # Restricted identity entitlements are enabled only by the explicit
+  # Restricted identity and iCloud entitlements are enabled only by the explicit
   # provisioned packaging path; signing them without a profile prevents launch.
   hardenedRuntime: true
   entitlements: build/entitlements.mac.plist
   # Helpers/native children get only Electron's runtime allowances; Keychain
-  # custody stays on the main executable's signing identity.
+  # custody and iCloud container access stay on the main executable's identity.
   entitlementsInherit: build/entitlements.mac.inherit.plist
   # Runs only after a successful signing pass, and skips with a warning when
   # the APPLE_API_* env vars are absent — so unsigned builds are unaffected.
