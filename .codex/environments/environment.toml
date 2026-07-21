@@ -78,45 +78,67 @@ done
 echo "==> Node: $(node --version)"
 echo "==> npm:  $(npm --version)"
 
-# GitHub CLI is part of the expected development environment. Install it with
-# the available platform package manager when the base image does not include it.
-if ! command -v gh >/dev/null 2>&1; then
-  echo "==> GitHub CLI not found; installing"
+install_dev_package() {
+  local label="$1"
+  local brew_package="$2"
+  local apt_package="$3"
+  local dnf_package="$4"
+  local apk_package="$5"
+
+  echo "==> $label not found; installing"
   if command -v brew >/dev/null 2>&1; then
-    brew install gh
+    brew install "$brew_package"
   elif command -v apt-get >/dev/null 2>&1; then
     if [ "$(id -u)" -eq 0 ]; then
       apt-get update
-      apt-get install -y gh
+      apt-get install -y "$apt_package"
     elif command -v sudo >/dev/null 2>&1; then
       sudo apt-get update
-      sudo apt-get install -y gh
+      sudo apt-get install -y "$apt_package"
     else
-      echo "ERROR: installing gh with apt-get requires root or sudo"
+      echo "ERROR: installing $label with apt-get requires root or sudo"
       exit 1
     fi
   elif command -v dnf >/dev/null 2>&1; then
     if [ "$(id -u)" -eq 0 ]; then
-      dnf install -y gh
+      dnf install -y "$dnf_package"
     elif command -v sudo >/dev/null 2>&1; then
-      sudo dnf install -y gh
+      sudo dnf install -y "$dnf_package"
     else
-      echo "ERROR: installing gh with dnf requires root or sudo"
+      echo "ERROR: installing $label with dnf requires root or sudo"
       exit 1
     fi
   elif command -v apk >/dev/null 2>&1; then
     if [ "$(id -u)" -eq 0 ]; then
-      apk add github-cli
+      apk add "$apk_package"
     elif command -v sudo >/dev/null 2>&1; then
-      sudo apk add github-cli
+      sudo apk add "$apk_package"
     else
-      echo "ERROR: installing gh with apk requires root or sudo"
+      echo "ERROR: installing $label with apk requires root or sudo"
       exit 1
     fi
   else
-    echo "ERROR: gh is required and no supported package manager was found"
+    echo "ERROR: $label is required and no supported package manager was found"
     exit 1
   fi
+}
+
+# The protected command rules use /bin/zsh explicitly. Install it before fresh
+# agents can invoke those wrappers on Linux images.
+if [ ! -x "/bin/zsh" ]; then
+  install_dev_package "zsh" "zsh" "zsh" "zsh" "zsh"
+fi
+
+if [ ! -x "/bin/zsh" ]; then
+  echo "ERROR: zsh was installed but /bin/zsh is still unavailable"
+  exit 1
+fi
+
+echo "==> zsh: $(/bin/zsh --version)"
+
+# GitHub CLI is part of the expected development environment.
+if ! command -v gh >/dev/null 2>&1; then
+  install_dev_package "GitHub CLI" "gh" "gh" "gh" "github-cli"
 fi
 
 echo "==> GitHub CLI: $(gh --version | head -n 1)"
