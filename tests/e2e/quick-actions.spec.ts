@@ -74,6 +74,15 @@ test('configured Quick Actions drive platform-neutral More Actions menus (#532)'
   await expect(menu.getByRole('menuitem', { name: /Export… Selection \(2\)/u })).toBeVisible();
   await page.keyboard.press('Escape');
 
+  const moreActions = first.getByRole('button', { name: /More actions for/u });
+  await moreActions.click();
+  menu = page.getByRole('menu', { name: /Actions for/u });
+  await menu.getByRole('menuitem', { name: /Add to album.*Selection \(2\)/u }).click();
+  const albumPicker = page.getByRole('menu', { name: 'Add to album' });
+  await expect(albumPicker).toHaveClass(/ovl-albumpicker--context/u);
+  await page.keyboard.press('Escape');
+  await expect(moreActions).toBeFocused();
+
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('tab', { name: 'General' }).click();
   const pane = page.getByTestId('settings-pane');

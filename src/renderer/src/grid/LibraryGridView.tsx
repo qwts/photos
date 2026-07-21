@@ -548,6 +548,15 @@ export function LibraryGridView({
           onPurge={() => setPurgeIds(contextPhoto.targetIds)}
           quickActions={quickActionItems(contextPhoto.photo)}
           onQuickAction={(id) => {
+            if (id === 'album.membership.add') {
+              setAlbumPicker({
+                targetIds: contextPhoto.targetIds,
+                x: contextPhoto.x,
+                y: contextPhoto.y,
+                origin: contextPhoto.origin,
+              });
+              return;
+            }
             invokeQuickAction(id, contextPhoto.photo);
             if (id === 'photo.export') {
               dispatch({ type: 'selection/all', photoIds: contextPhoto.selectionBeforeOpen });
