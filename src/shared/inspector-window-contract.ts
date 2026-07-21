@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const inspectorWindowStateSchema = z.object({
   photoId: z.string().nullable(),
+  providerLabel: z.string().min(1),
   selectionPosition: z.object({ index: z.number().int().nonnegative(), count: z.number().int().positive() }).nullable(),
 });
 

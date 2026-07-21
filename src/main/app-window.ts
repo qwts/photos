@@ -18,7 +18,7 @@ export function createWindow(): BrowserWindow {
 }
 
 let inspectorWindow: BrowserWindow | undefined;
-let inspectorState: InspectorWindowState = { photoId: null, selectionPosition: null };
+let inspectorState: InspectorWindowState = { photoId: null, providerLabel: 'Cloud', selectionPosition: null };
 
 export function openInspectorWindow(state: InspectorWindowState): void {
   inspectorState = state;
@@ -30,7 +30,7 @@ export function openInspectorWindow(state: InspectorWindowState): void {
         if (!isInspectorWindow(win)) win.webContents.send(events.inspectorWindowClosed.name, {});
       }
     });
-    inspectorWindow.webContents.once('did-finish-load', () => sendInspectorState());
+    inspectorWindow.webContents.on('did-finish-load', sendInspectorState);
   } else {
     sendInspectorState();
   }
