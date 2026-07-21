@@ -536,6 +536,13 @@ const SCHEMA_V13: Migration = {
       CREATE INDEX idx_activity_occurred ON activity_events (occurred_at, sequence);
       CREATE INDEX idx_activity_root ON activity_events (root_correlation_id, sequence);
 
+      CREATE TABLE activity_pending_publications (
+        event_id TEXT PRIMARY KEY,
+        event_json TEXT NOT NULL CHECK (json_valid(event_json)),
+        created_at TEXT NOT NULL
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_activity_pending_created ON activity_pending_publications (created_at, event_id);
+
       CREATE TABLE activity_retention_holds (
         event_id TEXT NOT NULL REFERENCES activity_events (event_id) ON DELETE CASCADE,
         hold_id TEXT NOT NULL,

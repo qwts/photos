@@ -4,8 +4,7 @@ import { buffer } from 'node:stream/consumers';
 import { app, dialog, session } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
-import { ActivityRepository } from './activity/activity-repository.js';
-import { createActivityFacade } from './activity/activity-publication.js';
+import { activityBackupSnapshot, createActivityFacade } from './activity/activity-publication.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { configureAppProfile } from './app-profile.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
@@ -475,7 +474,7 @@ function getBackupEngine(): BackupEngine {
         sealKeyStoreRecoveryBootstrap({ keyStore: parts.keyStore, libraryId: getProviderRuntime().libraryId(), generatedAt }),
       libraryId: () => getProviderRuntime().libraryId(),
       manifestSnapshot: () => repo.manifestSnapshot(),
-      activitySnapshot: () => new ActivityRepository(parts.db).backupSnapshot(),
+      activitySnapshot: () => activityBackupSnapshot(parts.db),
       // Live reads (#111): every run and every maybeAutoRun sees the
       // store's current values — no restart needed after a settings change.
       settings: () => {
