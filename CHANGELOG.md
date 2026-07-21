@@ -1,5 +1,11 @@
 # photos
 
+## 0.43.0
+
+### Minor Changes
+
+- ea1f3a3: Add screen-reader landmarks, collection position metadata, descriptive photo names, and queued announcements for navigation and async photo workflows.
+
 ## 0.42.0
 
 ### Minor Changes
