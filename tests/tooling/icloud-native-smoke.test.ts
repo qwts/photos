@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 import type { ICloudDriveNativeBridge } from '../../src/main/backup/icloud-drive/native-bridge.js';
@@ -45,6 +46,16 @@ function fakeBridge(): ICloudDriveNativeBridge & { readonly deleted: string[] } 
 }
 
 describe('packaged iCloud native smoke (#656)', () => {
+  test('the documented npm entrypoint runs under the process-tree guard', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      readonly scripts?: Record<string, string>;
+    };
+    const command = packageJson.scripts?.['test:icloud:native-smoke'] ?? '';
+    assert.match(command, /scripts\/run-guarded\.mjs/u);
+    assert.match(command, /--label test:icloud:native-smoke/u);
+    assert.match(command, /scripts\/verify-macos-icloud-native-smoke\.mjs/u);
+  });
+
   test('does not intercept a normal launch', async () => {
     const exits: number[] = [];
     assert.equal(
