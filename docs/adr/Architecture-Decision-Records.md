@@ -33,6 +33,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0023](./ADR-0023-Trash-Purge-And-Destructive-Action-Ceremony.md)          | Trash, Purge & Destructive Ceremony | Accepted |
 | [ADR-0024](./ADR-0024-Shared-Command-Registry-And-Application-Menu.md)         | Shared Command Registry & App Menu  | Accepted |
 | [ADR-0025](./ADR-0025-Encrypted-Activity-History-And-Capability-Aware-Undo.md) | Activity History & Capability Undo  | Accepted |
+| [ADR-0026](./ADR-0026-Video-And-Animated-Media.md)                             | Video & Animated Media              | Accepted |
 
 ## Template
 
