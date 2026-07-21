@@ -85,6 +85,7 @@ export async function exerciseDisasterRecoveryContract(
         importedAt: `2026-07-15T02:00:0${String(index)}.000Z`,
         importSource: 'disaster-recovery-contract',
         favorite: index === 0,
+        ...(index === 0 ? { isOriginal: true } : {}),
         keyId: ref.keyId,
         deletedAt: null,
       });

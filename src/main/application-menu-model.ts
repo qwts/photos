@@ -62,6 +62,8 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
       return context.surface === 'lightbox' && context.dialog === 'none';
     case 'photo.favorite.toggle':
       return context.surface === 'lightbox' && context.dialog === 'none' && context.hasTarget;
+    case 'photo.original.mark':
+    case 'photo.original.unmark':
     case 'photo.trash':
       return context.surface === 'lightbox' && context.dialog === 'none' && context.targetTrashable;
     case 'album.membership.add':

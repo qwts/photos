@@ -49,6 +49,8 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'photo.export':
         case 'photo.offload':
         case 'photo.restoreOriginal':
+        case 'photo.original.mark':
+        case 'photo.original.unmark':
         case 'photo.transfer':
         case 'photo.restore':
         case 'photo.purge':
@@ -108,8 +110,14 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'photo.trash': {
           const photo = state.photos.find(({ id: photoId }) => photoId === state.lightboxId);
           if (photo === undefined || photo.deletedAt !== null) return false;
-          void window.overlook.library.delete({ photoIds: [photo.id] }).then(() => {
-            dispatch({ type: 'toast/shown', toast: { title: 'Moved 1 photo to Trash', tone: 'neutral' } });
+          void window.overlook.library.delete({ photoIds: [photo.id] }).then(({ protected: protectedCount }) => {
+            dispatch({
+              type: 'toast/shown',
+              toast: {
+                title: protectedCount === 0 ? 'Moved 1 photo to Trash' : 'Preserved 1 protected Original',
+                tone: protectedCount === 0 ? 'neutral' : 'amber',
+              },
+            });
           });
           return true;
         }

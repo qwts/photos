@@ -32,6 +32,7 @@ import {
   registerRestoreHandlers,
   registerSettingsHandlers,
 } from './ipc.js';
+import { registerOriginalPolicyHandlers } from './library/original-deletion-ipc.js';
 import { registerActivityHandlers } from './activity/activity-ipc.js';
 import { registerHistoryHandlers } from './history/history-ipc.js';
 import type { LibraryService } from './library/library-service.js';
@@ -43,6 +44,8 @@ import { getSettingsStore } from './settings/settings-runtime.js';
 import { registerThumbProtocol } from './thumbs/thumb-protocol.js';
 import type { ThumbService } from './thumbs/thumb-service.js';
 import { getDiagnosticsService } from './diagnostics/diagnostics-runtime.js';
+import { OriginalDeletionService } from './library/original-deletion-service.js';
+import type { AppLockState, AppAuthorizationResult } from './crypto/app-lock-controller.js';
 
 export interface AppServicesOptions {
   readonly dataDir: () => string;
@@ -62,6 +65,10 @@ export interface AppServicesOptions {
   readonly safeStorage: Parameters<typeof createRecoveryKeyFacade>[0]['safeStorage'];
   readonly getRestore: () => RestoreRuntime;
   readonly getPurge: () => DrainablePurgeFacade;
+  readonly activeLibraryId: () => string;
+  readonly authorizationEpoch: () => number;
+  readonly lockState: () => AppLockState;
+  readonly authorizePassword: (password: string) => Promise<AppAuthorizationResult>;
   readonly backup: BackupFacadeOptions;
   readonly providerBusy: () => boolean;
   readonly onDeleted: () => void;
@@ -92,6 +99,14 @@ async function pickDiagnosticsExport(options: AppServicesOptions): Promise<strin
 }
 
 export function registerAppServices(options: AppServicesOptions): void {
+  const originalDeletion = new OriginalDeletionService({
+    getPhoto: (photoId) => options.getLibrary().get(photoId),
+    activeLibraryId: options.activeLibraryId,
+    authorizationEpoch: options.authorizationEpoch,
+    lockState: options.lockState,
+    authorizePassword: options.authorizePassword,
+    deletePermanently: (photoIds) => options.getPurge().deletePermanently(photoIds),
+  });
   registerLibraryHandlers(options.getLibrary, options.onDeleted, options.getActivity);
   registerAlbumHandlers(options.getLibrary, ulid, options.getActivity);
   registerActivityHandlers(options.getActivity, options.requireContentAccess);
@@ -132,6 +147,7 @@ export function registerAppServices(options: AppServicesOptions): void {
     }),
   );
   registerPurgeHandlers(() => ({ purge: (photoIds) => options.getPurge().purge(photoIds) }), options.getActivity);
+  registerOriginalPolicyHandlers(options.getLibrary, () => originalDeletion);
   registerLibraryRegistryHandlers(() => options.libraries);
   registerSettingsHandlers(() => getSettingsStore());
   registerDiagnosticsHandlers(getDiagnosticsService, () => pickDiagnosticsExport(options));

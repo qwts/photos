@@ -2,6 +2,8 @@ import { ProviderError, type StorageProvider } from '../backup/provider.js';
 import type { PhotoRecord } from '../../shared/library/types.js';
 import { trashRetentionDays, type TrashRetention } from '../../shared/library/trash.js';
 
+export { createPurgeRepository } from './purge-repository.js';
+
 // Permanent purge (#121): the one truly destructive path, done with
 // ceremony. Repair-friendly order per the issue: DB row FIRST (nothing ever
 // points at missing data), local blobs second, remote last — a crash or a
@@ -16,6 +18,7 @@ const REMOTE_BACKOFF_MS = 500;
 export interface PurgeSummary {
   readonly purged: number;
   readonly skipped: number;
+  readonly protected: number;
   /** Remote copies left behind (audited) — retried on later purges never
    * silently forgotten. */
   readonly remoteFailures: number;
@@ -24,7 +27,9 @@ export interface PurgeSummary {
 export interface PurgeDeps {
   readonly repo: {
     readonly getDeleted: (photoId: string) => PhotoRecord | undefined;
+    readonly getAny: (photoId: string) => PhotoRecord | undefined;
     readonly purgeRow: (photoId: string) => void;
+    readonly purgeRowAuthorized: (photoId: string) => void;
     readonly countAnyByContentHash: (hash: string) => number;
     readonly expiredDeleted: (cutoffIso: string) => string[];
   };
@@ -53,20 +58,36 @@ export class PurgeService {
   /** Purges soft-deleted rows: DB row → local blobs → remote (retried).
    * Live rows are skipped, never forced. */
   async purge(photoIds: readonly string[], signal?: AbortSignal): Promise<PurgeSummary> {
+    return this.remove(photoIds, false, signal);
+  }
+
+  /** Shift+Delete after main-process authorization: live and protected rows
+   * may cross the irreversible boundary, but custody cleanup remains shared. */
+  async deletePermanently(photoIds: readonly string[], signal?: AbortSignal): Promise<PurgeSummary> {
+    return this.remove(photoIds, true, signal);
+  }
+
+  private async remove(photoIds: readonly string[], authorized: boolean, signal?: AbortSignal): Promise<PurgeSummary> {
     let purged = 0;
     let skipped = 0;
+    let protectedCount = 0;
     let remoteFailures = 0;
     const changed: string[] = [];
     for (const photoId of photoIds) {
       // A purge that already removed a row finishes that photo's repairable
       // local/remote cleanup. Cancellation takes effect only between photos.
       if (signal?.aborted === true) break;
-      const photo = this.deps.repo.getDeleted(photoId);
+      const photo = authorized ? this.deps.repo.getAny(photoId) : this.deps.repo.getDeleted(photoId);
       if (photo === undefined) {
         skipped += 1;
         continue;
       }
-      this.deps.repo.purgeRow(photoId);
+      if (photo.isOriginal && !authorized) {
+        protectedCount += 1;
+        continue;
+      }
+      if (authorized) this.deps.repo.purgeRowAuthorized(photoId);
+      else this.deps.repo.purgeRow(photoId);
       // Content-addressed blobs may back other rows (deleted twins count —
       // they still own their bytes until their own purge).
       if (this.deps.repo.countAnyByContentHash(photo.contentHash) === 0) {
@@ -84,18 +105,18 @@ export class PurgeService {
       this.deps.oweManifest();
       this.deps.libraryChanged(changed);
     }
-    return { purged, skipped, remoteFailures };
+    return { purged, skipped, protected: protectedCount, remoteFailures };
   }
 
   /** The retention sweep (#121): everything older than the window goes. */
   async purgeExpired(signal?: AbortSignal): Promise<PurgeSummary> {
     const retention = this.deps.retention();
     const retentionDays = trashRetentionDays(retention);
-    if (retentionDays === null) return { purged: 0, skipped: 0, remoteFailures: 0 };
+    if (retentionDays === null) return { purged: 0, skipped: 0, protected: 0, remoteFailures: 0 };
     const cutoff = new Date(this.deps.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
     const expired = this.deps.repo.expiredDeleted(cutoff);
     if (expired.length === 0) {
-      return { purged: 0, skipped: 0, remoteFailures: 0 };
+      return { purged: 0, skipped: 0, protected: 0, remoteFailures: 0 };
     }
     this.deps.audit(`PURGE-RETENTION count=${String(expired.length)} days=${String(retentionDays)} cutoff=${cutoff}`);
     return this.purge(expired, signal);

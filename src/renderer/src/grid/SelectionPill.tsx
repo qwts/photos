@@ -25,6 +25,8 @@ export interface SelectionPillProps {
   readonly onRemoveFromAlbum?: (() => void) | undefined;
   /** Trash-only destructive path (#121) — opens the confirm ceremony. */
   readonly onPurge?: (() => void) | undefined;
+  readonly onMarkOriginal?: (() => void) | undefined;
+  readonly onUnmarkOriginal?: (() => void) | undefined;
 }
 
 // Floating selection pill (#78) — the mock's bottom-center bar. Export
@@ -40,6 +42,8 @@ export function SelectionPill({
   onAddToAlbum,
   onRemoveFromAlbum,
   onPurge,
+  onMarkOriginal,
+  onUnmarkOriginal,
 }: SelectionPillProps): ReactElement {
   const { formatCount } = useFormats();
   const actions = destructiveActions;
@@ -157,6 +161,16 @@ export function SelectionPill({
                   <button type="button" role="menuitem" onClick={onExport}>
                     Export
                   </button>
+                  {onMarkOriginal === undefined ? null : (
+                    <button type="button" role="menuitem" onClick={onMarkOriginal}>
+                      Mark as Original
+                    </button>
+                  )}
+                  {onUnmarkOriginal === undefined ? null : (
+                    <button type="button" role="menuitem" onClick={onUnmarkOriginal}>
+                      Remove Original protection
+                    </button>
+                  )}
                   <button
                     type="button"
                     role="menuitem"

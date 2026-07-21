@@ -34,6 +34,8 @@ export interface PhotoRecord {
   readonly importedAt: string;
   readonly importSource: string;
   readonly favorite: boolean;
+  /** User-declared preservation class; unrelated to RAW format or custody. */
+  readonly isOriginal: boolean;
   readonly keyId: number;
   readonly deletedAt: string | null;
   /** Local derivative/display state; originals and backup manifests remain authoritative. */
@@ -46,7 +48,10 @@ export interface PhotoRecord {
   readonly syncState: SyncStatus;
 }
 
-export type PhotoInsert = Omit<PhotoRecord, 'favorite' | 'deletedAt' | 'previewFailure' | 'dimensionStatus' | 'syncState' | 'mediaInfo'> & {
+export type PhotoInsert = Omit<
+  PhotoRecord,
+  'favorite' | 'isOriginal' | 'deletedAt' | 'previewFailure' | 'dimensionStatus' | 'syncState' | 'mediaInfo'
+> & {
   readonly favorite?: boolean;
   /** Optional like favorite: most kinds have no probed facts to record. */
   readonly mediaInfo?: MediaInfo | null | undefined;

@@ -10,6 +10,7 @@ import type { AlbumSummary, LibraryStats, PageRequest, PageResult, PhotoRecord, 
 
 export interface LibraryEvents {
   libraryChanged(photoIds: readonly string[]): void;
+  originalClassificationChanged?(photoIds: readonly string[]): void;
   pendingCountChanged(count: number): void;
 }
 
@@ -123,11 +124,41 @@ export class LibraryService {
 
   // Soft delete + restore (#120): targeted pushes; pendingCount changes in
   // both directions (deleted rows leave it, restores re-dirty).
-  deletePhotos(photoIds: readonly string[]): { deleted: number; changedPhotoIds: readonly string[] } {
-    const deleted = this.repo.softDelete(photoIds);
-    this.events.libraryChanged(deleted);
+  deletePhotos(photoIds: readonly string[]): {
+    deleted: number;
+    protected: number;
+    missing: number;
+    changedPhotoIds: readonly string[];
+  } {
+    const result = this.repo.softDelete(photoIds);
+    this.events.libraryChanged(result.deleted);
     this.events.pendingCountChanged(this.repo.pendingCount());
-    return { deleted: deleted.length, changedPhotoIds: deleted };
+    return {
+      deleted: result.deleted.length,
+      protected: result.protected.length,
+      missing: result.missing.length,
+      changedPhotoIds: result.deleted,
+    };
+  }
+
+  setOriginal(
+    photoIds: readonly string[],
+    isOriginal: boolean,
+  ): { changed: number; unchanged: number; missing: number; pendingCount: number; changedPhotoIds: readonly string[] } {
+    const result = this.repo.setOriginal(photoIds, isOriginal);
+    const pendingCount = this.repo.pendingCount();
+    if (result.changed.length > 0) {
+      this.events.libraryChanged(result.changed);
+      this.events.originalClassificationChanged?.(result.changed);
+      this.events.pendingCountChanged(pendingCount);
+    }
+    return {
+      changed: result.changed.length,
+      unchanged: result.unchanged.length,
+      missing: result.missing.length,
+      pendingCount,
+      changedPhotoIds: result.changed,
+    };
   }
 
   restorePhotos(photoIds: readonly string[]): { restored: number; changedPhotoIds: readonly string[] } {

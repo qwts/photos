@@ -16,6 +16,7 @@ export interface PhotoTileProps {
   readonly accessibleName?: string | undefined;
   readonly selected?: boolean;
   readonly favorite?: boolean;
+  readonly isOriginal?: boolean;
   readonly status?: SyncState;
   readonly showStatus?: boolean;
   readonly previewFailure?: PreviewFailureReason | null;
@@ -61,6 +62,7 @@ export function PhotoTile({
   accessibleName,
   selected = false,
   favorite = false,
+  isOriginal = false,
   status = 'local',
   showStatus = true,
   previewFailure,
@@ -175,6 +177,12 @@ export function PhotoTile({
       {showStatus && status !== 'local' ? (
         <span className="ovl-tile__status">
           <StatusGlyph state={status} size={18} />
+        </span>
+      ) : null}
+      {isOriginal ? (
+        <span className="ovl-tile__original" role="img" aria-label="Protected Original" title="Protected Original">
+          <Icon name="shield-check" size={14} />
+          <span>Original</span>
         </span>
       ) : null}
       {retentionLabel === undefined ? null : <span className="ovl-tile__retention mono-data">{retentionLabel}</span>}

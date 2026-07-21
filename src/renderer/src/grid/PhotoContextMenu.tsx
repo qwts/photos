@@ -15,6 +15,7 @@ export interface PhotoContextMenuProps {
   readonly y: number;
   readonly onOpen: () => void;
   readonly onToggleFavorite: () => void;
+  readonly onSetOriginal: (isOriginal: boolean) => void;
   readonly onExport: () => void;
   readonly onAddToAlbum: () => void;
   readonly onRemoveFromAlbum: () => void;
@@ -37,6 +38,7 @@ export function PhotoContextMenu({
   y,
   onOpen,
   onToggleFavorite,
+  onSetOriginal,
   onExport,
   onAddToAlbum,
   onRemoveFromAlbum,
@@ -81,6 +83,9 @@ export function PhotoContextMenu({
         item('photo.open', 'image', onOpen),
         ...libraryQuickActionItems,
         ...(quickActionIds.has('photo.favorite.toggle') ? [] : [item('photo.favorite.toggle', 'star', onToggleFavorite)]),
+        photo.isOriginal
+          ? item('photo.original.unmark', 'shield-check', () => onSetOriginal(false))
+          : item('photo.original.mark', 'shield-check', () => onSetOriginal(true)),
         ...(quickActionIds.has('photo.export') ? [] : [item('photo.export', 'share', onExport)]),
         ...(quickActionIds.has('album.membership.add') ? [] : [item('album.membership.add', 'album', onAddToAlbum)]),
         ...(inAlbum ? [item('album.membership.remove', 'x', onRemoveFromAlbum)] : []),

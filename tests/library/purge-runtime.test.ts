@@ -15,8 +15,9 @@ test('manual purge close aborts active work, rejects queued work, and drains bef
       calls += 1;
       activeSignal = signal;
       await gate;
-      return { purged: 1, skipped: 0, remoteFailures: 0 };
+      return { purged: 1, skipped: 0, protected: 0, remoteFailures: 0 };
     },
+    deletePermanently: () => Promise.resolve({ purged: 0, skipped: 0, protected: 0, remoteFailures: 0 }),
   });
 
   const active = runtime.purge(['active']);
@@ -32,7 +33,7 @@ test('manual purge close aborts active work, rejects queued work, and drains bef
   assert.equal(drained, false, 'shutdown waits for the active destructive item');
   release?.();
 
-  assert.deepEqual(await active, { purged: 1, skipped: 0, remoteFailures: 0 });
+  assert.deepEqual(await active, { purged: 1, skipped: 0, protected: 0, remoteFailures: 0 });
   await assert.rejects(queued, /purge service is closed/);
   await drain;
   assert.equal(calls, 1, 'queued work never entered the purge service');

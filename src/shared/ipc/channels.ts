@@ -16,6 +16,7 @@ import { commandIdSchema, commandMenuContextSchema } from '../commands/menu-cont
 import { activityPageRequestSchema, activityPageResponseSchema } from '../activity/schemas.js';
 import { historyExecuteRequestSchema, historyExecuteResponseSchema, historyStatusSchema } from '../history/schemas.js';
 import { inspectorWindowChannels, windowEvents } from '../inspector-window-contract.js';
+import * as originalPolicy from './original-policy-channels.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -41,9 +42,7 @@ function defineChannel<TRequest extends z.ZodType, TResponse extends z.ZodType>(
   return { name, request, response };
 }
 
-function defineEvent<TPayload extends z.ZodType>(name: string, payload: TPayload): EventDefinition<TPayload> {
-  return { name, payload };
-}
+const defineEvent = <TPayload extends z.ZodType>(name: string, payload: TPayload): EventDefinition<TPayload> => ({ name, payload });
 
 const pageCursorSchema = z.object({ sortKey: z.union([z.string(), z.number()]), id: z.string() });
 
@@ -189,6 +188,7 @@ const photoRecordSchema = z.object({
   importedAt: z.string(),
   importSource: z.string(),
   favorite: z.boolean(),
+  isOriginal: z.boolean(),
   keyId: z.number(),
   deletedAt: z.string().nullable(),
   previewFailure: z.enum(['corrupt', 'unsupported-codec', 'decode-failed']).nullable(),
@@ -199,6 +199,7 @@ const photoRecordSchema = z.object({
 
 const protectedPhotoRecordSchema = photoRecordSchema.omit({
   contentHash: true,
+  isOriginal: true,
   keyId: true,
   previewFailure: true,
   dimensionStatus: true,
@@ -294,6 +295,7 @@ export const channels = {
     z.object({ id: z.string() }),
     z.object({ favorite: z.boolean(), pendingCount: z.number().int().nonnegative() }),
   ),
+  ...originalPolicy.originalPolicyChannels,
   libraryCounts: defineChannel(
     'library:counts',
     z.object({ recentSince: z.string() }),
@@ -440,7 +442,7 @@ export const channels = {
   libraryDelete: defineChannel(
     'library:delete',
     z.object({ photoIds: z.array(z.string()).min(1) }),
-    z.object({ deleted: z.number().int().nonnegative() }),
+    originalPolicy.photoDeleteResultSchema,
   ),
   libraryRestore: defineChannel(
     'library:restore',
@@ -455,11 +457,7 @@ export const channels = {
       photoIds: z.array(z.string()).min(1),
       authorization: z.literal(PHOTO_PURGE_AUTHORIZATION),
     }),
-    z.object({
-      purged: z.number().int().nonnegative(),
-      skipped: z.number().int().nonnegative(),
-      remoteFailures: z.number().int().nonnegative(),
-    }),
+    originalPolicy.purgeSummarySchema,
   ),
   // Albums CRUD (#117): first-class library objects. Deleting an album
   // never deletes photos (Clear-vs-Delete rules); membership edits dirty
@@ -826,6 +824,7 @@ export const events = {
   appLockTouchIdChanged: defineEvent('app-lock:touch-id-changed', touchIdStatusSchema),
   // Targeted library pushes (#71) — never refetch-the-world signals.
   libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
+  ...originalPolicy.originalPolicyEvents,
   photoSyncStateChanged: defineEvent(
     'library:sync-state-changed',
     z.object({ updates: z.array(z.object({ id: z.string(), syncState: syncStatusSchema })) }),

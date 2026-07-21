@@ -54,6 +54,10 @@ export const backupManifestPhotoV2Schema = z.strictObject({
   importedAt: isoTimestampSchema,
   importSource: z.string().min(1),
   favorite: z.boolean(),
+  // #482 adds preservation metadata compatibly to schemas 2–4. Absence in
+  // older manifests means false; false remains omitted when rebuilding so
+  // legacy restore equality checks stay byte-shape compatible.
+  isOriginal: z.boolean().optional(),
   keyId: keyIdSchema,
   deletedAt: isoTimestampSchema.nullable(),
 });

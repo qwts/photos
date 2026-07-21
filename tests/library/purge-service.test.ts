@@ -69,8 +69,12 @@ async function world(count: number, options: { contentHash?: string; retention?:
   const service = new PurgeService({
     repo: {
       getDeleted: (id) => repo.getDeleted(id),
+      getAny: (id) => repo.get(id),
       purgeRow: (id) => {
         repo.purgeRow(id);
+      },
+      purgeRowAuthorized: (id) => {
+        repo.purgeRowAuthorized(id);
       },
       countAnyByContentHash: (hash) => repo.countAnyByContentHash(hash),
       expiredDeleted: (cutoff) => repo.expiredDeleted(cutoff),
@@ -109,7 +113,7 @@ describe('purge (#121)', () => {
     w.repo.softDelete(['P0']);
 
     const summary = await w.service.purge(['P0']);
-    assert.deepEqual(summary, { purged: 1, skipped: 0, remoteFailures: 0 });
+    assert.deepEqual(summary, { purged: 1, skipped: 0, protected: 0, remoteFailures: 0 });
     assert.equal(w.repo.get('P0'), undefined, 'DB row gone');
     assert.equal(w.store.hasOriginal(hash), false, 'local original gone');
     assert.equal(existsSync(join(w.dataDir, 'blobs')), true);
@@ -122,7 +126,7 @@ describe('purge (#121)', () => {
   test('live rows are skipped, never forced — only Trash purges', async () => {
     const w = await world(1);
     const summary = await w.service.purge(['P0', 'GHOST']);
-    assert.deepEqual(summary, { purged: 0, skipped: 2, remoteFailures: 0 });
+    assert.deepEqual(summary, { purged: 0, skipped: 2, protected: 0, remoteFailures: 0 });
     assert.notEqual(w.repo.get('P0'), undefined);
     assert.equal(w.owed.length, 0);
   });
@@ -147,7 +151,7 @@ describe('purge (#121)', () => {
     const off = await world(1, { retention: 'off' });
     off.repo.softDelete(['P0']);
     run(off.db, `UPDATE photos SET deleted_at = ? WHERE id = 'P0'`, new Date(NOW - 365 * 24 * 60 * 60 * 1000).toISOString());
-    assert.deepEqual(await off.service.purgeExpired(), { purged: 0, skipped: 0, remoteFailures: 0 });
+    assert.deepEqual(await off.service.purgeExpired(), { purged: 0, skipped: 0, protected: 0, remoteFailures: 0 });
     assert.notEqual(off.repo.getDeleted('P0'), undefined, 'Off is manual-only');
 
     for (const retention of ['7', '30', '90'] as const) {
@@ -181,5 +185,19 @@ describe('purge (#121)', () => {
     assert.equal(w.repo.get('P0'), undefined, 'the active item completed its repairable delete order');
     assert.notEqual(w.repo.getDeleted('P1'), undefined, 'the next row was never admitted after cancellation');
     assert.deepEqual(w.changed, [['P0']]);
+  });
+
+  test('Original rows survive ordinary deletion and purge but authorized permanent deletion removes them', async () => {
+    const w = await world(1);
+    assert.deepEqual(w.repo.setOriginal(['P0'], true), { changed: ['P0'], unchanged: [], missing: [] });
+    assert.deepEqual(w.repo.softDelete(['P0']), { deleted: [], protected: ['P0'], missing: [] });
+
+    const ordinary = await w.service.purge(['P0']);
+    assert.deepEqual(ordinary, { purged: 0, skipped: 1, protected: 0, remoteFailures: 0 });
+    assert.notEqual(w.repo.get('P0'), undefined);
+
+    const authorized = await w.service.deletePermanently(['P0']);
+    assert.deepEqual(authorized, { purged: 1, skipped: 0, protected: 0, remoteFailures: 0 });
+    assert.equal(w.repo.get('P0'), undefined);
   });
 });

@@ -58,7 +58,7 @@ describe('soft delete + restore (#120)', () => {
   test('EXIT CRITERIA: delete → only in trash; every other source excludes it', () => {
     const { repo, db } = world();
     const target = repo.page({ source: 'favorites', limit: 1 }).photos[0]?.id ?? '';
-    assert.deepEqual(repo.softDelete([target]), [target]);
+    assert.deepEqual(repo.softDelete([target]), { deleted: [target], protected: [], missing: [] });
     assert.equal(repo.page({ source: 'all', limit: 10 }).photos.length, 1);
     assert.equal(repo.page({ source: 'favorites', limit: 10 }).photos.length, 0, 'the deleted favorite left Favorites');
     assert.deepEqual(
@@ -108,8 +108,8 @@ describe('soft delete + restore (#120)', () => {
     const target = ids[0] ?? '';
     assert.deepEqual(repo.restore([target]), [], 'restoring a live row is a no-op');
     repo.softDelete([target]);
-    assert.deepEqual(repo.softDelete([target]), [], 're-deleting is a no-op');
-    assert.deepEqual(repo.softDelete(['GHOST']), [], 'unknown ids are skipped, not errors');
+    assert.deepEqual(repo.softDelete([target]), { deleted: [], protected: [], missing: [target] }, 're-deleting is a no-op');
+    assert.deepEqual(repo.softDelete(['GHOST']), { deleted: [], protected: [], missing: ['GHOST'] }, 'unknown ids are skipped, not errors');
     db.close();
   });
 });

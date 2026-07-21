@@ -41,7 +41,7 @@ import { createRestoreRuntime } from './backup/restore-runtime-factory.js';
 import { recoverInterruptedActivation, restorePaths } from './backup/restore-staging.js';
 import { sealKeyStoreRecoveryBootstrap } from './backup/recovery-bootstrap.js';
 import { ConsistencyChecker } from './library/consistency.js';
-import { PurgeService } from './library/purge-service.js';
+import { createPurgeRepository, PurgeService } from './library/purge-service.js';
 import { createPurgeRuntime, type DrainablePurgeFacade } from './library/purge-runtime.js';
 import { StartupMaintenance } from './library/startup-maintenance.js';
 import { SyncLedger } from './backup/sync-ledger.js';
@@ -177,6 +177,9 @@ function getLibraryService(): LibraryService {
     libraryService = new LibraryService(db, {
       libraryChanged: (photoIds) => {
         emitLibraryChanged({ photoIds: [...photoIds] });
+      },
+      originalClassificationChanged: (photoIds) => {
+        broadcast((win) => win.webContents.send(events.originalClassificationChanged.name, { photoIds: [...photoIds] }));
       },
       pendingCountChanged: (count) => {
         emitPending({ count });
@@ -525,14 +528,7 @@ function getBackupEngine(): BackupEngine {
     offloadService = custody.offload;
     ephemeralOriginalService = custody.ephemeral;
     purgeService = new PurgeService({
-      repo: {
-        getDeleted: (id) => repo.getDeleted(id),
-        purgeRow: (id) => {
-          repo.purgeRow(id);
-        },
-        countAnyByContentHash: (hash) => repo.countAnyByContentHash(hash),
-        expiredDeleted: (cutoff) => repo.expiredDeleted(cutoff),
-      },
+      repo: createPurgeRepository(repo),
       blobs: {
         deleteOriginal: async (hash) => parts.blobStore.deleteOriginal(hash),
         deleteThumbs: async (hash) => parts.blobStore.deleteThumbs(hash),
@@ -854,6 +850,10 @@ void externalOpen.whenReady().then(async () => {
     },
     getRestore: getRestoreRuntime,
     getPurge: getPurgeRuntime,
+    activeLibraryId: () => registryRuntime.resolveActive().id,
+    authorizationEpoch: () => lock.authorizationEpoch(),
+    lockState: () => lock.snapshot().state,
+    authorizePassword: (password) => lock.authorize(password),
     safeStorage: pickSafeStorage,
     providerBusy: () => providerWorkCount > 0,
     onDeleted: markManifestDebt,

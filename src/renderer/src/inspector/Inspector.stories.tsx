@@ -29,6 +29,7 @@ const PHOTO: PhotoRecord = {
   importedAt: '2026-07-02T00:00:00.000Z',
   importSource: 'SD card',
   favorite: true,
+  isOriginal: false,
   keyId: 2,
   deletedAt: null,
   previewFailure: null,

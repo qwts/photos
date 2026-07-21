@@ -35,6 +35,7 @@ const PHOTO: PhotoRecord = {
   importedAt: '2026-07-01T00:00:00.000Z',
   importSource: 'seed',
   favorite: false,
+  isOriginal: false,
   keyId: 1,
   deletedAt: null,
   previewFailure: null,

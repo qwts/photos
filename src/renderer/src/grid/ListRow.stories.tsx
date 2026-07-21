@@ -37,6 +37,7 @@ function photo(index: number, syncState: SyncStatus, favorite = false): PhotoRec
     importedAt: '2026-07-01T00:00:00.000Z',
     importSource: 'story',
     favorite,
+    isOriginal: false,
     keyId: 1,
     deletedAt: null,
     previewFailure: null,

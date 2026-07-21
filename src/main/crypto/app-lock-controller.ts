@@ -27,6 +27,8 @@ export type AppUnlockResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly reason: 'wrong-password' | 'recovery-required' | 'throttled'; readonly retryAfterMs?: number };
 
+export type AppAuthorizationResult = AppUnlockResult;
+
 export type AppTouchIdUnlockResult = { readonly ok: true } | { readonly ok: false; readonly reason: TouchIdUnlockFailureReason };
 
 export class AppLockController {
@@ -99,6 +101,27 @@ export class AppLockController {
       } catch {
         this.publish({ ...this.current, state: 'locked' });
         return { ok: false, reason: 'recovery-required' };
+      } finally {
+        result.masterKey.fill(0);
+      }
+    });
+  }
+
+  /** Re-authenticates an already-open app without changing lock state. */
+  authorize(password: string): Promise<AppAuthorizationResult> {
+    return this.serialize(async () => {
+      this.requireContentAccess();
+      if (this.current.state === 'unconfigured-unlocked') return { ok: true };
+      const remaining = this.options.throttle?.remainingMs() ?? 0;
+      if (remaining > 0) return { ok: false, reason: 'throttled', retryAfterMs: remaining };
+      const result = await this.options.credentials.unlock(password);
+      if (!result.ok) {
+        const retryAfterMs = result.reason === 'wrong-password' ? this.options.throttle?.recordFailure() : undefined;
+        return { ...result, ...(retryAfterMs === undefined ? {} : { retryAfterMs }) };
+      }
+      try {
+        this.options.throttle?.reset();
+        return { ok: true };
       } finally {
         result.masterKey.fill(0);
       }

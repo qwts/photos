@@ -391,7 +391,7 @@ export function registerProtectedAlbumHandlers(
 }
 
 export interface PurgeFacade {
-  purge(photoIds: readonly string[]): Promise<{ purged: number; skipped: number; remoteFailures: number }>;
+  purge(photoIds: readonly string[]): Promise<{ purged: number; skipped: number; protected: number; remoteFailures: number }>;
 }
 
 export function registerPurgeHandlers(getFacade: () => PurgeFacade, getActivity?: () => ActivityFacade): void {

@@ -21,7 +21,7 @@ import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 function seededService(): {
   service: LibraryService;
   db: ReturnType<typeof openLibraryDatabase>;
-  events: { changed: string[][]; pending: number[] };
+  events: { changed: string[][]; originalChanged: string[][]; pending: number[] };
 } {
   const db = openLibraryDatabase({
     path: join(mkdtempSync(join(tmpdir(), 'overlook-lib-')), 'library.db'),
@@ -68,9 +68,10 @@ function seededService(): {
   run(db, `UPDATE sync_ledger SET status = 'synced', dirty = 0 WHERE photo_id = '01J8LIB004'`);
   run(db, `UPDATE photos SET deleted_at = '2026-07-02T00:00:00Z' WHERE id = '01J8LIB005'`);
 
-  const events = { changed: [] as string[][], pending: [] as number[] };
+  const events = { changed: [] as string[][], originalChanged: [] as string[][], pending: [] as number[] };
   const service = new LibraryService(db, {
     libraryChanged: (ids) => events.changed.push([...ids]),
+    originalClassificationChanged: (ids) => events.originalChanged.push([...ids]),
     pendingCountChanged: (count) => events.pending.push(count),
   });
   return { service, db, events };
@@ -173,6 +174,27 @@ describe('library IPC contract', () => {
     assert.equal(result.pendingCount, before + 1);
     assert.deepEqual(events.changed.at(-1), ['01J8LIB004']);
     assert.equal(events.pending.at(-1), before + 1);
+  });
+
+  test('Original classification is durable and emits targeted duplicate-policy invalidation', () => {
+    const { service, events } = seededService();
+    const before = service.pendingCount();
+
+    assert.deepEqual(service.setOriginal(['01J8LIB004'], true), {
+      changed: 1,
+      unchanged: 0,
+      missing: 0,
+      pendingCount: before + 1,
+      changedPhotoIds: ['01J8LIB004'],
+    });
+    assert.equal(service.get('01J8LIB004')?.isOriginal, true);
+    assert.deepEqual(events.originalChanged, [['01J8LIB004']]);
+    assert.deepEqual(service.deletePhotos(['01J8LIB004']), {
+      deleted: 0,
+      protected: 1,
+      missing: 0,
+      changedPhotoIds: [],
+    });
   });
 
   test('legacy dimensions repair once through validated IPC and emits a targeted refresh (#367)', async () => {

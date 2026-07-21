@@ -34,6 +34,15 @@ export const destructiveActions = {
     sideEffects:
       'Deletes local originals, previews, metadata, and connected-provider copies. Cloud deletion failures are recorded and retried; encrypted records that name a photo may remain in up to two older recovery snapshots.',
   },
+  deleteProtectedOriginals: {
+    id: 'photos.delete-protected-originals',
+    tier: 'irreversible',
+    label: 'Delete protected Originals permanently…',
+    title: 'Override Original protection?',
+    authorization: 'photos.delete-protected-originals.v1',
+    sideEffects:
+      'Overrides Original protection and permanently deletes the selected local originals, previews, metadata, and connected-provider copies.',
+  },
   deleteAlbum: {
     id: 'album.delete',
     tier: 'structural',
@@ -73,3 +82,4 @@ export const destructiveActions = {
 } as const satisfies Record<string, DestructiveActionDescriptor>;
 
 export const PHOTO_PURGE_AUTHORIZATION = destructiveActions.deletePhotosPermanently.authorization;
+export const ORIGINAL_DELETE_AUTHORIZATION = destructiveActions.deleteProtectedOriginals.authorization;

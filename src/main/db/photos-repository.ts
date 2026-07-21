@@ -9,6 +9,7 @@ import type { PreviewFailureReason } from '../../shared/library/preview.js';
 import { parseMediaInfo, type MediaInfo } from '../../shared/library/media-info.js';
 import type { DimensionStatus } from '../../shared/library/types.js';
 import { queryAll, queryGet, run, runNamed } from './sql.js';
+import { setOriginalClassification, softDeleteOrdinary } from './photo-original-policy-repository.js';
 
 import type {
   AlbumSummary,
@@ -45,6 +46,7 @@ interface PhotoRow {
   imported_at: string;
   import_source: string;
   favorite: number;
+  is_original: number;
   key_id: number;
   deleted_at: string | null;
   preview_failure: string | null;
@@ -81,6 +83,7 @@ function toRecord(row: PhotoRow): PhotoRecord {
     importedAt: row.imported_at,
     importSource: row.import_source,
     favorite: row.favorite === 1,
+    isOriginal: row.is_original === 1,
     keyId: row.key_id,
     deletedAt: row.deleted_at,
     previewFailure: row.preview_failure as PreviewFailureReason | null,
@@ -433,25 +436,16 @@ export class PhotosRepository {
   /** Soft delete (#120): rows move to Trash, restorable — no
    * blob, ledger, or membership changes (purge is #121's ceremony).
    * Deleted rows leave pendingCount via the JOIN there. */
-  softDelete(photoIds: readonly string[]): string[] {
-    return this.db.transaction(() => {
-      const deleted: string[] = [];
-      const at = new Date().toISOString();
-      for (const photoId of photoIds) {
-        const row = queryGet<{ id: string }>(
-          this.db,
-          `UPDATE photos SET deleted_at = @at
-            WHERE id = @photoId AND deleted_at IS NULL
-              AND id IN (SELECT id FROM ordinary_visible_photos)
-            RETURNING id`,
-          { at, photoId },
-        );
-        if (row !== undefined) {
-          deleted.push(photoId);
-        }
-      }
-      return deleted;
-    })();
+  softDelete(photoIds: readonly string[]): { readonly deleted: string[]; readonly protected: string[]; readonly missing: string[] } {
+    return softDeleteOrdinary(this.db, photoIds);
+  }
+
+  /** Bulk Original mutation and duplicate-index invalidation boundary. */
+  setOriginal(
+    photoIds: readonly string[],
+    isOriginal: boolean,
+  ): { readonly changed: string[]; readonly unchanged: string[]; readonly missing: string[] } {
+    return setOriginalClassification(this.db, photoIds, isOriginal, (photoId) => markDirty(this.db, photoId));
   }
 
   /** Restore from Trash: favorite/EXIF/ledger status come back
@@ -694,7 +688,7 @@ export class PhotosRepository {
   expiredDeleted(cutoffIso: string): string[] {
     return queryAll<{ id: string }>(
       this.db,
-      'SELECT id FROM ordinary_visible_photos WHERE deleted_at IS NOT NULL AND deleted_at <= @cutoff',
+      'SELECT id FROM ordinary_visible_photos WHERE deleted_at IS NOT NULL AND deleted_at <= @cutoff AND is_original = 0',
       { cutoff: cutoffIso },
     ).map((row) => row.id);
   }
@@ -705,7 +699,7 @@ export class PhotosRepository {
     const gone = queryGet<{ id: string }>(
       this.db,
       `DELETE FROM photos
-        WHERE id = ? AND deleted_at IS NOT NULL
+        WHERE id = ? AND deleted_at IS NOT NULL AND is_original = 0
           AND id IN (SELECT id FROM ordinary_visible_photos)
         RETURNING id`,
       photoId,
@@ -713,6 +707,19 @@ export class PhotosRepository {
     if (gone === undefined) {
       throw new Error(`photo ${photoId} is not in Trash`);
     }
+  }
+
+  /** Main-authorized Shift+Delete boundary (#482). The caller must complete
+   * the protected-Original ceremony before reaching this method. */
+  purgeRowAuthorized(photoId: string): void {
+    const gone = queryGet<{ id: string }>(
+      this.db,
+      `DELETE FROM photos
+        WHERE id = ? AND id IN (SELECT id FROM ordinary_visible_photos)
+        RETURNING id`,
+      photoId,
+    );
+    if (gone === undefined) throw new Error(`photo ${photoId} is unavailable`);
   }
 
   /** Blob-ownership count for PURGE (#121): every remaining row on this
@@ -780,8 +787,10 @@ export class PhotosRepository {
       const photos = queryAll<PhotoRow>(this.db, `${select('date')} WHERE ${recoverable} ORDER BY p.imported_at, p.id`).map(
         (row): BackupManifestPhotoV2 => {
           const { previewFailure: _previewFailure, dimensionStatus: _dimensionStatus, syncState: _syncState, ...photo } = toRecord(row);
+          const { isOriginal, ...base } = photo;
           return {
-            ...photo,
+            ...base,
+            ...(isOriginal ? { isOriginal: true } : {}),
             blobPath: `blobs/${photo.contentHash.slice(0, 2)}/${photo.contentHash}`,
           };
         },
@@ -858,14 +867,20 @@ export class PhotosRepository {
              id, file_name, file_kind, width, height, bytes, content_hash,
              camera, lens, iso, aperture, shutter, focal_length, taken_at,
              gps_lat, gps_lon, place, imported_at, import_source, favorite,
-             key_id, deleted_at, media_info
+             is_original, key_id, deleted_at, media_info
            ) VALUES (
              @id, @fileName, @fileKind, @width, @height, @bytes, @contentHash,
              @camera, @lens, @iso, @aperture, @shutter, @focalLength, @takenAt,
              @gpsLat, @gpsLon, @place, @importedAt, @importSource, @favorite,
-             @keyId, @deletedAt, @mediaInfoJson
+             @isOriginal, @keyId, @deletedAt, @mediaInfoJson
            )`,
-          { ...photo, favorite: photo.favorite ? 1 : 0, mediaInfo: null, mediaInfoJson: mediaInfoJson(photo.mediaInfo) },
+          {
+            ...photo,
+            favorite: photo.favorite ? 1 : 0,
+            isOriginal: photo.isOriginal === true ? 1 : 0,
+            mediaInfo: null,
+            mediaInfoJson: mediaInfoJson(photo.mediaInfo),
+          },
         );
         run(
           this.db,

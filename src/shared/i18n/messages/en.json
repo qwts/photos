@@ -137,6 +137,12 @@
   "commands.photo.open": {
     "defaultMessage": "Open"
   },
+  "commands.photo.original.mark": {
+    "defaultMessage": "Mark as Original"
+  },
+  "commands.photo.original.unmark": {
+    "defaultMessage": "Remove Original protection"
+  },
   "commands.photo.purge": {
     "defaultMessage": "Delete permanently…"
   },

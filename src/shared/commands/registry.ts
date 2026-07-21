@@ -73,6 +73,8 @@ export type CommandId =
   | 'view.lightbox.previous'
   | 'view.lightbox.next'
   | 'photo.favorite.toggle'
+  | 'photo.original.mark'
+  | 'photo.original.unmark'
   | 'photo.open'
   | 'photo.export'
   | 'photo.offload'
@@ -142,6 +144,8 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'view.lightbox.previous': { id: 'commands.view.lightbox.previous', defaultMessage: 'Previous photo' },
   'view.lightbox.next': { id: 'commands.view.lightbox.next', defaultMessage: 'Next photo' },
   'photo.favorite.toggle': { id: 'commands.photo.favorite.toggle', defaultMessage: 'Toggle favorite' },
+  'photo.original.mark': { id: 'commands.photo.original.mark', defaultMessage: 'Mark as Original' },
+  'photo.original.unmark': { id: 'commands.photo.original.unmark', defaultMessage: 'Remove Original protection' },
   'photo.open': { id: 'commands.photo.open', defaultMessage: 'Open' },
   'photo.export': { id: 'commands.photo.export', defaultMessage: 'Export…' },
   'photo.offload': { id: 'commands.photo.offload', defaultMessage: 'Offload original…' },
@@ -376,6 +380,18 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     quickAction: { icon: 'star', availability: 'anywhere', target: 'photo' },
   },
   {
+    id: 'photo.original.mark',
+    label: label('photo.original.mark', 'Mark as Original'),
+    surfaces: [],
+    target: 'selection',
+  },
+  {
+    id: 'photo.original.unmark',
+    label: label('photo.original.unmark', 'Remove Original protection'),
+    surfaces: [],
+    target: 'selection',
+  },
+  {
     id: 'photo.export',
     label: label('photo.export', 'Export…'),
     surfaces: [],
@@ -402,7 +418,14 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     target: 'selection',
     quickAction: { icon: 'refresh-cw', availability: 'trash', target: 'selection-if-included' },
   },
-  { id: 'photo.purge', label: label('photo.purge', 'Delete permanently…'), surfaces: [], target: 'selection' },
+  {
+    id: 'photo.purge',
+    label: label('photo.purge', 'Delete permanently…'),
+    surfaces: ['grid', 'lightbox'],
+    target: 'selection',
+    key: 'Delete',
+    shift: true,
+  },
   { id: 'trash.empty', label: label('trash.empty', 'Empty Trash…'), surfaces: [], target: 'route' },
   {
     id: 'view.lightbox.zoomIn',

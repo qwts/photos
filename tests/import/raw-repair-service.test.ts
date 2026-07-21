@@ -42,6 +42,7 @@ function raw(overrides: Partial<PhotoRecord> = {}): PhotoRecord {
     importedAt: '2026-07-01T00:00:00.000Z',
     importSource: 'card',
     favorite: false,
+    isOriginal: false,
     keyId: 1,
     deletedAt: null,
     previewFailure: null,

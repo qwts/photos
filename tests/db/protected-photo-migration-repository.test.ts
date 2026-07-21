@@ -111,7 +111,7 @@ describe('ProtectedPhotoMigrationRepository', () => {
     assert.equal(photos.stats().bytes, 0);
     assert.equal(photos.stats().lastBackupAt, null, 'ordinary status cannot reveal a protected backup timestamp');
     assert.equal(photos.hasContentHash('a'.repeat(64)), false, 'ordinary dedupe cannot reveal a protected match');
-    assert.deepEqual(photos.softDelete(['photo-a']), []);
+    assert.deepEqual(photos.softDelete(['photo-a']), { deleted: [], protected: [], missing: ['photo-a'] });
     assert.deepEqual(photos.restore(['photo-a']), []);
     assert.deepEqual(photos.addToAlbum('ordinary-a', ['photo-a']), []);
     assert.deepEqual(photos.removeFromAlbum('ordinary-a', ['photo-a']), []);
