@@ -89,9 +89,9 @@ async function exerciseOrientationControls(page: Page, viewport: Locator): Promi
   await expect(viewport).toHaveAttribute('data-orientation-flipped', 'false');
   await page.keyboard.press('+');
   await page.keyboard.press('r');
-  await page.mouse.move(300, 300);
-  await page.mouse.move(320, 320);
-  await expect(toolbar).toBeVisible();
+  await page.keyboard.press('x');
+  await expect(page.getByTestId('lightbox')).toHaveAttribute('data-chrome', 'on');
+  await expect(toolbar).toHaveCSS('pointer-events', 'auto');
   await toolbar.getByRole('button', { name: 'Reset orientation (⇧R)' }).click();
   await expect(viewport).toHaveAttribute('data-zoom', '1.250');
   await page.keyboard.press('0');
