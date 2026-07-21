@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
-import { app, dialog, session } from 'electron';
+import { app, dialog, session, shell } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
 import { activityBackupSnapshot, createActivityFacade } from './activity/activity-publication.js';
@@ -66,6 +66,8 @@ import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
 import { installApplicationMenu, refreshApplicationMenu } from './application-menu.js';
+import { configureInteropRuntime, interopRuntimeBusy, lockInteropRuntime } from './interop/runtime.js';
+import { WorkTracker } from './work-tracker.js';
 
 // Test/dev steering hooks (#72/#129) are unpackaged-only; runtime tuning stays outside this gate.
 function harnessEnv(name: string): string | undefined {
@@ -342,27 +344,16 @@ let ephemeralOriginalService: EphemeralOriginalService | undefined;
 const activeBackupControllers = new Set<AbortController>();
 const activeBackupRuns = new Set<Promise<BackupRunResult>>();
 let providerRuntime: ProviderRuntime | undefined;
-let providerWorkCount = 0;
-const providerIdleWaiters = new Set<() => void>();
+const providerWork = new WorkTracker(refreshApplicationMenu);
 
-function changeProviderWork(delta: 1 | -1): void {
-  providerWorkCount += delta;
-  refreshApplicationMenu();
-  if (providerWorkCount === 0) {
-    for (const resolve of providerIdleWaiters) resolve();
-    providerIdleWaiters.clear();
-  }
-}
-
-function providerIdle(): Promise<void> {
-  if (providerWorkCount === 0) return Promise.resolve();
-  return new Promise((resolve) => providerIdleWaiters.add(resolve));
-}
+const custodyWorkActive = (): boolean => providerWork.busy() || interopRuntimeBusy();
+const changeProviderWork = (delta: 1 | -1): void => providerWork.change(delta);
+const providerIdle = (): Promise<void> => providerWork.idle();
 
 function getProviderRuntime(): ProviderRuntime {
   providerRuntime ??= createProviderRuntime({
     dataDir: () => libraryDataDir(),
-    isWorkActive: () => providerWorkCount > 0,
+    isWorkActive: () => providerWork.busy(),
     harnessEnv,
   });
   return providerRuntime;
@@ -690,6 +681,7 @@ async function closeLibrary(mode: 'restore' | 'lock' | 'switch'): Promise<void> 
     ...(full ? [session.defaultSession.clearCache()] : []),
     ...(mode === 'lock' ? [reloadContentWindowsForLock()] : []),
   ]);
+  lockInteropRuntime();
   libraryParts?.protected.close();
   if (libraryParts !== undefined) {
     try {
@@ -732,9 +724,12 @@ const { switchLibrary, getRelocationRuntime, settleRelocationJournals } = create
   activeId: () => registryRuntime.resolveActive().id,
   openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),
   lockState: () => appLockHost?.snapshot().state,
-  providerBusy: () => providerWorkCount > 0,
+  providerBusy: custodyWorkActive,
   closeLibrary: () => closeLibrary('switch'),
-  activateSettings: activateSettingsLibrary,
+  activateSettings: () => {
+    lockInteropRuntime();
+    activateSettingsLibrary();
+  },
   resetProviderBinding: () => getProviderRuntime().resetLibraryBinding(),
   appLockHost: () => appLockHost,
   buildAppLockController,
@@ -794,6 +789,7 @@ function getRestoreRuntime(): RestoreRuntime {
 
 void externalOpen.whenReady().then(async () => {
   if (await exitForReleaseSmokeIfRequested(app)) return;
+  configureInteropRuntime(app.getPath('userData'), pickSafeStorage(), (url) => shell.openExternal(url));
   // Settle relocation journals FIRST (ADR-0022 §2): recovery may re-point the
   // registry (roll a commit forward), so it must run before resolveActive()
   // caches an entry and before anything opens or classifies libraries. A
@@ -809,7 +805,7 @@ void externalOpen.whenReady().then(async () => {
   await recoverInterruptedActivation(restorePaths(libraryDataDir()));
   const lock = getAppLockController();
   await lock.initialize();
-  installApplicationMenu(lock, () => providerWorkCount > 0);
+  installApplicationMenu(lock, custodyWorkActive);
   externalOpen.followAuthorization(lock);
   registerIpcHandlers(() => getSettingsStore().get().language);
   registerRelocationHandlers(getRelocationRuntime);
@@ -855,7 +851,7 @@ void externalOpen.whenReady().then(async () => {
     lockState: () => lock.snapshot().state,
     authorizePassword: (password) => lock.authorize(password),
     safeStorage: pickSafeStorage,
-    providerBusy: () => providerWorkCount > 0,
+    providerBusy: custodyWorkActive,
     onDeleted: markManifestDebt,
     onImported: () => {
       getBackupEngine();
@@ -898,6 +894,7 @@ registerQuitTeardown({
 });
 
 app.on('will-quit', () => {
+  lockInteropRuntime();
   externalOpen.close();
   restoreRuntime?.dispose();
   void importRuntime?.pool.close();

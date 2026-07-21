@@ -621,6 +621,41 @@ const SCHEMA_V16: Migration = {
   },
 };
 
+const SCHEMA_V17: Migration = {
+  version: 17,
+  name: 'interop-inbound-object-journal',
+  // #668: discovery is durable before any inbound side effect. Record and
+  // original-blob messages advance independently through acceptance and ACK
+  // upload so restart never duplicates a blob, row, or acknowledgement.
+  up(db) {
+    db.exec(`
+      CREATE TABLE interop_move_inbound_objects (
+        transfer_id TEXT NOT NULL REFERENCES interop_move_journals (transfer_id) ON DELETE CASCADE,
+        source_message_id TEXT NOT NULL,
+        object_path TEXT NOT NULL,
+        object_kind TEXT NOT NULL CHECK (object_kind IN ('record-message', 'blob-message')),
+        sequence INTEGER NOT NULL CHECK (sequence >= 0),
+        interop_id TEXT,
+        deterministic_target_id TEXT,
+        phase TEXT NOT NULL CHECK (phase IN (
+          'discovered', 'validated', 'blob-committed', 'database-committed',
+          'ack-journaled', 'ack-uploaded', 'retained', 'failed'
+        )),
+        retry_count INTEGER NOT NULL DEFAULT 0 CHECK (retry_count >= 0),
+        retry_at TEXT,
+        acknowledgement_message_id TEXT,
+        error_json TEXT CHECK (error_json IS NULL OR json_valid(error_json)),
+        discovered_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (transfer_id, object_path),
+        UNIQUE (transfer_id, source_message_id)
+      ) WITHOUT ROWID;
+      CREATE INDEX idx_interop_move_inbound_resume
+        ON interop_move_inbound_objects (phase, retry_at, transfer_id, sequence);
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -638,6 +673,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V14,
   SCHEMA_V15,
   SCHEMA_V16,
+  SCHEMA_V17,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */
