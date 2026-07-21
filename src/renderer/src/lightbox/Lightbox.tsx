@@ -94,7 +94,7 @@ export function Lightbox({
   onRepairDimensions,
   suppressRehydrate = false,
   onDelete,
-  }: LightboxProps): ReactElement {
+}: LightboxProps): ReactElement {
   const intl = useIntl();
   const { formatCalendarDate } = useFormats();
   const { announce } = useAnnouncer();
