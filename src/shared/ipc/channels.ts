@@ -14,6 +14,7 @@ import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunRespons
 import { PHOTO_PURGE_AUTHORIZATION } from '../destructive-actions.js';
 import { commandIdSchema, commandMenuContextSchema } from '../commands/menu-contract.js';
 import { activityPageRequestSchema, activityPageResponseSchema } from '../activity/schemas.js';
+import { historyExecuteRequestSchema, historyExecuteResponseSchema, historyStatusSchema } from '../history/schemas.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -314,6 +315,9 @@ export const channels = {
     z.object({ albums: z.array(z.object({ id: z.string(), name: z.string(), count: z.number().int().nonnegative() })).readonly() }),
   ),
   activityPage: defineChannel('activity:page', activityPageRequestSchema, activityPageResponseSchema),
+  historyStatus: defineChannel('history:status', z.object({}), historyStatusSchema),
+  historyUndo: defineChannel('history:undo', historyExecuteRequestSchema, historyExecuteResponseSchema),
+  historyRedo: defineChannel('history:redo', historyExecuteRequestSchema, historyExecuteResponseSchema),
   protectedAlbumsList: defineChannel(
     'protected-album:list',
     z.object({}),

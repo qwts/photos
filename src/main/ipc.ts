@@ -22,6 +22,7 @@ import type { TouchIdEnableResult, TouchIdStatus } from './crypto/touch-id.js';
 import type { DiagnosticEvent } from './diagnostics/event-contract.js';
 import { mutateWithActivity } from './activity/activity-publication.js';
 import type { ActivityFacade } from './activity/activity-publication.js';
+import { albumMembershipCommand, favoriteCommand, trashCommand } from './history/command-drafts.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -166,6 +167,7 @@ export function registerLibraryHandlers(
           outcome: 'succeeded',
           payload: { favorite: result.favorite },
         }),
+        (result) => favoriteCommand(id, result.favorite),
       );
     })(request),
   );
@@ -192,6 +194,7 @@ export function registerLibraryHandlers(
                 outcome: 'succeeded',
                 payload: { count: completed.deleted },
               },
+        (completed) => trashCommand(completed.changedPhotoIds, 'trash'),
       );
       // Deleting a SYNCED photo changes the manifest with nothing dirty —
       // the host owes the remote a fresh generation (PR #218 review).
@@ -215,6 +218,7 @@ export function registerLibraryHandlers(
                 outcome: 'succeeded',
                 payload: { count: result.restored },
               },
+        (result) => trashCommand(result.changedPhotoIds, 'restore'),
       );
     })(request),
   );
@@ -264,6 +268,7 @@ export function registerAlbumHandlers(getService: () => LibraryService, newId: (
                 outcome: 'succeeded',
                 payload: { count: result.added },
               },
+        (result) => albumMembershipCommand(albumId, result.changedPhotoIds, 'add'),
       );
     })(request),
   );
@@ -281,6 +286,7 @@ export function registerAlbumHandlers(getService: () => LibraryService, newId: (
                 outcome: 'succeeded',
                 payload: { count: result.removed },
               },
+        (result) => albumMembershipCommand(albumId, result.changedPhotoIds, 'remove'),
       );
     })(request),
   );
@@ -300,12 +306,6 @@ export function registerAlbumHandlers(getService: () => LibraryService, newId: (
               },
       );
     })(request),
-  );
-}
-
-export function registerActivityHandlers(getActivity: () => ActivityFacade): void {
-  ipcMain.handle(channels.activityPage.name, (_event, request: unknown) =>
-    wrapHandler(channels.activityPage, ({ limit, cursor }) => getActivity().page(limit, cursor))(request),
   );
 }
 

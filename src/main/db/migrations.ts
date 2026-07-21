@@ -569,6 +569,43 @@ const SCHEMA_V14: Migration = {
   },
 };
 
+const SCHEMA_V15: Migration = {
+  version: 15,
+  name: 'capability-aware-undo',
+  // #615 / ADR-0025: encrypted command records are separate from activity.
+  // A library database is the isolation boundary; inverse parameters never
+  // enter the renderer-facing activity payload.
+  up(db) {
+    db.exec(`
+      CREATE TABLE command_records (
+        sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+        record_id TEXT NOT NULL UNIQUE,
+        activity_event_id TEXT NOT NULL REFERENCES activity_events (event_id) ON DELETE CASCADE,
+        command_id TEXT NOT NULL,
+        classification TEXT NOT NULL CHECK (classification IN (
+          'immediately-reversible', 'conditionally-reversible', 'compensating-only', 'irreversible'
+        )),
+        inverse_json TEXT NOT NULL CHECK (json_valid(inverse_json)),
+        stack TEXT NOT NULL CHECK (stack IN ('undo', 'redo', 'discarded')),
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        sensitive_expires_at TEXT,
+        byte_charge INTEGER NOT NULL DEFAULT 0 CHECK (byte_charge >= 0)
+      );
+      CREATE INDEX idx_command_stack ON command_records (stack, sequence DESC);
+      CREATE INDEX idx_command_expiry ON command_records (expires_at, sequence);
+
+      CREATE TABLE command_executions (
+        request_id TEXT PRIMARY KEY,
+        record_id TEXT NOT NULL REFERENCES command_records (record_id) ON DELETE CASCADE,
+        direction TEXT NOT NULL CHECK (direction IN ('undo', 'redo')),
+        result_json TEXT NOT NULL CHECK (json_valid(result_json)),
+        created_at TEXT NOT NULL
+      ) WITHOUT ROWID;
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -584,6 +621,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V12,
   SCHEMA_V13,
   SCHEMA_V14,
+  SCHEMA_V15,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */

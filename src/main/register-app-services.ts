@@ -16,9 +16,9 @@ import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import type { DrainableExportFacade } from './export/export-runtime.js';
 import type { ActivityFacade } from './activity/activity-publication.js';
+import type { HistoryService } from './history/history-service.js';
 import {
   registerAlbumHandlers,
-  registerActivityHandlers,
   registerBackupHandlers,
   registerDiagnosticsHandlers,
   registerExportHandlers,
@@ -32,6 +32,8 @@ import {
   registerRestoreHandlers,
   registerSettingsHandlers,
 } from './ipc.js';
+import { registerActivityHandlers } from './activity/activity-ipc.js';
+import { registerHistoryHandlers } from './history/history-ipc.js';
 import type { LibraryService } from './library/library-service.js';
 import type { DrainablePurgeFacade } from './library/purge-runtime.js';
 import type { ProtectedRuntime } from './library/protected-runtime.js';
@@ -49,6 +51,7 @@ export interface AppServicesOptions {
   readonly allowKeyImport: () => boolean;
   readonly getLibrary: () => LibraryService;
   readonly getActivity: () => ActivityFacade;
+  readonly getHistory: () => HistoryService;
   readonly libraries: LibraryRegistryFacade;
   readonly getProtected: () => ProtectedRuntime;
   readonly getThumbs: () => ThumbService;
@@ -91,7 +94,8 @@ async function pickDiagnosticsExport(options: AppServicesOptions): Promise<strin
 export function registerAppServices(options: AppServicesOptions): void {
   registerLibraryHandlers(options.getLibrary, options.onDeleted, options.getActivity);
   registerAlbumHandlers(options.getLibrary, ulid, options.getActivity);
-  registerActivityHandlers(options.getActivity);
+  registerActivityHandlers(options.getActivity, options.requireContentAccess);
+  registerHistoryHandlers(options.getHistory, options.requireContentAccess);
   registerProtectedAlbumHandlers(
     () => options.getProtected().library,
     () => options.getProtected().exports(),
