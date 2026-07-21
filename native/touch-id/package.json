@@ -10,6 +10,7 @@
   "gypfile": true,
   "files": [
     "index.cjs",
+    "icloud.cjs",
     "raw.cjs",
     "prebuilds/**/*.node"
   ],

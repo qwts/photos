@@ -793,7 +793,7 @@ function getRestoreRuntime(): RestoreRuntime {
 }
 
 void externalOpen.whenReady().then(async () => {
-  if (exitForReleaseSmokeIfRequested(app)) return;
+  if (await exitForReleaseSmokeIfRequested(app)) return;
   // Settle relocation journals FIRST (ADR-0022 §2): recovery may re-point the
   // registry (roll a commit forward), so it must run before resolveActive()
   // caches an entry and before anything opens or classifies libraries. A

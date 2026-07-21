@@ -55,6 +55,7 @@
     "check:a11y-budget": "node scripts/check-a11y-budget.mjs",
     "test:pcloud:live": "npm run test:compile && OVERLOOK_PCLOUD_LIVE=1 ELECTRON_RUN_AS_NODE=1 electron --test '.test-dist/tests/backup/pcloud-live-contract.test.js'",
     "test:google-drive:live": "npm run test:compile && OVERLOOK_GOOGLE_DRIVE_LIVE=1 ELECTRON_RUN_AS_NODE=1 electron --test '.test-dist/tests/backup/google-drive-live-contract.test.js'",
+    "test:icloud:native-smoke": "node scripts/verify-macos-icloud-native-smoke.mjs",
     "diagnose:google-oauth": "node scripts/diagnose-google-oauth.ts",
     "test:e2e:inner": "playwright test",
     "test:e2e": "node scripts/run-guarded.mjs --label test:e2e --rss-mb 8192 --timeout-s 1800 -- npm run test:e2e:inner",
