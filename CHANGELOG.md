@@ -1,5 +1,11 @@
 # photos
 
+## 0.39.0
+
+### Minor Changes
+
+- 6be417b: Add a native application menu with direct Settings routes, stable library navigation, privacy-safe state, and lock-aware window recovery.
+
 ## 0.38.0
 
 ### Minor Changes
