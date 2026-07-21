@@ -16,6 +16,13 @@ fi
 
 echo "==> Working directory: $(pwd)"
 
+if ! command -v git >/dev/null 2>&1; then
+  echo "ERROR: git is required but was not found on PATH"
+  exit 1
+fi
+
+echo "==> Git: $(git --version)"
+
 # Load nvm explicitly because setup scripts are non-interactive shells.
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 
@@ -39,8 +46,80 @@ nvm use
 # image's stock Node instead of .nvmrc's (misleading lint/knip failures follow).
 nvm alias default "$(nvm current)"
 
+# Fresh agent commands run in new shells. Install one idempotent initialization
+# file and source it from the common shell profiles so nvm, node, npm, and npx
+# stay available after setup completes.
+CODEX_DEV_INIT="$HOME/.codex-photos-dev.sh"
+cat > "$CODEX_DEV_INIT" <<'EOF'
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  . "$NVM_DIR/nvm.sh"
+  nvm use default --silent >/dev/null 2>&1 || true
+fi
+if [ -d "/opt/homebrew/bin" ]; then
+  export PATH="/opt/homebrew/bin:$PATH"
+fi
+EOF
+
+for shell_profile in \
+  "$HOME/.profile" \
+  "$HOME/.bash_profile" \
+  "$HOME/.bashrc" \
+  "$HOME/.zprofile" \
+  "$HOME/.zshrc"; do
+  touch "$shell_profile"
+  if ! grep -Fqx '. "$HOME/.codex-photos-dev.sh"' "$shell_profile"; then
+    printf '\n%s\n' '. "$HOME/.codex-photos-dev.sh"' >> "$shell_profile"
+  fi
+done
+
+. "$CODEX_DEV_INIT"
+
 echo "==> Node: $(node --version)"
 echo "==> npm:  $(npm --version)"
+
+# GitHub CLI is part of the expected development environment. Install it with
+# the available platform package manager when the base image does not include it.
+if ! command -v gh >/dev/null 2>&1; then
+  echo "==> GitHub CLI not found; installing"
+  if command -v brew >/dev/null 2>&1; then
+    brew install gh
+  elif command -v apt-get >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ]; then
+      apt-get update
+      apt-get install -y gh
+    elif command -v sudo >/dev/null 2>&1; then
+      sudo apt-get update
+      sudo apt-get install -y gh
+    else
+      echo "ERROR: installing gh with apt-get requires root or sudo"
+      exit 1
+    fi
+  elif command -v dnf >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ]; then
+      dnf install -y gh
+    elif command -v sudo >/dev/null 2>&1; then
+      sudo dnf install -y gh
+    else
+      echo "ERROR: installing gh with dnf requires root or sudo"
+      exit 1
+    fi
+  elif command -v apk >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ]; then
+      apk add github-cli
+    elif command -v sudo >/dev/null 2>&1; then
+      sudo apk add github-cli
+    else
+      echo "ERROR: installing gh with apk requires root or sudo"
+      exit 1
+    fi
+  else
+    echo "ERROR: gh is required and no supported package manager was found"
+    exit 1
+  fi
+fi
+
+echo "==> GitHub CLI: $(gh --version | head -n 1)"
 
 # Deterministic package install based on lockfile.
 if [ -f "package-lock.json" ]; then
