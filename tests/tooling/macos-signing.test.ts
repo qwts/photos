@@ -189,6 +189,12 @@ describe('provisioning profile validation (#360)', () => {
       ubiquityContainerId: OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
     };
     validateProvisioningProfile(metadata, expected, 0);
+    const { ubiquityContainerId: omittedUbiquity, ...withoutUbiquity } = expected;
+    const { iCloudContainerId: omittedICloud, ...withoutICloud } = expected;
+    assert.equal(typeof omittedUbiquity, 'string');
+    assert.equal(typeof omittedICloud, 'string');
+    assert.throws(() => validateProvisioningProfile(metadata, withoutUbiquity, 0), /must be provided together/u);
+    assert.throws(() => validateProvisioningProfile(metadata, withoutICloud, 0), /must be provided together/u);
     for (const key of [
       'com.apple.developer.icloud-container-identifiers',
       'com.apple.developer.ubiquity-container-identifiers',

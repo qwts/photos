@@ -3,12 +3,12 @@
 Canonical status for provider-neutral backup and disaster recovery. An adapter
 is not restore-ready merely because account connection or object upload works.
 
-| Provider     | Object contract                                            | Complete fresh-profile restore | Live owner run                       | Status            |
-| ------------ | ---------------------------------------------------------- | ------------------------------ | ------------------------------------ | ----------------- |
-| Local mock   | CI                                                         | CI + Electron E2E              | Not applicable                       | Passed            |
-| pCloud       | Scripted unit + shared contract                            | Shared contract                | Passed 2026-07-14 (`api.pcloud.com`) | Passed            |
-| Google Drive | Scripted unit + shared contract in PR #344                 | Shared contract in PR #344     | Pending owner OAuth client/account   | Live gate pending |
-| iCloud Drive | Native/signing boundary in #656; provider contract in #657 | Required before release        | Required on macOS                    | In progress       |
+| Provider     | Object contract                                     | Complete fresh-profile restore | Live owner run                       | Status            |
+| ------------ | --------------------------------------------------- | ------------------------------ | ------------------------------------ | ----------------- |
+| Local mock   | CI                                                  | CI + Electron E2E              | Not applicable                       | Passed            |
+| pCloud       | Scripted unit + shared contract                     | Shared contract                | Passed 2026-07-14 (`api.pcloud.com`) | Passed            |
+| Google Drive | Scripted unit + shared contract in PR #344          | Shared contract in PR #344     | Pending owner OAuth client/account   | Live gate pending |
+| iCloud Drive | Scripted native authority + shared contract in #657 | Shared contract in #657        | Required on signed macOS build       | Live gate pending |
 
 ## Required restore contract
 

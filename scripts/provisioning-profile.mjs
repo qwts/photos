@@ -19,6 +19,9 @@ export function readProvisioningProfile(profilePath, run = execFileSync) {
 }
 
 export function validateProvisioningProfile(metadata, expected, now = Date.now()) {
+  if ((expected.iCloudContainerId === undefined) !== (expected.ubiquityContainerId === undefined)) {
+    throw new Error('expected iCloud and ubiquity container identifiers must be provided together');
+  }
   if (metadata.entitlements?.['com.apple.application-identifier'] !== expected.applicationId) {
     throw new Error(`profile does not authorize application identifier ${expected.applicationId}`);
   }

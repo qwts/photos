@@ -4,7 +4,7 @@ import { isAbsolute } from 'node:path';
 import { OVERLOOK_ICLOUD_CONTAINER_ID, OVERLOOK_MAC_BUNDLE_ID } from '../../../shared/app-identity.js';
 
 const nativeRequire = createRequire(import.meta.url);
-const RELATIVE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.?(?:\/|$))[A-Za-z0-9._/-]+$/u;
+const RELATIVE_PATH = /^(?!.*(?:^|\/)\.\.?(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/u;
 const ACCOUNT_TOKEN = /^[a-f0-9]{16,128}$/u;
 const CURSOR = /^[0-9]+$/u;
 const MAX_PAGE_SIZE = 1_000;

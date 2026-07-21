@@ -6,12 +6,11 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
-import { buffer } from 'node:stream/consumers';
 
 import { FaultInjectingProvider, MockProvider, ProviderRegistry } from '../../src/main/backup/mock-provider.js';
 import { ProviderError } from '../../src/main/backup/provider.js';
-import { providerDescriptorSchema } from '../../src/shared/backup/provider-descriptor.js';
 import { exerciseRestoreProviderContract } from './restore-provider-contract.js';
+import { exerciseObjectProviderContract } from './object-provider-contract.js';
 
 // #103 exit criteria: the contract suite runs green against the mock, and
 // fault injection produces each error path the engine must handle. The same
@@ -33,36 +32,8 @@ describe('storage provider contract (#103)', () => {
 
   test('EXIT CRITERIA: put → list → get → verify → delete round-trip', async () => {
     const { provider } = world();
-    assert.equal(
-      providerDescriptorSchema.safeParse({
-        id: provider.id,
-        label: provider.label,
-        capabilities: provider.capabilities,
-        available: true,
-        unavailableReason: null,
-      }).success,
-      true,
-    );
-    const path = 'blobs/ab/abcdef';
-    const put = await provider.put(path, Readable.from([PAYLOAD]));
-    assert.equal(put.bytes, PAYLOAD.length);
+    await exerciseObjectProviderContract(provider, 'mock-library');
     assert.deepEqual(await provider.listLibraries(), []);
-    await provider.put('recovery/bootstrap.ovrb', Readable.from([PAYLOAD]));
-    assert.deepEqual(await provider.listLibraries(), ['mock-library']);
-    assert.equal(provider.forLibrary('mock-library'), provider);
-
-    const listed = await provider.list('blobs');
-    assert.deepEqual(listed, [{ path, bytes: PAYLOAD.length }]);
-
-    assert.deepEqual(await buffer(await provider.getStream(path)), PAYLOAD, 'bytes travel as-is (ADR-0007)');
-
-    const verified = await provider.verify(path);
-    assert.equal(verified.sha256, createHash('sha256').update(PAYLOAD).digest('hex'));
-    assert.equal(verified.bytes, PAYLOAD.length);
-
-    await provider.delete(path);
-    assert.deepEqual(await provider.list('blobs'), []);
-    await assert.rejects(provider.getStream(path), (error: unknown) => error instanceof ProviderError && error.kind === 'not-found');
   });
 
   test('unsafe remote paths are rejected outright', async () => {
@@ -139,6 +110,8 @@ describe('storage provider contract (#103)', () => {
     faulty.disarm('auth-expired');
 
     // Recovery: with faults disarmed the same paths work again.
-    assert.deepEqual(await buffer(await faulty.getStream('blobs/aa/keep')), PAYLOAD);
+    const recovered: Buffer[] = [];
+    for await (const chunk of await faulty.getStream('blobs/aa/keep')) recovered.push(chunk as Buffer);
+    assert.deepEqual(Buffer.concat(recovered), PAYLOAD);
   });
 });
