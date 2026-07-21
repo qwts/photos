@@ -91,6 +91,33 @@ describe('ActivityRepository (#614, ADR-0025)', () => {
     db.close();
   });
 
+  test('defers a failed cross-boundary publication and retries it after restart', () => {
+    const { db, repo } = world();
+    const originalAppend = repo.append.bind(repo);
+    let failOnce = true;
+    repo.append = (event) => {
+      if (failOnce) {
+        failOnce = false;
+        throw new Error('injected publication failure');
+      }
+      return originalAppend(event);
+    };
+    const event = {
+      eventId: 'event-deferred',
+      operationId: 'operation-deferred',
+      eventType: 'import.completed' as const,
+      occurredAt: '2026-07-20T00:00:00.000Z',
+      outcome: 'succeeded' as const,
+      payload: { imported: 2 },
+    };
+    assert.equal(repo.publishAfterBoundary(event), 'pending');
+    assert.equal(repo.page(10).events.length, 0);
+    const reopened = new ActivityRepository(db);
+    assert.equal(reopened.flushPending(), 1);
+    assert.equal(reopened.page(10).events[0]?.eventId, event.eventId);
+    db.close();
+  });
+
   test('prunes by age/count/bytes without removing an active retention hold', () => {
     const { db, repo } = world({ maxEvents: 2, maxAgeMs: 1_000, maxPayloadBytes: 40 });
     const held = append(repo, 'held', '2026-07-20T00:00:00.000Z');
@@ -104,6 +131,19 @@ describe('ActivityRepository (#614, ADR-0025)', () => {
     );
     repo.releaseHold(held.eventId, 'undo-held');
     assert.equal(repo.prune(new Date('2026-07-20T00:00:03.000Z')), 1);
+    db.close();
+  });
+
+  test('payload-budget pruning preserves the newest activity', () => {
+    const { db, repo } = world({ maxEvents: 100, maxAgeMs: 1_000_000, maxPayloadBytes: 20 });
+    append(repo, 'oldest');
+    append(repo, 'middle');
+    append(repo, 'newest');
+    assert.equal(repo.prune(new Date('2026-07-20T00:00:01.000Z')), 2);
+    assert.deepEqual(
+      repo.page(10).events.map((event) => event.eventId),
+      ['event-newest'],
+    );
     db.close();
   });
 

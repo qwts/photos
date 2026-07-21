@@ -19,6 +19,10 @@ interface ActivityRow {
   supersedes_event_id: string | null;
 }
 
+interface PendingActivityRow {
+  event_json: string;
+}
+
 export interface ActivityRetentionPolicy {
   readonly maxEvents: number;
   readonly maxAgeMs: number;
@@ -144,6 +148,45 @@ export class ActivityRepository {
     return inserted;
   }
 
+  publishAfterBoundary(event: ActivityAppend): 'published' | 'pending' | 'unavailable' {
+    try {
+      this.append(event);
+      return 'published';
+    } catch {
+      try {
+        assertPrivacySafePayload(event.payload);
+        runNamed(
+          this.db,
+          `INSERT OR IGNORE INTO activity_pending_publications (event_id, event_json, created_at)
+           VALUES (@eventId, @eventJson, @createdAt)`,
+          { eventId: event.eventId, eventJson: stableJson(event), createdAt: event.occurredAt },
+        );
+        return 'pending';
+      } catch {
+        return 'unavailable';
+      }
+    }
+  }
+
+  flushPending(): number {
+    const rows = queryAll<PendingActivityRow>(
+      this.db,
+      'SELECT event_json FROM activity_pending_publications ORDER BY created_at, event_id',
+    );
+    let published = 0;
+    for (const row of rows) {
+      const event = JSON.parse(row.event_json) as ActivityAppend;
+      try {
+        this.append(event);
+        run(this.db, 'DELETE FROM activity_pending_publications WHERE event_id = ?', event.eventId);
+        published += 1;
+      } catch {
+        break;
+      }
+    }
+    return published;
+  }
+
   page(limit: number, cursor?: number): ActivityPage {
     const rows = queryAll<ActivityRow>(
       this.db,
@@ -158,6 +201,7 @@ export class ActivityRepository {
   }
 
   backupSnapshot(): readonly ActivityEvent[] {
+    this.flushPending();
     return queryAll<ActivityRow>(this.db, 'SELECT * FROM activity_events ORDER BY sequence').map(parseRow);
   }
 
@@ -228,21 +272,26 @@ export class ActivityRepository {
        ORDER BY e.sequence DESC`,
     );
     let payloadBytes = candidates.reduce((total, row) => total + row.payload_bytes, 0);
-    const remove: string[] = [];
+    const remove = new Set<string>();
     for (const [index, row] of candidates.entries()) {
       const overCount = index >= this.policy.maxEvents;
       const overAge = row.occurred_at < cutoff;
-      const overBytes = payloadBytes > this.policy.maxPayloadBytes;
-      if (overCount || overAge || overBytes) {
-        remove.push(row.event_id);
+      if (overCount || overAge) {
+        remove.add(row.event_id);
         payloadBytes -= row.payload_bytes;
       }
+    }
+    for (const row of [...candidates].reverse()) {
+      if (payloadBytes <= this.policy.maxPayloadBytes) break;
+      if (remove.has(row.event_id)) continue;
+      remove.add(row.event_id);
+      payloadBytes -= row.payload_bytes;
     }
     const transaction = this.db.transaction(() => {
       for (const eventId of remove) run(this.db, 'DELETE FROM activity_events WHERE event_id = ?', eventId);
     });
     transaction();
-    return remove.length;
+    return remove.size;
   }
 
   private byOperation(operationId: string, eventType: ActivityEventType): ActivityEvent | undefined {
