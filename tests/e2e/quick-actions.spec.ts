@@ -23,7 +23,7 @@ test('Command-hover Quick Actions share targets and cleanup across gallery views
   await first.locator('.ovl-tile__open').focus();
   await page.keyboard.down('Meta');
   await expect(toolbar).toContainText('This photo / Selection (2)');
-  await expect(toolbar.getByRole('button', { name: /Export\. Selection \(2\)/u })).toBeEnabled();
+  await expect(toolbar.getByRole('button', { name: /Export….*Selection \(2\)/u })).toBeEnabled();
   await page.mouse.wheel(0, 160);
   await expect(toolbar).toHaveCount(0);
   await page.keyboard.up('Meta');
@@ -63,7 +63,7 @@ test('configured Quick Actions drive platform-neutral More Actions menus (#532)'
   const third = cells.nth(2);
   await third.getByRole('button', { name: /More actions for/u }).click();
   let menu = page.getByRole('menu', { name: /Actions for/u });
-  await menu.getByRole('menuitem', { name: /Export This photo/u }).click();
+  await menu.getByRole('menuitem', { name: /Export… This photo/u }).click();
   const exportDialog = page.getByRole('dialog', { name: 'Export' });
   await expect(exportDialog).toContainText('1 photo selected');
   await exportDialog.getByRole('button', { name: 'Cancel' }).click();
@@ -71,7 +71,7 @@ test('configured Quick Actions drive platform-neutral More Actions menus (#532)'
 
   await first.getByRole('button', { name: /More actions for/u }).click();
   menu = page.getByRole('menu', { name: /Actions for/u });
-  await expect(menu.getByRole('menuitem', { name: /Export Selection \(2\)/u })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: /Export… Selection \(2\)/u })).toBeVisible();
   await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Settings' }).click();

@@ -458,9 +458,6 @@
   "library.quickActions.disabledTooltip": {
     "defaultMessage": "{action} · {reason}"
   },
-  "library.quickActions.export": {
-    "defaultMessage": "Export"
-  },
   "library.quickActions.favorite.add": {
     "defaultMessage": "Add to Favorites"
   },
