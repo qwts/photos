@@ -2,6 +2,16 @@ import { defineConfig } from '@playwright/test';
 
 const isCi = Boolean(process.env['CI']);
 
+function positiveInteger(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 0 || (name === 'OVERLOOK_E2E_WORKERS' && value === 0)) {
+    throw new Error(`${name} must be ${name === 'OVERLOOK_E2E_WORKERS' ? 'a positive' : 'a non-negative'} integer`);
+  }
+  return value;
+}
+
 export default defineConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/e2e/global-setup.ts',
@@ -13,12 +23,12 @@ export default defineConfig({
   fullyParallel: false,
   // exactOptionalPropertyTypes forbids an explicit `workers: undefined`, so spread
   // the CI-only override instead of image-trail's ternary.
-  ...(isCi ? { workers: 3 } : {}),
+  ...(isCi ? { workers: positiveInteger('OVERLOOK_E2E_WORKERS', 3) } : {}),
   // CI retries absorb the environment-flake class (Xvfb timing, runner contention) so a
   // single hiccup can't fail the required E2E gate; a pass-on-retry is reported as
   // "flaky", never silently green, so real instability stays visible in the report.
   // Local runs keep 0 — a failure on a dev machine should stop and be investigated.
-  retries: isCi ? 2 : 0,
+  retries: isCi ? positiveInteger('OVERLOOK_E2E_RETRIES', 2) : 0,
   timeout: 30_000,
   expect: {
     timeout: 5_000,

@@ -108,6 +108,12 @@ instead. Floor values are unchanged (ratchet intact).
   [E2E & Storybook Timing Audit](./E2E-Timing-Audit.md) (#630); add new timing
   waits there in the same PR. A timeout increase requires naming the stalled
   condition — never a blanket raise.
+- The CI E2E command is wrapped by `scripts/measure-runner-capacity.mjs`, which
+  samples normalized host load, available memory, and Linux CPU/I/O pressure
+  while the guarded test entrypoint runs. Manual CI dispatches can compare one,
+  two, and three workers with retries disabled; each run retains a
+  `runner-capacity-*` evidence artifact. The ordinary required lane remains at
+  three workers and two retries unless same-SHA measurements justify a change.
 
 ## What runs when & where
 
@@ -132,7 +138,8 @@ On every PR to `main` and push to `main` (post-merge signal):
    `build` → Storybook interaction tests (`test:stories:ci`, chromium)
 2. **E2E job** (parallel, own runner): path-filtered by `dorny/paths-filter` —
    docs-only PRs skip it; always runs on main pushes. Chromium via Playwright,
-   `test:e2e`, HTML report artifact (14-day retention).
+   `test:e2e`, HTML report artifact (14-day retention), and runner-capacity
+   evidence (30-day retention).
 3. **`E2E gate`** — the stable required check: green on E2E success or a
    legitimate filter skip; red if change detection itself failed. The branch
    ruleset requires **this job**, never `E2E` directly.
