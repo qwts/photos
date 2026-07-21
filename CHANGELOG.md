@@ -1,5 +1,11 @@
 # photos
 
+## 0.46.0
+
+### Minor Changes
+
+- 10a17c0: Add configurable Command-hover Quick Actions to gallery photos with shared context-menu and touch access.
+
 ## 0.45.0
 
 ### Minor Changes
