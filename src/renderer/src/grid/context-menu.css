@@ -29,7 +29,7 @@
   outline: none;
 }
 
-.ovl-context-menu button:disabled {
+.ovl-context-menu button[aria-disabled='true'] {
   color: var(--text-faint);
   cursor: not-allowed;
 }

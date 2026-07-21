@@ -62,7 +62,7 @@ export function PhotoContextMenu({
         item('album.membership.add', 'album', onAddToAlbum),
         ...(inAlbum ? [item('album.membership.remove', 'x', onRemoveFromAlbum)] : []),
         photo.syncState === 'offloaded'
-          ? item('photo.restore', 'cloud-download', onRestoreOriginal)
+          ? item('photo.restoreOriginal', 'cloud-download', onRestoreOriginal)
           : item('photo.offload', 'cloud-upload', onOffload),
         item('photo.transfer', 'refresh-cw', onTransfer),
         item('photo.trash', 'trash-2', onTrash, { danger: true, separatorBefore: true }),

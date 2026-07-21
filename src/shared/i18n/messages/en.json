@@ -29,6 +29,9 @@
   "activity.undo": {
     "defaultMessage": "Undo"
   },
+  "album.context.actions": {
+    "defaultMessage": "Actions for {album}"
+  },
   "commands.album.delete": {
     "defaultMessage": "Delete album…"
   },
@@ -139,6 +142,9 @@
   },
   "commands.photo.restore": {
     "defaultMessage": "Restore photo"
+  },
+  "commands.photo.restoreOriginal": {
+    "defaultMessage": "Restore original"
   },
   "commands.photo.transfer": {
     "defaultMessage": "Transfer & Sync…"

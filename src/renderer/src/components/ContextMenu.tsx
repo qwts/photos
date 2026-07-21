@@ -30,8 +30,8 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
     if (menu === null) return;
     menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8))}px`;
     menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - menu.offsetHeight - 8))}px`;
-    menu.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
-  }, [items, x, y]);
+    menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+  }, [x, y]);
 
   useEffect(() => {
     const close = (): void => onClose();
@@ -62,17 +62,17 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
       onKeyDown={(event) => {
         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
-        const enabled = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'));
-        if (enabled.length === 0) return;
-        const current = enabled.indexOf(document.activeElement as HTMLButtonElement);
+        const menuItems = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+        if (menuItems.length === 0) return;
+        const current = menuItems.indexOf(document.activeElement as HTMLButtonElement);
         const target =
           event.key === 'Home'
-            ? enabled[0]
+            ? menuItems[0]
             : event.key === 'End'
-              ? enabled.at(-1)
+              ? menuItems.at(-1)
               : event.key === 'ArrowDown'
-                ? enabled[(current + 1) % enabled.length]
-                : enabled[(current - 1 + enabled.length) % enabled.length];
+                ? menuItems[(current + 1) % menuItems.length]
+                : menuItems[(current - 1 + menuItems.length) % menuItems.length];
         target?.focus();
       }}
     >
@@ -82,10 +82,10 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
             type="button"
             role="menuitem"
             className={item.danger === true ? 'ovl-context-menu__danger' : undefined}
-            disabled={item.disabledReason !== undefined}
             aria-disabled={item.disabledReason === undefined ? undefined : true}
             title={item.disabledReason}
             onClick={() => {
+              if (item.disabledReason !== undefined) return;
               if (closeOnSelect) onClose();
               item.action();
             }}

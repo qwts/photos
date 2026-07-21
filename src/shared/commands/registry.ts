@@ -64,6 +64,7 @@ export type CommandId =
   | 'photo.open'
   | 'photo.export'
   | 'photo.offload'
+  | 'photo.restoreOriginal'
   | 'photo.transfer'
   | 'photo.trash'
   | 'photo.restore'
@@ -131,6 +132,7 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'photo.open': { id: 'commands.photo.open', defaultMessage: 'Open' },
   'photo.export': { id: 'commands.photo.export', defaultMessage: 'Export…' },
   'photo.offload': { id: 'commands.photo.offload', defaultMessage: 'Offload original…' },
+  'photo.restoreOriginal': { id: 'commands.photo.restoreOriginal', defaultMessage: 'Restore original' },
   'photo.transfer': { id: 'commands.photo.transfer', defaultMessage: 'Transfer & Sync…' },
   'photo.trash': { id: 'commands.photo.trash', defaultMessage: 'Move photo to Trash' },
   'photo.restore': { id: 'commands.photo.restore', defaultMessage: 'Restore photo' },
@@ -351,6 +353,7 @@ export const COMMANDS: readonly CommandDescriptor[] = [
   { id: 'photo.open', label: label('photo.open', 'Open'), surfaces: [], target: 'focused-item' },
   { id: 'photo.export', label: label('photo.export', 'Export…'), surfaces: [], target: 'selection' },
   { id: 'photo.offload', label: label('photo.offload', 'Offload original…'), surfaces: [], target: 'selection' },
+  { id: 'photo.restoreOriginal', label: label('photo.restoreOriginal', 'Restore original'), surfaces: [], target: 'selection' },
   { id: 'photo.transfer', label: label('photo.transfer', 'Transfer & Sync…'), surfaces: [], target: 'selection' },
   {
     id: 'photo.trash',

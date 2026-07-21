@@ -330,9 +330,13 @@ export function LibraryGridView({
           }}
           onOpen={() => dispatch({ type: 'lightbox/opened', photoId: contextPhoto.photo.id })}
           onToggleFavorite={() => {
-            for (const photo of state.photos.filter(({ id }) => contextPhoto.targetIds.includes(id))) toggleFavorite(photo);
+            const targetIds = new Set(contextPhoto.targetIds);
+            for (const photo of state.photos.filter(({ id }) => targetIds.has(id))) toggleFavorite(photo);
           }}
-          onExport={() => dispatch({ type: 'dialog/set', dialog: 'export', open: true })}
+          onExport={() => {
+            dispatch({ type: 'selection/all', photoIds: contextPhoto.targetIds });
+            dispatch({ type: 'dialog/set', dialog: 'export', open: true });
+          }}
           onAddToAlbum={() => {
             setAlbumPicker({ targetIds: contextPhoto.targetIds, x: contextPhoto.x, y: contextPhoto.y, origin: contextPhoto.origin });
           }}
