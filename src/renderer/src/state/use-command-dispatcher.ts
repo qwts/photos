@@ -26,6 +26,20 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
     const surface: CommandSurface = state.lightboxId === null ? 'grid' : 'lightbox';
     const execute = (id: CommandId, event: KeyboardEvent): boolean => {
       switch (id) {
+        case 'app.settings.open':
+        case 'app.settings.open.storage':
+        case 'app.settings.open.transfer':
+        case 'app.settings.open.privacy':
+        case 'app.lock.now':
+        case 'library.switch':
+        case 'library.import':
+        case 'library.source.all':
+        case 'library.source.favorites':
+        case 'library.source.recent':
+        case 'library.source.trash':
+        case 'view.mode.grid':
+        case 'view.mode.list':
+          return false;
         case 'app.search.focus':
           document.querySelector<HTMLInputElement>('[role="searchbox"]')?.focus();
           return true;

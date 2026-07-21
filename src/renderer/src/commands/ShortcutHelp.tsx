@@ -12,7 +12,7 @@ import { Dialog } from '../components/Dialog';
 
 import './shortcuts.css';
 
-const commandLabels: Record<CommandId, MessageDescriptor> = defineMessages({
+const commandLabels: Partial<Record<CommandId, MessageDescriptor>> = defineMessages({
   'app.search.focus': { id: 'commands.app.search.focus', defaultMessage: 'Focus search' },
   'selection.selectAll': { id: 'commands.selection.selectAll', defaultMessage: 'Select all photos' },
   'selection.clear': { id: 'commands.selection.clear', defaultMessage: 'Clear selection' },
@@ -65,7 +65,7 @@ export function ShortcutHelp({
         <dl className="ovl-shortcuts__list">
           {commands.map((command) => (
             <div key={command.id} className="ovl-shortcuts__row">
-              <dt>{intl.formatMessage(commandLabels[command.id])}</dt>
+              <dt>{intl.formatMessage(commandLabels[command.id] ?? command.label)}</dt>
               <dd>
                 <kbd>{formatShortcut(command, platform)}</kbd>
               </dd>

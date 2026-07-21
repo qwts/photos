@@ -4,8 +4,10 @@ import test from 'node:test';
 import {
   COMMANDS,
   activeShortcuts,
+  commandById,
   findShortcutConflicts,
   formatShortcut,
+  nativeCommands,
   resolveCommand,
   type CommandContext,
 } from '../../src/shared/commands/registry.js';
@@ -54,5 +56,20 @@ test('shortcut help is generated from the active registry projection (#399)', ()
       'win32',
     ),
     'Ctrl+A',
+  );
+});
+
+test('native menu exposure is typed, unique, and queues only idempotent commands (#531)', () => {
+  const native = nativeCommands();
+  assert.ok(native.some(({ id }) => id === 'app.settings.open.privacy'));
+  assert.ok(native.some(({ id }) => id === 'library.source.trash'));
+  assert.equal(commandById('app.settings.open').native?.lockSafe, true);
+  assert.equal(commandById('app.settings.open').native?.queueable, true);
+  assert.equal(commandById('app.lock.now').native?.queueable, false);
+  assert.equal(commandById('photo.trash').native?.queueable, false);
+  assert.ok(
+    native
+      .filter(({ native: exposure }) => exposure?.queueable === true)
+      .every(({ target }) => target !== 'focused-item' && target !== 'selection'),
   );
 });
