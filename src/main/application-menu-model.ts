@@ -49,6 +49,9 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
       return context.hasLibrary && !locked(context);
     case 'selection.selectAll':
       return context.surface === 'grid' && context.dialog === 'none' && !context.editable && context.hasPhotos;
+    case 'history.undo':
+    case 'history.redo':
+      return context.hasLibrary && context.dialog === 'none' && !context.editable;
     case 'view.inspector.toggle':
       return (context.surface === 'grid' || context.surface === 'lightbox') && context.dialog === 'none';
     case 'view.mode.grid':
@@ -60,6 +63,10 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
       return context.surface === 'lightbox' && context.dialog === 'none' && context.hasTarget;
     case 'photo.trash':
       return context.surface === 'lightbox' && context.dialog === 'none' && context.targetTrashable;
+    case 'album.membership.add':
+    case 'album.membership.remove':
+    case 'photo.restore':
+      return false;
     case 'app.search.focus':
     case 'selection.clear':
     case 'view.lightbox.previous':
@@ -172,8 +179,8 @@ export function buildApplicationMenuTemplate(
     {
       label: translate(menuMessages.edit),
       submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
+        commandItem('history.undo', context, dispatch, translate),
+        commandItem('history.redo', context, dispatch, translate),
         { type: 'separator' },
         { role: 'cut' },
         { role: 'copy' },

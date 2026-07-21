@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { PhotosRepository } from '../db/photos-repository.js';
+import { HistoryLibraryRepository } from '../history/history-library-repository.js';
 import type { AlbumSummary, LibraryStats, PageRequest, PageResult, PhotoRecord, SourceCounts } from '../../shared/library/types.js';
 
 // The renderer's typed window into the library (#71) — the contract M04
@@ -14,12 +15,14 @@ export interface LibraryEvents {
 
 export class LibraryService {
   private readonly repo: PhotosRepository;
+  private readonly historyRepo: HistoryLibraryRepository;
 
   constructor(
     db: BetterSqlite3.Database,
     private readonly events: LibraryEvents,
   ) {
     this.repo = new PhotosRepository(db);
+    this.historyRepo = new HistoryLibraryRepository(db);
   }
 
   page(request: PageRequest): PageResult {
@@ -46,6 +49,18 @@ export class LibraryService {
     this.events.libraryChanged([photoId]);
     this.events.pendingCountChanged(pendingCount);
     return { favorite, pendingCount };
+  }
+
+  setFavorite(photoId: string, favorite: boolean): { favorite: boolean; pendingCount: number } {
+    const updated = this.historyRepo.setFavorite(photoId, favorite);
+    const pendingCount = this.repo.pendingCount();
+    this.events.libraryChanged([photoId]);
+    this.events.pendingCountChanged(pendingCount);
+    return { favorite: updated, pendingCount };
+  }
+
+  favoriteState(photoId: string): boolean | undefined {
+    return this.historyRepo.favoriteState(photoId);
   }
 
   counts(recentSince: string): SourceCounts {
@@ -81,18 +96,22 @@ export class LibraryService {
     this.events.pendingCountChanged(this.repo.pendingCount());
   }
 
-  addToAlbum(albumId: string, photoIds: readonly string[]): { added: number } {
+  addToAlbum(albumId: string, photoIds: readonly string[]): { added: number; changedPhotoIds: readonly string[] } {
     const added = this.repo.addToAlbum(albumId, photoIds);
     this.events.libraryChanged(added);
     this.events.pendingCountChanged(this.repo.pendingCount());
-    return { added: added.length };
+    return { added: added.length, changedPhotoIds: added };
   }
 
-  removeFromAlbum(albumId: string, photoIds: readonly string[]): { removed: number } {
+  removeFromAlbum(albumId: string, photoIds: readonly string[]): { removed: number; changedPhotoIds: readonly string[] } {
     const removed = this.repo.removeFromAlbum(albumId, photoIds);
     this.events.libraryChanged(removed);
     this.events.pendingCountChanged(this.repo.pendingCount());
-    return { removed: removed.length };
+    return { removed: removed.length, changedPhotoIds: removed };
+  }
+
+  albumMembership(albumId: string, photoIds: readonly string[]): ReadonlyMap<string, boolean> {
+    return this.historyRepo.albumMembership(albumId, photoIds);
   }
 
   moveBetweenAlbums(sourceAlbumId: string, targetAlbumId: string, photoIds: readonly string[]): { moved: number; alreadyInTarget: number } {
@@ -104,18 +123,22 @@ export class LibraryService {
 
   // Soft delete + restore (#120): targeted pushes; pendingCount changes in
   // both directions (deleted rows leave it, restores re-dirty).
-  deletePhotos(photoIds: readonly string[]): { deleted: number } {
+  deletePhotos(photoIds: readonly string[]): { deleted: number; changedPhotoIds: readonly string[] } {
     const deleted = this.repo.softDelete(photoIds);
     this.events.libraryChanged(deleted);
     this.events.pendingCountChanged(this.repo.pendingCount());
-    return { deleted: deleted.length };
+    return { deleted: deleted.length, changedPhotoIds: deleted };
   }
 
-  restorePhotos(photoIds: readonly string[]): { restored: number } {
+  restorePhotos(photoIds: readonly string[]): { restored: number; changedPhotoIds: readonly string[] } {
     const restored = this.repo.restore(photoIds);
     this.events.libraryChanged(restored);
     this.events.pendingCountChanged(this.repo.pendingCount());
-    return { restored: restored.length };
+    return { restored: restored.length, changedPhotoIds: restored };
+  }
+
+  trashState(photoIds: readonly string[]): ReadonlyMap<string, 'live' | 'trashed' | 'missing'> {
+    return this.historyRepo.trashState(photoIds);
   }
 
   pendingCount(): number {

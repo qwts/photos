@@ -57,6 +57,9 @@ const eventMessages: Readonly<Record<ActivityEventType, { readonly id: string; r
     id: 'activity.event.purged',
     defaultMessage: 'Permanently deleted {count, plural, one {# photo} other {# photos}}',
   },
+  'command.undone': { id: 'activity.event.undone', defaultMessage: 'Undid an action' },
+  'command.redone': { id: 'activity.event.redone', defaultMessage: 'Redid an action' },
+  'command.compensated': { id: 'activity.event.compensated', defaultMessage: 'Restored a moved source file' },
   'activity.pruned': { id: 'activity.event.pruned', defaultMessage: 'Expired old activity records' },
 };
 

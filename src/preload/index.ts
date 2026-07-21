@@ -40,6 +40,7 @@ const backupProviderStatus = createInvoker(channels.backupProviderStatus, invoke
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
+const historyStatus = createInvoker(channels.historyStatus, invokeTransport);
 const protectedAlbumsList = createInvoker(channels.protectedAlbumsList, invokeTransport);
 const protectedAlbumPickRecovery = createInvoker(channels.protectedAlbumPickRecovery, invokeTransport);
 const protectedAlbumCancelWorkflow = createInvoker(channels.protectedAlbumCancelWorkflow, invokeTransport);
@@ -107,6 +108,11 @@ const overlook: OverlookApi = {
   }),
   activity: Object.freeze({
     page: createInvoker(channels.activityPage, invokeTransport),
+  }),
+  history: Object.freeze({
+    status: async () => historyStatus({}),
+    undo: createInvoker(channels.historyUndo, invokeTransport),
+    redo: createInvoker(channels.historyRedo, invokeTransport),
   }),
   albums: Object.freeze({
     create: createInvoker(channels.albumCreate, invokeTransport),

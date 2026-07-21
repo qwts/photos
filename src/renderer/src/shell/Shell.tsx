@@ -246,6 +246,24 @@ export function Shell({
       case 'selection.selectAll':
         dispatch({ type: 'selection/all', photoIds: state.photos.map(({ id }) => id) });
         return;
+      case 'history.undo':
+      case 'history.redo': {
+        const operation = nativeCommand.id === 'history.undo' ? window.overlook.history.undo : window.overlook.history.redo;
+        void operation({ requestId: crypto.randomUUID() }).then((result) => {
+          dispatch({
+            type: 'toast/shown',
+            toast: {
+              title: result.applied
+                ? nativeCommand.id === 'history.undo'
+                  ? 'Undid last action'
+                  : 'Redid last action'
+                : `Cannot ${nativeCommand.id === 'history.undo' ? 'undo' : 'redo'} — ${result.capability.reason}`,
+              tone: result.applied ? 'neutral' : 'red',
+            },
+          });
+        });
+        return;
+      }
       case 'view.inspector.toggle':
         dispatch({ type: 'inspector/toggled' });
         return;
@@ -274,6 +292,10 @@ export function Shell({
         }
         return;
       }
+      case 'album.membership.add':
+      case 'album.membership.remove':
+      case 'photo.restore':
+        return;
       case 'help.shortcuts':
         setShortcutSurface(state.lightboxId === null ? 'grid' : 'lightbox');
         return;

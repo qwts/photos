@@ -47,6 +47,10 @@ export type CommandId =
   | 'library.source.trash'
   | 'selection.selectAll'
   | 'selection.clear'
+  | 'history.undo'
+  | 'history.redo'
+  | 'album.membership.add'
+  | 'album.membership.remove'
   | 'view.inspector.toggle'
   | 'view.mode.grid'
   | 'view.mode.list'
@@ -55,6 +59,7 @@ export type CommandId =
   | 'view.lightbox.next'
   | 'photo.favorite.toggle'
   | 'photo.trash'
+  | 'photo.restore'
   | 'view.lightbox.zoomIn'
   | 'view.lightbox.zoomOut'
   | 'view.lightbox.zoomReset'
@@ -100,6 +105,10 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'library.source.trash': { id: 'commands.library.source.trash', defaultMessage: 'Trash' },
   'selection.selectAll': { id: 'commands.selection.selectAll', defaultMessage: 'Select all photos' },
   'selection.clear': { id: 'commands.selection.clear', defaultMessage: 'Clear selection' },
+  'history.undo': { id: 'commands.history.undo', defaultMessage: 'Undo' },
+  'history.redo': { id: 'commands.history.redo', defaultMessage: 'Redo' },
+  'album.membership.add': { id: 'commands.album.membership.add', defaultMessage: 'Add to album' },
+  'album.membership.remove': { id: 'commands.album.membership.remove', defaultMessage: 'Remove from album' },
   'view.inspector.toggle': { id: 'commands.view.inspector.toggle', defaultMessage: 'Show or hide Inspector' },
   'view.mode.grid': { id: 'commands.view.mode.grid', defaultMessage: 'Grid' },
   'view.mode.list': { id: 'commands.view.mode.list', defaultMessage: 'List' },
@@ -108,6 +117,7 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'view.lightbox.next': { id: 'commands.view.lightbox.next', defaultMessage: 'Next photo' },
   'photo.favorite.toggle': { id: 'commands.photo.favorite.toggle', defaultMessage: 'Toggle favorite' },
   'photo.trash': { id: 'commands.photo.trash', defaultMessage: 'Move photo to Trash' },
+  'photo.restore': { id: 'commands.photo.restore', defaultMessage: 'Restore photo' },
   'view.lightbox.zoomIn': { id: 'commands.view.lightbox.zoomIn', defaultMessage: 'Zoom in' },
   'view.lightbox.zoomOut': { id: 'commands.view.lightbox.zoomOut', defaultMessage: 'Zoom out' },
   'view.lightbox.zoomReset': { id: 'commands.view.lightbox.zoomReset', defaultMessage: 'Reset zoom' },
@@ -235,6 +245,37 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     key: 'Escape',
   },
   {
+    id: 'history.undo',
+    label: label('history.undo', 'Undo'),
+    surfaces: GLOBAL_SURFACES,
+    target: 'application',
+    key: 'z',
+    primaryModifier: true,
+    native: { menu: 'edit', lockSafe: false, queueable: false },
+  },
+  {
+    id: 'history.redo',
+    label: label('history.redo', 'Redo'),
+    surfaces: GLOBAL_SURFACES,
+    target: 'application',
+    key: 'z',
+    primaryModifier: true,
+    shift: true,
+    native: { menu: 'edit', lockSafe: false, queueable: false },
+  },
+  {
+    id: 'album.membership.add',
+    label: label('album.membership.add', 'Add to album'),
+    surfaces: [],
+    target: 'selection',
+  },
+  {
+    id: 'album.membership.remove',
+    label: label('album.membership.remove', 'Remove from album'),
+    surfaces: [],
+    target: 'selection',
+  },
+  {
     id: 'view.inspector.toggle',
     label: label('view.inspector.toggle', 'Show or hide Inspector'),
     surfaces: ['grid', 'lightbox'],
@@ -293,6 +334,12 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     target: 'focused-item',
     key: 'Delete',
     native: { menu: 'photo', lockSafe: false, queueable: false },
+  },
+  {
+    id: 'photo.restore',
+    label: label('photo.restore', 'Restore photo'),
+    surfaces: [],
+    target: 'selection',
   },
   {
     id: 'view.lightbox.zoomIn',

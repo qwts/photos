@@ -40,7 +40,28 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'view.mode.grid':
         case 'view.mode.list':
         case 'help.open':
+        case 'album.membership.add':
+        case 'album.membership.remove':
+        case 'photo.restore':
           return false;
+        case 'history.undo':
+        case 'history.redo': {
+          const operation = id === 'history.undo' ? window.overlook.history.undo : window.overlook.history.redo;
+          void operation({ requestId: crypto.randomUUID() }).then((result) => {
+            dispatch({
+              type: 'toast/shown',
+              toast: {
+                title: result.applied
+                  ? id === 'history.undo'
+                    ? 'Undid last action'
+                    : 'Redid last action'
+                  : `Cannot ${id === 'history.undo' ? 'undo' : 'redo'} — ${result.capability.reason}`,
+                tone: result.applied ? 'neutral' : 'red',
+              },
+            });
+          });
+          return true;
+        }
         case 'app.search.focus':
           document.querySelector<HTMLInputElement>('[role="searchbox"]')?.focus();
           return true;

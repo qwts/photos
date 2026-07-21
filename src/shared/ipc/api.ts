@@ -60,6 +60,11 @@ export interface OverlookApi {
   readonly activity: {
     readonly page: (request: Req<typeof channels.activityPage>) => Promise<Res<typeof channels.activityPage>>;
   };
+  readonly history: {
+    readonly status: () => Promise<Res<typeof channels.historyStatus>>;
+    readonly undo: (request: Req<typeof channels.historyUndo>) => Promise<Res<typeof channels.historyUndo>>;
+    readonly redo: (request: Req<typeof channels.historyRedo>) => Promise<Res<typeof channels.historyRedo>>;
+  };
   readonly albums: {
     readonly create: (request: Req<typeof channels.albumCreate>) => Promise<Res<typeof channels.albumCreate>>;
     readonly rename: (request: Req<typeof channels.albumRename>) => Promise<Res<typeof channels.albumRename>>;

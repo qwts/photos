@@ -11,6 +11,9 @@ export const activityEventTypes = [
   'photo.restored',
   'photo.exported',
   'photo.purged',
+  'command.undone',
+  'command.redone',
+  'command.compensated',
   'activity.pruned',
 ] as const;
 
