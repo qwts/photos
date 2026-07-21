@@ -143,7 +143,7 @@ library-switch are now the fixture's `appExited` helper.
   timeout: `test:e2e` runs at `--timeout-s 1800` (30 min whole-run). A
   guard kill is a real failure — see [agent-process-guard](agent-process-guard.md).
 - `playwright.config.ts`: per-test `timeout: 30_000`, `expect.timeout: 5_000`,
-  CI `workers: 3`, CI `retries: 2`, `fullyParallel: false` (spec files run
+  CI `workers: 1`, CI `retries: 0`, `fullyParallel: false` (spec files run
   concurrently, tests within a file serially).
 - `global-setup.ts` builds the app once before workers start; `global-teardown.ts`
   sweeps the run-scoped temp-dir registry with a `retryDelay: 100`/`maxRetries: 3`
@@ -156,10 +156,19 @@ records elapsed time, logical/available CPUs, memory, normalized load, and Linux
 CPU/I/O pressure samples. The process-tree guard remains the source for peak RSS
 and process count. Manual `workflow_dispatch` inputs select one, two, or three
 workers and zero retries, producing a retained `runner-capacity-*` artifact for
-each comparison. Ordinary required runs retain three workers and two retries.
+each comparison. Ordinary required runs use one worker and zero retries.
 
 Capacity verdicts compare artifacts from the same commit and runner image. A
 normalized-load or pressure peak alone does not justify a larger runner: worker
 count changes only when lower concurrency improves no-retry reliability enough
-to outweigh wall time. The issue's closing evidence records the measured table
-and final choice.
+to outweigh wall time.
+
+The closure comparison on commit `72631d5` used the same `ubuntu-latest` image
+and disabled retries throughout. One worker passed all 86 tests in 4 min 51 s.
+Two workers completed in 3 min 12 s but failed `offload-ui` once (82 passed,
+3 skipped); the focused test then passed 20/20 guarded local repetitions. The
+three-worker result and telemetry are linked from the issue's closing evidence.
+Because the higher-concurrency miss did not reproduce locally, the required lane
+chooses the stable one-worker baseline and removes retries instead of hiding a
+miss. Retained JSON artifacts supply load, memory, and Linux CPU/I/O pressure;
+the process guard supplies aggregate RSS and process count.
