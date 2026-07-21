@@ -93,6 +93,11 @@ export const TileClickVsSelectCircle: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const collection = await canvas.findByRole('list', { name: 'Photos' });
+    await expect(collection).toHaveAttribute('aria-setsize', String(PHOTOS.length));
+    const firstItem = canvas.getAllByRole('listitem')[0];
+    await expect(firstItem).toHaveAttribute('aria-posinset', '1');
+    await expect(firstItem).toHaveAttribute('aria-setsize', String(PHOTOS.length));
     const tile = await canvas.findByRole('button', { name: 'Open IMG_0.JPG' });
     const circle = within(tile.parentElement ?? canvasElement).getByRole('button', { name: 'Select' });
     await expect(tile).not.toContainElement(circle);

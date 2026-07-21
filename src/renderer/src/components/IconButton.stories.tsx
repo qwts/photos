@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactElement } from 'react';
+import { expect, within } from 'storybook/test';
 
 import { IconButton } from './IconButton';
 import { Tooltip } from './Tooltip';
@@ -29,4 +30,9 @@ function Row(): ReactElement {
 
 export const AllStates: Story = {
   render: () => <Row />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole('button', { name: 'Inspector' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(canvas.getAllByRole('button', { name: 'Filter' })[0]).not.toHaveAttribute('aria-pressed');
+  },
 };
