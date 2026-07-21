@@ -1,5 +1,11 @@
 # photos
 
+## 0.40.0
+
+### Minor Changes
+
+- ed85d55: Add encrypted, per-library activity history for imports, organization, favorites, Trash, export, and permanent deletion.
+
 ## 0.39.0
 
 ### Minor Changes
