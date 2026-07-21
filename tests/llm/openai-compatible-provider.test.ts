@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { OpenAiCompatibleProvider, type OpenAiClientLike } from '../../src/main/llm/openai-compatible-provider.js';
-import { LlmRefusalError, type LlmQaCall } from '../../src/main/llm/provider.js';
+import { LlmRefusalError, LlmRequestError, type LlmQaCall } from '../../src/main/llm/provider.js';
 
 const CALL: LlmQaCall = {
   prompt: 'describe it',
@@ -75,6 +75,15 @@ describe('openai-compatible provider adapter', () => {
     });
     const provider = new OpenAiCompatibleProvider({ id: 'openai', tokenParam: 'max_completion_tokens' }, () => client);
     await assert.rejects(() => provider.qa(CALL, 'sk'), LlmRefusalError);
+  });
+
+  test('an empty answer with a normal finish reason fails rather than returning blank', async () => {
+    const { client } = clientReturning({
+      choices: [{ message: { content: '' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 10, completion_tokens: 0 },
+    });
+    const provider = new OpenAiCompatibleProvider({ id: 'openai', tokenParam: 'max_completion_tokens' }, () => client);
+    await assert.rejects(() => provider.qa(CALL, 'sk'), LlmRequestError);
   });
 
   test('an explicit refusal message is a refusal', async () => {

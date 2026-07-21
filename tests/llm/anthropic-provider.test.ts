@@ -59,6 +59,11 @@ describe('anthropic provider adapter', () => {
     await assert.rejects(() => new AnthropicProvider(() => client).qa(CALL, 'sk-ant'), LlmRefusalError);
   });
 
+  test('a successful response with no text blocks fails rather than returning a blank answer', async () => {
+    const { client } = clientReturning({ content: [], stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 0 } });
+    await assert.rejects(() => new AnthropicProvider(() => client).qa(CALL, 'sk-ant'), LlmRequestError);
+  });
+
   test('a thrown SDK error surfaces as LlmRequestError', async () => {
     const client: AnthropicClientLike = {
       messages: {
