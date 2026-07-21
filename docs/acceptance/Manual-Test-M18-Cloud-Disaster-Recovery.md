@@ -1,7 +1,7 @@
 # Manual Test — M18 Cloud Disaster Recovery
 
-Use this owner-only procedure to validate pCloud or Google Drive without
-putting credentials in CI or touching a real backup.
+Use this owner-only procedure to validate pCloud, Google Drive, or iCloud Drive
+without putting credentials in CI or touching a real backup.
 
 ## Automated live contract
 
@@ -68,6 +68,32 @@ the authorization URL, code, access token, or refresh token.
 For release packages, store the same public client ID in the repository secret
 `GOOGLE_DRIVE_CLIENT_ID`. A package built without it must report Google Drive
 as unavailable rather than opening OAuth.
+
+## iCloud Drive signed live contract
+
+Dispatch the **Package** workflow for the exact commit under test, download and
+extract its macOS ZIP, and use a macOS account with iCloud Drive enabled. The
+artifact must be Developer ID signed, notarized, and provisioned for
+`Z5DM34QS5U.com.zts1.overlook` and `iCloud.com.zts1.overlook`.
+
+```sh
+OVERLOOK_ICLOUD_ARTIFACT_COMMIT=<workflow-head-sha> \
+  npm run test:icloud:live -- /path/to/Overlook.app
+```
+
+The packaged-only command runs the same shared object, restore-provider, and
+fresh-profile disaster-recovery functions used by deterministic tests. It also
+forces page-size-one pagination, coordinated replacement, placeholder
+materialization, and SHA-256 verification. Four unique library ULIDs isolate
+the run. Cleanup succeeds when none of those ULIDs remains discoverable;
+unrelated existing libraries do not affect the result.
+
+Attach the redacted JSON evidence and Package workflow URL to #659. Record the
+commit, executable digest, signing identity, fixed app/container identifiers,
+timing, contract checks, and cleanup result. Never record an Apple Account
+identifier/token, local username, absolute artifact path, or container path.
+The complete product checklist and recovery procedure are in
+[iCloud Drive acceptance](./Manual-Test-iCloud-Drive.md).
 
 ## Product cross-machine check
 

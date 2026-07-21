@@ -1,6 +1,7 @@
 import { writeSync } from 'node:fs';
 
 import { ICLOUD_NATIVE_SMOKE_ARGUMENT, runICloudNativeSmokeIfRequested } from './backup/icloud-drive/native-smoke.js';
+import { ICLOUD_LIVE_CONTRACT_ARGUMENT, runICloudLiveContractIfRequested } from './backup/icloud-drive/live-contract.js';
 
 export const RELEASE_SMOKE_ARGUMENT = '--overlook-release-smoke';
 export const RELEASE_SMOKE_READY_MARKER = 'overlook-release-smoke:ready';
@@ -15,6 +16,9 @@ export async function exitForReleaseSmokeIfRequested(
   argv: readonly string[] = process.argv,
   write: (value: string) => unknown = (value) => writeSync(process.stdout.fd, value),
 ): Promise<boolean> {
+  if (argv.includes(ICLOUD_LIVE_CONTRACT_ARGUMENT)) {
+    return runICloudLiveContractIfRequested(app, { argv, write });
+  }
   if (argv.includes(ICLOUD_NATIVE_SMOKE_ARGUMENT)) {
     return runICloudNativeSmokeIfRequested(app, { argv, write });
   }

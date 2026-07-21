@@ -37,6 +37,7 @@ The real-photo fixture row remains owner-blocked on licensed assets. The release
 - `MAC_PROVISIONING_PROFILE` optionally enables the restricted application/team identifiers required by the native Touch ID Data Protection Keychain path and the iCloud Documents container contract in [iCloud Drive provider](../iCloud-Drive.md). The package script rejects a mismatched Team ID, application identifier, iCloud container/service authorization, malformed profile, or expired profile before `electron-builder` runs.
 - Without a valid provisioning profile, Touch ID key custody fails closed to password/recovery-key access and iCloud Drive remains unavailable; the release must still launch.
 - The macOS job verifies the final app's embedded profile, active application/team/iCloud entitlements, biometric usage description, and helper isolation before checking the signature and Gatekeeper assessment. It then extracts the exact generated `*-mac.zip` and launches that packaged app with an isolated user-data directory. A release cannot upload if either identity verification or the packaged-process readiness boundary fails.
+- Before promoting an iCloud-capable release candidate, run `npm run test:icloud:live -- /path/to/Overlook.app` against that exact extracted, provisioned ZIP on the owner's Mac. The redacted evidence must identify the workflow commit and executable digest and show all shared contracts plus cleanup passing; Apple Account material is forbidden from the evidence.
 
 ### Provisioning-profile ownership and rotation
 

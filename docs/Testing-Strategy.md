@@ -327,6 +327,25 @@ redirect (`http://127.0.0.1:41573/callback`) reachable — i.e. run it on a
 machine, not a headless box. A green run is #109's exit criteria; record it
 on the epic when it passes.
 
+## iCloud Drive signed live contract (owner-executed, never CI)
+
+Normal CI uses the deterministic iCloud authority. Live validation requires
+the exact macOS ZIP from a manually dispatched **Package** workflow because the
+app must be Developer ID signed, notarized, and provisioned for the production
+iCloud Documents container. On a Mac signed in to iCloud Drive, extract the ZIP
+and run:
+
+```sh
+OVERLOOK_ICLOUD_ARTIFACT_COMMIT=<workflow-head-sha> \
+  npm run test:icloud:live -- /path/to/Overlook.app
+```
+
+The guarded command verifies signing/provisioning before launching a
+packaged-only contract mode. It writes redacted evidence under `test-results/`
+and removes only its generated library ULIDs. Apple Account material must never
+enter Actions, logs, evidence, or the repository. Follow
+[iCloud Drive acceptance](./acceptance/Manual-Test-iCloud-Drive.md).
+
 ## Command quick reference
 
 ```sh
