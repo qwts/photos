@@ -1,12 +1,12 @@
-import { useRef, useState } from 'react';
-import type { CSSProperties, ReactElement, ReactNode } from 'react';
+import { cloneElement, useId, useRef, useState } from 'react';
+import type { CSSProperties, ReactElement } from 'react';
 
 import './controls.css';
 
 export interface TooltipProps {
   readonly label: string;
   readonly side?: 'top' | 'bottom' | 'left' | 'right';
-  readonly children: ReactNode;
+  readonly children: ReactElement<{ readonly 'aria-describedby'?: string | undefined }>;
 }
 
 /** The mock's own bubble offset from the anchor. */
@@ -24,6 +24,7 @@ const GAP = 6;
 // adds the left/right sides.
 export function Tooltip({ label, side = 'top', children }: TooltipProps): ReactElement {
   const ref = useRef<HTMLSpanElement>(null);
+  const tooltipId = useId();
   const [coords, setCoords] = useState<CSSProperties | null>(null);
   const show = (): void => {
     const el = ref.current;
@@ -44,19 +45,30 @@ export function Tooltip({ label, side = 'top', children }: TooltipProps): ReactE
   const hide = (): void => {
     setCoords(null);
   };
+  const describedBy = [children.props['aria-describedby'], coords === null ? undefined : tooltipId].filter(Boolean).join(' ') || undefined;
   return (
     // A passive wrapper, not the control: the interactive element is `children`, and the
     // mouse handlers are already mirrored by onFocus/onBlur, so the keyboard path this
     // rule asks for exists. Giving the span a role and tabIndex would insert a second,
     // meaningless Tab stop in front of every tooltipped button.
-    // (The tooltip's REAL defect is that `role="tooltip"` is never referenced by an
-    // aria-describedby, so it is announced to nobody — audit finding 19, owned by #400.
-    // That one is invisible to this rule.)
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <span ref={ref} className="ovl-tooltip" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
-      {children}
+    <span
+      ref={ref}
+      className="ovl-tooltip"
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && coords !== null) {
+          event.stopPropagation();
+          hide();
+        }
+      }}
+    >
+      {cloneElement(children, { 'aria-describedby': describedBy })}
       {coords === null ? null : (
-        <span role="tooltip" className="ovl-tooltip__bubble" style={coords}>
+        <span id={tooltipId} role="tooltip" className="ovl-tooltip__bubble" style={coords}>
           {label}
         </span>
       )}
