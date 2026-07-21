@@ -1273,12 +1273,16 @@
             "src/renderer/src/TokenSpecimen.stories.tsx",
             "src/renderer/src/components/Button.stories.tsx",
             "src/renderer/src/components/IconButton.stories.tsx",
+            "src/renderer/src/components/LiveAnnouncer.stories.tsx",
             "src/renderer/src/components/PhotoTile.stories.tsx",
             "src/renderer/src/components/Toast.stories.tsx",
             "src/renderer/src/components/feedback.stories.tsx",
             "src/renderer/src/components/inputs.stories.tsx",
             "src/renderer/src/grid/ListRow.stories.tsx",
             "src/renderer/src/grid/VirtualGrid.stories.tsx",
+            "src/renderer/src/import/ImportDialog.stories.tsx",
+            "src/renderer/src/inspector/Inspector.stories.tsx",
+            "src/renderer/src/lightbox/Lightbox.stories.tsx",
             "src/renderer/src/shell/Sidebar.stories.tsx",
             "src/renderer/src/settings/SettingsDialog.stories.tsx"
           ]
@@ -1289,7 +1293,7 @@
         },
         {
           "type": "manual",
-          "reason": "The VoiceOver pass is the half axe cannot automate: announcement order, live-region behaviour, and whether a screen-reader user can actually complete each flow. Owner-run on macOS per the wiki script (Manual-Test-A11y-VoiceOver); re-run when a child of #381 lands a semantics change."
+          "reason": "The VoiceOver pass is the half axe cannot automate: announcement order, live-region behaviour, and whether a screen-reader user can actually complete each flow. Run on macOS with docs/acceptance/Manual-Test-A11y-VoiceOver.md whenever a child of #381 lands a semantics change."
         }
       ]
     },

@@ -176,6 +176,9 @@
   "inspector.file.metadata": {
     "defaultMessage": "Metadata"
   },
+  "inspector.title": {
+    "defaultMessage": "Inspector"
+  },
   "libmove.badge.active": {
     "defaultMessage": "Moving…"
   },
@@ -249,7 +252,7 @@
     "defaultMessage": "Cancel & roll back"
   },
   "libmove.progress.counter": {
-    "defaultMessage": "LIBRARY {n} OF {total}"
+    "defaultMessage": "Library {n} of {total}"
   },
   "libmove.progress.finishing": {
     "defaultMessage": "Finishing — this move can no longer roll back"
@@ -309,7 +312,7 @@
     "defaultMessage": "Both copies are verified. The move is complete; the original could not be removed yet — nothing will be deleted without you."
   },
   "libmove.results.detail": {
-    "defaultMessage": "{items} items · {bytes} bytes · {method} · LIBRARY ID {id}… UNCHANGED"
+    "defaultMessage": "{items} items · {bytes} bytes · {method} · library ID {id}… unchanged"
   },
   "libmove.results.done": {
     "defaultMessage": "Done"
@@ -318,10 +321,10 @@
     "defaultMessage": "Finish cleanup"
   },
   "libmove.results.methodCopy": {
-    "defaultMessage": "COPY & VERIFY"
+    "defaultMessage": "Copy & verify"
   },
   "libmove.results.methodInstant": {
-    "defaultMessage": "INSTANT MOVE"
+    "defaultMessage": "Instant move"
   },
   "libmove.results.retryFailed": {
     "defaultMessage": "Retry failed"
@@ -412,6 +415,9 @@
   },
   "lightbox.image.loading": {
     "defaultMessage": "Loading full-resolution image…"
+  },
+  "lock.retryCountdown": {
+    "defaultMessage": "Try again in {seconds}s"
   },
   "menu.edit": {
     "defaultMessage": "Edit"
@@ -659,8 +665,38 @@
   "settings.transfer.status": {
     "defaultMessage": "Not paired · provider not connected"
   },
+  "shell.results.count": {
+    "defaultMessage": "{count, plural, one {# result} other {# results}}"
+  },
+  "shell.selection.cleared": {
+    "defaultMessage": "Selection cleared"
+  },
+  "shell.selection.count": {
+    "defaultMessage": "{count, plural, one {# photo selected} other {# photos selected}}"
+  },
   "shell.skipToPhotos": {
     "defaultMessage": "Skip to photos"
+  },
+  "shell.view.album": {
+    "defaultMessage": "Album"
+  },
+  "shell.view.all": {
+    "defaultMessage": "All Photos"
+  },
+  "shell.view.deleted": {
+    "defaultMessage": "Trash"
+  },
+  "shell.view.favorites": {
+    "defaultMessage": "Favorites"
+  },
+  "shell.view.offloaded": {
+    "defaultMessage": "Offloaded"
+  },
+  "shell.view.protected": {
+    "defaultMessage": "Protected album"
+  },
+  "shell.view.recent": {
+    "defaultMessage": "Recent imports"
   },
   "sidebar.activity": {
     "defaultMessage": "Activity"
@@ -729,10 +765,10 @@
     "defaultMessage": "Recent imports"
   },
   "sidebar.storage.offload": {
-    "defaultMessage": "{bytes} OFFLOAD ({provider})"
+    "defaultMessage": "{bytes} offload ({provider})"
   },
   "sidebar.storage.onDisk": {
-    "defaultMessage": "{bytes} ON DISK"
+    "defaultMessage": "{bytes} on disk"
   },
   "toast.announcement": {
     "defaultMessage": "{title} — {detail}"
@@ -769,6 +805,9 @@
   },
   "toolbar.lock": {
     "defaultMessage": "Lock now"
+  },
+  "toolbar.region": {
+    "defaultMessage": "Photo tools"
   },
   "toolbar.search": {
     "defaultMessage": "Search library"

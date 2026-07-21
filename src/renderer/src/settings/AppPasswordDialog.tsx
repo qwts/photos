@@ -121,7 +121,7 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
             <PasswordField
               value={current}
               onChange={setCurrent}
-              label="Current app password"
+              label="Current password"
               name="app-password"
               autoComplete="current-password"
               autoFocus
@@ -135,12 +135,12 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
               <PasswordField
                 value={password}
                 onChange={setPassword}
-                label="New app password"
+                label="New password"
                 name="new-app-password"
                 autoComplete="new-password"
                 autoFocus={mode === 'set'}
               />
-              <div className="ovl-key__meter" aria-label={`Password strength: ${strength.label || 'none'}`}>
+              <div className="ovl-key__meter" role="img" aria-label={`Password strength: ${strength.label || 'none'}`}>
                 <div className="ovl-key__meterbars">
                   {Array.from({ length: 5 }, (_, index) => (
                     <span
@@ -160,7 +160,7 @@ export function AppPasswordDialog({ mode, onClose, onDone }: AppPasswordDialogPr
               <PasswordField
                 value={confirm}
                 onChange={setConfirm}
-                label="Confirm app password"
+                label="Confirm password"
                 name="confirm-app-password"
                 autoComplete="new-password"
               />

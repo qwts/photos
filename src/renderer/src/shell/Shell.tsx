@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 
 import './shell.css';
 import { useFormats } from '../i18n/use-formats.js';
@@ -35,6 +35,20 @@ import type { CommandSurface } from '../../../shared/commands/registry.js';
 import type { CommandId } from '../../../shared/commands/registry.js';
 import type { CommandMenuContext } from '../../../shared/commands/menu-contract.js';
 import { ActivityDialog } from '../activity/ActivityDialog';
+import { useAnnouncer } from '../components/LiveAnnouncer';
+
+const viewMessages = defineMessages({
+  all: { id: 'shell.view.all', defaultMessage: 'All Photos' },
+  favorites: { id: 'shell.view.favorites', defaultMessage: 'Favorites' },
+  recent: { id: 'shell.view.recent', defaultMessage: 'Recent imports' },
+  offloaded: { id: 'shell.view.offloaded', defaultMessage: 'Offloaded' },
+  deleted: { id: 'shell.view.deleted', defaultMessage: 'Trash' },
+  album: { id: 'shell.view.album', defaultMessage: 'Album' },
+  protected: { id: 'shell.view.protected', defaultMessage: 'Protected album' },
+  selectionCount: { id: 'shell.selection.count', defaultMessage: '{count, plural, one {# photo selected} other {# photos selected}}' },
+  selectionCleared: { id: 'shell.selection.cleared', defaultMessage: 'Selection cleared' },
+  results: { id: 'shell.results.count', defaultMessage: '{count, plural, one {# result} other {# results}}' },
+});
 
 function mergeDropPaths(current: readonly string[] | null, incoming: readonly string[]): readonly string[] {
   return [...new Set([...(current ?? []), ...incoming])];
@@ -54,9 +68,11 @@ export function Shell({
   readonly lockConfigured: boolean;
   readonly nativeCommand: { readonly id: CommandId; readonly sequence: number } | null;
 }): ReactElement {
+  const intl = useIntl();
   const { formatCount, formatRelativeTime } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const { announce } = useAnnouncer();
   const offload = useOffloadWorkflow();
   const [shortcutSurface, setShortcutSurface] = useState<CommandSurface | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>();
@@ -341,11 +357,11 @@ export function Shell({
         setStats(loaded);
         // Seed the backup state (#79); pushes keep it live afterwards.
         dispatch({ type: 'pendingCount/set', count: loaded.pending });
-        // Real stamp (#104): locale-aware relative time from the ledger, or "NEVER"
+        // Real stamp (#104): locale-aware relative time from the ledger, or "Never"
         // before the first verified backup.
         dispatch({
           type: 'backupLabel/set',
-          label: loaded.lastBackupAt === null ? 'NEVER' : formatRelativeTime(loaded.lastBackupAt, Date.now()),
+          label: loaded.lastBackupAt === null ? 'Never' : formatRelativeTime(loaded.lastBackupAt, Date.now()),
         });
       });
     };
@@ -418,38 +434,38 @@ export function Shell({
       if (failed > 0) {
         dispatch({
           type: 'toast/shown',
-          toast: { title: `BACKUP: ${formatCount(failed)} FAILED — WILL RETRY`, tone: 'red', action: 'retry-backup' },
+          toast: { title: `Backup: ${formatCount(failed)} failed — will retry`, tone: 'red', action: 'retry-backup' },
         });
       } else if (!manifestUploaded) {
         // Blobs verified but the remote is owed its manifest generation —
         // without it the backup is not restorable (PR #204 review).
         dispatch({
           type: 'toast/shown',
-          toast: { title: 'BACKUP INDEX PENDING — WILL RETRY', tone: 'red', action: 'retry-backup' },
+          toast: { title: 'Backup index pending — will retry', tone: 'red', action: 'retry-backup' },
         });
       } else if (integrity.failed) {
         dispatch({
           type: 'toast/shown',
-          toast: { title: 'BACKUP CHECK INCOMPLETE — WILL RETRY', tone: 'red', action: 'retry-backup' },
+          toast: { title: 'Backup check incomplete — will retry', tone: 'red', action: 'retry-backup' },
         });
       } else if (integrity.unrecoverable > 0) {
         dispatch({
           type: 'toast/shown',
-          toast: { title: `BACKUP DAMAGED: ${formatCount(integrity.unrecoverable)} ORIGINALS MISSING`, tone: 'red' },
+          toast: { title: `Backup damaged: ${formatCount(integrity.unrecoverable)} originals missing`, tone: 'red' },
         });
       } else if (uploaded > 0 && !auto) {
         const detail = integrity.recoveryRepaired
-          ? ' · RECOVERY INDEX REPAIRED'
+          ? ' · recovery index repaired'
           : integrity.repaired > 0
-            ? ` · ${formatCount(integrity.repaired)} CLOUD COPIES REPAIRED`
+            ? ` · ${formatCount(integrity.repaired)} cloud copies repaired`
             : '';
-        dispatch({ type: 'toast/shown', toast: { title: `BACKUP COMPLETE${detail}`, tone: 'green' } });
+        dispatch({ type: 'toast/shown', toast: { title: `Backup complete${detail}`, tone: 'green' } });
       } else if (integrity.recoveryRepaired) {
-        dispatch({ type: 'toast/shown', toast: { title: 'BACKUP RECOVERY INDEX REPAIRED', tone: 'green' } });
+        dispatch({ type: 'toast/shown', toast: { title: 'Backup recovery index repaired', tone: 'green' } });
       } else if (integrity.repaired > 0) {
         dispatch({
           type: 'toast/shown',
-          toast: { title: `BACKUP REPAIRED: ${formatCount(integrity.repaired)} CLOUD COPIES`, tone: 'green' },
+          toast: { title: `Backup repaired: ${formatCount(integrity.repaired)} cloud copies`, tone: 'green' },
         });
       }
     });
@@ -490,6 +506,34 @@ export function Shell({
           ],
     [toast],
   );
+  const activeAlbum = albums.find((album) => album.id === state.album);
+  const activeProtectedAlbum = protectedAlbums.find((album) => album.id === state.protectedAlbum);
+  const viewTitle =
+    state.protectedAlbum !== null
+      ? (activeProtectedAlbum?.name ?? activeProtectedAlbum?.label ?? intl.formatMessage(viewMessages.protected))
+      : state.album !== null
+        ? (activeAlbum?.name ?? intl.formatMessage(viewMessages.album))
+        : intl.formatMessage(viewMessages[state.source]);
+  const previousSelectionCount = useRef(state.selection.size);
+  useEffect(() => {
+    if (previousSelectionCount.current === state.selection.size) return;
+    previousSelectionCount.current = state.selection.size;
+    announce(
+      state.selection.size === 0
+        ? intl.formatMessage(viewMessages.selectionCleared)
+        : intl.formatMessage(viewMessages.selectionCount, { count: state.selection.size }),
+      'polite',
+      'selection',
+    );
+  }, [announce, intl, state.selection.size]);
+  const previousPhotos = useRef(state.photos);
+  useEffect(() => {
+    if (previousPhotos.current === state.photos) return;
+    previousPhotos.current = state.photos;
+    if (state.query !== '' || Object.values(state.chips).some(Boolean)) {
+      announce(intl.formatMessage(viewMessages.results, { count: state.photos.length }), 'polite', 'search-results');
+    }
+  }, [announce, intl, state.chips, state.photos, state.query]);
 
   return (
     // OS file drops are owned by the capture-boundary effect above, including
@@ -687,7 +731,7 @@ export function Shell({
             onRehydrateError={() => {
               dispatch({
                 type: 'toast/shown',
-                toast: { title: `RESTORE FAILED — STILL IN ${state.providerLabel}`, tone: 'red', action: 'retry-backup' },
+                toast: { title: `Restore failed — still in ${state.providerLabel}`, tone: 'red', action: 'retry-backup' },
               });
             }}
             onRepairDimensions={(width, height) => {
@@ -722,7 +766,17 @@ export function Shell({
             setUnlockAlbumId(albumId);
           }}
         />
-        <main className="ovl-shell__content" data-testid="content-region">
+        <main
+          className="ovl-shell__content"
+          data-testid="content-region"
+          aria-label={state.protectedAlbum === null ? undefined : viewTitle}
+          aria-labelledby={state.protectedAlbum === null ? 'overlook-view-heading' : undefined}
+        >
+          {state.protectedAlbum === null ? (
+            <h1 id="overlook-view-heading" className="ovl-sr-only">
+              {viewTitle}
+            </h1>
+          ) : null}
           {state.protectedAlbum === null ? (
             <LibraryGridView
               knownTotal={counts === null ? null : counts[state.source]}

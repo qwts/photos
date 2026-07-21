@@ -102,12 +102,14 @@ export const Expanded: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.getByRole('heading', { level: 2, name: 'Library' })).toBeInTheDocument();
+    await expect(canvas.getByRole('heading', { level: 2, name: 'Albums' })).toBeInTheDocument();
     await expect(canvas.getByText('All Photos')).toBeVisible();
     // Offloaded earns its row here: counts.offloaded is 12 (#268).
     await expect(canvas.getByText('Offloaded')).toBeVisible();
     await expect(canvas.getByTestId('backup-card')).toBeVisible();
-    await expect(canvas.getByText('1.2 TB ON DISK')).toBeVisible();
-    const offloadRow = await canvas.findByText('380 GB OFFLOAD (Google Drive)');
+    await expect(canvas.getByText('1.2 TB on disk')).toBeVisible();
+    const offloadRow = await canvas.findByText('380 GB offload (Google Drive)');
     await expect(offloadRow).toBeVisible();
     await expect(window.getComputedStyle(offloadRow).whiteSpace).toBe('nowrap');
     const storage = offloadRow.parentElement;
@@ -230,7 +232,7 @@ export const Disconnected: Story = {
       await expect(canvas.getByTestId('sidebar-connect')).toBeVisible();
     });
     await expect(canvas.getByTestId('backup-card')).not.toHaveTextContent('CLOUD');
-    await expect(canvas.getByText('1.2 TB ON DISK')).toBeVisible();
+    await expect(canvas.getByText('1.2 TB on disk')).toBeVisible();
     await expect(canvas.queryByText(/OFFLOAD/)).not.toBeInTheDocument();
     await expect(canvas.getByText('Library encrypted')).toBeVisible();
   },

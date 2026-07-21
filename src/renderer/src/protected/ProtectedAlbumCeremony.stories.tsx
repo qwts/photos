@@ -75,8 +75,8 @@ interface PasswordCanvas {
 }
 
 const enterStrongPassword = async (body: PasswordCanvas): Promise<void> => {
-  await userEvent.type(body.getByLabelText('New protected album password'), 'Correct Horse Battery Staple 42!');
-  await userEvent.type(body.getByLabelText('Confirm protected album password'), 'Correct Horse Battery Staple 42!');
+  await userEvent.type(body.getByLabelText('New album password'), 'Correct Horse Battery Staple 42!');
+  await userEvent.type(body.getByLabelText('Confirm password'), 'Correct Horse Battery Staple 42!');
 };
 
 export const PasswordStrengthAndConfirmation: Story = {
@@ -158,7 +158,7 @@ export const RecoveryFileAndNewCredential: Story = {
     await userEvent.click(body.getByRole('button', { name: 'Choose…' }));
     await waitFor(() => expect(body.getByText('overlook-recovery.key')).toBeVisible());
     await expect(body.getByLabelText('Recovery file password')).toHaveAttribute('autocomplete', 'current-password');
-    await expect(body.getByLabelText('New protected album password')).toHaveAttribute('autocomplete', 'new-password');
+    await expect(body.getByLabelText('New album password')).toHaveAttribute('autocomplete', 'new-password');
   },
 };
 
@@ -182,7 +182,7 @@ export const InterruptedProtectionResumesSafely: Story = {
   render: () => <CompletionStory behavior="resume-protect" mode="unlock" />,
   play: async ({ canvasElement }) => {
     const body = within(canvasElement.ownerDocument.body);
-    await userEvent.type(body.getByLabelText('Current protected album password'), 'Private Album Password 42!');
+    await userEvent.type(body.getByLabelText('Current album password'), 'Private Album Password 42!');
     await userEvent.click(body.getByRole('button', { name: 'Unlock' }));
     await waitFor(() => expect(body.getByRole('status')).toHaveTextContent('Interrupted protection completed safely'));
   },

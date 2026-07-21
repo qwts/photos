@@ -16,7 +16,7 @@ test('lightbox keyboard: arrows with wraparound, i for inspector, Esc precedence
   const lightbox = page.getByTestId('lightbox');
   await expect(lightbox).toBeVisible();
   await expect(lightbox).toContainText('IMG_4021.RAF');
-  await expect(lightbox).toContainText('PREVIEW');
+  await expect(lightbox).toContainText('Preview');
 
   // → steps forward through the VISIBLE sequence — no click-to-focus.
   await page.keyboard.press('ArrowRight');
@@ -209,7 +209,7 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
 
   // Seed 4 starts with exactly one dirty row (photo 0 is 'local', and
   // local rows are born dirty) — the favorite must INCREMENT this.
-  await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 1 → Local mock');
+  await expect(page.getByTestId('sync-state')).toContainText('Encrypting 1 → Local mock');
   // Photo 1 (IMG_4028.JPG) is not a favorite.
   await expect(page.locator('.ovl-grid__cell').nth(1).getByRole('button', { name: 'Add to Favorites' })).toHaveAttribute(
     'aria-pressed',
@@ -223,7 +223,7 @@ test('lightbox favorite: tile star + pendingCount + StatusBar update without rel
   await lightbox.getByRole('button', { name: 'Favorite' }).click();
 
   // Ledger dirties → the StatusBar count increments, exactly…
-  await expect(page.getByTestId('sync-state')).toContainText('ENCRYPTING 2 → Local mock');
+  await expect(page.getByTestId('sync-state')).toContainText('Encrypting 2 → Local mock');
   // …the lightbox star goes active…
   await expect(lightbox.getByRole('button', { name: 'Favorite' })).toHaveClass(/ovl-icon-button--active/);
 
@@ -244,7 +244,7 @@ test('viewing journey: selection survives Esc-from-lightbox; chrome autohides an
 
   // Select a photo, then open ANOTHER in the lightbox.
   await page.locator('.ovl-grid__cell').nth(2).getByRole('button', { name: 'Select' }).click();
-  await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+  await expect(page.getByTestId('selection-pill')).toContainText('1 selected');
   await page.locator('.ovl-grid__cell').first().click();
   const lightbox = page.getByTestId('lightbox');
   const orientationToolbar = page.getByRole('toolbar', { name: 'Image orientation controls' });
@@ -272,7 +272,7 @@ test('viewing journey: selection survives Esc-from-lightbox; chrome autohides an
   // Esc #1 exits the lightbox ONLY — the selection is intact…
   await page.keyboard.press('Escape');
   await expect(lightbox).toBeHidden();
-  await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+  await expect(page.getByTestId('selection-pill')).toContainText('1 selected');
   // …Esc #2 clears it (the reducer's dual semantics, at the UI level).
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('selection-pill')).toBeHidden();

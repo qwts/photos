@@ -27,16 +27,16 @@ test('opens a window rendering the React shell', async () => {
     await page.getByRole('button', { name: 'Start a new library' }).click();
     // An empty library renders the mock's empty state (#76).
     await expect(page.getByTestId('empty-state')).toBeVisible();
-    await expect(page.getByText('Nothing matches')).toBeVisible();
+    await expect(page.getByTestId('empty-state').getByText('Nothing matches')).toBeVisible();
     await expect(page).toHaveTitle('Overlook');
 
     // Composed chrome (#73): sidebar sources, statusbar, toolbar region all
     // present on boot — their internals arrive with #74–#81.
     await expect(page.getByRole('navigation', { name: 'Library' })).toBeVisible();
     await expect(page.getByRole('button', { name: /All Photos/ })).toBeVisible();
-    await expect(page.getByTestId('statusbar-left')).toHaveText('0 PHOTOS · 0 byte');
+    await expect(page.getByTestId('statusbar-left')).toHaveText('0 photos · 0 byte');
     // #81: an empty library is fully backed up by definition.
-    await expect(page.getByTestId('sync-state')).toContainText('ALL BACKED UP');
+    await expect(page.getByTestId('sync-state')).toContainText('All backed up');
 
     // The scaffold's security posture is part of the smoke: the typed bridge
     // is present and no raw Electron surface leaks into the renderer.

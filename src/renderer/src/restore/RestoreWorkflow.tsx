@@ -99,8 +99,8 @@ function LibraryCard({
       </div>
       {valid ? (
         <div className="ovl-restore__meta mono-data">
-          GEN {String(library.generation)} · {formatCount(library.photos ?? 0)} PHOTOS · {formatBytes(library.totalBytes ?? 0)} ·{' '}
-          {formatCount(library.albums ?? 0)} ALBUMS
+          Gen {String(library.generation)} · {formatCount(library.photos ?? 0)} photos · {formatBytes(library.totalBytes ?? 0)} ·{' '}
+          {formatCount(library.albums ?? 0)} albums
         </div>
       ) : (
         <div className="ovl-restore__meta">Metadata is unavailable until this backup validates.</div>
@@ -300,7 +300,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
             >
               Choose recovery key
             </Button>
-            <span className="mono-data">{keyPath === null ? 'NO KEY SELECTED' : fileName(keyPath)}</span>
+            <span className="mono-data">{keyPath === null ? 'No key selected' : fileName(keyPath)}</span>
           </div>
           <label className="ovl-restore__field">
             <span>Recovery-key password</span>

@@ -11,6 +11,7 @@ import './controls.css';
 export interface PasswordFieldProps {
   readonly value: string;
   readonly onChange: (value: string) => void;
+  /** Accessible name; callers may also render a visible field label. */
   readonly label: string;
   readonly placeholder?: string;
   readonly autoFocus?: boolean;
@@ -35,13 +36,8 @@ export function PasswordField({
       <input
         className={`ovl-password__input${reveal ? ' ovl-password__input--reveal' : ''}`}
         type={reveal ? 'text' : 'password'}
-        value={value}
-        // #400 debt (audit finding 17, SC 2.5.3): every caller wraps this in a `<label>`
-        // whose visible text differs from `label`, and this `aria-label` OVERRIDES that
-        // visible text — so the announced name and the on-screen name disagree. The fix
-        // lives here (drop the aria-label and rely on the wrapping label, or align the
-        // two), not at the call sites. No static rule catches this; owned by #400.
         aria-label={label}
+        value={value}
         placeholder={placeholder}
         name={name}
         autoComplete={autoComplete}

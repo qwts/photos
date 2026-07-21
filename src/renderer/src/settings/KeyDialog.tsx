@@ -237,7 +237,13 @@ export function KeyDialog({ open, mode, onClose, onToast }: KeyDialogProps): Rea
             <FingerprintRow fingerprint={fingerprint} />
             <div>
               <div className="ovl-key__label mono-data">Encrypt backup with password</div>
-              <PasswordField value={password} onChange={setPassword} label="New password" placeholder="New password" autoFocus />
+              <PasswordField
+                value={password}
+                onChange={setPassword}
+                label="Encrypt backup with password"
+                placeholder="New password"
+                autoFocus
+              />
               {password !== '' ? (
                 <div className="ovl-key__meter" data-testid="strength-meter">
                   <div className="ovl-key__meterbars">
@@ -257,7 +263,7 @@ export function KeyDialog({ open, mode, onClose, onToast }: KeyDialogProps): Rea
             </div>
             <div>
               <div className="ovl-key__label mono-data">Confirm password</div>
-              <PasswordField value={confirm} onChange={setConfirm} label="Re-enter password" placeholder="Re-enter password" />
+              <PasswordField value={confirm} onChange={setConfirm} label="Confirm password" placeholder="Re-enter password" />
               {mismatch ? (
                 <div className="ovl-key__mismatch" role="alert">
                   <Icon name="x" size={12} />
@@ -330,7 +336,7 @@ export function KeyDialog({ open, mode, onClose, onToast }: KeyDialogProps): Rea
           </div>
           <div>
             <div className="ovl-key__label mono-data">Password</div>
-            <PasswordField value={password} onChange={setPassword} label="Backup password" placeholder="Backup password" />
+            <PasswordField value={password} onChange={setPassword} label="Password" placeholder="Backup password" />
           </div>
           {error !== null ? (
             <div className="ovl-key__mismatch" role="alert">

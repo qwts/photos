@@ -32,7 +32,7 @@ const STAGES = ['preparing', 'copying', 'verifying', 'committing', 'purging', 'c
 function PasswordMeter({ password }: { readonly password: string }): ReactElement {
   const strength = strengthOf(password);
   return (
-    <div className="ovl-key__meter" aria-label={`Password strength: ${strength.label || 'none'}`}>
+    <div className="ovl-key__meter" role="img" aria-label={`Password strength: ${strength.label || 'none'}`}>
       <div className="ovl-key__meterbars">
         {Array.from({ length: 5 }, (_, index) => (
           <span
@@ -228,7 +228,7 @@ export function ProtectedAlbumCeremony({ mode, albumId, albumName, onClose, onCo
             <PasswordField
               value={current}
               onChange={setCurrent}
-              label={mode === 'recover' ? 'Recovery file password' : 'Current protected album password'}
+              label={mode === 'recover' ? 'Recovery file password' : 'Current album password'}
               name={mode === 'recover' ? 'protected-recovery-password' : 'protected-album-password'}
               autoComplete="current-password"
               autoFocus={mode !== 'recover'}
@@ -242,7 +242,7 @@ export function ProtectedAlbumCeremony({ mode, albumId, albumName, onClose, onCo
               <PasswordField
                 value={next}
                 onChange={setNext}
-                label="New protected album password"
+                label="New album password"
                 name="new-protected-album-password"
                 autoComplete="new-password"
                 autoFocus={mode === 'protect'}
@@ -254,7 +254,7 @@ export function ProtectedAlbumCeremony({ mode, albumId, albumName, onClose, onCo
               <PasswordField
                 value={confirm}
                 onChange={setConfirm}
-                label="Confirm protected album password"
+                label="Confirm password"
                 name="confirm-protected-album-password"
                 autoComplete="new-password"
               />

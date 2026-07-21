@@ -17,6 +17,7 @@ import { VirtualGrid, type VirtualGridItemKeyboard } from './VirtualGrid';
 import { beginPhotoDrag, endPhotoDrag } from './photo-drag-session';
 import { PHOTO_PURGE_AUTHORIZATION } from '../../../shared/destructive-actions.js';
 import { DEFAULT_TRASH_RETENTION, trashRetentionDays, trashRetentionLabel, type TrashRetention } from '../../../shared/library/trash.js';
+import { useAnnouncer } from '../components/LiveAnnouncer';
 
 const messages = defineMessages({
   trashPolicyDays: {
@@ -54,9 +55,10 @@ export function LibraryGridView({
   readonly onTransfer: (entry: 'selection' | 'lightbox', photoIds: readonly string[]) => void;
 }): ReactElement {
   const intl = useIntl();
-  const { formatCount } = useFormats();
+  const { formatCalendarDate, formatCount } = useFormats();
   const state = useAppState();
   const dispatch = useAppDispatch();
+  const { announce } = useAnnouncer();
   const { loadMore, exhausted } = useLibraryPhotos();
   // Purge ceremony (#121): the Trash pill's permanent-delete action opens the confirm over
   // a SNAPSHOT of the selection — global shortcuts (⌘A) stay live while
@@ -97,7 +99,7 @@ export function LibraryGridView({
         dispatch({ type: 'pendingCount/set', count: pendingCount });
       })
       .catch(() => {
-        dispatch({ type: 'toast/shown', toast: { title: `COULDN'T UPDATE FAVORITE — ${photo.fileName}`, tone: 'red' } });
+        dispatch({ type: 'toast/shown', toast: { title: `Couldn't update favorite — ${photo.fileName}`, tone: 'red' } });
       })
       .finally(() => {
         const remaining = new Set(favoritePendingRef.current);
@@ -117,6 +119,10 @@ export function LibraryGridView({
     days: retentionDays,
   });
 
+  useEffect(() => {
+    if (total === 0) announce('Nothing matches. Try clearing search or filters.', 'polite', 'empty-state');
+  }, [announce, total]);
+
   if (total === 0) {
     return (
       <>
@@ -131,6 +137,7 @@ export function LibraryGridView({
   }
 
   const renderTile = (photo: PhotoRecord, _size: number, keyboard: VirtualGridItemKeyboard): ReactElement => {
+    const accessibleName = `Open ${[photo.fileName, formatCalendarDate(photo.takenAt ?? photo.importedAt), photo.place].filter((part) => part !== null).join(', ')}`;
     const retentionLabel =
       state.source === 'deleted' && photo.deletedAt !== null
         ? trashRetentionLabel(photo.deletedAt, trashRetention, retentionNow)
@@ -149,6 +156,7 @@ export function LibraryGridView({
     return state.view === 'list' ? (
       <ListRow
         photo={photo}
+        accessibleName={accessibleName}
         selected={state.selection.has(photo.id)}
         onOpen={() => {
           dispatch({ type: 'lightbox/opened', photoId: photo.id });
@@ -168,6 +176,7 @@ export function LibraryGridView({
       <PhotoTile
         src={thumbUrl(photo.id)}
         alt={photo.fileName}
+        accessibleName={accessibleName}
         favorite={photo.favorite}
         status={photo.syncState}
         previewFailure={photo.previewFailure}

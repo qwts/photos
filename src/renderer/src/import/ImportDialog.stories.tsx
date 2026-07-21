@@ -84,7 +84,7 @@ export const SdOptions: Story = {
     const body = within(canvasElement.ownerDocument.body);
     // The mock's copy, verbatim: mono card line and exact button count.
     await waitFor(async () => {
-      await expect(body.getByText('1,204 NEW · 38.2 GB · 812 RAW / 392 JPG')).toBeVisible();
+      await expect(body.getByText('1,204 new · 38.2 GB · 812 RAW / 392 JPG')).toBeVisible();
     });
     await expect(body.getByText('SONY 128GB · A7 IV')).toBeVisible();
     await expect(body.getByRole('button', { name: /Import 1,204 photos/u })).toBeVisible();
@@ -124,7 +124,7 @@ export const NoCardEmptyState: Story = {
     await waitFor(async () => {
       await expect(body.getByTestId('import-no-card')).toBeVisible();
     });
-    await expect(body.getByText('No SD card detected')).toBeVisible();
+    await expect(body.getByText('No SD card detected', { selector: '.ovl-import__emptyTitle' })).toBeVisible();
     // Import is unavailable without a source.
     await expect(body.getByRole('button', { name: 'Import' })).toBeDisabled();
     // The empty state's shortcut switches straight to the folder source.
@@ -148,7 +148,7 @@ export const FolderFlow: Story = {
     await waitFor(async () => {
       await expect(body.getByText('/Users/ansel/Pictures/Lightroom Exports')).toBeVisible();
     });
-    await expect(body.getByText('486 NEW · 12.4 GB · 0 RAW / 486 JPG')).toBeVisible();
+    await expect(body.getByText('486 new · 12.4 GB · 0 RAW / 486 JPG')).toBeVisible();
     await expect(body.getByRole('button', { name: /Import 486 photos/u })).toBeVisible();
     await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
     await userEvent.click(body.getByRole('radio', { name: 'Move' }));
@@ -177,7 +177,7 @@ export const DroppedFiles: Story = {
       await expect(body.getByText('2 photos ready to import')).toBeVisible();
     });
     await expect(body.getByRole('radio', { name: 'Dropped' })).toBeChecked();
-    await expect(body.getByText('2 NEW · 61 MB · 1 RAW / 1 JPG')).toBeVisible();
+    await expect(body.getByText('2 new · 61 MB · 1 RAW / 1 JPG')).toBeVisible();
     await expect(body.getByRole('button', { name: /Import 2 photos/u })).toBeVisible();
     await expect(body.getByRole('radio', { name: 'Move' })).toBeEnabled();
     await userEvent.click(body.getByRole('radio', { name: 'Move' }));
@@ -213,7 +213,7 @@ export const GoogleDriveFiles: Story = {
     await waitFor(async () => {
       await expect(body.getByText('3 photos selected from Google Drive')).toBeVisible();
     });
-    await expect(body.getByText('2 NEW · 82 MB · 1 RAW / 1 JPG')).toBeVisible();
+    await expect(body.getByText('2 new · 82 MB · 1 RAW / 1 JPG')).toBeVisible();
     await expect(body.getByText('1 unsupported or unavailable file skipped')).toBeVisible();
     await expect(body.getByRole('button', { name: /Import 2 photos/u })).toBeVisible();
     await expect(body.getByRole('radio', { name: 'Move' })).toBeDisabled();

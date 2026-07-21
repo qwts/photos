@@ -13,6 +13,7 @@ import { Icon } from '../components/Icon';
 import { IconButton } from '../components/IconButton';
 import { MoveLibraryDialog } from './MoveLibraryDialog';
 import { destructiveActions } from '../../../shared/destructive-actions.js';
+import { useAnnouncer } from '../components/LiveAnnouncer';
 
 // Library Switcher (#386, ADR-0017): view, switch, create, and manage the
 // registered libraries. Switching hands off to the main process (#385) which
@@ -56,6 +57,7 @@ export interface LibrarySwitcherProps {
 export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement {
   const intl = useIntl();
   const { formatRelativeTime } = useFormats();
+  const { announce } = useAnnouncer();
   const [libs, setLibs] = useState<readonly LibraryDescriptor[] | null>(null);
   // "4h ago" stamps are relative to load time, not render time (purity).
   const [loadedAt, setLoadedAt] = useState(0);
@@ -102,6 +104,7 @@ export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement
     }
     setSwitchTarget(lib);
     setPhase('switching');
+    announce(`Switching to ${lib.name}`, 'polite', 'library-switch');
     window.overlook.libraries
       .open({ id: lib.id })
       .then((outcome) => {

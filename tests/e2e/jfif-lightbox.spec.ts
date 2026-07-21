@@ -66,7 +66,7 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
       (globalThis as unknown as { overlook: OverlookApi }).overlook.settings.set({ patch: { autoBackupOnImport: false } }),
     );
     await page.getByRole('button', { name: 'Import', exact: true }).click();
-    await expect(page.getByText(`${String(PHOTO_COUNT)} NEW ·`)).toBeVisible();
+    await expect(page.getByText(`${String(PHOTO_COUNT)} new ·`)).toBeVisible();
     await page.getByRole('button', { name: `Import ${String(PHOTO_COUNT)} photos` }).click();
     await expect(page.getByText(`All ${String(PHOTO_COUNT)} photos imported and encrypted.`)).toBeVisible({ timeout: 60_000 });
     await page.getByRole('button', { name: 'Show in library' }).click();
@@ -90,18 +90,19 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
     }
     const [selectedName, openedName] = visibleJfifNames;
     if (selectedName === undefined || openedName === undefined) throw new Error('two rendered JFIF cells are required');
+    const openedFileName = openedName.split(',')[0] ?? openedName;
     const activeSource = page.locator('.ovl-sidebar .ovl-siderow--active').first();
     const activeSourceLabel = await activeSource.locator('.ovl-siderow__label').innerText();
-    const selectedCell = page.getByRole('button', { name: `Open ${selectedName}`, exact: true });
+    const selectedCell = page.getByRole('button', { name: `Open ${selectedName}` });
     const selectedGroup = page.getByRole('group').filter({ has: selectedCell });
     await selectedGroup.getByRole('button', { name: 'Select' }).click();
-    await page.getByRole('button', { name: `Open ${openedName}`, exact: true }).click();
+    await page.getByRole('button', { name: `Open ${openedName}` }).click();
 
     const lightbox = page.getByTestId('lightbox');
     const image = lightbox.locator('.ovl-lightbox__img');
     await expect(lightbox).toBeVisible();
-    await expect(image).toHaveAttribute('alt', openedName);
-    await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+    await expect(image).toHaveAttribute('alt', openedFileName);
+    await expect(page.getByTestId('selection-pill')).toContainText('1 selected');
     await expect(activeSource).toContainText(activeSourceLabel);
 
     await page.evaluate(() => {
@@ -123,7 +124,7 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
     );
 
     const names = rows.map(({ fileName }) => fileName);
-    let currentIndex = names.indexOf(openedName);
+    let currentIndex = names.indexOf(openedFileName);
     expect(currentIndex).toBeGreaterThanOrEqual(0);
     const moves = Array.from({ length: 20 }, (_, index) => (index < 12 ? 1 : -1));
     for (const [step, delta] of moves.entries()) {
@@ -143,7 +144,7 @@ test('JFIF imports stay in full view through repeated navigation and backup upda
       await expect
         .poll(() => image.evaluate((node) => (node as unknown as { readonly naturalHeight: number }).naturalHeight))
         .toBeGreaterThan(0);
-      await expect(page.getByTestId('selection-pill')).toContainText('1 SELECTED');
+      await expect(page.getByTestId('selection-pill')).toContainText('1 selected');
     }
 
     expect(await backup).toMatchObject({ uploaded: PHOTO_COUNT, failed: 0, skipped: null });

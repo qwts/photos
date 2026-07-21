@@ -54,7 +54,7 @@ export const MixedPreflightAndCompletion: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(await canvas.findByText('1 original')).toBeVisible();
-    await expect(canvas.getByText('ESTIMATED SPACE FREED · 8.4 MB')).toBeVisible();
+    await expect(canvas.getByText('Estimated space freed · 8.4 MB')).toBeVisible();
     await expect(canvas.getByText('1 · not backed up yet')).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: 'Offload 1' }));
     await expect(args.onComplete).toHaveBeenCalledTimes(1);

@@ -14,6 +14,7 @@ import { useLightboxChrome } from './use-lightbox-chrome';
 import { usePrefersReducedMotion } from './use-reduced-motion.js';
 import { useFormats } from '../i18n/use-formats.js';
 import { directionOf } from '../../../shared/i18n/locales.js';
+import { useAnnouncer } from '../components/LiveAnnouncer';
 
 import './lightbox.css';
 
@@ -93,9 +94,10 @@ export function Lightbox({
   onRepairDimensions,
   suppressRehydrate = false,
   onDelete,
-}: LightboxProps): ReactElement {
+  }: LightboxProps): ReactElement {
   const intl = useIntl();
   const { formatCalendarDate } = useFormats();
+  const { announce } = useAnnouncer();
   const direction = directionOf(intl.locale);
   const [ephemeralState, setEphemeralState] = useState<{
     readonly photoId: string;
@@ -149,6 +151,25 @@ export function Lightbox({
 
   const taken = photo.takenAt ?? photo.importedAt;
   const chromeClass = chrome ? ' ovl-lightbox__chrome--on' : '';
+  useEffect(() => {
+    announce(
+      `${photo.fileName}, ${formatCalendarDate(taken)}${photo.place === null ? '' : `, ${photo.place}`}`,
+      'polite',
+      'lightbox-photo',
+    );
+  }, [announce, formatCalendarDate, photo.fileName, photo.place, taken]);
+  useEffect(() => {
+    if (ephemeralStage === null || ephemeralStage === 'released') return;
+    const custodyMessage =
+      ephemeralStage === 'fetching'
+        ? 'Fetching original'
+        : ephemeralStage === 'verifying'
+          ? 'Verifying original'
+          : ephemeralStage === 'ready'
+            ? 'Streaming original. It will be offloaded again when the lightbox closes.'
+            : 'Original unavailable';
+    announce(custodyMessage, ephemeralStage === 'error' ? 'assertive' : 'polite', 'lightbox-custody');
+  }, [announce, ephemeralStage]);
 
   return (
     // The lightbox surface observes pointer activity and image/background clicks
@@ -182,7 +203,7 @@ export function Lightbox({
         platform={platform}
       />
       {photo.fileKind === 'raw' ? (
-        <span className={`ovl-lightbox__preview ovl-lightbox__chrome${chromeClass} mono-data`}>PREVIEW</span>
+        <span className={`ovl-lightbox__preview ovl-lightbox__chrome${chromeClass} mono-data`}>Preview</span>
       ) : null}
       {animated && reducedMotion ? (
         // Always visible (never chrome-faded): reduced-motion users must not
@@ -226,10 +247,10 @@ export function Lightbox({
         <span className="ovl-lightbox__exif mono-data">{exifStrip(photo)}</span>
         {offloaded && ephemeralStage !== null && ephemeralStage !== 'released' ? (
           <div className="ovl-lightbox__custody">
-            {ephemeralStage === 'fetching' ? <span className="mono-data">FETCHING ORIGINAL…</span> : null}
-            {ephemeralStage === 'verifying' ? <span className="mono-data">VERIFYING ORIGINAL…</span> : null}
-            {ephemeralStage === 'ready' ? <span className="mono-data">STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE</span> : null}
-            {ephemeralStage === 'error' ? <span className="mono-data">ORIGINAL UNAVAILABLE</span> : null}
+            {ephemeralStage === 'fetching' ? <span className="mono-data">Fetching original…</span> : null}
+            {ephemeralStage === 'verifying' ? <span className="mono-data">Verifying original…</span> : null}
+            {ephemeralStage === 'ready' ? <span className="mono-data">Streaming original · re-offloads on close</span> : null}
+            {ephemeralStage === 'error' ? <span className="mono-data">Original unavailable</span> : null}
             {ephemeralStage === 'ready' ? (
               <Button
                 size="sm"

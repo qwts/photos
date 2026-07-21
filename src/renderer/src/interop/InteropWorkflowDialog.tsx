@@ -76,7 +76,7 @@ export function InteropWorkflowDialog({
         <div className="ovl-interop__context mono-data">
           {state.entry} · {interopPhaseLabel(state.phase)}
         </div>
-        <div className="ovl-interop__segmented" aria-label="Transfer operation">
+        <div className="ovl-interop__segmented" role="group" aria-label="Transfer operation">
           {(['move', 'sync'] as const).map((operation) => (
             <button
               key={operation}

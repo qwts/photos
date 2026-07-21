@@ -22,7 +22,7 @@ test('virtualizes and cursor-pages a synthetic library', async () => {
     const page = await app.firstWindow();
     const grid = page.getByTestId('virtual-grid');
     await expect(grid).toBeVisible();
-    await expect(page.getByTestId('statusbar-left')).toContainText('2,000 PHOTOS ·');
+    await expect(page.getByTestId('statusbar-left')).toContainText('2,000 photos ·');
 
     // Windowed rendering: only the visible rows (+overscan) are in the DOM.
     await expect(grid.locator('.ovl-grid__cell').first()).toBeVisible();

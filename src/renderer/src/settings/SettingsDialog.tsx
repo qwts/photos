@@ -137,15 +137,42 @@ export function SettingsDialog({
       onClose={onClose}
     >
       <div className="ovl-settings" data-testid="settings-dialog">
-        <nav className="ovl-settings__nav" aria-label={intl.formatMessage(messages.sections)}>
+        <div
+          className="ovl-settings__nav"
+          role="tablist"
+          tabIndex={-1}
+          aria-label={intl.formatMessage(messages.sections)}
+          onKeyDown={(event) => {
+            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+            const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+            const current = tabs.findIndex((tab) => tab === document.activeElement);
+            const next =
+              event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? tabs.length - 1
+                  : event.key === 'ArrowDown'
+                    ? (current + 1) % tabs.length
+                    : (current - 1 + tabs.length) % tabs.length;
+            const tab = tabs[next];
+            if (tab === undefined) return;
+            event.preventDefault();
+            tab.focus();
+            tab.click();
+          }}
+        >
           {SECTIONS.map(({ key, icon, label }) => {
             const current = key === section;
             return (
               <button
                 key={key}
+                id={`settings-tab-${key}`}
                 type="button"
+                role="tab"
                 className={`ovl-settings__navrow${current ? ' ovl-settings__navrow--active' : ''}`}
-                aria-current={current}
+                aria-selected={current}
+                aria-controls="settings-panel"
+                tabIndex={current ? 0 : -1}
                 onClick={() => {
                   selectSection(key);
                 }}
@@ -155,8 +182,16 @@ export function SettingsDialog({
               </button>
             );
           })}
-        </nav>
-        <div ref={paneRef} className="ovl-settings__pane" data-testid="settings-pane" data-section={section}>
+        </div>
+        <div
+          ref={paneRef}
+          id="settings-panel"
+          className="ovl-settings__pane"
+          role="tabpanel"
+          aria-labelledby={`settings-tab-${section}`}
+          data-testid="settings-pane"
+          data-section={section}
+        >
           {settings === null ? null : section === 'general' ? (
             <GeneralPane settings={settings} onPatch={patch} />
           ) : section === 'storage' ? (

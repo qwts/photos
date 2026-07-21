@@ -167,7 +167,7 @@ export const RawPreviewBadge: Story = {
   args: { photo: { ...PHOTO, fileKind: 'raw', fileName: 'IMG_4021.RAF' } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('PREVIEW')).toBeVisible();
+    await expect(canvas.getByText('Preview')).toBeVisible();
     await expect(canvas.getByText(/IMG_4021\.RAF — Jun 12, 2026/u)).toBeVisible();
   },
 };
@@ -510,7 +510,7 @@ export const OffloadedFetching: Story = {
   parameters: { ephemeralStage: 'fetching' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await waitFor(() => expect(canvas.getByText('FETCHING ORIGINAL…')).toBeVisible());
+    await waitFor(() => expect(canvas.getByText('Fetching original…')).toBeVisible());
     await expect(canvas.queryByRole('button', { name: 'Keep downloaded' })).not.toBeInTheDocument();
   },
 };
@@ -519,7 +519,7 @@ export const OffloadedVerifying: Story = {
   args: { photo: { ...PHOTO, syncState: 'offloaded' } },
   parameters: { ephemeralStage: 'verifying' },
   play: async ({ canvasElement }) => {
-    await waitFor(() => expect(within(canvasElement).getByText('VERIFYING ORIGINAL…')).toBeVisible());
+    await waitFor(() => expect(within(canvasElement).getByText('Verifying original…')).toBeVisible());
   },
 };
 
@@ -528,7 +528,7 @@ export const OffloadedStreaming: Story = {
   parameters: { ephemeralStage: 'ready' },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await waitFor(() => expect(canvas.getByText('STREAMING ORIGINAL · RE-OFFLOADS ON CLOSE')).toBeVisible());
+    await waitFor(() => expect(canvas.getByText('Streaming original · re-offloads on close')).toBeVisible());
     await expect(canvas.getByRole('button', { name: 'Keep downloaded' })).toBeVisible();
     await expect(canvas.getByText('FUJIFILM X-T5 · ƒ/1.4 · 1/250S · ISO 200 · 35MM')).toBeVisible();
   },
@@ -538,7 +538,9 @@ export const OffloadedUnavailable: Story = {
   args: { photo: { ...PHOTO, syncState: 'offloaded' } },
   parameters: { ephemeralStage: 'error' },
   play: async ({ canvasElement }) => {
-    await waitFor(() => expect(within(canvasElement).getByText('ORIGINAL UNAVAILABLE')).toBeVisible());
+    await waitFor(() =>
+      expect(within(canvasElement).getByText('Original unavailable', { selector: '.ovl-lightbox__custody span' })).toBeVisible(),
+    );
   },
 };
 

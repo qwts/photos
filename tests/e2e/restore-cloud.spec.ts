@@ -136,7 +136,7 @@ test('fresh profile restores complete state; wrong password is isolated and canc
 
     await page.getByLabel('Recovery-key password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Discover backups' }).click();
-    await expect(page.getByTestId('restore-library-card')).toContainText(`${String(PHOTO_COUNT)} PHOTOS`);
+    await expect(page.getByTestId('restore-library-card')).toContainText(`${String(PHOTO_COUNT)} photos`);
     await page.getByRole('button', { name: 'Review restore' }).click();
     await page.getByRole('button', { name: `Restore ${String(PHOTO_COUNT)} photos` }).click();
     await expect(page.getByRole('button', { name: 'Cancel and keep staged progress' })).toBeVisible();
@@ -154,7 +154,7 @@ test('fresh profile restores complete state; wrong password is isolated and canc
   try {
     const page = await relaunched.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
-    await expect(page.getByTestId('statusbar-left')).toContainText(`${String(PHOTO_COUNT)} PHOTOS`);
+    await expect(page.getByTestId('statusbar-left')).toContainText(`${String(PHOTO_COUNT)} photos`);
     await expect(page.getByTestId('restore-onboarding')).not.toBeVisible();
     const restored = await page.evaluate<RecoverableSnapshot>(async () => {
       const api = (globalThis as unknown as { overlook: OverlookApi }).overlook;

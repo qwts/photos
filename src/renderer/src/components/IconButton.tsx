@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, ReactElement } from 'react';
+import { forwardRef } from 'react';
+import type { ButtonHTMLAttributes } from 'react';
 
 import './controls.css';
 import { Icon, type IconName } from './Icon';
@@ -15,13 +16,16 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
 }
 
 // components/core/IconButton.jsx — square control, 24/28/34px.
-export function IconButton({ icon, label, size = 'md', active, className, ...rest }: IconButtonProps): ReactElement {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { icon, label, size = 'md', active, className, ...rest },
+  ref,
+) {
   const classes = ['ovl-icon-button', `ovl-icon-button--${size}`, active ? 'ovl-icon-button--active' : undefined, className]
     .filter(Boolean)
     .join(' ');
   return (
-    <button type="button" aria-label={label} aria-pressed={active} className={classes} {...rest}>
+    <button ref={ref} type="button" aria-label={label} aria-pressed={active} className={classes} {...rest}>
       <Icon name={icon} size={size === 'lg' ? 20 : 16} />
     </button>
   );
-}
+});

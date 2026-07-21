@@ -373,7 +373,7 @@ export function LightboxViewport({
       ) : null}
       {showHint && chromeVisible ? (
         <div className="ovl-lightbox__gesture-hint mono-data" role="status">
-          DOUBLE-CLICK TO FILL · OPTION + SCROLL TO ZOOM · SCROLL OR ARROWS TO PAN
+          Double-click to fill · Option + scroll to zoom · scroll or arrows to pan
         </div>
       ) : null}
       <div
@@ -420,7 +420,12 @@ export function LightboxViewport({
           onClick={() => rotateBy(1)}
         />
       </div>
-      <div className={`ovl-lightbox__zoom ovl-lightbox__chrome${chromeClass}`} aria-label="Image zoom controls" style={{ top: toolbarTop }}>
+      <div
+        className={`ovl-lightbox__zoom ovl-lightbox__chrome${chromeClass}`}
+        role="toolbar"
+        aria-label="Image zoom controls"
+        style={{ top: toolbarTop }}
+      >
         <IconButton icon="minus" size="sm" label="Zoom out (−)" onClick={() => zoomBy(1 / KEYBOARD_ZOOM_STEP)} />
         <Button className="ovl-lightbox__zoom-reset mono-data" variant="ghost" size="sm" aria-label="Fit image (0)" onClick={resetView}>
           {Math.round(transform.zoom * 100)}%

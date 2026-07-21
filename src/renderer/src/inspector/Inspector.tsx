@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
 import { useFormats } from '../i18n/use-formats.js';
@@ -7,6 +7,7 @@ import { Badge } from '../components/Badge';
 import { MetadataRow } from '../components/MetadataRow';
 import { StatusGlyph } from '../components/StatusGlyph';
 import type { PhotoRecord, SyncStatus } from '../../../shared/library/types.js';
+import { useAnnouncer } from '../components/LiveAnnouncer';
 
 import './inspector.css';
 
@@ -24,6 +25,7 @@ const STATUS_TONE: Record<SyncStatus, string> = {
 };
 
 const messages = defineMessages({
+  title: { id: 'inspector.title', defaultMessage: 'Inspector' },
   metadataLabel: { id: 'inspector.file.metadata', defaultMessage: 'Metadata' },
   dimensionMismatch: {
     id: 'inspector.file.dimensionMismatch',
@@ -33,10 +35,10 @@ const messages = defineMessages({
 
 function Section({ title, children }: { readonly title: string; readonly children: ReactElement | (ReactElement | null)[] }): ReactElement {
   return (
-    <div className="ovl-inspector__section">
-      <div className="ovl-inspector__sectionTitle">{title}</div>
+    <section className="ovl-inspector__section">
+      <h3 className="ovl-inspector__sectionTitle">{title}</h3>
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -48,10 +50,17 @@ export interface InspectorProps {
 
 export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): ReactElement {
   const intl = useIntl();
+  const { announce } = useAnnouncer();
   const { formatBytes, formatCalendarDate } = useFormats();
+  useEffect(() => {
+    if (photo === null) return;
+    const date = formatCalendarDate(photo.takenAt ?? photo.importedAt);
+    announce([photo.fileName, date, photo.place].filter((part) => part !== null).join(', '), 'polite', 'inspector-photo');
+  }, [announce, formatCalendarDate, photo?.fileName, photo?.importedAt, photo?.place, photo?.takenAt]);
   if (photo === null) {
     return (
       <div className="ovl-inspector ovl-inspector--empty" data-testid="inspector">
+        <h2 className="ovl-sr-only">{intl.formatMessage(messages.title)}</h2>
         <span className="mono-data">Select a photo</span>
       </div>
     );
@@ -68,15 +77,16 @@ export function Inspector({ photo, providerLabel = 'Cloud' }: InspectorProps): R
   const dateLine = [formatCalendarDate(photo.takenAt ?? photo.importedAt), photo.place ?? null].filter((part) => part !== null).join(' · ');
   const provider = providerLabel;
   const statusText: Record<SyncStatus, string> = {
-    local: 'LOCAL ONLY — NOT BACKED UP',
-    synced: `ENCRYPTED · ${provider}`,
-    syncing: `ENCRYPTING → ${provider}…`,
-    offloaded: `OFFLOADED — ORIGINAL IN ${provider}`,
-    error: 'SYNC FAILED — WILL RETRY',
+    local: 'Local only — not backed up',
+    synced: `Encrypted · ${provider}`,
+    syncing: `Encrypting → ${provider}…`,
+    offloaded: `Offloaded — original in ${provider}`,
+    error: 'Sync failed — will retry',
   };
 
   return (
     <div className="ovl-inspector" data-testid="inspector">
+      <h2 className="ovl-sr-only">{intl.formatMessage(messages.title)}</h2>
       <div className="ovl-inspector__header">
         <img className="ovl-inspector__thumb" src={thumbUrl(photo.id)} alt="" />
         <div className="ovl-inspector__headText">

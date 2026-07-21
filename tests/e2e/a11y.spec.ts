@@ -116,6 +116,15 @@ async function assertWithinBudget(page: Page, id: string): Promise<void> {
 test('a11y: the composed shell — sidebar, toolbar, grid, and status bar together', async () => {
   const { app, page } = await launchSeeded('shell', '12');
   try {
+    await expect(page.getByRole('navigation', { name: 'Library' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Photo tools' })).toBeVisible();
+    const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { level: 1 })).toHaveText('All Photos');
+    await expect(page.getByRole('contentinfo')).toBeVisible();
+    const firstPhoto = page.getByRole('listitem').first();
+    await expect(firstPhoto).toHaveAttribute('aria-posinset', '1');
+    await expect(firstPhoto).toHaveAttribute('aria-setsize', '12');
+    await expect(firstPhoto.locator('.ovl-tile__open')).toHaveAccessibleName(/Open IMG_\d+\.(?:JPG|RAF)/u);
     await assertWithinBudget(page, 'shell-grid');
   } finally {
     await app.close();
@@ -125,8 +134,11 @@ test('a11y: the composed shell — sidebar, toolbar, grid, and status bar togeth
 test('a11y: the lightbox over the shell', async () => {
   const { app, page } = await launchSeeded('lightbox', '4');
   try {
+    const firstPhotoLabel = (await page.locator('.ovl-grid__cell').first().locator('.ovl-tile__open').getAttribute('aria-label')) ?? '';
+    const firstPhotoName = firstPhotoLabel.replace(/^Open /u, '').split(',')[0] ?? '';
     await page.locator('.ovl-grid__cell').first().click();
     await expect(page.getByTestId('lightbox')).toBeVisible();
+    await expect(page.getByTestId('screen-reader-announcer-polite')).toContainText(firstPhotoName);
     await assertWithinBudget(page, 'shell-lightbox');
   } finally {
     await app.close();
@@ -175,6 +187,7 @@ test('a11y: a selection active in the grid', async () => {
   try {
     await page.locator('.ovl-tile__select').first().click();
     await expect(page.getByTestId('selection-pill')).toBeVisible();
+    await expect(page.getByTestId('screen-reader-announcer-polite')).toHaveText('1 photo selected');
     await assertWithinBudget(page, 'shell-selection');
   } finally {
     await app.close();

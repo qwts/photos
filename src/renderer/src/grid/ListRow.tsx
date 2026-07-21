@@ -14,6 +14,7 @@ export interface ListRowProps {
   /** Thumb source override (stories); defaults to the #75 protocol URL. */
   readonly src?: string | undefined;
   readonly selected: boolean;
+  readonly accessibleName?: string | undefined;
   /** Opens the photo (row body). */
   readonly onOpen: () => void;
   /** Toggles selection (circle only) — never opens. */
@@ -38,6 +39,7 @@ export function ListRow({
   photo,
   src,
   selected,
+  accessibleName,
   onOpen,
   onToggleSelect,
   onToggleFavorite,
@@ -55,7 +57,7 @@ export function ListRow({
   return (
     <div role="group" className={`ovl-listrow${selected ? ' ovl-listrow--selected' : ''}`}>
       <PhotoOpenButton
-        label={`Open ${photo.fileName}`}
+        label={accessibleName ?? `Open ${photo.fileName}`}
         className="ovl-listrow__open"
         onOpen={onOpen}
         onContextAction={onContextAction}

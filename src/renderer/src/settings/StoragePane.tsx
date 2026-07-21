@@ -199,12 +199,12 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           ) : connected && status !== null && status.usedBytes !== null && status.totalBytes !== null ? (
             <>
               <div className="ovl-settings__providerMeta mono-data">
-                {status.account ?? 'THIS DEVICE'} · {formatBytes(status.usedBytes)} / {formatBytes(status.totalBytes)} USED
+                {status.account ?? 'This device'} · {formatBytes(status.usedBytes)} / {formatBytes(status.totalBytes)} used
               </div>
               <ProgressBar label={`${name} storage used`} value={status.usedBytes} max={Math.max(status.totalBytes, 1)} tone="cyan" />
             </>
           ) : connected ? (
-            <div className="ovl-settings__providerMeta mono-data">{status?.account ?? 'THIS DEVICE'} · STORAGE USAGE NOT REPORTED</div>
+            <div className="ovl-settings__providerMeta mono-data">{status?.account ?? 'This device'} · storage usage not reported</div>
           ) : (
             <div className="ovl-settings__providerMeta">
               {connectError === null ? 'Link a provider to store encrypted originals off-device.' : connectError}
@@ -212,8 +212,8 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           )}
           {descriptor === null ? null : (
             <div className="ovl-settings__providerMeta mono-data">
-              {descriptor.capabilities.verification === 'server-checksum' ? 'SERVER CHECKSUM' : 'VERIFY BY DOWNLOAD'} ·{' '}
-              {descriptor.capabilities.resumableUpload ? 'RESUMABLE UPLOADS' : 'RESTARTS INTERRUPTED UPLOADS'}
+              {descriptor.capabilities.verification === 'server-checksum' ? 'Server checksum' : 'Verify by download'} ·{' '}
+              {descriptor.capabilities.resumableUpload ? 'resumable uploads' : 'restarts interrupted uploads'}
             </div>
           )}
           {connectError === null || (!connected && connection !== 'error') ? null : (

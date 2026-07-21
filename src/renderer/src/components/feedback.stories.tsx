@@ -60,4 +60,9 @@ export const Metadata: StoryObj = {
       <MetadataRow label="Place" value="Kyoto, Japan" mono={false} />
     </div>
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByRole('term')).toHaveLength(5);
+    await expect(canvas.getAllByRole('definition')).toHaveLength(5);
+  },
 };

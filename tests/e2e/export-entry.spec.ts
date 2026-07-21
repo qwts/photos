@@ -31,7 +31,7 @@ test('export entry points: pill opens with the selection count, lightbox with co
     // Cancel: the dialog closes and the selection is preserved.
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByText('2 photos selected')).toBeHidden();
-    await expect(page.getByTestId('selection-pill')).toContainText('2 SELECTED');
+    await expect(page.getByTestId('selection-pill')).toContainText('2 selected');
 
     // Lightbox entry: the share icon opens with count=1 (the focused photo).
     await page.locator('.ovl-grid__cell').first().click();

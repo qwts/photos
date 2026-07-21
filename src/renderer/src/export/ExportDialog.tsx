@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
@@ -7,6 +7,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
 import { useFormats } from '../i18n/use-formats.js';
+import { useAnnouncer } from '../components/LiveAnnouncer';
 
 import './export.css';
 
@@ -32,6 +33,9 @@ interface Bar {
 
 export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): ReactElement | null {
   const { formatCount } = useFormats();
+  const { announce } = useAnnouncer();
+  const formatLabelId = useId();
+  const destinationLabelId = useId();
   const [phase, setPhase] = useState<Phase>('options');
   const [format, setFormat] = useState<'original' | 'jpeg'>('original');
   const [decrypt, setDecrypt] = useState(true);
@@ -51,6 +55,18 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
       setBar(payload);
     });
   }, [phase]);
+
+  const progressQuarter = bar.total === 0 ? -1 : Math.floor((bar.done / bar.total) * 4);
+  const announcedProgressQuarter = useRef(-2);
+  useEffect(() => {
+    if (phase !== 'running' || progressQuarter < 0 || announcedProgressQuarter.current === progressQuarter) return;
+    announcedProgressQuarter.current = progressQuarter;
+    announce(
+      `${decrypt ? 'Decrypting and writing files' : 'Writing files'}: ${formatCount(bar.done)} of ${formatCount(bar.total)}`,
+      'polite',
+      'export-progress',
+    );
+  }, [announce, bar.done, bar.total, decrypt, formatCount, phase, progressQuarter]);
 
   if (!open) {
     return null;
@@ -72,10 +88,20 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
         setCancelled(summary.cancelled);
         setPreviewTranscodes(summary.previewTranscodes);
         setPhase('done');
+        if (summary.failed > 0) {
+          announce(`Export finished with ${formatCount(summary.failed)} ${summary.failed === 1 ? 'failure' : 'failures'}`, 'assertive');
+        } else if (summary.cancelled > 0) {
+          announce(`Export cancelled after ${formatCount(summary.exported)} ${summary.exported === 1 ? 'photo' : 'photos'}`);
+        } else {
+          announce(
+            `Export complete: ${formatCount(summary.exported)} ${summary.exported === 1 ? 'photo' : 'photos'} exported and decrypted`,
+          );
+        }
       })
       .catch(() => {
         setRunError(true);
         setPhase('done');
+        announce('Export failed. No source photos were changed.', 'assertive');
       });
   };
 
@@ -120,8 +146,8 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
               {formatCount(count)} {noun} selected
             </div>
           </div>
-          <div className="ovl-export__row">
-            <span>Format</span>
+          <div className="ovl-export__row" role="group" aria-labelledby={formatLabelId}>
+            <span id={formatLabelId}>Format</span>
             <Segmented
               label="Format"
               value={format}
@@ -147,8 +173,8 @@ export function ExportDialog({ open, photoIds, onClose }: ExportDialogProps): Re
               Without decryption, exported files can&apos;t be opened outside Overlook.
             </div>
           ) : null}
-          <div className="ovl-export__row">
-            <span>Destination</span>
+          <div className="ovl-export__row" role="group" aria-labelledby={destinationLabelId}>
+            <span id={destinationLabelId}>Destination</span>
             <Button
               variant="secondary"
               icon="folder"
