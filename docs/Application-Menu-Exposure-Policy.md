@@ -8,11 +8,12 @@ one of those surfaces.
 
 ## Current baseline
 
-Overlook does not yet install a native application menu. Keyboard commands now
-use the typed shared registry and context-aware renderer dispatcher introduced
-by #399; its generated `?` overlay is the user-facing shortcut reference.
-Context menus still duplicate labels and handlers until #504, and #531 owns the
-native projection.
+Overlook installs a native application menu projected from the typed shared
+registry. The same registry drives the context-aware keyboard dispatcher and
+generated `?` shortcut reference introduced by #399. The native adapter added
+by #531 owns platform placement, OS roles, focused-window state, and the bounded
+main-to-renderer route bridge. Context menus still duplicate labels and handlers
+until #504.
 
 ## Exposure test
 
@@ -132,6 +133,19 @@ target again, checks lock and operation state, and refuses stale requests.
 When no window exists, only commands explicitly marked `createsWindow` may
 create one; routes are queued until renderer readiness and then delivered once.
 
+The renderer snapshot is intentionally content-free: it reports a route class,
+dialog/focus class, bounded target cardinality, availability booleans, and
+checked state. It never sends filenames, paths, search text, photo metadata,
+library names, or secrets. Main overlays authoritative lock and active-work
+state before rendering or executing a command. A loading/reloaded document is
+not ready; only the latest idempotent route may wait for its readiness
+handshake. Mutations are never queued.
+
+Settings routes close conflicting dialogs and lightbox state before opening one
+Settings instance. A lock-safe Settings route received while locked stays
+pending in the renderer and opens only after authorization, so the lock surface
+never renders protected Settings contents.
+
 ## Shortcut policy
 
 - Use Electron roles for OS-owned editing/window/application shortcuts.
@@ -161,7 +175,9 @@ authorization, lock/profile commands, or the application Quit section.
    registry, conflict tests, focus contexts, and registry-generated shortcut
    help.
 2. [#531](https://github.com/qwts/photos/issues/531) projects eligible commands
-   into a native menu and implements the main-to-renderer route/state bridge.
+   into a native menu and implements the main-to-renderer route/state bridge,
+   with acceptance evidence in
+   [Acceptance Test: Native Application Menu](./acceptance/Acceptance-Test-Native-Application-Menu.md).
 3. [#504](https://github.com/qwts/photos/issues/504) converts object context
    menus to registry projections and completes the contextual action matrix.
 4. [#534](https://github.com/qwts/photos/issues/534) supplies ADR-0023

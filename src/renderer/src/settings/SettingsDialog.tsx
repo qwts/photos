@@ -27,6 +27,7 @@ export interface SettingsDialogProps {
   readonly onClose: () => void;
   readonly selectedPhotoIds?: readonly string[] | undefined;
   readonly onTransfer?: (() => void) | undefined;
+  readonly requestedSection?: SettingsSection | undefined;
 }
 
 const messages = defineMessages({
@@ -47,9 +48,15 @@ const SECTIONS: readonly { key: SettingsSection; icon: IconName; label: MessageD
   { key: 'privacy', icon: 'shield-check', label: messages.privacy },
 ];
 
-export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfer }: SettingsDialogProps): ReactElement | null {
+export function SettingsDialog({
+  open,
+  onClose,
+  selectedPhotoIds = [],
+  onTransfer,
+  requestedSection,
+}: SettingsDialogProps): ReactElement | null {
   const intl = useIntl();
-  const [section, setSection] = useState<SettingsSection>('storage');
+  const [section, setSection] = useState<SettingsSection>(requestedSection ?? 'storage');
   const paneRef = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Recovery-key dialog (#240): layered over Settings, per the mock.
@@ -59,6 +66,15 @@ export function SettingsDialog({ open, onClose, selectedPhotoIds = [], onTransfe
   const [appLockConfigured, setAppLockConfigured] = useState(false);
   const [touchIdStatus, setTouchIdStatus] = useState<Awaited<ReturnType<typeof window.overlook.appLock.touchIdStatus>> | null>(null);
   const [touchIdBusy, setTouchIdBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open || requestedSection === undefined) return;
+    setSection((current) => {
+      if (current === requestedSection) return current;
+      if (paneRef.current !== null) paneRef.current.scrollTop = 0;
+      return requestedSection;
+    });
+  }, [open, requestedSection]);
 
   useEffect(() => {
     if (!open) {

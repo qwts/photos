@@ -11,6 +11,7 @@ import {
 import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
 import { PHOTO_PURGE_AUTHORIZATION } from '../destructive-actions.js';
+import { commandIdSchema, commandMenuContextSchema } from '../commands/menu-contract.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -213,6 +214,8 @@ export const channels = {
   windowMinimize: defineChannel('window:minimize', z.object({}), z.object({})),
   windowToggleMaximize: defineChannel('window:toggle-maximize', z.object({}), z.object({ maximized: z.boolean() })),
   windowClose: defineChannel('window:close', z.object({}), z.object({})),
+  commandRendererReady: defineChannel('commands:renderer-ready', commandMenuContextSchema, z.object({})),
+  commandContextUpdate: defineChannel('commands:context-update', commandMenuContextSchema, z.object({})),
   appLockStatus: defineChannel('app-lock:status', z.object({}), appLockStatusSchema),
   appLockUnlock: defineChannel(
     'app-lock:unlock',
@@ -816,6 +819,7 @@ export const events = {
   // Main pushes window focus state; also the reference implementation of the
   // main→renderer event pattern (progress events, settings changes later).
   focusChanged: defineEvent('window:focus-changed', z.object({ focused: z.boolean() })),
+  commandInvoked: defineEvent('commands:invoked', z.object({ id: commandIdSchema })),
   appLockStateChanged: defineEvent('app-lock:state-changed', appLockStatusSchema),
   appLockTouchIdChanged: defineEvent('app-lock:touch-id-changed', touchIdStatusSchema),
   // Targeted library pushes (#71) — never refetch-the-world signals.

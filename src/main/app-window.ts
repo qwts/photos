@@ -43,6 +43,12 @@ export function createWindow(): BrowserWindow {
   return win;
 }
 
+export function registerWindowAllClosedQuit(): void {
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}
+
 export function relaunchLocked(): void {
   for (const win of BrowserWindow.getAllWindows()) win.destroy();
   app.relaunch();

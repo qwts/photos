@@ -2,6 +2,28 @@
   "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered \u2014 automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
   "entries": [
     {
+      "id": "native-application-menu",
+      "wiki": "Acceptance-Test-Native-Application-Menu",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/application-menu.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/commands/registry.test.ts", "tests/commands/menu-contract.test.ts", "tests/main/application-menu-model.test.ts"]
+        },
+        {
+          "type": "manual",
+          "reason": "A packaged macOS pass follows docs/acceptance/Acceptance-Test-Native-Application-Menu.md to verify native menu placement, inactive/hidden focus restoration, Services and OS roles, and assistive-technology behavior that the hidden Electron harness cannot observe."
+        }
+      ]
+    },
+    {
       "id": "m20-protected-album-workflows",
       "wiki": "Acceptance-Test-Protected-Albums",
       "coverage": [
