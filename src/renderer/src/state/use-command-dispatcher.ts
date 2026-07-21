@@ -84,6 +84,9 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'view.inspector.toggle':
           dispatch({ type: 'inspector/toggled' });
           return true;
+        case 'view.inspector.detach':
+          dispatch({ type: 'inspector/detached' });
+          return true;
         case 'view.lightbox.close':
           dispatch({ type: 'lightbox/closed' });
           return true;
@@ -144,8 +147,8 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         event.preventDefault();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
   }, [direction, dispatch, helpOpen, onHelp, platform, state]);
 }
 

@@ -41,6 +41,17 @@ test('app lock withholds content across configuration, bypass attempts, restart,
     const thumbUrl = await page.locator('.ovl-tile__img').first().getAttribute('src');
     expect(thumbUrl).not.toBeNull();
 
+    await page.locator('.ovl-grid__cell').first().click();
+    const inspectorOpened = first.waitForEvent('window');
+    await page.keyboard.press('ControlOrMeta+Shift+i');
+    const inspectorPage = await inspectorOpened;
+    await expect(inspectorPage).toHaveURL(/surface=inspector/u);
+    await expect(inspectorPage.getByTestId('inspector')).toContainText('IMG_4021.RAF');
+    await page.bringToFront();
+    await page.keyboard.press('ArrowRight');
+    await expect(inspectorPage.getByTestId('inspector')).toContainText('IMG_4028.JPG');
+    await page.keyboard.press('Escape');
+
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByRole('tab', { name: 'Privacy' }).click();
     await page.getByRole('button', { name: 'Set password…' }).click();
@@ -51,6 +62,8 @@ test('app lock withholds content across configuration, bypass attempts, restart,
 
     await expect(page.getByTestId('lock-screen')).toBeVisible();
     await expect(page.getByTestId('virtual-grid')).toHaveCount(0);
+    await expect(inspectorPage.getByTestId('lock-screen')).toBeVisible();
+    await expect(inspectorPage.getByTestId('inspector')).toHaveCount(0);
     const ipcBypasses = await page.evaluate<string[]>(`(async () => {
       const attempt = async (operation) => {
         try {

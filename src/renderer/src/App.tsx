@@ -9,12 +9,14 @@ import { LockScreen } from './lock/LockScreen';
 import { EMPTY_COMMAND_MENU_CONTEXT } from '../../shared/commands/menu-contract.js';
 import type { CommandId } from '../../shared/commands/registry.js';
 import { AnnouncerProvider } from './components/LiveAnnouncer';
+import { DetachedInspectorWindow } from './inspector/DetachedInspectorWindow';
 
 type LockStatus = Awaited<ReturnType<typeof window.overlook.appLock.status>>;
 
 // App root (#73): platform lookup + state provider around the composed
 // shell. The token specimen moved to Storybook-only duty with this change.
 export function App(): ReactElement {
+  const detachedInspector = new URLSearchParams(window.location.search).get('surface') === 'inspector';
   // Until the platform round-trip resolves, render the mac variant: it draws
   // no controls, so a wrong first frame on win/linux flashes nothing broken.
   const [platform, setPlatform] = useState('darwin');
@@ -64,13 +66,17 @@ export function App(): ReactElement {
 
   return (
     <AnnouncerProvider>
-      <AppStateProvider>
-        {fresh === true ? (
-          <RestoreOnboarding platform={platform} onStartNew={() => setFresh(false)} />
-        ) : fresh === false ? (
-          <Shell platform={platform} lockConfigured={lock.state === 'unlocked'} nativeCommand={nativeCommand} />
-        ) : null}
-      </AppStateProvider>
+      {detachedInspector ? (
+        <DetachedInspectorWindow />
+      ) : (
+        <AppStateProvider>
+          {fresh === true ? (
+            <RestoreOnboarding platform={platform} onStartNew={() => setFresh(false)} />
+          ) : fresh === false ? (
+            <Shell platform={platform} lockConfigured={lock.state === 'unlocked'} nativeCommand={nativeCommand} />
+          ) : null}
+        </AppStateProvider>
+      )}
     </AnnouncerProvider>
   );
 }

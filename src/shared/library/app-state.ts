@@ -27,6 +27,7 @@ export interface AppState {
   readonly selection: ReadonlySet<string>;
   readonly lightboxId: string | null;
   readonly inspectorOpen: boolean;
+  readonly inspectorDetached: boolean;
   /** The surface that owns the docked Inspector lifecycle. */
   readonly inspectorSource: 'lightbox' | 'selection' | null;
   /** Stable cursor for paging through the visible selection. */
@@ -65,6 +66,7 @@ export const initialAppState: AppState = {
   selection: new Set<string>(),
   lightboxId: null,
   inspectorOpen: false,
+  inspectorDetached: false,
   inspectorSource: null,
   inspectorPhotoId: null,
   importOpen: false,
@@ -100,6 +102,8 @@ export type AppAction =
   | { type: 'lightbox/stepped'; delta: 1 | -1 }
   | { type: 'lightbox/closed' }
   | { type: 'inspector/toggled' }
+  | { type: 'inspector/detached' }
+  | { type: 'inspector/detached-closed' }
   | { type: 'inspector/stepped'; delta: 1 | -1 }
   | { type: 'dialog/set'; dialog: 'import' | 'export' | 'settings' | 'libraries' | 'activity'; open: boolean }
   | { type: 'toast/shown'; toast: NonNullable<AppState['toast']> }
@@ -123,16 +127,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const visible = new Set(action.photos.map((photo) => photo.id));
       const selection = new Set([...state.selection].filter((id) => visible.has(id)));
       const lightboxId = state.lightboxId !== null && visible.has(state.lightboxId) ? state.lightboxId : null;
-      const inspectorClosedWithLightbox = state.inspectorSource === 'lightbox' && lightboxId === null;
-      const inspectorPhotoId =
-        state.inspectorSource === 'lightbox' ? lightboxId : selectedPhotoId(action.photos, selection, state.inspectorPhotoId);
+      const inspectorClosedWithLightbox = state.inspectorSource === 'lightbox' && lightboxId === null && !state.inspectorDetached;
+      const detachedFallbackToSelection = state.inspectorSource === 'lightbox' && lightboxId === null && state.inspectorDetached;
+      const inspectorPhotoId = detachedFallbackToSelection
+        ? selectedPhotoId(action.photos, selection, state.inspectorPhotoId)
+        : state.inspectorSource === 'lightbox'
+          ? lightboxId
+          : selectedPhotoId(action.photos, selection, state.inspectorPhotoId);
       return {
         ...state,
         photos: action.photos,
         selection,
         lightboxId,
         inspectorOpen: inspectorClosedWithLightbox ? false : state.inspectorOpen,
-        inspectorSource: inspectorClosedWithLightbox ? null : state.inspectorSource,
+        inspectorSource: inspectorClosedWithLightbox ? null : detachedFallbackToSelection ? 'selection' : state.inspectorSource,
         inspectorPhotoId: inspectorClosedWithLightbox ? null : inspectorPhotoId,
       };
     }
@@ -174,6 +182,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         selection: new Set<string>(),
         lightboxId: null,
         inspectorOpen: false,
+        inspectorDetached: false,
         inspectorSource: null,
         inspectorPhotoId: null,
       };
@@ -214,8 +223,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         lightboxId: action.photoId,
-        inspectorSource: state.inspectorOpen ? 'lightbox' : state.inspectorSource,
-        inspectorPhotoId: state.inspectorOpen ? action.photoId : state.inspectorPhotoId,
+        inspectorSource: state.inspectorOpen || state.inspectorDetached ? 'lightbox' : state.inspectorSource,
+        inspectorPhotoId: state.inspectorOpen || state.inspectorDetached ? action.photoId : state.inspectorPhotoId,
       };
     case 'lightbox/stepped': {
       // ←/→ step the VISIBLE (filtered) sequence with wraparound (#93);
@@ -237,12 +246,23 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           };
     }
     case 'lightbox/closed':
+      if (state.inspectorSource === 'lightbox' && state.inspectorDetached) {
+        return {
+          ...state,
+          lightboxId: null,
+          inspectorSource: 'selection',
+          inspectorPhotoId: selectedPhotoId(state.photos, state.selection, null),
+        };
+      }
       return state.inspectorSource === 'lightbox'
         ? { ...state, lightboxId: null, inspectorOpen: false, inspectorSource: null, inspectorPhotoId: null }
         : { ...state, lightboxId: null };
     case 'inspector/toggled': {
       if (state.inspectorOpen) {
         return { ...state, inspectorOpen: false, inspectorSource: null, inspectorPhotoId: null };
+      }
+      if (state.inspectorDetached) {
+        return { ...state, inspectorOpen: true, inspectorDetached: false };
       }
       const inspectorSource = state.lightboxId === null ? 'selection' : 'lightbox';
       return {
@@ -252,6 +272,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         inspectorPhotoId: inspectorSource === 'lightbox' ? state.lightboxId : selectedPhotoId(state.photos, state.selection, null),
       };
     }
+    case 'inspector/detached': {
+      const inspectorSource = state.lightboxId === null ? 'selection' : 'lightbox';
+      return {
+        ...state,
+        inspectorOpen: false,
+        inspectorDetached: true,
+        inspectorSource,
+        inspectorPhotoId:
+          inspectorSource === 'lightbox' ? state.lightboxId : selectedPhotoId(state.photos, state.selection, state.inspectorPhotoId),
+      };
+    }
+    case 'inspector/detached-closed':
+      return state.inspectorDetached ? { ...state, inspectorDetached: false, inspectorSource: null, inspectorPhotoId: null } : state;
     case 'inspector/stepped': {
       if (state.inspectorSource !== 'selection') return state;
       const selected = state.photos.filter((photo) => state.selection.has(photo.id));
@@ -295,6 +328,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       // Mock semantics: Esc exits the lightbox when open, otherwise clears
       // the selection.
       if (state.lightboxId !== null) {
+        if (state.inspectorSource === 'lightbox' && state.inspectorDetached) {
+          return {
+            ...state,
+            lightboxId: null,
+            inspectorSource: 'selection',
+            inspectorPhotoId: selectedPhotoId(state.photos, state.selection, null),
+          };
+        }
         return state.inspectorSource === 'lightbox'
           ? { ...state, lightboxId: null, inspectorOpen: false, inspectorSource: null, inspectorPhotoId: null }
           : { ...state, lightboxId: null };

@@ -24,6 +24,11 @@ const getLocale = createInvoker(channels.getLocale, invokeTransport);
 const minimizeWindow = createInvoker(channels.windowMinimize, invokeTransport);
 const toggleMaximizeWindow = createInvoker(channels.windowToggleMaximize, invokeTransport);
 const closeWindow = createInvoker(channels.windowClose, invokeTransport);
+const inspectorWindowOpen = createInvoker(channels.inspectorWindowOpen, invokeTransport);
+const inspectorWindowUpdate = createInvoker(channels.inspectorWindowUpdate, invokeTransport);
+const inspectorWindowClose = createInvoker(channels.inspectorWindowClose, invokeTransport);
+const inspectorWindowStep = createInvoker(channels.inspectorWindowStep, invokeTransport);
+const inspectorWindowSnapshot = createInvoker(channels.inspectorWindowSnapshot, invokeTransport);
 const commandRendererReady = createInvoker(channels.commandRendererReady, invokeTransport);
 const commandContextUpdate = createInvoker(channels.commandContextUpdate, invokeTransport);
 
@@ -73,6 +78,25 @@ const overlook: OverlookApi = {
       await commandContextUpdate(context);
     },
     onInvoked: createSubscriber(events.commandInvoked, subscribeTransport),
+  }),
+  inspectorWindow: Object.freeze({
+    open: async (request) => {
+      await inspectorWindowOpen(request);
+    },
+    update: async (request) => {
+      await inspectorWindowUpdate(request);
+    },
+    close: async () => {
+      await inspectorWindowClose({});
+    },
+    step: async (delta) => {
+      await inspectorWindowStep({ delta });
+    },
+    snapshot: async () => inspectorWindowSnapshot({}),
+    onChanged: createSubscriber(events.inspectorWindowChanged, subscribeTransport),
+    onClosed: (listener) => createSubscriber(events.inspectorWindowClosed, subscribeTransport)(listener),
+    onStepRequested: (listener) =>
+      createSubscriber(events.inspectorWindowStepRequested, subscribeTransport)(({ delta }) => listener(delta)),
   }),
   appLock: Object.freeze({
     status: async () => appLockStatus({}),

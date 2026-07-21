@@ -21,6 +21,16 @@ export interface OverlookApi {
   readonly minimizeWindow: () => Promise<void>;
   readonly toggleMaximizeWindow: () => Promise<boolean>;
   readonly closeWindow: () => Promise<void>;
+  readonly inspectorWindow: {
+    readonly open: (request: Req<typeof channels.inspectorWindowOpen>) => Promise<void>;
+    readonly update: (request: Req<typeof channels.inspectorWindowUpdate>) => Promise<void>;
+    readonly close: () => Promise<void>;
+    readonly step: (delta: 1 | -1) => Promise<void>;
+    readonly snapshot: () => Promise<Res<typeof channels.inspectorWindowSnapshot>>;
+    readonly onChanged: (listener: (payload: z.output<typeof events.inspectorWindowChanged.payload>) => void) => () => void;
+    readonly onClosed: (listener: () => void) => () => void;
+    readonly onStepRequested: (listener: (delta: 1 | -1) => void) => () => void;
+  };
   readonly appLock: {
     readonly status: () => Promise<Res<typeof channels.appLockStatus>>;
     readonly unlock: (request: Req<typeof channels.appLockUnlock>) => Promise<Res<typeof channels.appLockUnlock>>;

@@ -206,6 +206,34 @@ describe('app state reducer', () => {
     assert.equal(state.inspectorOpen, true, 'an empty grid selection keeps the explicitly opened dock available');
   });
 
+  test('detached Inspector follows lightbox focus then falls back to gallery selection (#503)', () => {
+    const photos = ['a', 'b'].map((id) => ({ id }) as AppState['photos'][number]);
+    let state = apply(
+      initialAppState,
+      { type: 'photos/loaded', photos, append: false },
+      { type: 'selection/all', photoIds: ['a'] },
+      { type: 'lightbox/opened', photoId: 'b' },
+      { type: 'inspector/detached' },
+    );
+    assert.equal(state.inspectorDetached, true);
+    assert.equal(state.inspectorOpen, false);
+    assert.equal(state.inspectorSource, 'lightbox');
+    assert.equal(state.inspectorPhotoId, 'b');
+
+    state = apply(state, { type: 'lightbox/closed' });
+    assert.equal(state.inspectorDetached, true);
+    assert.equal(state.inspectorSource, 'selection');
+    assert.equal(state.inspectorPhotoId, 'a');
+
+    state = apply(state, { type: 'inspector/toggled' });
+    assert.equal(state.inspectorDetached, false);
+    assert.equal(state.inspectorOpen, true, 'showing the dock reattaches the same Inspector authority');
+    state = apply(state, { type: 'inspector/detached' }, { type: 'inspector/detached-closed' });
+    assert.equal(state.inspectorDetached, false);
+    assert.equal(state.inspectorSource, null);
+    assert.equal(state.inspectorPhotoId, null);
+  });
+
   test('lightbox follows visibility: an id that leaves the photo set closes for real (#92)', () => {
     const photo = (id: string) => ({ id }) as AppState['photos'][number];
     let state = apply(
