@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 import {
   createAppearanceRuntime,
+  withAppearanceBootstrapQuery,
   WINDOW_BACKGROUND,
   type AppearanceSettingsSource,
   type NativeThemeSource,
@@ -11,6 +12,13 @@ import {
 import type { AppSettings } from '../../src/shared/settings/settings.js';
 
 type Appearance = AppSettings['appearance'];
+
+test('appearance bootstrap URL replaces a stale theme without losing its surface query (#395 review)', () => {
+  assert.equal(
+    withAppearanceBootstrapQuery('file:///app/index.html?surface=inspector&theme=dark', 'light'),
+    'file:///app/index.html?surface=inspector&theme=light',
+  );
+});
 
 class FakeSettings implements AppearanceSettingsSource {
   private appearance: Appearance = 'dark';
