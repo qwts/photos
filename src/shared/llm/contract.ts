@@ -52,9 +52,3 @@ export const llmSpendResponseSchema = z.object({
     )
     .readonly(),
 });
-
-export type TokenUsageWire = z.output<typeof tokenUsageSchema>;
-export type LlmProvidersResponse = z.output<typeof llmProvidersResponseSchema>;
-export type LlmEstimateResponse = z.output<typeof llmEstimateResponseSchema>;
-export type LlmAskResponse = z.output<typeof llmAskResponseSchema>;
-export type LlmSpendResponse = z.output<typeof llmSpendResponseSchema>;
