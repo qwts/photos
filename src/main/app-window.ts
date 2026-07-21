@@ -6,6 +6,7 @@ import { events } from '../shared/ipc/channels.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/renderer-lock-reload.js';
 import { initialWindowBehavior } from './e2e-window-visibility.js';
+import { createInspectorWindowController } from './inspector-window-controller.js';
 import { installWindowNavigationPolicy } from './window-navigation-policy.js';
 import type { InspectorWindowState } from '../shared/inspector-window-contract.js';
 
@@ -17,49 +18,38 @@ export function createWindow(): BrowserWindow {
   return createContentWindow('primary');
 }
 
-let inspectorWindow: BrowserWindow | undefined;
-let inspectorState: InspectorWindowState = { photoId: null, providerLabel: 'Cloud', selectionPosition: null };
+const inspectorController = createInspectorWindowController<BrowserWindow>({
+  createWindow: () => createContentWindow('inspector'),
+  allWindows: () => BrowserWindow.getAllWindows(),
+  isDestroyed: (win) => win.isDestroyed(),
+  isLoading: (win) => win.webContents.isLoading(),
+  onClosed: (win, listener) => win.once('closed', listener),
+  onDidFinishLoad: (win, listener) => win.webContents.on('did-finish-load', listener),
+  send: (win, name, payload) => win.webContents.send(name, payload),
+  close: (win) => win.close(),
+  show: (win) => win.show(),
+  focus: (win) => win.focus(),
+  shouldShow: () => process.env['OVERLOOK_E2E'] === undefined,
+});
 
 export function openInspectorWindow(state: InspectorWindowState): void {
-  inspectorState = state;
-  if (inspectorWindow === undefined || inspectorWindow.isDestroyed()) {
-    inspectorWindow = createContentWindow('inspector');
-    inspectorWindow.once('closed', () => {
-      inspectorWindow = undefined;
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!isInspectorWindow(win)) win.webContents.send(events.inspectorWindowClosed.name, {});
-      }
-    });
-    inspectorWindow.webContents.on('did-finish-load', sendInspectorState);
-  } else {
-    sendInspectorState();
-  }
-  if (process.env['OVERLOOK_E2E'] === undefined) {
-    inspectorWindow.show();
-    inspectorWindow.focus();
-  }
+  inspectorController.open(state);
 }
 
 export function updateInspectorWindow(state: InspectorWindowState): void {
-  inspectorState = state;
-  sendInspectorState();
+  inspectorController.update(state);
 }
 
 export function closeInspectorWindow(): void {
-  inspectorWindow?.close();
+  inspectorController.close();
 }
 
 export function inspectorWindowSnapshot(): InspectorWindowState {
-  return inspectorState;
+  return inspectorController.snapshot();
 }
 
 export function isInspectorWindow(win: BrowserWindow): boolean {
-  return win === inspectorWindow;
-}
-
-function sendInspectorState(): void {
-  if (inspectorWindow === undefined || inspectorWindow.isDestroyed() || inspectorWindow.webContents.isLoading()) return;
-  inspectorWindow.webContents.send(events.inspectorWindowChanged.name, inspectorState);
+  return inspectorController.isInspectorWindow(win);
 }
 
 function createContentWindow(surface: 'primary' | 'inspector'): BrowserWindow {
