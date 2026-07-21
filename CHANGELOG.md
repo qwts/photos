@@ -1,5 +1,11 @@
 # photos
 
+## 0.48.0
+
+### Minor Changes
+
+- 22d40c8: Add the macOS iCloud Drive encrypted backup provider and deterministic recovery contracts.
+
 ## 0.47.0
 
 ### Minor Changes
