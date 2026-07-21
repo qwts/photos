@@ -64,7 +64,7 @@ export const SelectionActionsAndKeyboard: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const menu = canvas.getByRole('menu', { name: 'Actions for 2 selected photos' });
-    await expect(within(menu).getAllByRole('menuitem')).toHaveLength(9);
+    await expect(within(menu).getAllByRole('menuitem')).toHaveLength(8);
     await expect(within(menu).getByRole('menuitem', { name: 'Open' })).toHaveFocus();
     await userEvent.keyboard('{End}');
     await expect(within(menu).getByRole('menuitem', { name: 'Move photo to Trash' })).toHaveFocus();

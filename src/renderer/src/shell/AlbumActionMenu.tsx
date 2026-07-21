@@ -23,6 +23,7 @@ export function AlbumActionMenu({ album, x, y, onRename, onDelete, onTransfer, o
       x={x}
       y={y}
       onClose={onClose}
+      closeOnSelect={false}
       items={[
         { id: 'album.rename', label: intl.formatMessage(commandById('album.rename').label), icon: 'album', action: onRename },
         { id: 'album.transfer', label: intl.formatMessage(commandById('album.transfer').label), icon: 'refresh-cw', action: onTransfer },
