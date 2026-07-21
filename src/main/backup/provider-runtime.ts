@@ -54,7 +54,6 @@ export class ProviderRuntime {
   private googleConnectFlow: (() => Promise<PCloudConnectResult>) | undefined;
   private googleProviderInstance: GoogleDriveProvider | undefined;
   private iCloudDriveProviderInstance: ICloudDriveProvider | undefined;
-  private iCloudDriveAvailable = false;
   private registryInstance: ProviderRegistry | undefined;
   private readonly disconnectInFlight = new Map<string, Promise<PCloudConnectResult>>();
 
@@ -147,7 +146,6 @@ export class ProviderRuntime {
 
   async descriptors(): Promise<readonly ProviderDescriptor[]> {
     const iCloudStatus = this.registryInstance?.get('icloud-drive') === undefined ? null : await this.iCloudStatus();
-    this.iCloudDriveAvailable = iCloudStatus?.available === true;
     return (this.registryInstance?.list() ?? []).map((provider) => {
       const googleUnavailable = provider.id === 'google-drive' && this.googleClientId() === null;
       const iCloudUnavailable = provider.id === 'icloud-drive' && iCloudStatus?.available !== true;
@@ -184,7 +182,6 @@ export class ProviderRuntime {
     this.registryInstance = undefined;
     this.googleProviderInstance = undefined;
     this.iCloudDriveProviderInstance = undefined;
-    this.iCloudDriveAvailable = false;
   }
 
   async status(providerId: string): Promise<{
@@ -351,9 +348,6 @@ export class ProviderRuntime {
       return null;
     }
     if (raw === 'google-drive' && this.googleClientId() === null) {
-      return null;
-    }
-    if (raw === 'icloud-drive' && !this.iCloudDriveAvailable) {
       return null;
     }
     if (this.registryInstance !== undefined && this.registryInstance.get(raw) === undefined) {
