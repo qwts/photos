@@ -50,11 +50,6 @@ export function configureInteropRuntime(
   return profileRuntime;
 }
 
-export function getInteropRuntime(): InteropRuntime {
-  if (profileRuntime === undefined) throw new Error('Interoperability runtime is not configured.');
-  return profileRuntime;
-}
-
 export function interopRuntimeBusy(): boolean {
   return profileRuntime?.busy() === true;
 }

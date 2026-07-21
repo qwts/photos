@@ -126,3 +126,16 @@ test('retry state is durable and respects its retry time', () => {
   assert.equal(journal.pending('2026-07-21T18:05:00.000Z').length, 1);
   db.close();
 });
+
+test('retained and failed objects are terminal, not retry work', () => {
+  const db = seed(databasePath());
+  const journal = new InboundMoveObjectJournal(db);
+  journal.discover(discovery);
+  journal.advance(TRANSFER_ID, RECORD_PATH, 'failed', '2026-07-21T18:00:01.000Z');
+  assert.deepEqual(journal.pending('2026-07-21T18:01:00.000Z'), []);
+  assert.throws(
+    () => journal.retry(TRANSFER_ID, RECORD_PATH, '2026-07-21T18:05:00.000Z', { code: 'corrupt' }, DISCOVERED_AT),
+    /cannot be retried/u,
+  );
+  db.close();
+});
