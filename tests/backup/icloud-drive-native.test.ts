@@ -154,6 +154,8 @@ describe('iCloud Drive native bridge contract (#656)', () => {
     const native = nativeBinding();
     const bridge = createNativeICloudDriveBridge({ platform: 'darwin', packaged: true, loadBinding: () => native.binding });
     await assert.rejects(bridge.delete('../escape', ACCOUNT_TOKEN), errorWithCode('invalid-path'));
+    await assert.rejects(bridge.delete('Overlook//object', ACCOUNT_TOKEN), errorWithCode('invalid-path'));
+    await assert.rejects(bridge.delete('Overlook/', ACCOUNT_TOKEN), errorWithCode('invalid-path'));
     await assert.rejects(bridge.replaceFile('Overlook/object', 'relative', ACCOUNT_TOKEN), errorWithCode('invalid-path'));
     await assert.rejects(bridge.list('Overlook', 'cursor', 100, ACCOUNT_TOKEN), errorWithCode('invalid-path'));
     await assert.rejects(bridge.list('Overlook', null, 0, ACCOUNT_TOKEN), errorWithCode('invalid-path'));

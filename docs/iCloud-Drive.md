@@ -52,8 +52,37 @@ The binding exposes only the operations needed by the provider adapter:
 Every operation revalidates the code signature, entitlement, iCloud account,
 and account token. Account changes, offline errors, delayed materialization,
 unresolved versions, missing objects, and I/O failures cross the boundary only
-as stable fail-closed reason codes. The provider adapter owns remote hashing
-and verification in #657.
+as stable fail-closed reason codes.
+
+## Provider contract
+
+The `icloud-drive` adapter owns `Overlook/<library-id>/` and exposes only
+provider-relative paths to the backup and restore engines. It stages encrypted
+streams in private temporary files for coordinated replacement, materializes
+every download through the native boundary, and computes SHA-256 from the
+materialized remote bytes. Local write completion alone never counts as remote
+verification.
+
+The capability descriptor is intentionally conservative:
+
+- macOS only;
+- quota unknown (`usedBytes` and `totalBytes` remain undisclosed to UI);
+- download-hash verification;
+- no resumable upload; and
+- no app-owned interactive authentication or reconnect flow because Apple
+  Account custody remains in macOS.
+
+An authority instance pins the opaque Apple Account token shared by all of its
+library scopes. A changed or unavailable account expires that authority instead
+of allowing an existing provider to read a different account. Library discovery
+advertises only a conflict-free `recovery/bootstrap.ovrb` whose remote bytes can
+be materialized and hashed.
+
+The deterministic local authority models pagination, placeholder delay,
+offline/account changes, conflicts, interrupted committed replacements,
+cancellation, and process restart. It runs the shared object, restore, and
+complete fresh-profile disaster-recovery contracts in CI. Production
+registration remains #658; signed live evidence remains #659.
 
 ## Build and smoke verification
 
