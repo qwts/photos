@@ -215,6 +215,46 @@ function hydrateEnvelope(row: OutboxRow | undefined): InteropEnvelope | undefine
 export class MoveJournalRepository {
   constructor(private readonly db: BetterSqlite3.Database) {}
 
+  recordDiscovery(envelopeInput: InteropEnvelope, reviewCategoryInput: InteropReviewCategory, atInput: string): StoredMoveJournal {
+    const envelope = interopEnvelopeSchema.parse(envelopeInput);
+    const at = timestampSchema.parse(atInput);
+    const reviewCategory = interopReviewCategorySchema.parse(reviewCategoryInput);
+    if (envelope.header.operation !== 'move' || !isRecordEnvelope(envelope)) {
+      throw new MoveJournalError('Move discovery accepts only canonical record messages.');
+    }
+    const request: RecordEnvelope = envelope;
+    this.db.transaction(() => {
+      this.ensureJournal(request, 'reviewing', at);
+      runNamed(
+        this.db,
+        `INSERT OR IGNORE INTO interop_move_items (
+           transfer_id, interop_id, source_message_id, source_local_id, review_category, record_json, state
+         ) VALUES (
+           @transferId, @interopId, @sourceMessageId, @sourceLocalId, @reviewCategory, @recordJson, 'queued'
+         )`,
+        {
+          transferId: request.header.transferId,
+          interopId: request.payload.record.identity.interopId,
+          sourceMessageId: request.header.messageId,
+          sourceLocalId: request.payload.record.identity.origin.localId,
+          reviewCategory,
+          recordJson: JSON.stringify(request.payload.record),
+        },
+      );
+      this.assertSameQueuedRequest(request);
+      this.updateJournal(request.header.transferId, 'reviewing', request.header.sequence, at);
+      this.putAudit({
+        eventKey: `${request.header.messageId}:queued`,
+        transferId: request.header.transferId,
+        interopId: request.payload.record.identity.interopId,
+        event: 'queued',
+        details: { discovered: true, sourceMessageId: request.header.messageId },
+        at,
+      });
+    })();
+    return this.requireJournal(request.header.transferId);
+  }
+
   queueRequest(envelopeInput: InteropEnvelope, atInput: string): StoredMoveJournal {
     const envelope = interopEnvelopeSchema.parse(envelopeInput);
     const at = timestampSchema.parse(atInput);
