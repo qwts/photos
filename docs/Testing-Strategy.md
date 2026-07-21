@@ -99,6 +99,15 @@ instead. Floor values are unchanged (ratchet intact).
   download: Electron carries its own Chromium.
 - The `webServer`/`baseURL` fixture mechanism is gone; there is no port to
   collide on, so parallel workers stay safe.
+- **Launch/readiness/teardown go through the shared `launchOverlook` fixture**
+  (`tests/e2e/support/app.ts`): staged, individually-bounded launch readiness
+  with stage-labeled stalls, and a bounded force-kill-backed close so a
+  timed-out test cannot escalate into an unowned worker-teardown timeout.
+  In-place reloads use `expectRendererReload`. Every wall-clock wait in the
+  suite is inventoried and classified in the
+  [E2E & Storybook Timing Audit](./E2E-Timing-Audit.md) (#630); add new timing
+  waits there in the same PR. A timeout increase requires naming the stalled
+  condition — never a blanket raise.
 
 ## What runs when & where
 
