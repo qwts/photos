@@ -4,6 +4,8 @@
 // Compiled id → message string for an ICU runtime.
 
 export const en: Readonly<Record<string, string>> = {
+  "commands.album.membership.add": "Add to album",
+  "commands.album.membership.remove": "Remove from album",
   "commands.app.lock.now": "Lock Now",
   "commands.app.search.focus": "Focus search",
   "commands.app.settings.open": "Settings…",
@@ -22,6 +24,8 @@ export const en: Readonly<Record<string, string>> = {
   "commands.help.open": "Overlook Help",
   "commands.help.shortcuts": "Keyboard shortcuts",
   "commands.help.title": "Keyboard shortcuts",
+  "commands.history.redo": "Redo",
+  "commands.history.undo": "Undo",
   "commands.library.import": "Import Photos…",
   "commands.library.source.all": "All Photos",
   "commands.library.source.favorites": "Favorites",
@@ -29,6 +33,7 @@ export const en: Readonly<Record<string, string>> = {
   "commands.library.source.trash": "Trash",
   "commands.library.switch": "Switch Library…",
   "commands.photo.favorite.toggle": "Toggle favorite",
+  "commands.photo.restore": "Restore photo",
   "commands.photo.trash": "Move photo to Trash",
   "commands.selection.clear": "Clear selection",
   "commands.selection.selectAll": "Select all photos",

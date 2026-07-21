@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { commandIdSchema } from '../commands/menu-contract.js';
+
 const classification = z.enum(['immediately-reversible', 'conditionally-reversible', 'compensating-only', 'irreversible']);
 const status = z.enum(['available', 'conditional', 'pending', 'expired', 'unavailable', 'irreversible']);
 const reason = z.enum([
@@ -17,7 +19,7 @@ const reason = z.enum([
 
 export const capabilitySnapshotSchema = z.object({
   recordId: z.string().nullable(),
-  commandId: z.string().nullable(),
+  commandId: commandIdSchema.nullable(),
   classification: classification.nullable(),
   status,
   reason,

@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { FormattedDate, FormattedMessage, FormattedTime, defineMessages, useIntl } from 'react-intl';
 
 import type { ActivityEvent, ActivityEventType } from '../../../shared/activity/types.js';
+import type { CapabilityReason, HistoryStatus } from '../../../shared/history/types.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 
@@ -13,7 +14,22 @@ const messages = defineMessages({
   empty: { id: 'activity.empty', defaultMessage: 'Library activity will appear here.' },
   failed: { id: 'activity.failed', defaultMessage: 'Activity could not be loaded.' },
   loadMore: { id: 'activity.loadMore', defaultMessage: 'Load more' },
+  undo: { id: 'activity.undo', defaultMessage: 'Undo' },
+  redo: { id: 'activity.redo', defaultMessage: 'Redo' },
 });
+
+const reasonMessages: Readonly<Record<CapabilityReason, { readonly id: string; readonly defaultMessage: string }>> = {
+  ready: { id: 'activity.history.ready', defaultMessage: 'Ready' },
+  'empty-stack': { id: 'activity.history.empty', defaultMessage: 'No action available' },
+  expired: { id: 'activity.history.expired', defaultMessage: 'The reversal window expired' },
+  'state-changed': { id: 'activity.history.stateChanged', defaultMessage: 'The affected item changed' },
+  'resource-missing': { id: 'activity.history.resourceMissing', defaultMessage: 'The affected item is missing' },
+  'path-occupied': { id: 'activity.history.pathOccupied', defaultMessage: 'The original path is occupied' },
+  'permission-denied': { id: 'activity.history.permissionDenied', defaultMessage: 'Permission is required' },
+  'insufficient-space': { id: 'activity.history.insufficientSpace', defaultMessage: 'Not enough disk space' },
+  'bytes-unavailable': { id: 'activity.history.bytesUnavailable', defaultMessage: 'Required data is unavailable' },
+  irreversible: { id: 'activity.history.irreversible', defaultMessage: 'This action cannot be reversed' },
+};
 
 function countOf(event: ActivityEvent): number {
   return typeof event.payload['count'] === 'number'
@@ -63,23 +79,79 @@ const eventMessages: Readonly<Record<ActivityEventType, { readonly id: string; r
   'activity.pruned': { id: 'activity.event.pruned', defaultMessage: 'Expired old activity records' },
 };
 
+function HistoryControls({
+  history,
+  executing,
+  execute,
+}: {
+  readonly history: HistoryStatus;
+  readonly executing: 'undo' | 'redo' | null;
+  readonly execute: (direction: 'undo' | 'redo') => Promise<void>;
+}): ReactElement {
+  const intl = useIntl();
+  return (
+    <div className="ovl-activity__history" aria-label={intl.formatMessage({ id: 'activity.history', defaultMessage: 'History controls' })}>
+      {(['undo', 'redo'] as const).map((direction) => {
+        const capability = history[direction];
+        const available = capability.reason === 'ready';
+        const reasonId = `activity-${direction}-reason`;
+        return (
+          <div className="ovl-activity__history-action" key={direction}>
+            <Button
+              variant="secondary"
+              icon={direction === 'undo' ? 'rotate-ccw' : 'rotate-cw'}
+              disabled={!available || executing !== null}
+              aria-describedby={reasonId}
+              onClick={() => void execute(direction)}
+            >
+              {intl.formatMessage(messages[direction])}
+            </Button>
+            <span id={reasonId} className="ovl-activity__history-reason">
+              {intl.formatMessage(reasonMessages[capability.reason])}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ActivityDialog({ open, onClose }: { readonly open: boolean; readonly onClose: () => void }): ReactElement {
   const intl = useIntl();
   const [events, setEvents] = useState<readonly ActivityEvent[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [history, setHistory] = useState<HistoryStatus | null>(null);
+  const [executing, setExecuting] = useState<'undo' | 'redo' | null>(null);
 
   const load = useCallback(async (next?: number): Promise<void> => {
     setStatus('loading');
     try {
-      const page = await window.overlook.activity.page({ limit: 50, ...(next === undefined ? {} : { cursor: next }) });
+      const [page, historyStatus] = await Promise.all([
+        window.overlook.activity.page({ limit: 50, ...(next === undefined ? {} : { cursor: next }) }),
+        window.overlook.history.status(),
+      ]);
       setEvents((current) => (next === undefined ? page.events : [...current, ...page.events]));
       setCursor(page.nextCursor);
+      setHistory(historyStatus);
       setStatus('ready');
     } catch {
       setStatus('failed');
     }
   }, []);
+
+  const execute = useCallback(
+    async (direction: 'undo' | 'redo'): Promise<void> => {
+      setExecuting(direction);
+      try {
+        await window.overlook.history[direction]({ requestId: crypto.randomUUID() });
+        await load();
+      } finally {
+        setExecuting(null);
+      }
+    },
+    [load],
+  );
 
   useEffect(() => {
     let active = true;
@@ -99,6 +171,7 @@ export function ActivityDialog({ open, onClose }: { readonly open: boolean; read
         <div className="sr-only" role="status" aria-live="polite">
           {status === 'loading' ? <FormattedMessage id="activity.loading" defaultMessage="Loading activity" /> : null}
         </div>
+        {history === null ? null : <HistoryControls history={history} executing={executing} execute={execute} />}
         {status === 'failed' ? <p className="ovl-activity__state">{intl.formatMessage(messages.failed)}</p> : null}
         {status === 'ready' && events.length === 0 ? <p className="ovl-activity__state">{intl.formatMessage(messages.empty)}</p> : null}
         {events.length > 0 ? (
