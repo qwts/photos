@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
   color: var(--text-body);
 }
 
@@ -14,6 +15,10 @@
 .ovl-restore__hero h2,
 .ovl-restore__hero p {
   margin: 0;
+}
+
+.ovl-restore__hero > div {
+  min-width: 0;
 }
 
 .ovl-restore__hero h2 {
@@ -30,6 +35,10 @@
   font-size: var(--text-sm);
 }
 
+.ovl-restore__hero p {
+  overflow-wrap: anywhere;
+}
+
 .ovl-restore__field {
   display: grid;
   gap: var(--space-2);
@@ -40,6 +49,7 @@
 .ovl-restore__field select,
 .ovl-restore__field input {
   width: 100%;
+  min-width: 0;
   min-height: 34px;
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-sm);
@@ -56,6 +66,11 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+.ovl-restore__keyrow,
+.ovl-restore__actions {
+  flex-wrap: wrap;
 }
 
 .ovl-restore__keyrow {

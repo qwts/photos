@@ -25,6 +25,7 @@ function installStub(options?: {
   readonly deferInitialProviderStatus?: boolean;
   readonly deferProviderDisconnect?: boolean;
   readonly deferQuickActionSettings?: boolean;
+  readonly iCloudAvailable?: boolean;
 }): void {
   let current: AppSettings = { ...defaultSettings };
   const mockProvider = {
@@ -41,9 +42,9 @@ function installStub(options?: {
     available: true,
     unavailableReason: null,
   };
-  const archiveProvider = {
-    id: 'archive-cloud',
-    label: 'Archive Cloud',
+  const iCloudDriveProvider = {
+    id: 'icloud-drive',
+    label: 'iCloud Drive',
     capabilities: {
       quota: 'unknown' as const,
       verification: 'download-hash' as const,
@@ -52,8 +53,8 @@ function installStub(options?: {
       interactiveAuth: false,
       reconnectRequired: false,
     },
-    available: true,
-    unavailableReason: null,
+    available: options?.iCloudAvailable !== false,
+    unavailableReason: options?.iCloudAvailable === false ? 'iCloud Drive requires a provisioned signed macOS build.' : null,
   };
   const googleDriveProvider = {
     id: 'google-drive',
@@ -140,7 +141,7 @@ function installStub(options?: {
           reason: null,
         })),
       }),
-    providers: () => Promise.resolve({ providers: [mockProvider, googleDriveProvider, archiveProvider], defaultProviderId: 'mock' }),
+    providers: () => Promise.resolve({ providers: [mockProvider, googleDriveProvider, iCloudDriveProvider], defaultProviderId: 'mock' }),
     // The card's truth follows the stub store's providerId, like main does.
     providerStatus: async ({ providerId }) => {
       // Keep status observably asynchronous so the story proves the pane's
@@ -149,10 +150,14 @@ function installStub(options?: {
       providerStatusRequests += 1;
       if (initialRequest) await initialProviderStatus;
       const provider =
-        providerId === archiveProvider.id ? archiveProvider : providerId === googleDriveProvider.id ? googleDriveProvider : mockProvider;
+        providerId === iCloudDriveProvider.id
+          ? iCloudDriveProvider
+          : providerId === googleDriveProvider.id
+            ? googleDriveProvider
+            : mockProvider;
       return current.providerId !== providerId
         ? { provider, connected: false, account: null, usedBytes: null, totalBytes: null }
-        : providerId === archiveProvider.id
+        : providerId === iCloudDriveProvider.id
           ? { provider, connected: true, account: null, usedBytes: null, totalBytes: null }
           : providerId === googleDriveProvider.id
             ? { provider, connected: true, account: null, usedBytes: 42_000_000_000, totalBytes: 100_000_000_000 }
@@ -410,10 +415,29 @@ export const ProviderSelectionAndUnknownQuota: Story = {
     await userEvent.click(
       within(body.getByRole('dialog', { name: 'Disconnect Local mock?' })).getByRole('button', { name: 'Disconnect provider' }),
     );
-    await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Archive Cloud' })));
-    await userEvent.click(body.getByRole('button', { name: 'Connect Archive Cloud' }));
+    await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'iCloud Drive' })));
+    await userEvent.click(body.getByRole('button', { name: 'Connect iCloud Drive' }));
     await waitFor(() => expect(body.getByText('This device · storage usage not reported')).toBeVisible());
     await expect(body.getByText(/Verify by download/u)).toBeVisible();
+  },
+};
+
+export const ICloudUnavailableSetup: Story = {
+  decorators: [
+    (Story) => {
+      installStub({ iCloudAvailable: false });
+      return <Story />;
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    await waitFor(() => expect(body.getByRole('button', { name: 'Disconnect provider' })).toBeVisible());
+    await userEvent.click(body.getByRole('button', { name: 'Disconnect provider' }));
+    await userEvent.click(
+      within(body.getByRole('dialog', { name: 'Disconnect Local mock?' })).getByRole('button', { name: 'Disconnect provider' }),
+    );
+    await expect(await waitFor(() => body.getByRole('radio', { name: 'iCloud Drive' }))).toBeDisabled();
+    await expect(body.getByText('iCloud Drive: iCloud Drive requires a provisioned signed macOS build.')).toBeVisible();
   },
 };
 

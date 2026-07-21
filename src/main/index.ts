@@ -364,7 +364,7 @@ function getProviderRuntime(): ProviderRuntime {
  * used for backup writes; discovered homes are re-scoped before restore. */
 function ensureRestoreProviderRegistry(): ProviderRuntime {
   const runtime = getProviderRuntime();
-  if (runtime.descriptors().length === 0) {
+  if (runtime.provider('pcloud') === undefined) {
     runtime.buildProvider({
       mockRootDir: path.join(app.getPath('userData'), 'mock-remote'),
       fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),

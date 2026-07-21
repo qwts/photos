@@ -9,6 +9,7 @@ import { ProviderRuntime, type ProviderRuntimeOptions } from '../../src/main/bac
 import { GoogleDrivePathStore } from '../../src/main/backup/google-drive/path-store.js';
 import { PCloudTokenStore } from '../../src/main/backup/pcloud/token-store.js';
 import type { SafeStorageLike } from '../../src/main/crypto/keystore.js';
+import { DeterministicICloudDriveBridge } from '../../src/main/backup/icloud-drive/deterministic-bridge.js';
 
 // #256: provider-selection policy — packaged vs dev targets, the stale-mock
 // correction, and the persistent library id.
@@ -31,6 +32,7 @@ function runtime(overrides: Partial<ProviderRuntimeOptions> = {}) {
       providerId: () => null,
       isPackaged: false,
       harnessEnv: () => undefined,
+      iCloudDriveBridge: new DeterministicICloudDriveBridge(),
       ...overrides,
     }),
   };
@@ -198,14 +200,15 @@ describe('provider runtime policy (#256)', () => {
     const { runtime: r } = runtime({ isWorkActive: () => active });
     r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
     assert.deepEqual(
-      r.descriptors().map(({ id, capabilities }) => ({ id, quota: capabilities.quota })),
+      (await r.descriptors()).map(({ id, capabilities }) => ({ id, quota: capabilities.quota })),
       [
         { id: 'pcloud', quota: 'known' },
         { id: 'google-drive', quota: 'known' },
+        { id: 'icloud-drive', quota: 'unknown' },
         { id: 'mock', quota: 'known' },
       ],
     );
-    const drive = r.descriptors().find(({ id }) => id === 'google-drive');
+    const drive = (await r.descriptors()).find(({ id }) => id === 'google-drive');
     assert.deepEqual(
       { available: drive?.available, reason: drive?.unavailableReason },
       { available: false, reason: 'Google Drive OAuth is not configured in this build.' },
@@ -215,6 +218,54 @@ describe('provider runtime policy (#256)', () => {
     assert.equal((await r.disconnect('mock')).ok, false);
     active = false;
     assert.equal((await r.connect('mock')).ok, true);
+  });
+
+  test('iCloud availability, account replacement, reconnect, and library rebinding fail closed', async () => {
+    const bridge = new DeterministicICloudDriveBridge();
+    let providerId: string | null = null;
+    const { runtime: r } = runtime({
+      iCloudDriveBridge: bridge,
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+    });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud'), fault: undefined });
+    assert.deepEqual(await r.connect('icloud-drive'), { ok: true, reason: null });
+    assert.equal(providerId, 'icloud-drive');
+    assert.equal((await r.status('icloud-drive')).connected, true);
+
+    bridge.changeAccount();
+    assert.equal((await r.status('icloud-drive')).connected, false, 'an OS-account replacement cannot inherit the old authority');
+    assert.deepEqual(await r.connect('icloud-drive'), { ok: true, reason: null }, 'explicit reconnect pins the replacement account');
+    assert.equal((await r.status('icloud-drive')).connected, true);
+
+    const previous = r.provider('icloud-drive');
+    r.resetLibraryBinding();
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud'), fault: undefined, libraryId: 'LIBRARY_B' });
+    assert.notEqual(r.provider('icloud-drive'), previous);
+    assert.equal((await r.status('icloud-drive')).connected, true, 'a library rebind accepts the current account without stale authority');
+  });
+
+  test('iCloud unavailability is descriptor-driven and never changes selection', async () => {
+    const bridge = new DeterministicICloudDriveBridge();
+    bridge.setAvailable(false);
+    let providerId: string | null = null;
+    const { runtime: r } = runtime({
+      iCloudDriveBridge: bridge,
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+    });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud-unavailable'), fault: undefined });
+    const descriptor = (await r.descriptors()).find(({ id }) => id === 'icloud-drive');
+    assert.deepEqual(
+      { available: descriptor?.available, reason: descriptor?.unavailableReason },
+      { available: false, reason: 'Sign in to iCloud Drive in macOS Settings.' },
+    );
+    assert.deepEqual(await r.connect('icloud-drive'), { ok: false, reason: 'Sign in to iCloud Drive in macOS Settings.' });
+    assert.equal(providerId, null);
   });
 
   test('pCloud custody migrates out of the replaceable library directory', () => {
@@ -253,7 +304,7 @@ describe('provider runtime policy (#256)', () => {
     paths.setFolderId('LIB_1', '', 'old-account-library');
     assert.equal(existsSync(join(root, 'provider-auth', 'google-drive', 'google-drive-auth.bin')), true);
     r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
-    assert.equal(r.descriptors().find(({ id }) => id === 'google-drive')?.available, true);
+    assert.equal((await r.descriptors()).find(({ id }) => id === 'google-drive')?.available, true);
     assert.equal((await r.disconnect('google-drive')).ok, true);
     assert.equal(r.googleTokenStore().load(), null);
     const cleared = new GoogleDrivePathStore(driveCredentialDir);
@@ -261,7 +312,7 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(cleared.folderId('LIB_1', ''), null);
   });
 
-  test('library activation drops provider instances bound to the previous remote home', () => {
+  test('library activation drops provider instances bound to the previous remote home', async () => {
     const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-library-rebind-'));
     let dataDir = join(root, 'library-a');
     const { runtime: r } = runtime({ dataDir: () => dataDir, providerCredentialDir: (id) => join(root, 'provider-auth', id) });
@@ -273,7 +324,7 @@ describe('provider runtime policy (#256)', () => {
     dataDir = join(root, 'library-b');
     r.resetLibraryBinding();
     assert.equal(r.provider('mock'), undefined, 'status/data IPC cannot reuse a provider scoped to library A');
-    assert.deepEqual(r.descriptors(), []);
+    assert.deepEqual(await r.descriptors(), []);
 
     r.buildProvider({ mockRootDir: join(root, 'mock'), fault: undefined });
     assert.notEqual(r.provider('mock'), previousMock);
@@ -291,5 +342,6 @@ function baseOptions(): Omit<ProviderRuntimeOptions, 'dataDir'> {
     providerId: () => null,
     isPackaged: false,
     harnessEnv: () => undefined,
+    iCloudDriveBridge: new DeterministicICloudDriveBridge(),
   };
 }

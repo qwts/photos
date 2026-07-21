@@ -44,7 +44,7 @@ export function createBackupFacade(options: BackupFacadeOptions) {
     releaseEphemeral: (photoId: string) => options.ephemeralOriginalService().release(photoId),
     ephemeralStatus: (photoId: string) => options.ephemeralOriginalService().status(photoId),
     prepareEphemeral: (photoId: string) => options.ephemeralOriginalService().prepare(photoId, 'view'),
-    providers: () => ({ providers: options.runtime().descriptors(), defaultProviderId: options.runtime().defaultTarget() }),
+    providers: async () => ({ providers: await options.runtime().descriptors(), defaultProviderId: options.runtime().defaultTarget() }),
     providerStatus: (providerId: string) => options.runtime().status(providerId),
     connect: (providerId: string) => options.runtime().connect(providerId),
     disconnect: (providerId: string) => options.runtime().disconnect(providerId),

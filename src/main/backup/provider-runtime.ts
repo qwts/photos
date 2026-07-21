@@ -15,6 +15,8 @@ import { PCloudProvider } from './pcloud/pcloud-provider.js';
 import { PCloudTokenStore } from './pcloud/token-store.js';
 import type { StorageProvider } from './provider.js';
 import type { ProviderDescriptor } from '../../shared/backup/provider-descriptor.js';
+import { ICloudDriveProvider } from './icloud-drive/icloud-drive-provider.js';
+import type { ICloudDriveNativeBridge, ICloudDriveUnavailableReason } from './icloud-drive/native-bridge.js';
 
 // Provider-selection + pCloud-custody runtime (#256), extracted from the
 // composition root: which provider is active, who Connect targets, the
@@ -39,6 +41,7 @@ export interface ProviderRuntimeOptions {
   readonly googleDriveClientId?: (() => string | null) | undefined;
   readonly googleDriveClientSecret?: (() => string | null) | undefined;
   readonly fetchImpl?: typeof fetch | undefined;
+  readonly iCloudDriveBridge: ICloudDriveNativeBridge;
 }
 
 export class ProviderRuntime {
@@ -50,6 +53,8 @@ export class ProviderRuntime {
   private googleAuthInstance: GoogleDriveAuthClient | undefined;
   private googleConnectFlow: (() => Promise<PCloudConnectResult>) | undefined;
   private googleProviderInstance: GoogleDriveProvider | undefined;
+  private iCloudDriveProviderInstance: ICloudDriveProvider | undefined;
+  private iCloudDriveAvailable = false;
   private registryInstance: ProviderRegistry | undefined;
   private readonly disconnectInFlight = new Map<string, Promise<PCloudConnectResult>>();
 
@@ -140,15 +145,22 @@ export class ProviderRuntime {
     return this.googleConnectFlow();
   }
 
-  descriptors(): readonly ProviderDescriptor[] {
+  async descriptors(): Promise<readonly ProviderDescriptor[]> {
+    const iCloudStatus = this.registryInstance?.get('icloud-drive') === undefined ? null : await this.iCloudStatus();
+    this.iCloudDriveAvailable = iCloudStatus?.available === true;
     return (this.registryInstance?.list() ?? []).map((provider) => {
       const googleUnavailable = provider.id === 'google-drive' && this.googleClientId() === null;
+      const iCloudUnavailable = provider.id === 'icloud-drive' && iCloudStatus?.available !== true;
       return {
         id: provider.id,
         label: provider.label,
         capabilities: provider.capabilities,
-        available: !googleUnavailable,
-        unavailableReason: googleUnavailable ? 'Google Drive OAuth is not configured in this build.' : null,
+        available: !googleUnavailable && !iCloudUnavailable,
+        unavailableReason: googleUnavailable
+          ? 'Google Drive OAuth is not configured in this build.'
+          : iCloudUnavailable
+            ? iCloudUnavailableCopy(iCloudStatus?.reason ?? 'native-unavailable')
+            : null,
       };
     });
   }
@@ -159,7 +171,7 @@ export class ProviderRuntime {
 
   async restoreSources(providerId: string): Promise<readonly { libraryId: string; provider: StorageProvider }[]> {
     const provider = this.provider(providerId);
-    const descriptor = this.descriptors().find((candidate) => candidate.id === providerId);
+    const descriptor = (await this.descriptors()).find((candidate) => candidate.id === providerId);
     if (provider === undefined || descriptor?.available !== true) throw new Error(`provider is not available: ${providerId}`);
     const libraryIds = await provider.listLibraries();
     return libraryIds.map((libraryId) => ({ libraryId, provider: provider.forLibrary(libraryId) }));
@@ -171,6 +183,8 @@ export class ProviderRuntime {
   resetLibraryBinding(): void {
     this.registryInstance = undefined;
     this.googleProviderInstance = undefined;
+    this.iCloudDriveProviderInstance = undefined;
+    this.iCloudDriveAvailable = false;
   }
 
   async status(providerId: string): Promise<{
@@ -181,7 +195,7 @@ export class ProviderRuntime {
     totalBytes: number | null;
   }> {
     const provider = this.provider(providerId);
-    const descriptor = this.descriptors().find((candidate) => candidate.id === providerId);
+    const descriptor = (await this.descriptors()).find((candidate) => candidate.id === providerId);
     if (provider === undefined || descriptor === undefined) {
       throw new Error(`provider is not available: ${providerId}`);
     }
@@ -202,15 +216,21 @@ export class ProviderRuntime {
       return { ok: false, reason: 'Wait for the active backup or restore to finish before switching providers.' };
     }
     const provider = this.provider(providerId);
-    const descriptor = this.descriptors().find((candidate) => candidate.id === providerId);
+    const descriptor = (await this.descriptors()).find((candidate) => candidate.id === providerId);
     if (provider === undefined || descriptor?.available !== true) {
-      return { ok: false, reason: 'This provider is not available on this device.' };
+      return { ok: false, reason: descriptor?.unavailableReason ?? 'This provider is not available on this device.' };
     }
     if (providerId === 'pcloud') {
       return this.connectPCloud();
     }
     if (providerId === 'google-drive') {
       return this.connectGoogleDrive();
+    }
+    if (providerId === 'icloud-drive' && provider instanceof ICloudDriveProvider) {
+      provider.resetAccountAuthority();
+      if ((await provider.authState()) !== 'connected') {
+        return { ok: false, reason: 'Sign in to iCloud Drive in macOS Settings, then try again.' };
+      }
     }
     if (provider instanceof FaultInjectingProvider) {
       provider.disarm('auth-expired');
@@ -241,7 +261,8 @@ export class ProviderRuntime {
         this.googleAuth().clear();
         this.resetGoogleDriveAccountCache();
       }
-      if (this.activeId() === providerId) this.options.setProviderId(null);
+      if (providerId === 'icloud-drive') this.iCloudDriveProviderInstance?.resetAccountAuthority();
+      if (this.options.providerId() === providerId) this.options.setProviderId(null);
       if (this.options.providerId() === providerId) {
         return { ok: false, reason: 'Could not save the disconnected state. Try again.' };
       }
@@ -306,7 +327,12 @@ export class ProviderRuntime {
    * harness-gated OVERLOOK_PROVIDER. */
   defaultTarget(): string {
     const override = this.options.harnessEnv('OVERLOOK_PROVIDER');
-    if (override === 'mock' || override === 'pcloud' || (override === 'google-drive' && this.googleClientId() !== null)) {
+    if (
+      override === 'mock' ||
+      override === 'pcloud' ||
+      override === 'icloud-drive' ||
+      (override === 'google-drive' && this.googleClientId() !== null)
+    ) {
       return override;
     }
     return this.options.isPackaged ? 'pcloud' : 'mock';
@@ -325,6 +351,9 @@ export class ProviderRuntime {
       return null;
     }
     if (raw === 'google-drive' && this.googleClientId() === null) {
+      return null;
+    }
+    if (raw === 'icloud-drive' && !this.iCloudDriveAvailable) {
       return null;
     }
     if (this.registryInstance !== undefined && this.registryInstance.get(raw) === undefined) {
@@ -349,6 +378,9 @@ export class ProviderRuntime {
     });
     this.googleProviderInstance = googleProvider;
     registry.register(googleProvider);
+    const iCloudProvider = new ICloudDriveProvider({ bridge: this.options.iCloudDriveBridge, libraryId });
+    this.iCloudDriveProviderInstance = iCloudProvider;
+    registry.register(iCloudProvider);
     if (!this.options.isPackaged) {
       const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir, libraryId }));
       const fault = build.fault;
@@ -368,4 +400,23 @@ export class ProviderRuntime {
     }
     this.googleProviderInstance.resetAccountCache();
   }
+
+  private async iCloudStatus() {
+    try {
+      return await this.options.iCloudDriveBridge.status();
+    } catch {
+      return { available: false as const, reason: 'native-unavailable' as const, accountToken: null };
+    }
+  }
+}
+
+function iCloudUnavailableCopy(reason: ICloudDriveUnavailableReason): string {
+  const copy: Record<ICloudDriveUnavailableReason, string> = {
+    'unsupported-platform': 'iCloud Drive is available only on macOS.',
+    'unsigned-build': 'iCloud Drive requires a provisioned signed macOS build.',
+    'native-unavailable': 'iCloud Drive support is unavailable in this build.',
+    unentitled: 'This build is not entitled for iCloud Drive.',
+    'account-unavailable': 'Sign in to iCloud Drive in macOS Settings.',
+  };
+  return copy[reason];
 }

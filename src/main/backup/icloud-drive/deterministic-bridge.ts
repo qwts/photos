@@ -73,6 +73,7 @@ export class DeterministicICloudDriveBridge implements ICloudDriveNativeBridge {
       downloaded: true,
       conflicted: this.fault === 'conflict',
     });
+    if (this.fault === 'conflict') throw new ICloudDriveNativeError('conflict');
     if (this.fault === 'interrupt-after-replace') throw new ICloudDriveNativeError('io-failure');
   }
 
