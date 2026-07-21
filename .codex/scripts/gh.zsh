@@ -105,7 +105,7 @@ case "$gh_group" in
     ;;
   workflow)
     case "$gh_action" in
-      list | run | view) ;;
+      list | view) ;;
       *) return_code=64 ;;
     esac
     ;;

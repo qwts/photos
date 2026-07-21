@@ -223,11 +223,11 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["gh", "workflow", ["list", "run", "view"]],
+    pattern = ["gh", "workflow", ["list", "view"]],
     decision = "allow",
-    justification = "Workflow inspection and dispatch are trusted.",
-    match = ["gh workflow list", "gh workflow run ci.yml"],
-    not_match = ["gh workflow disable ci.yml"],
+    justification = "Workflow inspection is trusted; dispatch remains under normal approval.",
+    match = ["gh workflow list", "gh workflow view ci.yml"],
+    not_match = ["gh workflow run release.yml --ref main", "gh workflow disable ci.yml"],
 )
 
 # Use the protected wrapper when a host does not expose gh on its initial PATH.
