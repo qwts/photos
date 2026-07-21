@@ -22,6 +22,7 @@ existing links resolve — never add content there.
 
 ## Canonical Documentation Groups
 
+- [Activity History](./Activity-History.md) — encrypted per-library audit timeline, privacy, backup, and retention
 - [Testing Strategy](./Testing-Strategy.md) — test lanes, coverage floors, when each lane must grow
 - [Localization Workflow](./Localization.md) — adding and reviewing catalogs, pseudo-locales, and RTL evidence
 - [Architecture Decision Records](./adr/Architecture-Decision-Records.md) — ADR index + template

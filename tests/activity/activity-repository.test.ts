@@ -68,6 +68,29 @@ describe('ActivityRepository (#614, ADR-0025)', () => {
     db.close();
   });
 
+  test('rolls back a local mutation when its activity append fails', () => {
+    const { db, repo } = world();
+    db.exec('CREATE TABLE mutation_probe (id TEXT PRIMARY KEY)');
+    assert.throws(
+      () =>
+        repo.transaction(() => {
+          db.prepare('INSERT INTO mutation_probe (id) VALUES (?)').run('changed');
+          repo.append({
+            eventId: 'event-failed',
+            operationId: 'operation-failed',
+            eventType: 'album.renamed',
+            occurredAt: '2026-07-20T00:00:00.000Z',
+            outcome: 'succeeded',
+            payload: { albumName: 'private' },
+          });
+        }),
+      /sensitive field/,
+    );
+    const probe = db.prepare('SELECT COUNT(*) AS count FROM mutation_probe').get() as { count: number };
+    assert.equal(probe.count, 0);
+    db.close();
+  });
+
   test('prunes by age/count/bytes without removing an active retention hold', () => {
     const { db, repo } = world({ maxEvents: 2, maxAgeMs: 1_000, maxPayloadBytes: 40 });
     const held = append(repo, 'held', '2026-07-20T00:00:00.000Z');
@@ -82,5 +105,49 @@ describe('ActivityRepository (#614, ADR-0025)', () => {
     repo.releaseHold(held.eventId, 'undo-held');
     assert.equal(repo.prune(new Date('2026-07-20T00:00:03.000Z')), 1);
     db.close();
+  });
+
+  test('rejects sensitive path-shaped payloads and restores an ordered backup snapshot', () => {
+    const source = world();
+    append(source.repo, 'a');
+    append(source.repo, 'b');
+    assert.throws(
+      () =>
+        source.repo.append({
+          eventId: 'event-path',
+          operationId: 'operation-path',
+          eventType: 'import.completed',
+          occurredAt: '2026-07-20T00:00:00.000Z',
+          outcome: 'succeeded',
+          payload: { sourcePath: '/Users/alice/Secret Photos' },
+        }),
+      /sensitive field/,
+    );
+    const target = world();
+    target.repo.restoreSnapshot(source.repo.backupSnapshot());
+    assert.deepEqual(
+      target.repo.page(10).events.map((event) => event.eventId),
+      ['event-b', 'event-a'],
+    );
+    assert.throws(() => target.repo.restoreSnapshot([...source.repo.backupSnapshot()].reverse()), /sequence must increase/);
+    source.db.close();
+    target.db.close();
+  });
+
+  test('isolates activity in each encrypted library database', () => {
+    const libraryA = world();
+    const libraryB = world();
+    append(libraryA.repo, 'a');
+    append(libraryB.repo, 'b');
+    assert.deepEqual(
+      libraryA.repo.page(10).events.map((event) => event.eventId),
+      ['event-a'],
+    );
+    assert.deepEqual(
+      libraryB.repo.page(10).events.map((event) => event.eventId),
+      ['event-b'],
+    );
+    libraryA.db.close();
+    libraryB.db.close();
   });
 });

@@ -30,6 +30,7 @@ export interface AppState {
   readonly importOpen: boolean;
   readonly exportOpen: boolean;
   readonly settingsOpen: boolean;
+  readonly activityOpen: boolean;
   readonly librariesOpen: boolean;
   readonly toast: {
     readonly title: string;
@@ -63,6 +64,7 @@ export const initialAppState: AppState = {
   importOpen: false,
   exportOpen: false,
   settingsOpen: false,
+  activityOpen: false,
   librariesOpen: false,
   toast: null,
   pendingCount: 0,
@@ -92,7 +94,7 @@ export type AppAction =
   | { type: 'lightbox/stepped'; delta: 1 | -1 }
   | { type: 'lightbox/closed' }
   | { type: 'inspector/toggled' }
-  | { type: 'dialog/set'; dialog: 'import' | 'export' | 'settings' | 'libraries'; open: boolean }
+  | { type: 'dialog/set'; dialog: 'import' | 'export' | 'settings' | 'libraries' | 'activity'; open: boolean }
   | { type: 'toast/shown'; toast: NonNullable<AppState['toast']> }
   | { type: 'toast/dismissed' }
   | { type: 'pendingCount/set'; count: number }
@@ -198,6 +200,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           importOpen: action.dialog === 'import',
           exportOpen: action.dialog === 'export',
           settingsOpen: action.dialog === 'settings',
+          activityOpen: action.dialog === 'activity',
           librariesOpen: action.dialog === 'libraries',
         };
       }
@@ -206,6 +209,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         importOpen: action.dialog === 'import' ? action.open : state.importOpen,
         exportOpen: action.dialog === 'export' ? action.open : state.exportOpen,
         settingsOpen: action.dialog === 'settings' ? action.open : state.settingsOpen,
+        activityOpen: action.dialog === 'activity' ? action.open : state.activityOpen,
         librariesOpen: action.dialog === 'libraries' ? action.open : state.librariesOpen,
       };
     case 'toast/shown':

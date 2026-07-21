@@ -34,6 +34,7 @@ import { ShortcutHelp } from '../commands/ShortcutHelp';
 import type { CommandSurface } from '../../../shared/commands/registry.js';
 import type { CommandId } from '../../../shared/commands/registry.js';
 import type { CommandMenuContext } from '../../../shared/commands/menu-contract.js';
+import { ActivityDialog } from '../activity/ActivityDialog';
 
 function mergeDropPaths(current: readonly string[] | null, incoming: readonly string[]): readonly string[] {
   return [...new Set([...(current ?? []), ...incoming])];
@@ -596,6 +597,14 @@ export function Shell({
           onClose={() => {
             setSettingsSection(undefined);
             dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
+          }}
+        />
+      ) : null}
+      {state.activityOpen ? (
+        <ActivityDialog
+          open
+          onClose={() => {
+            dispatch({ type: 'dialog/set', dialog: 'activity', open: false });
           }}
         />
       ) : null}

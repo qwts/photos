@@ -15,8 +15,10 @@ import type { KeyStore } from './crypto/keystore.js';
 import { createRecoveryKeyFacade } from './crypto/recovery-key-facade.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
 import type { DrainableExportFacade } from './export/export-runtime.js';
+import type { ActivityFacade } from './activity/activity-publication.js';
 import {
   registerAlbumHandlers,
+  registerActivityHandlers,
   registerBackupHandlers,
   registerDiagnosticsHandlers,
   registerExportHandlers,
@@ -46,6 +48,7 @@ export interface AppServicesOptions {
   readonly requireContentAccess: () => void;
   readonly allowKeyImport: () => boolean;
   readonly getLibrary: () => LibraryService;
+  readonly getActivity: () => ActivityFacade;
   readonly libraries: LibraryRegistryFacade;
   readonly getProtected: () => ProtectedRuntime;
   readonly getThumbs: () => ThumbService;
@@ -86,8 +89,9 @@ async function pickDiagnosticsExport(options: AppServicesOptions): Promise<strin
 }
 
 export function registerAppServices(options: AppServicesOptions): void {
-  registerLibraryHandlers(options.getLibrary, options.onDeleted);
-  registerAlbumHandlers(options.getLibrary, ulid);
+  registerLibraryHandlers(options.getLibrary, options.onDeleted, options.getActivity);
+  registerAlbumHandlers(options.getLibrary, ulid, options.getActivity);
+  registerActivityHandlers(options.getActivity);
   registerProtectedAlbumHandlers(
     () => options.getProtected().library,
     () => options.getProtected().exports(),
@@ -97,8 +101,14 @@ export function registerAppServices(options: AppServicesOptions): void {
   );
   registerThumbProtocol(options.getThumbs, options.requireContentAccess, () => options.getProtected().media());
   registerFullProtocol(options.getFull, options.requireContentAccess, () => options.getProtected().media());
-  registerImportHandlers(options.getImport, () => pickImportFolder(options), options.onImported, options.onImportRendererReady);
-  registerExportHandlers(options.getExport);
+  registerImportHandlers(
+    options.getImport,
+    () => pickImportFolder(options),
+    options.onImported,
+    options.onImportRendererReady,
+    options.getActivity,
+  );
+  registerExportHandlers(options.getExport, options.getActivity);
   registerKeysHandlers(() =>
     createRecoveryKeyFacade({
       keyStore: options.getKeyStore,
@@ -117,7 +127,7 @@ export function registerAppServices(options: AppServicesOptions): void {
       busy: options.providerBusy,
     }),
   );
-  registerPurgeHandlers(() => ({ purge: (photoIds) => options.getPurge().purge(photoIds) }));
+  registerPurgeHandlers(() => ({ purge: (photoIds) => options.getPurge().purge(photoIds) }), options.getActivity);
   registerLibraryRegistryHandlers(() => options.libraries);
   registerSettingsHandlers(() => getSettingsStore());
   registerDiagnosticsHandlers(getDiagnosticsService, () => pickDiagnosticsExport(options));

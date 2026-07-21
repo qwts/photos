@@ -1,0 +1,60 @@
+.ovl-activity {
+  min-height: 240px;
+}
+
+.ovl-activity__state {
+  margin: 0;
+  padding: var(--space-8) var(--space-4);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ovl-activity__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ovl-activity__item {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ovl-activity__marker {
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+}
+
+.ovl-activity__content {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ovl-activity__summary {
+  color: var(--text-primary);
+}
+
+.ovl-activity__time,
+.ovl-activity__partial {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.ovl-activity__partial {
+  color: var(--accent-amber);
+}
+
+.ovl-activity__more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-4);
+}

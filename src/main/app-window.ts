@@ -8,6 +8,10 @@ import { reloadWebContentsForLock, type ReloadableWebContents } from './crypto/r
 import { initialWindowBehavior } from './e2e-window-visibility.js';
 import { installWindowNavigationPolicy } from './window-navigation-policy.js';
 
+export function broadcast(send: (win: BrowserWindow) => void): void {
+  for (const win of BrowserWindow.getAllWindows()) send(win);
+}
+
 export function createWindow(): BrowserWindow {
   const devIcon = app.isPackaged ? undefined : path.join(import.meta.dirname, '../../build/icon.png');
   if (devIcon !== undefined && process.platform === 'darwin') app.dock?.setIcon(devIcon);

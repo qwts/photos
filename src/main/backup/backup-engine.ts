@@ -5,15 +5,15 @@ import { pipeline } from 'node:stream/promises';
 import { ProviderError, type StorageProvider } from './provider.js';
 import type { SyncLedger } from './sync-ledger.js';
 import {
-  buildBackupManifestV2,
-  buildBackupManifestV3,
+  buildBackupManifestV4,
   type BackupManifestSnapshot,
-  type BackupManifestSnapshotV3,
+  type BackupManifestSnapshotV4,
   type ProtectedBackupAlbumV3,
   type ProtectedBackupPhotoV3,
 } from './backup-manifest.js';
 import type { SyncStatus } from '../../shared/library/types.js';
 import type { BackupIntegritySummary } from './integrity-scrubber.js';
+import type { ActivityEvent } from '../../shared/activity/types.js';
 
 // Backup engine (#105, ADR-0007): dirty photos flow to the provider
 // reliably and politely. The ledger's dirty set IS the queue and the resume
@@ -72,6 +72,7 @@ export interface BackupEngineDeps {
   readonly libraryId: () => string;
   /** One consistent DB snapshot: photos, metadata, albums, and membership. */
   readonly manifestSnapshot: () => BackupManifestSnapshot;
+  readonly activitySnapshot?: (() => readonly ActivityEvent[]) | undefined;
   readonly settings: () => BackupSettings;
   readonly network: () => NetworkKind;
   readonly events: {
@@ -338,14 +339,16 @@ export class BackupEngine {
   private async uploadManifest(): Promise<void> {
     const generatedAt = new Date(this.deps.now()).toISOString();
     const protectedSnapshot = this.deps.protectedBackup?.snapshot();
-    const manifest =
-      protectedSnapshot === undefined
-        ? buildBackupManifestV2({ libraryId: this.deps.libraryId(), generatedAt, snapshot: this.deps.manifestSnapshot() })
-        : buildBackupManifestV3({
-            libraryId: this.deps.libraryId(),
-            generatedAt,
-            snapshot: { ...this.deps.manifestSnapshot(), ...protectedSnapshot } satisfies BackupManifestSnapshotV3,
-          });
+    const manifest = buildBackupManifestV4({
+      libraryId: this.deps.libraryId(),
+      generatedAt,
+      snapshot: {
+        ...this.deps.manifestSnapshot(),
+        protectedAlbums: protectedSnapshot?.protectedAlbums ?? [],
+        protectedPhotos: protectedSnapshot?.protectedPhotos ?? [],
+        activity: this.deps.activitySnapshot?.() ?? [],
+      } satisfies BackupManifestSnapshotV4,
+    });
     const json = JSON.stringify(manifest);
     const sealed = await this.deps.sealManifest(json);
     // The bootstrap is a superset across rotations and lands first: a crash

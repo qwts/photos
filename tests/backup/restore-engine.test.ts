@@ -10,7 +10,7 @@ import { test } from 'node:test';
 
 import {
   buildBackupManifestV2,
-  buildBackupManifestV3,
+  buildBackupManifestV4,
   type BackupManifestPhotoV2,
   type BackupManifestV2,
 } from '../../src/main/backup/backup-manifest.js';
@@ -26,6 +26,7 @@ import { KeyStore, type SafeStorageLike } from '../../src/main/crypto/keystore.j
 import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { ProtectedRecoveryRepository } from '../../src/main/db/protected-recovery-repository.js';
+import { ActivityRepository } from '../../src/main/activity/activity-repository.js';
 import { queryGet } from '../../src/main/db/sql.js';
 import { sampleJpeg } from '../../src/main/library/seed.js';
 
@@ -248,7 +249,7 @@ test('restore engine: fresh staging rebuilds keys, catalog, originals, thumbnail
   assert.equal(world.progress.at(-1)?.stage, 'complete');
 });
 
-test('restore engine: schema 3 stages verified protected ciphertext and restores sealed records closed (#328)', async () => {
+test('restore engine: schema 4 restores protected ciphertext and encrypted activity history (#328/#614)', async () => {
   const world = await restoreWorld();
   const protectedSource = new ProtectedBlobStore(mkdtempSync(join(tmpdir(), 'overlook-protected-restore-source-')));
   await protectedSource.init();
@@ -266,7 +267,7 @@ test('restore engine: schema 3 stages verified protected ciphertext and restores
   const credentialRecord = Buffer.from('sealed credential record').toString('base64');
   const sealedAlbum = Buffer.from('sealed album metadata').toString('base64');
   const sealedPhoto = Buffer.from('sealed photo metadata').toString('base64');
-  const manifest = buildBackupManifestV3({
+  const manifest = buildBackupManifestV4({
     libraryId: LIBRARY_ID,
     generatedAt: GENERATED_AT,
     snapshot: {
@@ -297,6 +298,23 @@ test('restore engine: schema 3 stages verified protected ciphertext and restores
           objects: [{ kind: 'original', path, sha256, bytes: ciphertext.length, status: 'synced' }],
         },
       ],
+      activity: [
+        {
+          sequence: 1,
+          eventId: 'activity-event-1',
+          operationId: 'activity-operation-1',
+          eventType: 'import.completed',
+          schemaVersion: 1,
+          occurredAt: GENERATED_AT,
+          actorClass: 'local-user',
+          rootCorrelationId: 'activity-operation-1',
+          causationEventId: null,
+          entityIds: [],
+          outcome: 'succeeded',
+          payload: { imported: 1, mode: 'copy' },
+          supersedesEventId: null,
+        },
+      ],
     },
   });
   await put(world.provider, 'manifest/gen-2.ovlk', await sealManifest(manifest, world.keyStore));
@@ -310,6 +328,7 @@ test('restore engine: schema 3 stages verified protected ciphertext and restores
   const snapshot = new ProtectedRecoveryRepository(db).snapshot();
   assert.deepEqual(snapshot.protectedAlbums, manifest.protectedAlbums);
   assert.deepEqual(snapshot.protectedPhotos, manifest.protectedPhotos);
+  assert.deepEqual(new ActivityRepository(db).backupSnapshot(), manifest.activity);
   db.close();
   const restored = new ProtectedBlobStore(world.targetDir);
   await restored.init();

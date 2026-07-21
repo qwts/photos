@@ -1,13 +1,15 @@
 import path from 'node:path';
 import { buffer } from 'node:stream/consumers';
 
-import { app, BrowserWindow, dialog, session } from 'electron';
+import { app, dialog, session } from 'electron';
 
 import { events } from '../shared/ipc/channels.js';
+import { ActivityRepository } from './activity/activity-repository.js';
+import { createActivityFacade } from './activity/activity-publication.js';
 import { createEmitter } from '../shared/ipc/registry.js';
 import { configureAppProfile } from './app-profile.js';
 import { BlobStore, BlobStoreError } from './blobs/blob-store.js';
-import { registerWindowAllClosedQuit, reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
+import { broadcast, registerWindowAllClosedQuit, reloadContentWindowsForLock, relaunchLocked } from './app-window.js';
 import { KeyStore } from './crypto/keystore.js';
 import { createAppLockRuntime, registerAppLockIpc } from './crypto/app-lock-runtime.js';
 import { drainWithCancellationFence } from './crypto/library-shutdown.js';
@@ -91,12 +93,6 @@ configureSettingsLibrary(libraryDataDir);
 // Per-library advisory lock (ADR-0017 §5, #385): acquired at open, released last in teardown.
 const instanceId = ulid();
 let releaseLibraryLock: (() => void) | undefined;
-
-function broadcast(send: (win: BrowserWindow) => void): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    send(win);
-  }
-}
 
 const emitExportProgress = createEmitter(events.exportProgress, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
 const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
@@ -479,6 +475,7 @@ function getBackupEngine(): BackupEngine {
         sealKeyStoreRecoveryBootstrap({ keyStore: parts.keyStore, libraryId: getProviderRuntime().libraryId(), generatedAt }),
       libraryId: () => getProviderRuntime().libraryId(),
       manifestSnapshot: () => repo.manifestSnapshot(),
+      activitySnapshot: () => new ActivityRepository(parts.db).backupSnapshot(),
       // Live reads (#111): every run and every maybeAutoRun sees the
       // store's current values — no restart needed after a settings change.
       settings: () => {
@@ -833,6 +830,7 @@ void externalOpen.whenReady().then(async () => {
     requireContentAccess: () => lock.requireContentAccess(),
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
     getLibrary: getLibraryService,
+    getActivity: () => createActivityFacade(requireParts('activity').db, () => manifestSyncTrigger?.()),
     libraries: {
       ...registryRuntime.facade({
         openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),

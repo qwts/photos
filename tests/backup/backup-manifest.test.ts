@@ -137,7 +137,7 @@ describe('backup manifest schema (#289)', () => {
     const blobRef = 'cd'.repeat(32);
     const source = {
       ...ordinary,
-      schema: BACKUP_MANIFEST_SCHEMA_VERSION,
+      schema: 3 as const,
       protectedAlbums: [
         {
           id: 'secret-album-id',
@@ -179,7 +179,7 @@ describe('backup manifest schema (#289)', () => {
       () =>
         parseBackupManifest({
           ...ordinary,
-          schema: BACKUP_MANIFEST_SCHEMA_VERSION,
+          schema: 3,
           protectedAlbums: [],
           protectedPhotos: [
             {
@@ -198,6 +198,6 @@ describe('backup manifest schema (#289)', () => {
   });
 
   test('unknown schemas fail closed', () => {
-    assert.throws(() => parseBackupManifest({ schema: BACKUP_MANIFEST_SCHEMA_VERSION + 1 }), /unsupported manifest schema 4/u);
+    assert.throws(() => parseBackupManifest({ schema: BACKUP_MANIFEST_SCHEMA_VERSION + 1 }), /unsupported manifest schema 5/u);
   });
 });
