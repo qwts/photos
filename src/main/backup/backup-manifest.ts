@@ -340,19 +340,6 @@ export function buildBackupManifestV2(input: {
   });
 }
 
-export function buildBackupManifestV3(input: {
-  readonly libraryId: string;
-  readonly generatedAt: string;
-  readonly snapshot: BackupManifestSnapshotV3;
-}): BackupManifestV3 {
-  return backupManifestV3Schema.parse({
-    schema: 3,
-    libraryId: input.libraryId,
-    generatedAt: input.generatedAt,
-    ...input.snapshot,
-  });
-}
-
 export function buildBackupManifestV4(input: {
   readonly libraryId: string;
   readonly generatedAt: string;
