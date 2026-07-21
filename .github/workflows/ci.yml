@@ -18,17 +18,17 @@ on:
   workflow_dispatch:
     inputs:
       e2e_workers:
-        description: Electron E2E workers (capacity measurement; default 3)
+        description: Electron E2E workers (capacity measurement; default 1)
         required: false
         type: choice
         options: ['1', '2', '3']
-        default: '3'
+        default: '1'
       e2e_retries:
-        description: Electron E2E retries (use 0 for capacity evidence)
+        description: Electron E2E retries (default 0; increase only for diagnosis)
         required: false
         type: choice
         options: ['0', '1', '2']
-        default: '2'
+        default: '0'
       capacity_label:
         description: Label stored with runner-capacity evidence
         required: false
@@ -241,8 +241,8 @@ jobs:
     # does for its own guarded step).
     timeout-minutes: 45
     env:
-      OVERLOOK_E2E_WORKERS: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_workers || '3' }}
-      OVERLOOK_E2E_RETRIES: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_retries || '2' }}
+      OVERLOOK_E2E_WORKERS: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_workers || '1' }}
+      OVERLOOK_E2E_RETRIES: ${{ github.event_name == 'workflow_dispatch' && inputs.e2e_retries || '0' }}
       OVERLOOK_CAPACITY_LABEL: ${{ github.event_name == 'workflow_dispatch' && inputs.capacity_label || 'default' }}
 
     steps:
