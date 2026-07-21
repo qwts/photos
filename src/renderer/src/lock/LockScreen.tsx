@@ -135,11 +135,12 @@ export function LockScreen({ platform, state, retryAfterMs }: LockScreenProps): 
                 icon="lock"
                 className="ovl-lock-screen__unlock"
                 disabled={password === '' || busy || remainingMs > 0}
+                aria-describedby={remainingMs > 0 ? 'lock-screen-retry-countdown' : undefined}
               >
                 {busy ? 'Unlocking…' : 'Unlock'}
               </Button>
               {remainingMs > 0 ? (
-                <div className="mono-data" aria-hidden="true">
+                <div id="lock-screen-retry-countdown" className="mono-data">
                   {intl.formatMessage(messages.retryCountdown, { seconds: waitSeconds })}
                 </div>
               ) : null}

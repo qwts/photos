@@ -296,6 +296,7 @@ export const StorageOpensByDefault: Story = {
     const body = within(canvasElement.ownerDocument.body);
     const dialog = body.getByRole('dialog', { name: 'Settings' });
     await expect(dialog).toBeVisible();
+    await expect(body.getByRole('tablist', { name: 'Settings sections' })).toHaveAttribute('aria-orientation', 'vertical');
     await Promise.all(dialog.getAnimations({ subtree: true }).map((animation) => animation.finished));
     const loadingBounds = dialog.getBoundingClientRect();
     const storage = body.getByRole('tab', { name: 'Storage & Backup' });
