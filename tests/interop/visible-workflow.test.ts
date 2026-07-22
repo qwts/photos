@@ -10,7 +10,7 @@ describe('Transfer and Sync visible workflow', () => {
     assert.equal(state.counts.acknowledged, 0);
     assert.equal(state.counts.finalized, 0);
     assert.equal(state.provider.state, 'disconnected');
-    assert.equal(state.pairing, 'unpaired');
+    assert.equal(state.pairing, 'not-configured');
     assert.match(state.error?.message ?? '', /Eligibility has not been checked/);
   });
 

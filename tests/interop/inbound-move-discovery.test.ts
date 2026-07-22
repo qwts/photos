@@ -134,6 +134,8 @@ test('record discovery is durable and rejects replay identity changes before acc
   assert.equal(journals.items(fixture.header.transferId)[0]?.reviewCategory, 'duplicate');
   assert.equal(journals.items(fixture.header.transferId).length, 1);
   assert.equal(journals.recordDiscovery(fixture, 'duplicate', '2026-07-21T18:00:01.000Z').counts.total, 1);
+  journals.recordDiscovery(fixture, 'eligible', '2026-07-21T18:00:01.500Z');
+  assert.equal(journals.items(fixture.header.transferId)[0]?.reviewCategory, 'duplicate', 'receiver-local review survives replay');
   assert.throws(
     () =>
       journals.recordDiscovery(

@@ -1,4 +1,5 @@
 import type { SafeStorageLike } from '../crypto/keystore.js';
+import { FilesystemInteropObjectStore } from './filesystem-object-store.js';
 import { InteropPairingBundleStore, InteropPairingCustodian } from './pairing-custody.js';
 import { InteropPCloudRuntime } from './pcloud-runtime.js';
 
@@ -6,6 +7,7 @@ export interface InteropRuntimeOptions {
   readonly profileDirectory: string;
   readonly safeStorage: SafeStorageLike;
   readonly openExternal: (url: string) => Promise<void>;
+  readonly pcloudFixtureRoot?: string | undefined;
 }
 
 /** Profile-scoped interoperability authority. Library runtimes borrow its
@@ -21,6 +23,9 @@ export class InteropRuntime {
       ...options,
       pairing: this.pairing,
       isWorkActive: () => this.#workCount > 0,
+      ...(options.pcloudFixtureRoot === undefined || options.pcloudFixtureRoot === ''
+        ? {}
+        : { objectStore: new FilesystemInteropObjectStore(options.pcloudFixtureRoot) }),
     });
   }
 
@@ -45,8 +50,9 @@ export function configureInteropRuntime(
   profileDirectory: string,
   safeStorage: SafeStorageLike,
   openExternal: (url: string) => Promise<void>,
+  pcloudFixtureRoot?: string,
 ): InteropRuntime {
-  profileRuntime ??= new InteropRuntime({ profileDirectory, safeStorage, openExternal });
+  profileRuntime ??= new InteropRuntime({ profileDirectory, safeStorage, openExternal, pcloudFixtureRoot });
   return profileRuntime;
 }
 
