@@ -5,7 +5,18 @@
 import type { MediaInfo } from './media-info.js';
 import type { PreviewFailureReason } from './preview.js';
 
-export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'gif' | 'webp' | 'other';
+// ADR-0026 §1: containers do not get kinds — an MP4, a MOV, a WebM, and an
+// MPEG-TS are all `video`; their container × codec facts live in the probed
+// MediaInfo record. `audio` covers signature-proven audio elementary streams.
+// The three duplicate copies (this type, shared/ipc/channels.ts, and
+// main/backup/backup-manifest.ts) plus the interop media-block subset move in
+// lockstep — divergence is a defect (§1).
+export type FileKind = 'jpeg' | 'raw' | 'png' | 'heic' | 'gif' | 'webp' | 'video' | 'audio' | 'other';
+
+/** The still/animated-image kinds the signature sniffer and sharp derivative
+ * chain handle directly. Kept explicit so adding container kinds (video/audio)
+ * never silently widens an image-only code path. */
+export type ImageFileKind = Extract<FileKind, 'jpeg' | 'png' | 'heic' | 'gif' | 'webp'>;
 
 /** sync_ledger.status vocabulary (ADR-0005; 'error' added by #104). */
 export type SyncStatus = 'local' | 'syncing' | 'synced' | 'offloaded' | 'error';

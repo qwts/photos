@@ -22,6 +22,12 @@ const KIND_BY_EXTENSION: Readonly<Record<string, FileKind>> = {
   dng: 'raw',
   orf: 'raw',
   rw2: 'raw',
+  // MPEG-TS containers (#548, ADR-0026 §2). The extension is only a candidate
+  // hint; the import engine validates the 0x47 packet cadence and reclassifies
+  // from the signature, so a mislabelled `.ts` is never trusted as video.
+  ts: 'video',
+  mts: 'video',
+  m2ts: 'video',
 };
 
 /** FileKind for an import candidate, or null when not a media file. */

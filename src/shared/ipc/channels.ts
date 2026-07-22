@@ -162,7 +162,7 @@ const restoreOriginalFailureReasonSchema = z.enum([
 const photoRecordSchema = z.object({
   id: z.string(),
   fileName: z.string(),
-  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'gif', 'webp', 'other']),
+  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'gif', 'webp', 'video', 'audio', 'other']),
   width: z.number(),
   height: z.number(),
   bytes: z.number(),

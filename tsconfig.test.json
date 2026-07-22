@@ -6,5 +6,5 @@
     "noEmit": false,
     "sourceMap": true
   },
-  "exclude": ["tests/dom"]
+  "exclude": ["tests/dom", "tests/fixtures"]
 }
