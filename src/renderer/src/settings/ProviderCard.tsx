@@ -43,7 +43,8 @@ export interface ProviderCardProps {
   readonly usage: ProviderUsageView;
   readonly capacity: ProviderCapacityView;
   readonly capabilitiesLine: string | null;
-  /** Body copy shown when disconnected (connect hint or a connection error). */
+  /** Backend reason for the disconnected/error state (a failed connect's reason),
+   * or null to fall back to the card's own default copy. */
   readonly message: string | null;
   /** Serialized polite announcement (measuring / updated / stale / failure). */
   readonly announcement: string | null;
@@ -78,6 +79,7 @@ const messages = defineMessages({
   opensSettings: { id: 'settings.provider.opensSettings', defaultMessage: ' (opens System Settings)' },
   capacityUnavailable: { id: 'settings.provider.capacityUnavailable', defaultMessage: 'Account capacity unavailable.' },
   regionLabel: { id: 'settings.provider.regionLabel', defaultMessage: '{name} backup' },
+  connectHint: { id: 'settings.provider.connectHint', defaultMessage: 'Link a provider to store encrypted originals off-device.' },
 });
 
 export function ProviderCard(props: ProviderCardProps): ReactElement {
@@ -123,7 +125,9 @@ export function ProviderCard(props: ProviderCardProps): ReactElement {
         {connection === 'checking' ? (
           <div className="ovl-settings__providerMeta">{intl.formatMessage(messages.checkingConnection)}</div>
         ) : connection === 'error' ? (
-          <div className="ovl-settings__providerMeta">{intl.formatMessage(messages.couldNotCheck)}</div>
+          // Prefer the backend's actionable reason (OAuth/config/custody failure)
+          // when a connect attempt supplied one; else the generic status copy.
+          <div className="ovl-settings__providerMeta">{props.message ?? intl.formatMessage(messages.couldNotCheck)}</div>
         ) : connected ? (
           <>
             {usage.failed ? (
@@ -173,7 +177,7 @@ export function ProviderCard(props: ProviderCardProps): ReactElement {
             {props.capabilitiesLine === null ? null : <div className="ovl-settings__providerMeta mono-data">{props.capabilitiesLine}</div>}
           </>
         ) : (
-          <div className="ovl-settings__providerMeta">{props.message}</div>
+          <div className="ovl-settings__providerMeta">{props.message ?? intl.formatMessage(messages.connectHint)}</div>
         )}
 
         {connected && props.canRefresh ? (

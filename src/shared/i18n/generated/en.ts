@@ -351,6 +351,7 @@ export const en: Readonly<Record<string, string>> = {
   "settings.provider.capacityRoute": "{name} capacity — View in System Settings",
   "settings.provider.capacityUnavailable": "Account capacity unavailable.",
   "settings.provider.checkingConnection": "Checking connection…",
+  "settings.provider.connectHint": "Link a provider to store encrypted originals off-device.",
   "settings.provider.couldNotCheck": "Could not check this provider’s connection.",
   "settings.provider.measurementFailed": "Couldn’t measure usage right now.",
   "settings.provider.measuring": "Measuring your backups…",

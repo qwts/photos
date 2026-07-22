@@ -219,13 +219,17 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
           descriptor.capabilities.resumableUpload ? 'resumable uploads' : 'restarts interrupted uploads'
         }`;
 
-  const announcement = usage.failed
-    ? `Couldn’t measure ${name} usage. Try again.`
-    : usage.stale
-      ? `${name} is offline. Showing the last measured usage.`
-      : usage.bytes === null
-        ? `Measuring ${name} backup usage…`
-        : `Used by Overlook: ${formatBytes(usage.bytes)}.`;
+  // Only announce measurement outcomes while connected — a checking/disconnected
+  // card measures nothing, so it must not push "Measuring…" to the live region.
+  const announcement = !connected
+    ? null
+    : usage.failed
+      ? `Couldn’t measure ${name} usage. Try again.`
+      : usage.stale
+        ? `${name} is offline. Showing the last measured usage.`
+        : usage.bytes === null
+          ? `Measuring ${name} backup usage…`
+          : `Used by Overlook: ${formatBytes(usage.bytes)}.`;
 
   const primaryLabel = disconnecting
     ? intl.formatMessage(messages.disconnecting)
@@ -260,7 +264,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         usage={usage}
         capacity={capacity}
         capabilitiesLine={capabilitiesLine}
-        message={connectError ?? 'Link a provider to store encrypted originals off-device.'}
+        message={connectError}
         announcement={announcement}
         primaryLabel={primaryLabel}
         primaryVariant={connected ? 'secondary' : 'primary'}

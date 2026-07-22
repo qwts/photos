@@ -1040,6 +1040,9 @@
   "settings.provider.checkingConnection": {
     "defaultMessage": "Checking connection…"
   },
+  "settings.provider.connectHint": {
+    "defaultMessage": "Link a provider to store encrypted originals off-device."
+  },
   "settings.provider.couldNotCheck": {
     "defaultMessage": "Could not check this provider’s connection."
   },
