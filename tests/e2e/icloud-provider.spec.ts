@@ -32,13 +32,12 @@ test('iCloud Drive composes through settings, backup, offload, and restore-origi
       provider: { id: string; capabilities: { quota: string; verification: string } };
     };
     const status = await page.evaluate<Status>(`window.overlook.backup.providerStatus({ providerId: 'icloud-drive' })`);
-    // #684: iCloud measures Overlook's own usage (empty before any backup) but has
-    // no account-quota API, so capacity is null with the System Settings route —
-    // never a fabricated total or local disk space.
+    // #684: iCloud stays connected and, having no account-quota API, reports a
+    // null capacity with the System Settings route — never a fabricated total or
+    // local disk space. The used measurement is Overlook's own objects (its exact
+    // pre-backup value is asserted to grow after the backup below, I2).
     expect(status).toMatchObject({
       connected: true,
-      usedByOverlookBytes: 0,
-      measurementFailed: false,
       capacity: null,
       capacityRoute: 'system-settings',
       provider: { id: 'icloud-drive', capabilities: { quota: 'unknown', verification: 'download-hash' } },
