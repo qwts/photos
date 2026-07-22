@@ -27,7 +27,7 @@ test('album reorder: keyboard, collapsed menu, undo, and persistence (#225)', as
   );
   await expect(page.getByRole('button', { name: `Reorder Two, position ${String(total)} of ${String(total)}` })).toBeFocused();
 
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
   await expect.poll(names).toEqual([...existing, 'One', 'Two', 'Three']);
   await page.reload();
   await expect.poll(names).toEqual([...existing, 'One', 'Two', 'Three']);
