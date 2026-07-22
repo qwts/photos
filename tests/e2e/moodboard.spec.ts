@@ -1,6 +1,7 @@
 import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
 
 import { mkE2eTmpDir } from './support/tmp-dir.js';
+import { serializeBoard, type Board } from '../../src/shared/moodboard/board.js';
 
 // End-to-end verification of the Moodboard view (#515 / #697): the view renders
 // in the real app, and a board's layout persists byte-stably across an app
@@ -8,14 +9,10 @@ import { mkE2eTmpDir } from './support/tmp-dir.js';
 // only — no original pixels are touched.
 
 interface BoardResult {
-  readonly board: {
-    readonly background: string;
-    readonly title: string;
-    readonly placements: readonly { readonly x: number; readonly y: number; readonly rotation: number }[];
-  } | null;
+  readonly board: Board | null;
 }
 
-const SAVED_BOARD = {
+const SAVED_BOARD: Board = {
   id: 'board-local',
   title: 'Restart proof',
   notes: 'kept across restart',
@@ -36,7 +33,7 @@ const SAVED_BOARD = {
     },
     { id: 'b', photoId: 'photo-b', x: 400, y: 220, w: 200, h: 150, rotation: 0, crop: { x: 0, y: 0, w: 1, h: 1 }, z: 2, groupId: null },
   ],
-} as const;
+};
 
 test('Moodboard view renders and its layout survives an app restart (I2)', async () => {
   const userData = mkE2eTmpDir('overlook-e2e-moodboard-');
@@ -61,19 +58,20 @@ test('Moodboard view renders and its layout survives an app restart (I2)', async
     // String-form evaluate: window.overlook is not typed in the e2e project.
     await page.evaluate(`window.overlook.boards.save({ board: ${JSON.stringify(SAVED_BOARD)} })`);
     const saved = await page.evaluate<BoardResult>(`window.overlook.boards.get({ boardId: 'board-local' })`);
-    expect(saved.board?.background).toBe('navy');
+    if (saved.board === null) throw new Error('board was not persisted');
+    expect(serializeBoard(saved.board)).toBe(serializeBoard(SAVED_BOARD));
 
     await app.close();
 
-    // Relaunch against the same encrypted library — the exact layout returns.
+    // Relaunch against the same encrypted library — the EXACT canonical board
+    // returns, so a drift in any field (size/crop/z/groupId, either placement)
+    // fails this evidence rather than passing on a partial match.
     app = await launch();
     page = await app.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
     const restored = await page.evaluate<BoardResult>(`window.overlook.boards.get({ boardId: 'board-local' })`);
-    expect(restored.board?.title).toBe('Restart proof');
-    expect(restored.board?.background).toBe('navy');
-    expect(restored.board?.placements[0]).toMatchObject({ x: 12, y: 34, rotation: 30 });
-    expect(restored.board?.placements).toHaveLength(2);
+    if (restored.board === null) throw new Error('board did not survive restart');
+    expect(serializeBoard(restored.board)).toBe(serializeBoard(SAVED_BOARD));
   } finally {
     await app.close();
   }
