@@ -66,7 +66,7 @@
     {
       "id": "native-application-menu",
       "wiki": "Acceptance-Test-Native-Application-Menu",
-      "$note": "#689 rebuilt the macOS bar to the design-system six-menu spec (Overlook · File · Edit · View · Photo · Help). The structure/order/accelerators and target-aware Photo menu are asserted by application-menu.spec.ts (`…six-menu design-system spec…`) and application-menu-model.test.ts; the renderer-side context publication (Shell.tsx `inAlbum`, use-command-dispatcher exhaustiveness) is plumbing with no standalone user-facing flow. Newly-projected items' handlers land in the #689 follow-up.",
+      "$note": "#689 rebuilt the macOS bar to the design-system six-menu spec (Overlook · File · Edit · View · Photo · Help). Structure/order/accelerators/target-aware enablement are asserted by application-menu.spec.ts (`…six-menu design-system spec…`) and application-menu-model.test.ts. The follow-up wired the new commands to their handlers — Toggle Sidebar and the Export parity path are exercised by application-menu.spec.ts (`…drive their shared handlers (parity)`), the sidebar reducer by app-state.test.ts; the router lives in use-native-command-router.ts and shares handlers with the toolbar/context menu (ADR-0024).",
       "coverage": [
         {
           "type": "playwright-e2e",

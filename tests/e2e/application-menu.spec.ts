@@ -147,14 +147,46 @@ test('macOS application menu is the six-menu design-system spec projected from t
       'library.new',
     ]);
 
-    // Newly-projected items exist and dispatch registry command ids; their
-    // cross-surface handlers land in the follow-up PR, so they are disabled.
-    for (const id of ['library.move', 'library.new', 'view.sidebar.toggle', 'view.mode.feed', 'view.mode.moodboard', 'selection.clear']) {
+    // Library + sidebar entries are enabled with a library open; Moodboard is a
+    // real view (#515) while Feed has no view yet, so it stays disabled.
+    for (const id of ['library.move', 'library.new', 'view.sidebar.toggle', 'view.mode.moodboard']) {
+      await expect.poll(() => menuState(app, id)).toMatchObject({ enabled: true });
+    }
+    await expect.poll(() => menuState(app, 'view.mode.feed')).toMatchObject({ enabled: false });
+    // Selection-targeted items are disabled until there is a deterministic target.
+    for (const id of ['selection.clear', 'photo.export', 'album.membership.add']) {
       await expect.poll(() => menuState(app, id)).toMatchObject({ enabled: false });
     }
     // Grid/List reflect the current view; source radios reflect the route.
     await expect.poll(() => menuState(app, 'view.mode.grid')).toMatchObject({ enabled: true, checked: true });
     await expect.poll(() => menuState(app, 'library.source.all')).toMatchObject({ checked: true });
+  } finally {
+    await app.close();
+  }
+});
+
+test('#689 File/View/Photo menu commands drive their shared handlers (parity)', async () => {
+  test.skip(process.platform !== 'darwin', 'the six-menu spec is the macOS bar (#689)');
+  const app = await launch(mkE2eTmpDir('overlook-e2e-application-menu-parity-'));
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+
+    // View → Toggle Sidebar removes and restores the sidebar nav.
+    const sidebar = page.locator('nav.ovl-sidebar');
+    await expect(sidebar).toBeVisible();
+    await invokeMenu(app, 'view.sidebar.toggle');
+    await expect(sidebar).toBeHidden();
+    await invokeMenu(app, 'view.sidebar.toggle');
+    await expect(sidebar).toBeVisible();
+
+    // Open a photo → Photo → Export… targets it and opens the same Export dialog
+    // the lightbox/toolbar Export button opens (ADR-0024 cross-surface parity).
+    await page.locator('.ovl-grid__cell').first().click();
+    await expect(page.getByTestId('lightbox')).toBeVisible();
+    await expect.poll(() => menuState(app, 'photo.export')).toMatchObject({ enabled: true });
+    await invokeMenu(app, 'photo.export');
+    await expect(page.getByRole('dialog', { name: 'Export' })).toBeVisible();
   } finally {
     await app.close();
   }

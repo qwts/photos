@@ -18,6 +18,8 @@ import { Lightbox } from '../lightbox/Lightbox';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { commandPlatform, useCommandDispatcher } from '../state/use-command-dispatcher';
 import { commandMenuDialogClass } from '../state/command-menu-dialog';
+import { useNativeCommandRouter } from './use-native-command-router';
+import { AlbumPicker } from '../grid/AlbumPicker';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
 import { LibrarySwitcher } from './LibrarySwitcher';
 import { MoveResumeBanner } from './MoveResumeBanner';
@@ -85,7 +87,10 @@ export function Shell({
     setExportPhotoIds([...photoIds]);
     dispatch({ type: 'dialog/set', dialog: 'export', open: true });
   };
-  const handledNativeSequenceRef = useRef(0);
+  // Menu → Photo → Add to Album… opens the picker centered (no cursor anchor).
+  const [menuAlbumPickerIds, setMenuAlbumPickerIds] = useState<readonly string[] | null>(null);
+  // Menu → File → New Library… opens the switcher straight into create mode.
+  const [librariesCreating, setLibrariesCreating] = useState(false);
   const [editableFocus, setEditableFocus] = useState(false);
   useCommandDispatcher(platform, setShortcutSurface, shortcutSurface !== null);
 
@@ -194,171 +199,20 @@ export function Shell({
   const [unlockAlbumId, setUnlockAlbumId] = useState<string | null>(null);
   const unlockOriginRef = useRef<HTMLButtonElement | null>(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect -- #531 native IPC commands intentionally synchronize renderer state. */
-  useEffect(() => {
-    if (nativeCommand === null || handledNativeSequenceRef.current === nativeCommand.sequence) return;
-    handledNativeSequenceRef.current = nativeCommand.sequence;
-    const closeOverlays = (): void => {
-      setShortcutSurface(null);
-      setInteropEntry(null);
-      setUnlockAlbumId(null);
-      offload.close();
-      setDropped(null);
-      setExportPhotoIds(null);
-      dispatch({ type: 'lightbox/closed' });
-      dispatch({ type: 'dialog/set', dialog: 'import', open: false });
-      dispatch({ type: 'dialog/set', dialog: 'export', open: false });
-      dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
-      dispatch({ type: 'dialog/set', dialog: 'libraries', open: false });
-    };
-    const openSettings = (section: SettingsSection): void => {
-      closeOverlays();
-      setSettingsSection(section);
-      dispatch({ type: 'dialog/set', dialog: 'settings', open: true });
-    };
-    if (nativeCommand.id.startsWith('album.reorder.')) return;
-    switch (nativeCommand.id) {
-      case 'app.settings.open':
-        openSettings('general');
-        return;
-      case 'app.settings.open.storage':
-        openSettings('storage');
-        return;
-      case 'app.settings.open.transfer':
-        openSettings('transfer');
-        return;
-      case 'app.settings.open.privacy':
-        openSettings('privacy');
-        return;
-      case 'library.switch':
-        closeOverlays();
-        dispatch({ type: 'dialog/set', dialog: 'libraries', open: true });
-        return;
-      case 'library.import':
-        closeOverlays();
-        dispatch({ type: 'dialog/set', dialog: 'import', open: true });
-        return;
-      case 'library.source.all':
-      case 'library.source.favorites':
-      case 'library.source.recent':
-      case 'library.source.trash':
-        closeOverlays();
-        dispatch({
-          type: 'source/set',
-          source:
-            nativeCommand.id === 'library.source.all'
-              ? 'all'
-              : nativeCommand.id === 'library.source.favorites'
-                ? 'favorites'
-                : nativeCommand.id === 'library.source.recent'
-                  ? 'recent'
-                  : 'deleted',
-        });
-        return;
-      case 'selection.selectAll':
-        dispatch({ type: 'selection/all', photoIds: state.photos.map(({ id }) => id) });
-        return;
-      case 'history.undo':
-      case 'history.redo': {
-        const operation = nativeCommand.id === 'history.undo' ? window.overlook.history.undo : window.overlook.history.redo;
-        void operation({ requestId: crypto.randomUUID() }).then((result) => {
-          dispatch({
-            type: 'toast/shown',
-            toast: {
-              title: result.applied
-                ? nativeCommand.id === 'history.undo'
-                  ? 'Undid last action'
-                  : 'Redid last action'
-                : `Cannot ${nativeCommand.id === 'history.undo' ? 'undo' : 'redo'} — ${result.capability.reason}`,
-              tone: result.applied ? 'neutral' : 'red',
-            },
-          });
-        });
-        return;
-      }
-      case 'view.inspector.toggle':
-        dispatch({ type: 'inspector/toggled' });
-        return;
-      case 'view.inspector.detach':
-        dispatch({ type: 'inspector/detached' });
-        return;
-      case 'view.mode.grid':
-      case 'view.mode.list':
-      case 'view.mode.moodboard':
-        dispatch({
-          type: 'view/set',
-          view: nativeCommand.id === 'view.mode.grid' ? 'grid' : nativeCommand.id === 'view.mode.list' ? 'list' : 'moodboard',
-        });
-        return;
-      case 'view.lightbox.close':
-        dispatch({ type: 'lightbox/closed' });
-        return;
-      case 'photo.favorite.toggle': {
-        const target = state.photos.find(({ id }) => id === state.lightboxId);
-        if (target !== undefined) {
-          void window.overlook.library.toggleFavorite({ id: target.id }).then(({ pendingCount }) => {
-            dispatch({ type: 'pendingCount/set', count: pendingCount });
-          });
-        }
-        return;
-      }
-      case 'photo.trash': {
-        const target = state.photos.find(({ id }) => id === state.lightboxId && id !== null);
-        if (target?.deletedAt === null) {
-          deletePhoto(target.id, dispatch);
-        }
-        return;
-      }
-      case 'album.membership.add':
-      case 'album.membership.remove':
-      case 'album.rename':
-      case 'album.delete':
-      case 'album.transfer':
-      case 'photo.open':
-      case 'photo.export':
-      case 'photo.offload':
-      case 'photo.restoreOriginal':
-      case 'photo.transfer':
-      case 'photo.restore':
-      case 'photo.purge':
-      case 'trash.empty':
-        return;
-      case 'help.shortcuts':
-        setShortcutSurface(state.lightboxId === null ? 'grid' : 'lightbox');
-        return;
-      case 'help.activity':
-        // Menu-only Activity surface (#690). Clear every open overlay first —
-        // not just the reducer dialog family but also non-reducer modals
-        // (ShortcutHelp, offload, unlock…) — so Activity never stacks a second
-        // focus-trapping Dialog on top of one already mounted.
-        closeOverlays();
-        dispatch({ type: 'dialog/set', dialog: 'activity', open: true });
-        return;
-      case 'app.lock.now':
-      case 'help.open':
-      case 'app.search.focus':
-      case 'selection.clear':
-      case 'view.lightbox.previous':
-      case 'view.lightbox.next':
-      case 'view.lightbox.zoomIn':
-      case 'view.lightbox.zoomOut':
-      case 'view.lightbox.zoomReset':
-      case 'view.lightbox.rotateLeft':
-      case 'view.lightbox.rotateRight':
-      case 'view.lightbox.flipHorizontal':
-      case 'view.lightbox.orientationReset':
-      case 'grid.focus.left':
-      case 'grid.focus.right':
-      case 'grid.focus.up':
-      case 'grid.focus.down':
-      case 'grid.focus.home':
-      case 'grid.focus.end':
-      case 'grid.focus.pageUp':
-      case 'grid.focus.pageDown':
-        return;
-    }
-  }, [dispatch, nativeCommand, offload, state.lightboxId, state.photos]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  useNativeCommandRouter({
+    nativeCommand,
+    state,
+    dispatch,
+    setShortcutSurface,
+    setSettingsSection,
+    setExportPhotoIds,
+    setAlbumPickerIds: setMenuAlbumPickerIds,
+    setLibrariesCreating,
+    resetInteropEntry: () => setInteropEntry(null),
+    resetUnlockAlbum: () => setUnlockAlbumId(null),
+    resetDropped: () => setDropped(null),
+    closeOffload: offload.close,
+  });
 
   const inspectorSelectionPosition = useDetachedInspector(state, dispatch);
 
@@ -669,11 +523,30 @@ export function Shell({
       {offload.dialog}
       {state.librariesOpen ? (
         <LibrarySwitcher
+          startInCreate={librariesCreating}
           onClose={() => {
+            setLibrariesCreating(false);
             dispatch({ type: 'dialog/set', dialog: 'libraries', open: false });
           }}
         />
       ) : null}
+      {menuAlbumPickerIds === null ? null : (
+        <div className="ovl-quick-action-picker">
+          <AlbumPicker
+            onPick={(album) => {
+              const photoIds = menuAlbumPickerIds;
+              setMenuAlbumPickerIds(null);
+              void window.overlook.albums.addPhotos({ albumId: album.id, photoIds: [...photoIds] }).then(({ added }) => {
+                dispatch({
+                  type: 'toast/shown',
+                  toast: { title: `Added ${formatCount(added)} ${added === 1 ? 'photo' : 'photos'} to ${album.name}`, tone: 'green' },
+                });
+              });
+            }}
+            onClose={() => setMenuAlbumPickerIds(null)}
+          />
+        </div>
+      )}
       {state.settingsOpen ? (
         <SettingsDialog
           open
@@ -788,24 +661,26 @@ export function Shell({
         );
       })()}
       <div className="ovl-shell__body">
-        <Sidebar
-          platform={commandPlatform(platform)}
-          counts={counts}
-          stats={stats}
-          albums={albums}
-          onTransferAlbum={(album) => openInterop('album', album.count)}
-          onEmptyTrash={emptyTrash.open}
-          protectedAlbums={protectedAlbums}
-          onProtectedOpen={(albumId, origin) => {
-            const album = protectedAlbums.find((candidate) => candidate.id === albumId);
-            if (album?.locked === false) {
-              dispatch({ type: 'protectedAlbum/set', albumId });
-              return;
-            }
-            unlockOriginRef.current = origin;
-            setUnlockAlbumId(albumId);
-          }}
-        />
+        {state.sidebarOpen ? (
+          <Sidebar
+            platform={commandPlatform(platform)}
+            counts={counts}
+            stats={stats}
+            albums={albums}
+            onTransferAlbum={(album) => openInterop('album', album.count)}
+            onEmptyTrash={emptyTrash.open}
+            protectedAlbums={protectedAlbums}
+            onProtectedOpen={(albumId, origin) => {
+              const album = protectedAlbums.find((candidate) => candidate.id === albumId);
+              if (album?.locked === false) {
+                dispatch({ type: 'protectedAlbum/set', albumId });
+                return;
+              }
+              unlockOriginRef.current = origin;
+              setUnlockAlbumId(albumId);
+            }}
+          />
+        ) : null}
         {emptyTrash.dialog}
         <main
           className="ovl-shell__content"
