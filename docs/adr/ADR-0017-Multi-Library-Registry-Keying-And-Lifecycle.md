@@ -4,7 +4,7 @@
 
 Accepted 2026-07-16 on issue [#383](https://github.com/qwts/photos/issues/383) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands).
 
-**Amended 2026-07-22 by [ADR-0028](./ADR-0028-Remote-Custody-Binding-And-Custody-Safe-Disconnect.md) (#723):** §6's profile-scoped credential slots stand, but a library's non-secret custody binding (which provider **account** holds its offloaded originals) is library-scoped state in its database; replacing the account behind a credential slot no longer silently repoints custody operations.
+**Amended 2026-07-22 by [ADR-0028](./ADR-0028-Remote-Custody-Binding-And-Custody-Safe-Disconnect.md) (#723):** §6's profile-scoped credential slots stand, but a library's non-secret custody binding (which provider **account** holds its offloaded originals) is library-scoped state in its database; replacing the account behind a credential slot no longer silently repoints custody operations. Registry entries (§1) additionally carry a conservative, non-secret custody hint (provider ID, account ID, sole-custody totals, ADR-0028 §4) so profile-wide credential removal can preflight sealed libraries — a scoped exception to §1's "derived status is never persisted" rule.
 
 This ADR extends [ADR-0004](./ADR-0004-Encryption-And-Key-Management.md), [ADR-0005](./ADR-0005-Library-Data-Model.md), [ADR-0007](./ADR-0007-Backup-Format-And-Offload.md), [ADR-0011](./ADR-0011-Provider-Catalog-Capabilities-And-Switching.md), and [ADR-0013](./ADR-0013-App-Lock-Key-Release-And-Protected-Albums.md); it rewrites none of them.
 
