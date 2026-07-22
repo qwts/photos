@@ -18,7 +18,7 @@ describe('release workflow publication', () => {
 
     assert.match(workflow, /title="Overlook \$TAG"/u);
     assert.match(workflow, /gh release edit "\$TAG" --prerelease --title "\$title"/u);
-    assert.match(workflow, /gh release create "\$TAG" "\$\{asset_specs\[@\]\}"\s+--prerelease/u);
+    assert.match(workflow, /gh release create "\$TAG" "\$\{asset_specs\[@\]\}"\s+\\\s+--prerelease/u);
     assert.doesNotMatch(workflow, /unsigned dev build/u);
     assert.doesNotMatch(workflow, /--latest/u);
   });
