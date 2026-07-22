@@ -14,7 +14,8 @@ import { createPCloudConnect, type PCloudConnectResult } from './pcloud/connect.
 import { PCloudProvider } from './pcloud/pcloud-provider.js';
 import { PCloudTokenStore } from './pcloud/token-store.js';
 import type { StorageProvider } from './provider.js';
-import type { ProviderDescriptor } from '../../shared/backup/provider-descriptor.js';
+import { measureUsedByOverlookBytes } from './provider-usage.js';
+import type { ProviderDescriptor, ProviderStorageStatus } from '../../shared/backup/provider-descriptor.js';
 import { ICloudDriveProvider } from './icloud-drive/icloud-drive-provider.js';
 import { ICloudDriveAuthorityStore } from './icloud-drive/authority-store.js';
 import type { ICloudDriveNativeBridge, ICloudDriveUnavailableReason } from './icloud-drive/native-bridge.js';
@@ -43,6 +44,8 @@ export interface ProviderRuntimeOptions {
   readonly googleDriveClientSecret?: (() => string | null) | undefined;
   readonly fetchImpl?: typeof fetch | undefined;
   readonly iCloudDriveBridge: ICloudDriveNativeBridge;
+  /** Injectable clock for the usage `measuredAt` stamp; defaults to wall time. */
+  readonly now?: (() => string) | undefined;
 }
 
 export class ProviderRuntime {
@@ -194,28 +197,82 @@ export class ProviderRuntime {
     this.iCloudDriveProviderInstance = undefined;
   }
 
-  async status(providerId: string): Promise<{
-    provider: ProviderDescriptor;
-    connected: boolean;
-    account: string | null;
-    usedBytes: number | null;
-    totalBytes: number | null;
-  }> {
+  private now(): string {
+    return this.options.now?.() ?? new Date().toISOString();
+  }
+
+  /** Provider storage status (#684). Two independent figures: `usedByOverlook`
+   * (what Overlook measures of its own remote objects) and account `capacity`
+   * (only from a verified quota API). A measurement failure or a failed quota
+   * call NEVER changes connection authority (invariant I5) — it is reported as
+   * `measurementFailed` / `capacity: null`, leaving `connected` intact. */
+  async status(providerId: string): Promise<ProviderStorageStatus> {
     const provider = this.provider(providerId);
     const descriptor = (await this.descriptors()).find((candidate) => candidate.id === providerId);
     if (provider === undefined || descriptor === undefined) {
       throw new Error(`provider is not available: ${providerId}`);
     }
     const connected = this.activeId() === providerId && (await provider.authState()) === 'connected';
-    if (!connected || provider.capabilities.quota === 'unknown') {
-      return { provider: descriptor, connected, account: null, usedBytes: null, totalBytes: null };
+    if (!connected) {
+      return {
+        provider: descriptor,
+        connected,
+        account: null,
+        usedByOverlookBytes: null,
+        measuredAt: null,
+        measurementFailed: false,
+        capacity: null,
+        capacityRoute: 'none',
+      };
     }
+    // Measure Overlook's own usage — independent of, and never blended with,
+    // account capacity. A failure leaves the account connected.
+    let usedByOverlookBytes: number | null = null;
+    let measuredAt: string | null = null;
+    let measurementFailed = false;
     try {
-      const quota = await provider.quota();
-      return { provider: descriptor, connected: true, account: null, usedBytes: quota.usedBytes, totalBytes: quota.totalBytes };
+      usedByOverlookBytes = await measureUsedByOverlookBytes(provider);
+      measuredAt = this.now();
     } catch {
-      return { provider: descriptor, connected: false, account: null, usedBytes: null, totalBytes: null };
+      measurementFailed = true;
     }
+    // Account-wide capacity only from a verified quota API. iCloud's quota is
+    // `unknown` (no trustworthy account API), so it never fabricates a total —
+    // it routes the user to System Settings instead. A `known`-quota provider
+    // whose call fails degrades to a plain "capacity unavailable" (no route).
+    let capacity: ProviderStorageStatus['capacity'] = null;
+    if (provider.capabilities.quota === 'known') {
+      try {
+        const quota = await provider.quota();
+        if (quota.totalBytes !== null) {
+          capacity = { usedBytes: quota.usedBytes, totalBytes: quota.totalBytes };
+        }
+      } catch {
+        capacity = null;
+      }
+    }
+    const capacityRoute: ProviderStorageStatus['capacityRoute'] =
+      capacity === null && descriptor.id === 'icloud-drive' ? 'system-settings' : 'none';
+    return {
+      provider: descriptor,
+      connected: true,
+      account: null,
+      usedByOverlookBytes,
+      measuredAt,
+      measurementFailed,
+      capacity,
+      capacityRoute,
+    };
+  }
+
+  /** Routes to the OS surface that owns account capacity when Overlook cannot
+   * report it in-app (#684). iCloud has no trustworthy account-quota API, so this
+   * opens macOS System Settings → Apple Account → iCloud. A no-op (ok:false) for
+   * providers whose capacity is reported in the card. */
+  async openCapacitySettings(providerId: string): Promise<{ ok: boolean }> {
+    if (providerId !== 'icloud-drive') return { ok: false };
+    await this.options.openExternal('x-apple.systempreferences:com.apple.preferences.AppleIDPrefPane?iCloud');
+    return { ok: true };
   }
 
   async connect(providerId: string): Promise<PCloudConnectResult> {

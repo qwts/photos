@@ -2,18 +2,17 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { defineMessages, useIntl } from 'react-intl';
 
 import { useFormats } from '../i18n/use-formats.js';
-import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
-import { ProgressBar } from '../components/ProgressBar';
 import { Segmented } from '../components/Segmented';
 import { Slider } from '../components/Slider';
 import { Switch } from '../components/Switch';
 import { Field } from './Field';
 import { OffloadedStorage } from './OffloadedStorage';
+import { ProviderCard, type ProviderCapacityView, type ProviderConnectionState, type ProviderUsageView } from './ProviderCard';
 import type { AppSettings } from '../../../shared/settings/settings.js';
-import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
+import type { ProviderDescriptor, ProviderStorageStatus } from '../../../shared/backup/provider-descriptor.js';
 import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 // Storage & Backup section (#114, updated by #239, #254): the provider
@@ -27,17 +26,14 @@ import { destructiveActions } from '../../../shared/destructive-actions.js';
 // settings-changed push re-renders this pane. Quota is the provider's own
 // answer, not a cached guess.
 
-export interface ProviderStatus {
-  readonly provider: ProviderDescriptor;
-  readonly connected: boolean;
-  readonly account: string | null;
-  readonly usedBytes: number | null;
-  readonly totalBytes: number | null;
-}
-
 type ProviderStatusLoad =
-  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderStatus }
+  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderStorageStatus }
   | { readonly targetId: string; readonly state: 'error' };
+
+/** Last successfully-measured usage for the addressed provider, retained so a
+ * failed/offline refresh can show the figure marked stale rather than blanking
+ * it (#684 invariant I5). */
+type RetainedUsage = { readonly targetId: string; readonly bytes: number; readonly measuredAt: string };
 
 type ConnectionOperation = 'connect' | 'disconnect';
 
@@ -78,13 +74,17 @@ export interface StoragePaneProps {
 
 export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: StoragePaneProps): ReactElement {
   const intl = useIntl();
-  const { formatBytes } = useFormats();
+  const { formatBytes, formatRelativeTime } = useFormats();
   const [statusLoad, setStatusLoad] = useState<ProviderStatusLoad | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
   const [connectionOperation, setConnectionOperation] = useState<ConnectionOperation | null>(null);
   const [disconnectConfirmation, setDisconnectConfirmation] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [retained, setRetained] = useState<RetainedUsage | null>(null);
+  // Wall clock captured out of render (purity) so a stale figure's "last
+  // measured N ago" is computed against the time of the most recent status.
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const statusRequestRef = useRef(0);
   const operationRef = useRef<ConnectionOperation | null>(null);
 
@@ -97,7 +97,14 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
     void window.overlook.backup
       .providerStatus({ providerId: targetId })
       .then((loaded) => {
-        if (statusRequestRef.current === request) setStatusLoad({ targetId, state: 'ready', value: loaded });
+        if (statusRequestRef.current !== request) return;
+        setStatusLoad({ targetId, state: 'ready', value: loaded });
+        setNowMs(Date.now());
+        // Retain only a real, current measurement — a failed refresh keeps the
+        // previous figure so the card can mark it stale rather than blank it.
+        if (loaded.usedByOverlookBytes !== null && !loaded.measurementFailed && loaded.measuredAt !== null) {
+          setRetained({ targetId, bytes: loaded.usedByOverlookBytes, measuredAt: loaded.measuredAt });
+        }
       })
       .catch(() => {
         if (statusRequestRef.current === request) setStatusLoad({ targetId, state: 'error' });
@@ -155,99 +162,115 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
     refresh();
   }, [refresh]);
 
+  // Usage must reflect remote reality after it changes (#684). A completed backup
+  // (upload/cleanup/integrity repair) re-sums the figure; reconnect and app
+  // restart re-measure through the effects above; manual Refresh below covers the
+  // rest. Offload/remote-deletion flows also finish through backup completion.
+  useEffect(() => window.overlook.backup.onCompleted(() => refresh()), [refresh]);
+
+  const openCapacitySettings = useCallback(() => {
+    if (targetId === null) return;
+    void window.overlook.backup.openCapacitySettings({ providerId: targetId });
+  }, [targetId]);
+
   const status = statusLoad?.targetId === targetId && statusLoad.state === 'ready' ? statusLoad.value : null;
   const descriptor = providers.find((provider) => provider.id === targetId) ?? status?.provider ?? null;
-  const connection =
-    statusLoad?.targetId === targetId && statusLoad.state === 'error'
-      ? 'error'
-      : status === null
-        ? 'loading'
-        : settings.providerId === targetId && status.connected
-          ? 'connected'
-          : 'disconnected';
-  const connected = connection === 'connected';
+  const errored = statusLoad?.targetId === targetId && statusLoad.state === 'error';
+  const connected = status !== null && settings.providerId === targetId && status.connected;
+  const connection: ProviderConnectionState = errored ? 'error' : status === null ? 'checking' : connected ? 'connected' : 'disconnected';
   const name = descriptor?.label ?? 'Cloud provider';
   const bandwidth = settings.bandwidthLimit;
   const disconnecting = connectionOperation === 'disconnect';
   const connecting = connectionOperation === 'connect';
+  const retainedUsage = retained?.targetId === targetId ? retained : null;
+
+  // "Used by Overlook" view: a current measurement, else the retained figure
+  // marked stale, else calculation-failure, else the measuring skeleton.
+  const usage: ProviderUsageView = !connected
+    ? { bytes: null, failed: false, stale: false, staleLabel: null }
+    : status !== null && status.usedByOverlookBytes !== null && !status.measurementFailed
+      ? { bytes: status.usedByOverlookBytes, failed: false, stale: false, staleLabel: null }
+      : retainedUsage !== null
+        ? {
+            bytes: retainedUsage.bytes,
+            failed: false,
+            stale: true,
+            staleLabel: `Last measured ${formatRelativeTime(retainedUsage.measuredAt, nowMs)} · offline`,
+          }
+        : status !== null && status.measurementFailed
+          ? { bytes: null, failed: true, stale: false, staleLabel: null }
+          : { bytes: null, failed: false, stale: false, staleLabel: null };
+
+  // Account capacity: a verified quota (bar), else iCloud's System Settings route,
+  // else a plain "unavailable" for a known-quota provider whose call failed.
+  const capacity: ProviderCapacityView =
+    connected && status !== null && status.capacity !== null
+      ? { kind: 'known', usedBytes: status.capacity.usedBytes, totalBytes: status.capacity.totalBytes }
+      : connected && status?.capacityRoute === 'system-settings'
+        ? { kind: 'route' }
+        : connected && descriptor?.capabilities.quota === 'known'
+          ? { kind: 'unavailable' }
+          : { kind: 'none' };
+
+  const capabilitiesLine =
+    descriptor === null
+      ? null
+      : `${descriptor.capabilities.verification === 'server-checksum' ? 'Server checksum' : 'Verify by download'} · ${
+          descriptor.capabilities.resumableUpload ? 'resumable uploads' : 'restarts interrupted uploads'
+        }`;
+
+  const announcement = usage.failed
+    ? `Couldn’t measure ${name} usage. Try again.`
+    : usage.stale
+      ? `${name} is offline. Showing the last measured usage.`
+      : usage.bytes === null
+        ? `Measuring ${name} backup usage…`
+        : `Used by Overlook: ${formatBytes(usage.bytes)}.`;
+
+  const primaryLabel = disconnecting
+    ? intl.formatMessage(messages.disconnecting)
+    : connecting
+      ? 'Connecting…'
+      : connection === 'checking'
+        ? 'Checking…'
+        : connection === 'error'
+          ? 'Try again'
+          : connected
+            ? destructiveActions.disconnectProvider.label
+            : `Connect ${name}`;
+
+  const onPrimary = (): void => {
+    if (connection === 'error') {
+      setStatusLoad(null);
+      setConnectError(null);
+      refresh();
+    } else if (connected) {
+      setDisconnectConfirmation(true);
+    } else {
+      changeConnection('connect');
+    }
+  };
 
   return (
     <div className="ovl-settings__fields">
-      <div className="ovl-settings__provider" data-testid="provider-card">
-        <Icon name="cloud" size={20} color={connected ? 'var(--accent-cyan)' : 'var(--text-faint)'} />
-        <div className="ovl-settings__providerBody">
-          <div className="ovl-settings__providerHead">
-            <span className="ovl-settings__providerName">{name}</span>
-            {disconnecting ? (
-              <Badge tone="neutral">{intl.formatMessage(messages.disconnecting)}</Badge>
-            ) : connection === 'loading' ? (
-              <Badge tone="neutral">Checking…</Badge>
-            ) : connected ? (
-              <Badge tone="green">Connected</Badge>
-            ) : connection === 'error' ? (
-              <Badge tone="neutral">Status unavailable</Badge>
-            ) : (
-              <Badge tone="neutral">Not connected</Badge>
-            )}
-          </div>
-          {disconnecting ? (
-            <div className="ovl-settings__providerMeta">{intl.formatMessage(messages.removingAuthorization)}</div>
-          ) : connection === 'loading' ? (
-            <div className="ovl-settings__providerMeta">Checking connection…</div>
-          ) : connection === 'error' ? (
-            <div className="ovl-settings__providerMeta">Could not check this provider’s connection.</div>
-          ) : connected && status !== null && status.usedBytes !== null && status.totalBytes !== null ? (
-            <>
-              <div className="ovl-settings__providerMeta mono-data">
-                {status.account ?? 'This device'} · {formatBytes(status.usedBytes)} / {formatBytes(status.totalBytes)} used
-              </div>
-              <ProgressBar label={`${name} storage used`} value={status.usedBytes} max={Math.max(status.totalBytes, 1)} tone="cyan" />
-            </>
-          ) : connected ? (
-            <div className="ovl-settings__providerMeta mono-data">{status?.account ?? 'This device'} · storage usage not reported</div>
-          ) : (
-            <div className="ovl-settings__providerMeta">
-              {connectError === null ? 'Link a provider to store encrypted originals off-device.' : connectError}
-            </div>
-          )}
-          {descriptor === null ? null : (
-            <div className="ovl-settings__providerMeta mono-data">
-              {descriptor.capabilities.verification === 'server-checksum' ? 'Server checksum' : 'Verify by download'} ·{' '}
-              {descriptor.capabilities.resumableUpload ? 'resumable uploads' : 'restarts interrupted uploads'}
-            </div>
-          )}
-          {connectError === null || (!connected && connection !== 'error') ? null : (
-            <div className="ovl-settings__providerMeta">{connectError}</div>
-          )}
-        </div>
-        <Button
-          variant={connected ? 'secondary' : 'primary'}
-          disabled={connection === 'loading' || connectionOperation !== null || descriptor?.available === false}
-          onClick={() => {
-            if (connection === 'error') {
-              setStatusLoad(null);
-              setConnectError(null);
-              refresh();
-            } else if (connected) {
-              setDisconnectConfirmation(true);
-            } else {
-              changeConnection('connect');
-            }
-          }}
-        >
-          {disconnecting
-            ? intl.formatMessage(messages.disconnecting)
-            : connecting
-              ? 'Connecting…'
-              : connection === 'loading'
-                ? 'Checking…'
-                : connection === 'error'
-                  ? 'Try again'
-                  : connected
-                    ? destructiveActions.disconnectProvider.label
-                    : `Connect ${name}`}
-        </Button>
-      </div>
+      <ProviderCard
+        name={name}
+        connection={connection}
+        account={status?.account ?? null}
+        usage={usage}
+        capacity={capacity}
+        capabilitiesLine={capabilitiesLine}
+        message={connectError ?? 'Link a provider to store encrypted originals off-device.'}
+        announcement={announcement}
+        primaryLabel={primaryLabel}
+        primaryVariant={connected ? 'secondary' : 'primary'}
+        primaryDisabled={connection === 'checking' || connectionOperation !== null || descriptor?.available === false}
+        onPrimary={onPrimary}
+        canRefresh={connected}
+        refreshLabel={usage.failed ? 'Try again' : 'Refresh'}
+        onRefresh={refresh}
+        onCapacityRoute={openCapacitySettings}
+      />
 
       <Dialog
         open={disconnectConfirmation}
@@ -302,7 +325,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         </Button>
       </Field>
 
-      <OffloadedStorage connection={connection} selectedPhotoIds={selectedPhotoIds} />
+      <OffloadedStorage connection={connection === 'checking' ? 'loading' : connection} selectedPhotoIds={selectedPhotoIds} />
 
       <Field label="Re-offload after viewing" hint="Keep cloud-only originals temporary unless you choose Keep downloaded.">
         <Switch

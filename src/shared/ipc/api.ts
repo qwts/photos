@@ -173,6 +173,9 @@ export interface OverlookApi {
     readonly providerStatus: (request: Req<typeof channels.backupProviderStatus>) => Promise<Res<typeof channels.backupProviderStatus>>;
     readonly connect: (request: Req<typeof channels.backupConnect>) => Promise<Res<typeof channels.backupConnect>>;
     readonly disconnect: (request: Req<typeof channels.backupDisconnect>) => Promise<Res<typeof channels.backupDisconnect>>;
+    readonly openCapacitySettings: (
+      request: Req<typeof channels.backupOpenCapacitySettings>,
+    ) => Promise<Res<typeof channels.backupOpenCapacitySettings>>;
   };
   readonly export: {
     readonly pickDestination: (request: Req<typeof channels.exportPickDestination>) => Promise<Res<typeof channels.exportPickDestination>>;
