@@ -4,6 +4,13 @@ function commandText(run, file, args, options) {
   return String(run(file, args, { ...options, encoding: 'utf8' })).trim();
 }
 
+function authorizesIdentifier(authorized, expected) {
+  if (authorized === expected) return true;
+  if (typeof authorized !== 'string' || !authorized.endsWith('*')) return false;
+  const prefix = authorized.slice(0, -1);
+  return prefix.endsWith('.') && expected.length > prefix.length && expected.startsWith(prefix);
+}
+
 export function readProvisioningProfile(profilePath, run = execFileSync) {
   const plist = run('security', ['cms', '-D', '-i', profilePath]);
   const extracted = (key, format) =>
@@ -31,10 +38,17 @@ export function validateProvisioningProfile(metadata, expected, now = Date.now()
   if (expected.ubiquityContainerId !== undefined) {
     const ubiquityContainers = metadata.entitlements?.['com.apple.developer.ubiquity-container-identifiers'];
     const services = metadata.entitlements?.['com.apple.developer.icloud-services'];
-    if (!Array.isArray(ubiquityContainers) || !ubiquityContainers.includes(expected.ubiquityContainerId)) {
+    if (
+      !Array.isArray(ubiquityContainers) ||
+      !ubiquityContainers.some((authorized) => authorizesIdentifier(authorized, expected.ubiquityContainerId))
+    ) {
       throw new Error(`profile does not authorize ubiquity container ${expected.ubiquityContainerId}`);
     }
-    if (!Array.isArray(services) || !services.includes('CloudDocuments')) {
+    // Developer ID profiles generated with Apple's legacy iCloud Documents
+    // option authorize the ubiquity container but can omit this app entitlement.
+    // When the profile does constrain services, it must include Documents. The
+    // packaged executable is verified separately and must always claim it.
+    if (services !== undefined && (!Array.isArray(services) || !services.includes('CloudDocuments'))) {
       throw new Error('profile does not authorize iCloud Documents');
     }
   }

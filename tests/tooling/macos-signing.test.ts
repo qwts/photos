@@ -186,6 +186,36 @@ describe('provisioning profile validation (#360)', () => {
       ubiquityContainerId: OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
     };
     validateProvisioningProfile(metadata, expected, 0);
+    validateProvisioningProfile(
+      {
+        ...metadata,
+        entitlements: {
+          ...entitlements,
+          'com.apple.developer.ubiquity-container-identifiers': [`${OVERLOOK_TEAM_ID}.*`],
+        },
+      },
+      expected,
+      0,
+    );
+    const { ['com.apple.developer.icloud-services']: _services, ...legacyProfileEntitlements } = entitlements;
+    validateProvisioningProfile({ ...metadata, entitlements: legacyProfileEntitlements }, expected, 0);
+    for (const unauthorized of [`${OVERLOOK_TEAM_ID}.iCloud.com.zts1.other`, `${OVERLOOK_TEAM_ID}*`, `OTHERTEAM.*`]) {
+      assert.throws(
+        () =>
+          validateProvisioningProfile(
+            {
+              ...metadata,
+              entitlements: {
+                ...entitlements,
+                'com.apple.developer.ubiquity-container-identifiers': [unauthorized],
+              },
+            },
+            expected,
+            0,
+          ),
+        /does not authorize ubiquity container/u,
+      );
+    }
     for (const key of ['com.apple.developer.ubiquity-container-identifiers', 'com.apple.developer.icloud-services']) {
       assert.throws(
         () => validateProvisioningProfile({ ...metadata, entitlements: { ...entitlements, [key]: [] } }, expected, 0),

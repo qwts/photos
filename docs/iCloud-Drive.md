@@ -17,8 +17,12 @@ The container must be created and attached to the app identifier in Apple
 Developer before a matching Developer ID provisioning profile is generated.
 Profiles and Apple Account material remain outside the repository.
 
-The provisioned package path requires all of these profile and main-executable
-entitlements:
+The provisioning profile must authorize the application/team identity and the
+Team-ID-prefixed ubiquity container. Apple may encode the latter as the exact
+container or as its generated Team-ID wildcard. Developer ID profiles generated
+with the portal's legacy iCloud Documents option can omit the service list.
+
+The signed main executable must claim all of these entitlements exactly:
 
 - `com.apple.application-identifier`
 - `com.apple.developer.team-identifier`
