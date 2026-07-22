@@ -58,7 +58,7 @@ function seedCredential(userData: string, providerId: Exclude<ProviderId, 'iclou
 }
 
 for (const providerId of ['google-drive', 'pcloud', 'icloud-drive'] as const) {
-  test(`${providerId} renders Connected while composed storage metrics are stalled and survives restart`, async () => {
+  test(`${providerId} renders Connected independently from native capacity and survives restart`, async () => {
     const userData = mkE2eTmpDir(`overlook-e2e-provider-status-${providerId}-`);
 
     if (providerId !== 'icloud-drive') {
@@ -112,17 +112,15 @@ for (const providerId of ['google-drive', 'pcloud', 'icloud-drive'] as const) {
       await expect(card).toContainText('Connected');
       await expect(card.getByRole('button', { name: 'Disconnect provider' })).toBeEnabled();
       await expect(card).not.toContainText('Checking connection…');
+      await expect(card).not.toContainText('Used by Overlook');
+      await expect(card).not.toContainText('Measuring your backups');
 
-      const metrics = await page.evaluate<{
-        usedByOverlookBytes: number | null;
-        measurementFailed: boolean;
+      const capacity = await page.evaluate<{
         capacity: unknown;
         capacityRoute: string;
       }>(`globalThis.__overlookProviderStorage`);
-      expect(metrics.usedByOverlookBytes).toBe(null);
-      expect(metrics.measurementFailed).toBe(true);
-      expect(metrics.capacity).toBe(null);
-      expect(metrics.capacityRoute).toBe(providerId === 'icloud-drive' ? 'system-settings' : 'none');
+      expect(capacity.capacity).toBe(null);
+      expect(capacity.capacityRoute).toBe(providerId === 'icloud-drive' ? 'system-settings' : 'none');
     } finally {
       await app.close();
     }
