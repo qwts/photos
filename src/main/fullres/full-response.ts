@@ -34,6 +34,14 @@ export async function handleFullRequest(
     protectedService.prefetch(protectedTarget.albumId, [protectedTarget.photoId]);
     return new Response(null, { status: 204, headers: NO_STORE });
   }
+  // Video streams over Range (ADR-0026 §5) — try it before the still LRU path;
+  // null means "not a streamable video", so images fall through unchanged.
+  if (parsed !== null) {
+    const video = await getService().videoResponse(parsed.photoId, request.headers.get('Range'));
+    if (video !== null) {
+      return new Response(video.body, { status: video.status, headers: video.headers });
+    }
+  }
   const payload =
     parsed !== null
       ? await getService().getFull(parsed.photoId, request.signal)

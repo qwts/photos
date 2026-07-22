@@ -1,7 +1,11 @@
+import { Readable } from 'node:stream';
+
 import { resolveRawPreview } from '../import/raw-preview.js';
 import { resolveHeicPreview } from '../import/heic-preview.js';
 import { ByteLru } from '../cache/byte-lru.js';
 import type { FileKind } from '../../shared/library/types.js';
+import { resolveByteRange } from './byte-range.js';
+import { sliceStream, videoHeaders } from './video-stream.js';
 
 // Full-resolution decrypt-to-view delivery (#91): originals decrypt into a
 // byte-capped in-memory LRU and are served over overlook-full:// — plaintext
@@ -24,9 +28,27 @@ export interface FullPayload {
   readonly preview: boolean;
 }
 
+/** A streamable, range-served video original (ADR-0026 §5) — never LRU-cached. */
+export interface VideoOriginal {
+  readonly stream: Readable;
+  readonly totalBytes: number;
+  readonly mime: string;
+}
+
+/** The 200/206/416 descriptor for a video request; `body` is a web stream so
+ * Electron's protocol handler streams it without buffering the whole clip. */
+export interface VideoResponse {
+  readonly status: number;
+  readonly headers: Record<string, string>;
+  readonly body: ReadableStream<Uint8Array> | null;
+}
+
 export interface FullServiceOptions {
   /** Resolves and decrypts an original; null = missing/offloaded. */
   readonly loadOriginal: (photoId: string, purpose: 'view' | 'prefetch') => Promise<LoadedOriginal | null>;
+  /** Opens a decrypting read stream for a `video` original (ADR-0026 §5);
+   * null when the photo is missing or not a streamable video. */
+  readonly openVideoStream?: ((photoId: string) => Promise<VideoOriginal | null>) | undefined;
   /** Rechecked before and after cache/decrypt work. False revokes plaintext. */
   readonly admit?: ((photoId: string) => boolean) | undefined;
   /** LRU cap over decrypted full-res bytes. Default 256 MiB. */
@@ -49,11 +71,13 @@ const MIME_BY_KIND: Partial<Record<FileKind, string>> = {
 
 export class FullService {
   private readonly loadOriginal: FullServiceOptions['loadOriginal'];
+  private readonly openVideoStream: FullServiceOptions['openVideoStream'];
   private readonly admit: NonNullable<FullServiceOptions['admit']>;
   private readonly lru: ByteLru<FullPayload>;
 
   constructor(options: FullServiceOptions) {
     this.loadOriginal = options.loadOriginal;
+    this.openVideoStream = options.openVideoStream;
     this.admit = options.admit ?? (() => true);
     this.lru = new ByteLru({
       maxCacheBytes: options.maxCacheBytes ?? DEFAULT_CACHE_BYTES,
@@ -78,6 +102,44 @@ export class FullService {
       return null;
     }
     return payload;
+  }
+
+  /**
+   * Range-served video delivery (ADR-0026 §5). Streams the decrypted original
+   * for a `Range` (206) or the whole clip (200) without touching the image
+   * LRU; returns null when the photo is not a streamable video (the caller
+   * falls back to the still path), or a 416 when the range is unsatisfiable.
+   * The admit gate is rechecked before the stream opens.
+   */
+  async videoResponse(photoId: string, rangeHeader: string | null): Promise<VideoResponse | null> {
+    if (this.openVideoStream === undefined) return null;
+    if (!this.admit(photoId)) {
+      this.invalidate(photoId);
+      return null;
+    }
+    const original = await this.openVideoStream(photoId);
+    if (original === null) return null;
+    if (!this.admit(photoId)) {
+      original.stream.destroy();
+      this.invalidate(photoId);
+      return null;
+    }
+    const range = resolveByteRange(rangeHeader, original.totalBytes);
+    if (range.kind === 'unsatisfiable') {
+      original.stream.destroy();
+      return {
+        status: 416,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Access-Control-Allow-Origin': '*',
+          'Content-Range': `bytes */${String(original.totalBytes)}`,
+        },
+        body: null,
+      };
+    }
+    const { status, headers } = videoHeaders(range, original.totalBytes, original.mime);
+    const node = range.kind === 'partial' ? sliceStream(original.stream, range.start, range.end - range.start + 1) : original.stream;
+    return { status, headers, body: Readable.toWeb(node) as unknown as ReadableStream<Uint8Array> };
   }
 
   /**

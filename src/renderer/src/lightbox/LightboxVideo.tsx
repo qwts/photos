@@ -7,6 +7,7 @@ import { formatDuration, preservedCodecLabel } from '../../../shared/library/med
 import { derivePlayability, type DeviceMediaCapabilities } from '../../../shared/library/playability.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { deviceMediaCapabilities } from '../media/device-capabilities.js';
+import { createTransportStreamRemux, type TransportStreamRemux } from '../media/ts-remux.js';
 import { useAnnouncer } from '../components/LiveAnnouncer';
 import { usePrefersReducedMotion } from './use-reduced-motion.js';
 
@@ -85,9 +86,13 @@ export function LightboxVideo({
   const { announce } = useAnnouncer();
   const reducedMotion = usePrefersReducedMotion();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const remuxRef = useRef<TransportStreamRemux | null>(null);
 
   const tier = derivePlayability('video', photo.mediaInfo, capabilities ?? deviceMediaCapabilities());
   const preserved = tier === 'preserved-only';
+  // MPEG-TS is not servable to <video> directly; it plays through the §5 remux
+  // adapter (TS → fMP4 over MediaSource). Other containers set src directly.
+  const isTransportStream = photo.mediaInfo?.container === 'MPEG-TS';
   const durationHint = photo.mediaInfo?.durationSeconds ?? 0;
 
   const [started, setStarted] = useState(false);
@@ -112,14 +117,34 @@ export function LightboxVideo({
     if (preserved) ann('annPreserved');
   }, [preserved, ann]);
 
+  // Tear the remux player down on unmount (photo change remounts via key).
+  useEffect(
+    () => () => {
+      remuxRef.current?.destroy();
+      remuxRef.current = null;
+    },
+    [],
+  );
+
   const play = useCallback(() => {
     setStarted(true);
     onActivity();
-    void videoRef.current?.play().catch(() => {
+    const el = videoRef.current;
+    if (el === null) return;
+    const fail = (): void => {
       setErrored(true);
       ann('annError');
-    });
-  }, [onActivity, ann]);
+    };
+    if (isTransportStream) {
+      const adapter = createTransportStreamRemux(el, src);
+      remuxRef.current = adapter;
+      if (adapter !== null) {
+        void adapter.play().catch(fail);
+        return;
+      }
+    }
+    void el.play().catch(fail);
+  }, [onActivity, ann, isTransportStream, src]);
 
   const togglePlay = useCallback(() => {
     const el = videoRef.current;
@@ -203,7 +228,7 @@ export function LightboxVideo({
       <video
         ref={videoRef}
         className="ovl-video__el"
-        src={started ? src : undefined}
+        src={started && !isTransportStream ? src : undefined}
         poster={posterSrc}
         playsInline
         preload="none"

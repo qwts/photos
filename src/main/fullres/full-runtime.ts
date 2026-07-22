@@ -37,6 +37,27 @@ export function createFullRuntime(options: FullRuntimeOptions): FullService {
         throw error;
       }
     },
+    // Video streams from the decrypting blob read — never whole-file to the LRU
+    // (ADR-0026 §5). #548 serves MPEG-TS; #549 refines per-container MIME.
+    openVideoStream: async (photoId) => {
+      const photo = options.repo.get(photoId);
+      if (photo === undefined || photo.fileKind !== 'video') return null;
+      const mime = 'video/mp2t';
+      if (photo.syncState === 'offloaded') {
+        try {
+          const opened = await options.ephemeral().open(photoId, 'view');
+          return { stream: opened.stream, totalBytes: photo.bytes, mime };
+        } catch {
+          return null;
+        }
+      }
+      try {
+        return { stream: options.blobs.getStream(photo.contentHash, options.resolveKey, photoId), totalBytes: photo.bytes, mime };
+      } catch (error) {
+        if (error instanceof BlobStoreError) return null;
+        throw error;
+      }
+    },
     maxCacheBytes: Number.isFinite(budgetMb) && budgetMb > 0 ? budgetMb * 1024 * 1024 : undefined,
   });
 }
