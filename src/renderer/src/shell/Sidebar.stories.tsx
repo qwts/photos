@@ -107,6 +107,10 @@ export const Expanded: Story = {
     await expect(canvas.getByRole('heading', { level: 2, name: 'Library' })).toBeInTheDocument();
     await expect(canvas.getByRole('heading', { level: 2, name: 'Albums' })).toBeInTheDocument();
     await expect(canvas.getByText('All Photos')).toBeVisible();
+    // Regression (#690): Activity is a Help-menu command, never a sidebar row —
+    // it must not appear under (or anywhere alongside) the ALBUMS list.
+    await expect(canvas.queryByRole('button', { name: 'Activity' })).not.toBeInTheDocument();
+    await expect(canvas.queryByText('Activity')).not.toBeInTheDocument();
     // Offloaded earns its row here: counts.offloaded is 12 (#268).
     await expect(canvas.getByText('Offloaded')).toBeVisible();
     await expect(canvas.getByTestId('backup-card')).toBeVisible();
