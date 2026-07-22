@@ -2,10 +2,10 @@
 
 ## Status
 
-Proposed — governing ADR for the [#564](https://github.com/qwts/photos/issues/564)
-epic (native macOS photo interoperability). Per the repo ADR gate, no child
-implementation that changes plaintext custody may begin until this reads
-`Status: Accepted` (precedent ADR-0022 ↔ #483, ADR-0023 ↔ #534).
+Accepted 2026-07-22 — governing ADR for the [#564](https://github.com/qwts/photos/issues/564)
+epic (native macOS photo interoperability). The repo ADR gate is now satisfied:
+child implementation that changes plaintext custody may proceed under this
+decision (precedent ADR-0022 ↔ #483, ADR-0023 ↔ #534).
 
 This ADR extends [ADR-0004](./ADR-0004-Encryption-And-Key-Management.md),
 [ADR-0007](./ADR-0007-Backup-Format-And-Offload.md),
@@ -218,8 +218,8 @@ authorized. Those limits match ADR-0004's compromised-session boundary.
   tests.
 - PhotoKit stays least-privilege and explicit; bidirectional sync is
   deliberately deferred.
-- The owner must accept this ADR before any child implementation begins (ADR
-  gate). Signed packaged macOS acceptance — install, upgrade, disable/disconnect,
+- With this ADR accepted, the ADR gate is cleared and child implementation may
+  begin. Signed packaged macOS acceptance — install, upgrade, disable/disconnect,
   uninstall cleanup — is required exit evidence for the epic.
 
 ## Acceptance mapping
