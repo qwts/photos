@@ -32,6 +32,7 @@ const inspectorWindowStep = createInvoker(channels.inspectorWindowStep, invokeTr
 const inspectorWindowSnapshot = createInvoker(channels.inspectorWindowSnapshot, invokeTransport);
 const commandRendererReady = createInvoker(channels.commandRendererReady, invokeTransport);
 const commandContextUpdate = createInvoker(channels.commandContextUpdate, invokeTransport);
+const helpOpen = createInvoker(channels.helpOpen, invokeTransport);
 
 const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
 const settingsGet = createInvoker(channels.settingsGet, invokeTransport);
@@ -89,6 +90,11 @@ const overlook: OverlookApi = {
       await commandContextUpdate(context);
     },
     onInvoked: createSubscriber(events.commandInvoked, subscribeTransport),
+  }),
+  help: Object.freeze({
+    open: async () => {
+      await helpOpen({});
+    },
   }),
   inspectorWindow: Object.freeze({
     open: async (request) => {

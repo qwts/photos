@@ -39,11 +39,13 @@ in a context menu or Quick Actions. A global but dangerous command still needs
 the ceremony required by
 [ADR-0023](./adr/ADR-0023-Trash-Purge-And-Destructive-Action-Ceremony.md).
 
-## Native menu hierarchy
+## Native menu hierarchy (macOS only)
 
-The first macOS menu uses conventional ordering and names. Windows and Linux
-move app-level items into **File**, **Tools**, and **Help** while preserving
-command IDs and shortcuts.
+The native application menu is a **macOS-only** surface (ADR-0024 §5, amended
+#699). The macOS menu below uses conventional ordering and names. **Windows and
+Linux draw no native menu bar** — `buildApplicationMenuTemplate` returns an empty
+template there and the controller calls `Menu.setApplicationMenu(null)` (see the
+[#699 subsection](#windowslinux-no-native-menu-699)).
 
 | Menu         | Initial commands                                                                                                                            | Notes                                                                                                                                                                                                   |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -79,6 +81,24 @@ target-aware enablement land in the #689 follow-up PR; until then they are
 present but **disabled**, so the menu never shows an enabled item that does
 nothing. `view.mode.feed`/`view.mode.moodboard` stay disabled until those views
 exist (Moodboard is #515). The Help → `help.activity` item is owned by #690.
+
+### Windows/Linux: no native menu (#699)
+
+The design system specs the native menu for macOS only, so #699 removes it on
+Windows and Linux: `buildApplicationMenuTemplate` returns `[]` there and the
+controller sets no application menu (`otherApplicationMenuTemplate` is deleted).
+Every command stays reachable through non-menu surfaces — the toolbar (Import,
+view modes, Lock Now, Transfer & Sync), sidebar (Settings, sources, albums),
+titlebar (Switch Library), and keyboard dispatcher (Undo/Redo, Select All,
+inspector, favorite, trash, lightbox, shortcuts). The only commands whose sole
+entry point was the menu, `help.activity` and `help.open`, move to a **titlebar
+Help menu** (`TitlebarHelpMenu`): a no-drag button left of the window controls
+that opens the shared `ContextMenu`, projecting the macOS Help menu from one
+`HELP_MENU_ITEMS` list (Keyboard Shortcuts · Activity… · — · Privacy &
+Diagnostics · Overlook Help) so the two Help surfaces cannot drift. Activity
+stays a Help affordance, never a sidebar row (#690). The `Cmd+,` Settings
+accelerator and the About box are accepted macOS-only conveniences (Settings
+stays reachable from the sidebar gear).
 
 The **Windows/Linux** template is unchanged (still File/Tools/Help placement per
 ADR-0024 §5). Removing it to match the design — which specs no non-mac menu bar

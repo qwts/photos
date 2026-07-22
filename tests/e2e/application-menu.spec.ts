@@ -38,6 +38,7 @@ function launch(userData: string): Promise<ElectronApplication> {
 }
 
 test('native menu routes the focused window and revalidates checked, modal, target, and work state (#531)', async () => {
+  test.skip(process.platform !== 'darwin', 'the native application menu is macOS-only (ADR-0024 §5, #699)');
   const app = await launch(mkE2eTmpDir('overlook-e2e-application-menu-'));
   try {
     const page = await app.firstWindow();
@@ -94,6 +95,7 @@ test('native menu routes the focused window and revalidates checked, modal, targ
 });
 
 test('lock-safe Settings commands wait without exposing content, then open after unlock (#531)', async () => {
+  test.skip(process.platform !== 'darwin', 'the native application menu is macOS-only (ADR-0024 §5, #699)');
   const app = await launch(mkE2eTmpDir('overlook-e2e-application-menu-lock-'));
   try {
     const page = await app.firstWindow();
@@ -206,6 +208,40 @@ test('macOS menu recreates one primary window and delivers the queued route (#53
     if (replacement === undefined) throw new Error('replacement window missing');
     await expect(replacement.getByTestId('settings-pane')).toHaveAttribute('data-section', 'privacy');
     expect(app.windows()).toHaveLength(1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('Windows/Linux draw no native menu and expose Help from the titlebar (#699)', async () => {
+  test.skip(process.platform === 'darwin', 'Windows/Linux run frameless with no native menu bar');
+  const app = await launch(mkE2eTmpDir('overlook-e2e-application-menu-titlebar-'));
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    // No native application menu bar on these platforms (ADR-0024 §5).
+    expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() === null)).toBe(true);
+
+    // The titlebar Help menu carries the two otherwise menu-only commands.
+    const help = page.getByRole('button', { name: 'Help' });
+    await help.click();
+    await expect(page.getByRole('menu', { name: 'Help' })).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Activity…' }).click();
+    await expect(page.getByRole('dialog', { name: 'Activity' })).toBeVisible();
+    // Re-selecting raises the existing dialog rather than stacking a duplicate.
+    await help.click();
+    await page.getByRole('menuitem', { name: 'Activity…' }).click();
+    await expect(page.getByRole('dialog', { name: 'Activity' })).toHaveCount(1);
+    await page.keyboard.press('Escape');
+
+    // Keyboard-only path: ArrowDown opens the menu on the first item; Enter runs it.
+    await help.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('menu', { name: 'Help' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(help).toBeFocused();
   } finally {
     await app.close();
   }

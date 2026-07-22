@@ -16,6 +16,11 @@ export interface OverlookApi {
     readonly updateContext: (context: Req<typeof channels.commandContextUpdate>) => Promise<void>;
     readonly onInvoked: (listener: (payload: z.output<typeof events.commandInvoked.payload>) => void) => () => void;
   };
+  /** Opens the project help externally (the Windows/Linux titlebar Help menu's
+   * `help.open` path; macOS dispatches the same command from its native menu). */
+  readonly help: {
+    readonly open: () => Promise<void>;
+  };
   readonly getPlatform: () => Promise<string>;
   /** Active UI locale resolved in main (setting → OS → en; ADR-0020 §2). */
   readonly getLocale: () => Promise<string>;

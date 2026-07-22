@@ -8,6 +8,14 @@ command infrastructure shared by #399, #504, #510, #531, #532, and #534. The
 living exposure inventory and initial menu hierarchy are maintained in the
 [Application Menu Exposure Policy](../Application-Menu-Exposure-Policy.md).
 
+**Amended 2026-07-22 on issue
+[#699](https://github.com/qwts/photos/issues/699)** — §5 revised: the native
+application menu is a **macOS-only** surface. Windows and Linux run frameless
+with no native menu bar; the registry commands are projected onto the toolbar,
+sidebar, titlebar, and keyboard, with the two otherwise menu-only Help commands
+served by a titlebar Help menu. Command identity, handlers, and parity are
+unchanged — only placement differs by platform. Split out of #689 / PR #698.
+
 ## Context
 
 Overlook currently has no native application menu and no command registry.
@@ -88,16 +96,40 @@ result. A readiness handshake queues only idempotent route commands for a new
 or restoring window; mutation commands are never queued across readiness or
 unlock boundaries.
 
-### 5. Native hierarchy follows each platform
+### 5. The native application menu is macOS-only
 
-macOS uses conventional Overlook, File, Edit, View, Photo, Window, and Help
-menus. Windows and Linux place app-level commands under File, Tools, and Help.
-Command identity and behavior stay constant; placement and OS roles may vary.
+_Amended 2026-07-22 (#699); supersedes the original "native hierarchy follows
+each platform" text._
 
-Application menu labels use ADR-0020's ICU catalogs in main. Shortcut display
-and native accelerators are generated from registry bindings. Non-US layout,
-editable-field precedence, modal precedence, and conflict tests are required
-before assigning an application accelerator.
+macOS owns a native application menu — the six-menu design-system spec
+(Overlook, File, Edit, View, Photo, Help; #689). **Windows and Linux draw no
+native menu bar** — the design system (`components/app/MenuBar.jsx`) specs the
+menu for macOS only, and a frameless window has no OS menu to project into. On
+those platforms `buildApplicationMenuTemplate` returns an empty template and the
+controller calls `Menu.setApplicationMenu(null)`.
+
+Removing the menu bar must leave **no command unreachable**. Every registry
+command is projected onto a non-menu surface on Windows/Linux — the toolbar
+(Import, view modes, Lock Now, Transfer & Sync), the sidebar (Settings, sources,
+albums), the titlebar (Switch Library), and the keyboard dispatcher (Undo/Redo,
+Select All, inspector, favorite, trash, lightbox, shortcuts). The only commands
+whose _sole_ entry point was the native menu are the two Help commands with no
+other surface, **`help.activity`** and **`help.open`**; they are served by a
+**titlebar Help menu** (`TitlebarHelpMenu`) — a no-drag button left of the
+window controls that opens the shared APG `ContextMenu`, mirroring the macOS
+Help menu (Keyboard Shortcuts, Activity…, Privacy & Diagnostics, Overlook Help)
+from one shared registry list (`HELP_MENU_ITEMS`) so the two Help surfaces
+cannot drift. Activity remains a Help affordance, never a sidebar source or
+album row (#690). Two OS conveniences do not carry over and are accepted as
+macOS-only: the `Cmd+,` Settings accelerator (Settings stays reachable from the
+sidebar) and the `role: 'about'` box (not a registry command).
+
+Command identity, handlers, labels, and enablement stay constant across
+platforms; only placement and OS roles vary. Application menu labels use
+ADR-0020's ICU catalogs in main. Shortcut display and native accelerators are
+generated from registry bindings. Non-US layout, editable-field precedence,
+modal precedence, and conflict tests are required before assigning an
+application accelerator.
 
 ### 6. Lock, privacy, and telemetry fail closed
 
