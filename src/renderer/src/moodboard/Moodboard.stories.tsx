@@ -31,7 +31,7 @@ const DEMO: Record<string, Demo> = {
 };
 
 function resolvePlacement(photoId: string): PlacementView {
-  const demo = DEMO[photoId] ?? { availability: 'unavailable' as PlacementAvailability, name: '', fill: '#000000' };
+  const demo: Demo = DEMO[photoId] ?? { availability: 'unavailable', name: '', fill: '#000000' };
   const showPixels = demo.availability === 'available' || demo.availability === 'offloaded';
   return { name: demo.name, thumbSrc: showPixels ? swatch(demo.fill) : null, availability: demo.availability };
 }

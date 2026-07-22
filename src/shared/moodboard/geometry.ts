@@ -15,6 +15,10 @@ export type Corner = 'nw' | 'ne' | 'sw' | 'se';
 export type AlignEdge = 'left' | 'hcenter' | 'right' | 'top' | 'vmiddle' | 'bottom';
 export type DistributeAxis = 'horizontal' | 'vertical';
 
+/** A selection of placement ids — a Set or an array. (Avoids `Iterable<string>`,
+ * whose current-lib default type args are `any`.) */
+export type PlacementIds = ReadonlySet<string> | readonly string[];
+
 /** Axis-aligned bounding box of one or more placements' unrotated frames. */
 export function boundingBox(placements: readonly Placement[]): Rect | null {
   if (placements.length === 0) return null;
@@ -37,12 +41,12 @@ function mapSelected(placements: readonly Placement[], ids: ReadonlySet<string>,
   return placements.map((placement) => (ids.has(placement.id) ? fn(placement) : placement));
 }
 
-function asSet(ids: Iterable<string>): ReadonlySet<string> {
-  return ids instanceof Set ? ids : new Set(ids);
+function asSet(ids: PlacementIds): ReadonlySet<string> {
+  return new Set<string>(ids);
 }
 
 /** Translate every selected placement by (dx, dy) board-space pixels. */
-export function movePlacements(placements: readonly Placement[], ids: Iterable<string>, dx: number, dy: number): Placement[] {
+export function movePlacements(placements: readonly Placement[], ids: PlacementIds, dx: number, dy: number): Placement[] {
   const set = asSet(ids);
   if (dx === 0 && dy === 0) return [...placements];
   return mapSelected(placements, set, (p) => ({ ...p, x: Math.round(p.x + dx), y: Math.round(p.y + dy) }));
@@ -102,7 +106,7 @@ function renumber(placements: readonly Placement[]): Placement[] {
     .map((placement, index) => (placement.z === index + 1 ? placement : { ...placement, z: index + 1 }));
 }
 
-function reorder(placements: readonly Placement[], ids: Iterable<string>, target: (max: number) => number, bump: number): Placement[] {
+function reorder(placements: readonly Placement[], ids: PlacementIds, target: (max: number) => number, bump: number): Placement[] {
   const set = asSet(ids);
   if (set.size === 0) return [...placements];
   const max = placements.reduce((m, p) => Math.max(m, p.z), 0);
@@ -111,23 +115,23 @@ function reorder(placements: readonly Placement[], ids: Iterable<string>, target
 }
 
 /** Bring the selection to the front (highest z). */
-export function bringToFront(placements: readonly Placement[], ids: Iterable<string>): Placement[] {
+export function bringToFront(placements: readonly Placement[], ids: PlacementIds): Placement[] {
   return reorder(placements, ids, (max) => max + 2, 0);
 }
 
 /** Send the selection to the back (lowest z). */
-export function sendToBack(placements: readonly Placement[], ids: Iterable<string>): Placement[] {
+export function sendToBack(placements: readonly Placement[], ids: PlacementIds): Placement[] {
   return reorder(placements, ids, () => 0, 1);
 }
 
 /** Bring the selection one step forward. */
-export function bringForward(placements: readonly Placement[], ids: Iterable<string>): Placement[] {
+export function bringForward(placements: readonly Placement[], ids: PlacementIds): Placement[] {
   const set = asSet(ids);
   return renumber(placements.map((p) => (set.has(p.id) ? { ...p, z: p.z + 1.5 } : p)));
 }
 
 /** Send the selection one step back. */
-export function sendBackward(placements: readonly Placement[], ids: Iterable<string>): Placement[] {
+export function sendBackward(placements: readonly Placement[], ids: PlacementIds): Placement[] {
   const set = asSet(ids);
   return renumber(placements.map((p) => (set.has(p.id) ? { ...p, z: p.z - 1.5 } : p)));
 }
@@ -135,7 +139,7 @@ export function sendBackward(placements: readonly Placement[], ids: Iterable<str
 // ---- align / distribute --------------------------------------------------
 
 /** Align the selected placements to a shared edge/center of their bounding box. */
-export function alignPlacements(placements: readonly Placement[], ids: Iterable<string>, edge: AlignEdge): Placement[] {
+export function alignPlacements(placements: readonly Placement[], ids: PlacementIds, edge: AlignEdge): Placement[] {
   const set = asSet(ids);
   const selected = placements.filter((p) => set.has(p.id));
   const box = boundingBox(selected);
@@ -160,7 +164,7 @@ export function alignPlacements(placements: readonly Placement[], ids: Iterable<
 
 /** Evenly space the selected placements along an axis, edges pinned. Requires
  * 3+ placements to have any effect. */
-export function distributePlacements(placements: readonly Placement[], ids: Iterable<string>, axis: DistributeAxis): Placement[] {
+export function distributePlacements(placements: readonly Placement[], ids: PlacementIds, axis: DistributeAxis): Placement[] {
   const set = asSet(ids);
   const selected = placements.filter((p) => set.has(p.id));
   if (selected.length < 3) return [...placements];
@@ -187,21 +191,21 @@ export function distributePlacements(placements: readonly Placement[], ids: Iter
 // ---- grouping ------------------------------------------------------------
 
 /** Bind the selected placements into one group (shared groupId). */
-export function groupPlacements(placements: readonly Placement[], ids: Iterable<string>, groupId: string): Placement[] {
+export function groupPlacements(placements: readonly Placement[], ids: PlacementIds, groupId: string): Placement[] {
   const set = asSet(ids);
   if (set.size < 2) return [...placements];
   return mapSelected(placements, set, (p) => (p.groupId === groupId ? p : { ...p, groupId }));
 }
 
 /** Clear the group binding on the selected placements. */
-export function ungroupPlacements(placements: readonly Placement[], ids: Iterable<string>): Placement[] {
+export function ungroupPlacements(placements: readonly Placement[], ids: PlacementIds): Placement[] {
   const set = asSet(ids);
   return mapSelected(placements, set, (p) => (p.groupId === null ? p : { ...p, groupId: null }));
 }
 
 /** All placement ids that belong to the same group(s) as `ids` (so a click on
  * one grouped placement selects its whole group). */
-export function expandGroupSelection(placements: readonly Placement[], ids: Iterable<string>): Set<string> {
+export function expandGroupSelection(placements: readonly Placement[], ids: PlacementIds): Set<string> {
   const set = asSet(ids);
   const groups = new Set<string>();
   for (const p of placements) {
