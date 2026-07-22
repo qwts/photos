@@ -531,7 +531,7 @@ export function Shell({
         />
       ) : null}
       {menuAlbumPickerIds === null ? null : (
-        <div className="ovl-quick-action-picker">
+        <div className="ovl-menu-album-picker">
           <AlbumPicker
             onPick={(album) => {
               const photoIds = menuAlbumPickerIds;
