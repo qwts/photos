@@ -119,27 +119,57 @@ function readPcr(bytes: Uint8Array, packetStart: number): number | null {
   return b0 * 2 ** 25 + b1 * 2 ** 17 + b2 * 2 ** 9 + b3 * 2 + ((b4 & 0x80) >> 7);
 }
 
-/** Gathers the PSI section bytes for a given PID out of the head window,
- * following the pointer_field on the unit-start packet. Bounded to one
- * section; returns null when it never starts or the budget is exceeded. */
+/** Concatenates payload chunks into one contiguous section buffer. */
+function concatChunks(chunks: readonly Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    if (offset >= total) break;
+    const slice = chunk.subarray(0, total - offset);
+    out.set(slice, offset);
+    offset += slice.length;
+  }
+  return out;
+}
+
+/**
+ * Gathers a complete PSI section for `pid` out of the head window, following
+ * the pointer_field on the unit-start packet and REASSEMBLING across
+ * continuation packets (same PID, PUSI=0) — a section that only walks part of
+ * itself would parse a truncated PMT and invent/lose stream rows. Returns null
+ * when the section never completes within the budget: the caller then reports
+ * `probeIncomplete`, never a partial parse (ADR-0026 §2/§9).
+ */
 function readSection(bytes: Uint8Array, layout: TsLayout, pid: number, headEnd: number): Uint8Array | null {
   for (let start = layout.syncOffset; start + layout.packetSize <= headEnd; start += layout.packetSize) {
     if (bytes[start] !== SYNC_BYTE) return null; // cadence broke — give up
     if (pidAt(bytes, start) !== pid) continue;
-    const pusi = ((bytes[start + 1] ?? 0) & 0x40) !== 0;
-    if (!pusi) continue;
+    if (((bytes[start + 1] ?? 0) & 0x40) === 0) continue; // wait for a unit start
     const payload = payloadStart(bytes, start, start + layout.packetSize);
     if (payload === null) continue;
     const pointer = bytes[payload];
     if (pointer === undefined) return null;
     const sectionStart = payload + 1 + pointer;
-    const lenHi = bytes[sectionStart + 1];
-    const lenLo = bytes[sectionStart + 2];
-    if (lenHi === undefined || lenLo === undefined) return null;
-    const sectionLength = ((lenHi & 0x0f) << 8) | lenLo;
+    const packetEnd = start + layout.packetSize;
+    if (sectionStart + 3 > packetEnd) return null; // header must land in this packet
+    const sectionLength = (((bytes[sectionStart + 1] ?? 0) & 0x0f) << 8) | (bytes[sectionStart + 2] ?? 0);
     if (sectionLength > MAX_PSI_SECTION) return null; // hostile length
-    const end = Math.min(sectionStart + 3 + sectionLength, headEnd);
-    return bytes.subarray(sectionStart, end);
+    const total = 3 + sectionLength;
+
+    const chunks: Uint8Array[] = [bytes.subarray(sectionStart, packetEnd)];
+    let collected = packetEnd - sectionStart;
+    for (let cont = packetEnd; collected < total && cont + layout.packetSize <= headEnd; cont += layout.packetSize) {
+      if (bytes[cont] !== SYNC_BYTE) return null;
+      if (pidAt(bytes, cont) !== pid) continue;
+      if (((bytes[cont + 1] ?? 0) & 0x40) !== 0) break; // a new section began — this one is truncated
+      const contPayload = payloadStart(bytes, cont, cont + layout.packetSize);
+      if (contPayload === null) continue;
+      const chunk = bytes.subarray(contPayload, cont + layout.packetSize);
+      chunks.push(chunk);
+      collected += chunk.length;
+    }
+    if (collected < total) return null; // never completed within budget → incomplete
+    return concatChunks(chunks, total);
   }
   return null;
 }

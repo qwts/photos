@@ -244,7 +244,15 @@ export class ImportEngine {
       // then the extension hint — so a valid transport stream classifies as
       // video by content, while a spoofed `.ts` that is really a JPEG records
       // jpeg (ADR-0026 §2).
-      const kind = sniffImageKind(bytes) ?? sniffVideoKind(bytes) ?? file.kind;
+      const sniffed = sniffImageKind(bytes) ?? sniffVideoKind(bytes);
+      // Container kinds (video/audio) MUST be confirmed by content. A suffix-only
+      // `.ts`/`.mts`/`.m2ts` that is neither an image nor a valid transport
+      // stream is not an import candidate (ADR-0026 §2): reject it as a failed
+      // item — no partial row, never a suffix-classified fake video.
+      if (sniffed === null && (file.kind === 'video' || file.kind === 'audio')) {
+        throw new Error(`${file.fileName}: content is not a recognized media signature`);
+      }
+      const kind = sniffed ?? file.kind;
       const mediaInfo = probeMediaInfo(bytes, kind);
 
       if (file.stage === 'pending') {
