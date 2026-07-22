@@ -179,6 +179,14 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   const descriptor = providers.find((provider) => provider.id === targetId) ?? status?.provider ?? null;
   const errored = statusLoad?.targetId === targetId && statusLoad.state === 'error';
   const connected = status !== null && settings.providerId === targetId && status.connected;
+
+  useEffect(() => {
+    if (!connected || targetId === null) return;
+    return window.overlook.backup.onCompleted(() => {
+      loadCapacity(targetId);
+    });
+  }, [connected, loadCapacity, targetId]);
+
   const connection: ProviderConnectionState = errored ? 'error' : status === null ? 'checking' : connected ? 'connected' : 'disconnected';
   const name = descriptor?.label ?? 'Cloud provider';
   const bandwidth = settings.bandwidthLimit;
