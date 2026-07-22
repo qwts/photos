@@ -753,6 +753,28 @@
       ]
     },
     {
+      "id": "m08-provider-storage-usage-status",
+      "wiki": "User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/icloud-provider.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/ProviderCard.stories.tsx"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/settings/SettingsDialog.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "path": "tests/backup/provider-usage.test.ts"
+        }
+      ]
+    },
+    {
       "id": "m09-settings-dialog-shell",
       "wiki": "User-Story-M09-Settings-preferences",
       "coverage": [
