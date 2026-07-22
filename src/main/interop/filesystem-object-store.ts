@@ -59,8 +59,14 @@ export class FilesystemInteropObjectStore implements InteropObjectStore {
   }
 
   async quota(): Promise<{ readonly usedBytes: number; readonly totalBytes: null }> {
-    const entries = await this.list('pairings', null);
-    return { usedBytes: entries.entries.reduce((total, entry) => total + entry.bytes, 0), totalBytes: null };
+    let usedBytes = 0;
+    let cursor: string | null = null;
+    do {
+      const page = await this.list('pairings', cursor);
+      usedBytes += page.entries.reduce((total, entry) => total + entry.bytes, 0);
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+    return { usedBytes, totalBytes: null };
   }
 
   async verify(pathInput: string): Promise<{ readonly sha256: string; readonly bytes: number }> {
