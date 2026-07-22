@@ -235,8 +235,12 @@ export function registerAlbumHandlers(
   registerAlbumIpcHandlers(getService, newId, wrapHandler, getActivity, onManifestChanged);
 }
 
-export function registerBoardHandlers(getService: () => LibraryService, getActivity?: () => ActivityFacade): void {
-  registerBoardIpcHandlers(getService, wrapHandler, getActivity);
+export function registerBoardHandlers(
+  getService: () => LibraryService,
+  getActivity?: () => ActivityFacade,
+  onManifestChanged?: () => void,
+): void {
+  registerBoardIpcHandlers(getService, wrapHandler, getActivity, onManifestChanged);
 }
 
 export function registerProtectedAlbumHandlers(

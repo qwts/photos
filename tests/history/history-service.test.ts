@@ -236,10 +236,19 @@ describe('HistoryService board layout (#695)', () => {
 
   test('undoes and redoes a board layout edit through the shared history', async () => {
     let reloaded: string | null = null;
+    let manifestDebts = 0;
     const state = world();
-    const history = new HistoryService(state.db, state.service, undefined, undefined, (boardId) => {
-      reloaded = boardId;
-    });
+    const history = new HistoryService(
+      state.db,
+      state.service,
+      undefined,
+      () => {
+        manifestDebts += 1;
+      },
+      (boardId) => {
+        reloaded = boardId;
+      },
+    );
     state.service.saveBoard(boardAt(10)); // create — no command
     const loaded = state.service.getBoard('b1');
     assert.ok(loaded !== null);
@@ -261,6 +270,7 @@ describe('HistoryService board layout (#695)', () => {
     const redone = await history.redo('r1');
     assert.equal(redone.applied, true);
     assert.equal(state.service.getBoard('b1')?.placements[0]?.x, 99, 'redo re-applies the layout');
+    assert.equal(manifestDebts, 2, 'undo and redo each owe a fresh backup manifest');
   });
 
   test('a first save or no-op records no undoable command', () => {
