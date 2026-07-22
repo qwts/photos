@@ -167,4 +167,69 @@ describe('import engine integration (#87)', () => {
     );
     assert.equal(again.duplicates, 1);
   });
+
+  test('ACCEPTANCE (#548): a transport stream imports as video by signature, not suffix', async () => {
+    const videoFixtures = join(import.meta.dirname, '../../../tests/fixtures/video');
+    const dataDir = mkdtempSync(join(tmpdir(), 'overlook-import-ts-'));
+    const store = new BlobStore({ dataDir });
+    await store.init();
+    const key: EnvelopeKey = { id: 1, key: randomBytes(32) };
+    const journal = new ImportJournal(join(dataDir, 'j.json'));
+    const rows = new Map<string, PhotoInsert>();
+    const hashes = new Set<string>();
+    const deps: ImportEngineDeps = {
+      readFile: async (path) => readFile(path),
+      deleteFile: async (path) => unlink(path),
+      readManifest: async () => journal.read(),
+      writeManifest: async (manifest) => journal.write(manifest),
+      repo: {
+        hasContentHash: (hash) => hashes.has(hash),
+        get: (id) => rows.get(id) as unknown as PhotoRecord | undefined,
+        insert: (photo) => {
+          rows.set(photo.id, photo);
+          hashes.add(photo.contentHash);
+        },
+        repairGeneratedDimensions: () => false,
+        setDimensionStatus: () => false,
+        setPreviewFailure: () => false,
+      },
+      blobs: store,
+      generateThumbs: async (request) => new ThumbnailService(pool, store).generateFor(request),
+      extractMetadata,
+      currentKey: () => key,
+      resolveKey: () => key.key,
+      newId: ulid,
+      now: () => '2026-07-12T00:00:00.000Z',
+      events: { copyProgress: () => undefined, thumbProgress: () => undefined },
+      sourceExists: existsSync,
+      parentIdentity: async (path) => {
+        const info = await stat(dirname(path));
+        return `${info.dev}:${info.ino}`;
+      },
+    };
+
+    // The .ts extension hints video; a JPEG carrying a .ts name must classify
+    // by content (jpeg). Copy mode keeps the checked-in fixtures intact.
+    const summary = await new ImportEngine(deps).importFiles(
+      [
+        { path: join(videoFixtures, 'supported-h264-aac.ts'), fileName: 'supported-h264-aac.ts', kind: 'video' },
+        { path: join(videoFixtures, 'spoofed-jpeg.ts'), fileName: 'spoofed-jpeg.ts', kind: 'video' },
+      ],
+      'copy',
+      videoFixtures,
+    );
+    assert.equal(summary.imported, 2);
+
+    const tsRow = [...rows.values()].find((row) => row.fileName === 'supported-h264-aac.ts');
+    assert.equal(tsRow?.fileKind, 'video');
+    assert.equal(tsRow?.mediaInfo?.container, 'MPEG-TS');
+    assert.equal(tsRow?.mediaInfo?.audioPresent, true);
+    assert.deepEqual((tsRow?.mediaInfo?.streams ?? []).map((s) => s.codec).sort(), ['AAC', 'H.264']);
+
+    // Signature wins over the suffix: the spoofed .ts is recorded as jpeg,
+    // its original name/extension untouched (custody, §4).
+    const spoofedRow = [...rows.values()].find((row) => row.fileName === 'spoofed-jpeg.ts');
+    assert.equal(spoofedRow?.fileKind, 'jpeg');
+    assert.equal(spoofedRow?.mediaInfo, null);
+  });
 });
