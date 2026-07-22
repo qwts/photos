@@ -43,10 +43,11 @@ type Story = StoryObj<typeof ProviderCard>;
 
 // iCloud: measured usage + the honest System Settings capacity route, no bar.
 export const ICloudUsedWithCapacityRoute: Story = {
+  args: { capacity: { kind: 'route' } },
   play: async ({ canvasElement }) => {
     const card = within(canvasElement);
     await expect(card.getByText('Used by Overlook')).toBeVisible();
-    await expect(card.getByText(/View in System Settings/u)).toBeVisible();
+    await expect(card.getByRole('button', { name: /View in System Settings/u })).toBeVisible();
     await expect(card.queryByRole('progressbar')).not.toBeInTheDocument();
     // The exact byte count rides in the value's accessible name even though the
     // visible text is abbreviated.
