@@ -9,6 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import {
   assertSafeRemotePath,
   ProviderError,
+  raceWithAbort,
   type ProviderAuthState,
   type ProviderQuota,
   type RemoteEntry,
@@ -108,8 +109,8 @@ export class ICloudDriveProvider implements StorageProvider {
     return new ICloudDriveProvider({ ...this.options, libraryId }, this.authority);
   }
 
-  async listLibraries(): Promise<readonly string[]> {
-    const entries = await this.listNative(ROOT);
+  async listLibraries(signal?: AbortSignal): Promise<readonly string[]> {
+    const entries = await this.listNative(ROOT, signal);
     const candidates = new Map<string, number>();
     for (const entry of entries) {
       const match = /^Overlook\/([A-Za-z0-9_-]{1,64})\/recovery\/bootstrap\.ovrb$/u.exec(entry.path);
@@ -117,7 +118,8 @@ export class ICloudDriveProvider implements StorageProvider {
     }
     const libraries: string[] = [];
     for (const [libraryId, expectedBytes] of [...candidates].sort(([left], [right]) => left.localeCompare(right))) {
-      const verified = await this.forLibrary(libraryId).verify('recovery/bootstrap.ovrb');
+      signal?.throwIfAborted();
+      const verified = await raceWithAbort(this.forLibrary(libraryId).verify('recovery/bootstrap.ovrb'), signal);
       if (verified.bytes === expectedBytes) libraries.push(libraryId);
     }
     return libraries;
@@ -149,12 +151,12 @@ export class ICloudDriveProvider implements StorageProvider {
     return stream;
   }
 
-  async list(prefix: string): Promise<readonly RemoteEntry[]> {
+  async list(prefix: string, signal?: AbortSignal): Promise<readonly RemoteEntry[]> {
     if (prefix !== '.') assertSafeRemotePath(prefix);
     const normalized = prefix === '.' ? '' : prefix;
     const base = this.libraryRoot();
     const nativePrefix = normalized === '' ? base : `${base}/${normalized}`;
-    const entries = await this.listNative(nativePrefix);
+    const entries = await this.listNative(nativePrefix, signal);
     return entries.map((entry) => {
       if (entry.conflicted) throw new ProviderError('iCloud Drive entry has unresolved versions', 'transient');
       const relative = entry.path.startsWith(`${base}/`) ? entry.path.slice(base.length + 1) : '';
@@ -173,8 +175,8 @@ export class ICloudDriveProvider implements StorageProvider {
     }
   }
 
-  async quota(): Promise<ProviderQuota> {
-    await this.accountToken();
+  async quota(signal?: AbortSignal): Promise<ProviderQuota> {
+    await this.accountToken(signal);
     return { usedBytes: 0, totalBytes: null };
   }
 
@@ -198,10 +200,10 @@ export class ICloudDriveProvider implements StorageProvider {
     return `${this.libraryRoot()}/${path}`;
   }
 
-  private async accountToken(): Promise<string> {
+  private async accountToken(signal?: AbortSignal): Promise<string> {
     let status: ICloudDriveNativeStatus;
     try {
-      status = await this.options.bridge.status();
+      status = await raceWithAbort(this.options.bridge.status(), signal);
     } catch (error) {
       throw providerError(error);
     }
@@ -214,14 +216,15 @@ export class ICloudDriveProvider implements StorageProvider {
     return status.accountToken;
   }
 
-  private async listNative(path: string): Promise<readonly ICloudDriveNativeEntry[]> {
-    const accountToken = await this.accountToken();
+  private async listNative(path: string, signal?: AbortSignal): Promise<readonly ICloudDriveNativeEntry[]> {
+    const accountToken = await this.accountToken(signal);
     const entries: ICloudDriveNativeEntry[] = [];
     let cursor: string | null = null;
     do {
+      signal?.throwIfAborted();
       let page: ICloudDriveNativeListPage;
       try {
-        page = await this.options.bridge.list(path, cursor, this.options.pageSize ?? PAGE_SIZE, accountToken);
+        page = await raceWithAbort(this.options.bridge.list(path, cursor, this.options.pageSize ?? PAGE_SIZE, accountToken), signal);
       } catch (error) {
         throw providerError(error);
       }

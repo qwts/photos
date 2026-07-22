@@ -45,6 +45,7 @@ const libraryRegistryPickLocation = createInvoker(channels.libraryRegistryPickLo
 const libraryRelocationPending = createInvoker(channels.libraryRelocationPending, invokeTransport);
 const backupProviders = createInvoker(channels.backupProviders, invokeTransport);
 const backupProviderStatus = createInvoker(channels.backupProviderStatus, invokeTransport);
+const backupProviderStorage = createInvoker(channels.backupProviderStorage, invokeTransport);
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
 const backupOpenCapacitySettings = createInvoker(channels.backupOpenCapacitySettings, invokeTransport);
@@ -230,6 +231,7 @@ const overlook: OverlookApi = {
     restoreOriginals: createInvoker(channels.backupRestoreOriginals, invokeTransport),
     providers: async () => backupProviders({}),
     providerStatus: backupProviderStatus,
+    providerStorage: backupProviderStorage,
     connect: backupConnect,
     disconnect: backupDisconnect,
     openCapacitySettings: backupOpenCapacitySettings,

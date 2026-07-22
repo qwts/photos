@@ -12,7 +12,7 @@ import { Field } from './Field';
 import { OffloadedStorage } from './OffloadedStorage';
 import { ProviderCard, type ProviderCapacityView, type ProviderConnectionState, type ProviderUsageView } from './ProviderCard';
 import type { AppSettings } from '../../../shared/settings/settings.js';
-import type { ProviderDescriptor, ProviderStorageStatus } from '../../../shared/backup/provider-descriptor.js';
+import type { ProviderConnectionStatus, ProviderDescriptor, ProviderStorageMetrics } from '../../../shared/backup/provider-descriptor.js';
 import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 // Storage & Backup section (#114, updated by #239, #254): the provider
@@ -27,7 +27,12 @@ import { destructiveActions } from '../../../shared/destructive-actions.js';
 // answer, not a cached guess.
 
 type ProviderStatusLoad =
-  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderStorageStatus }
+  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderConnectionStatus }
+  | { readonly targetId: string; readonly state: 'error' };
+
+type ProviderStorageLoad =
+  | { readonly targetId: string; readonly state: 'loading' }
+  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderStorageMetrics }
   | { readonly targetId: string; readonly state: 'error' };
 
 /** Last successfully-measured usage for the addressed provider, retained so a
@@ -76,6 +81,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   const intl = useIntl();
   const { formatBytes, formatRelativeTime } = useFormats();
   const [statusLoad, setStatusLoad] = useState<ProviderStatusLoad | null>(null);
+  const [storageLoad, setStorageLoad] = useState<ProviderStorageLoad | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
   const [targetId, setTargetId] = useState<string | null>(settings.providerId);
   const [connectionOperation, setConnectionOperation] = useState<ConnectionOperation | null>(null);
@@ -86,7 +92,27 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   // measured N ago" is computed against the time of the most recent status.
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const statusRequestRef = useRef(0);
+  const storageRequestRef = useRef(0);
   const operationRef = useRef<ConnectionOperation | null>(null);
+
+  const refreshStorage = useCallback((providerId: string) => {
+    const request = storageRequestRef.current + 1;
+    storageRequestRef.current = request;
+    setStorageLoad({ targetId: providerId, state: 'loading' });
+    void window.overlook.backup
+      .providerStorage({ providerId })
+      .then((loaded) => {
+        if (storageRequestRef.current !== request) return;
+        setStorageLoad({ targetId: providerId, state: 'ready', value: loaded });
+        setNowMs(Date.now());
+        if (loaded.usedByOverlookBytes !== null && !loaded.measurementFailed && loaded.measuredAt !== null) {
+          setRetained({ targetId: providerId, bytes: loaded.usedByOverlookBytes, measuredAt: loaded.measuredAt });
+        }
+      })
+      .catch(() => {
+        if (storageRequestRef.current === request) setStorageLoad({ targetId: providerId, state: 'error' });
+      });
+  }, []);
 
   const refresh = useCallback(() => {
     const request = statusRequestRef.current + 1;
@@ -100,16 +126,12 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         if (statusRequestRef.current !== request) return;
         setStatusLoad({ targetId, state: 'ready', value: loaded });
         setNowMs(Date.now());
-        // Retain only a real, current measurement — a failed refresh keeps the
-        // previous figure so the card can mark it stale rather than blank it.
-        if (loaded.usedByOverlookBytes !== null && !loaded.measurementFailed && loaded.measuredAt !== null) {
-          setRetained({ targetId, bytes: loaded.usedByOverlookBytes, measuredAt: loaded.measuredAt });
-        }
+        if (loaded.connected) refreshStorage(targetId);
       })
       .catch(() => {
         if (statusRequestRef.current === request) setStatusLoad({ targetId, state: 'error' });
       });
-  }, [targetId]);
+  }, [refreshStorage, targetId]);
 
   const changeConnection = useCallback(
     (operation: ConnectionOperation) => {
@@ -119,6 +141,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
       setConnectError(null);
       setStatusLoad(null);
       statusRequestRef.current += 1;
+      storageRequestRef.current += 1;
       const request =
         operation === 'disconnect'
           ? window.overlook.backup.disconnect({ providerId: targetId })
@@ -166,7 +189,15 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   // (upload/cleanup/integrity repair) re-sums the figure; reconnect and app
   // restart re-measure through the effects above; manual Refresh below covers the
   // rest. Offload/remote-deletion flows also finish through backup completion.
-  useEffect(() => window.overlook.backup.onCompleted(() => refresh()), [refresh]);
+  useEffect(
+    () =>
+      window.overlook.backup.onCompleted(() => {
+        if (targetId !== null && statusLoad?.targetId === targetId && statusLoad.state === 'ready' && statusLoad.value.connected) {
+          refreshStorage(targetId);
+        }
+      }),
+    [refreshStorage, statusLoad, targetId],
+  );
 
   const openCapacitySettings = useCallback(() => {
     if (targetId === null) return;
@@ -174,6 +205,10 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   }, [targetId]);
 
   const status = statusLoad?.targetId === targetId && statusLoad.state === 'ready' ? statusLoad.value : null;
+  const storage = storageLoad?.targetId === targetId && storageLoad.state === 'ready' ? storageLoad.value : null;
+  const storageFailed =
+    storageLoad?.targetId === targetId &&
+    (storageLoad.state === 'error' || (storageLoad.state === 'ready' && storageLoad.value.measurementFailed));
   const descriptor = providers.find((provider) => provider.id === targetId) ?? status?.provider ?? null;
   const errored = statusLoad?.targetId === targetId && statusLoad.state === 'error';
   const connected = status !== null && settings.providerId === targetId && status.connected;
@@ -188,25 +223,27 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   // marked stale, else calculation-failure, else the measuring skeleton.
   const usage: ProviderUsageView = !connected
     ? { bytes: null, failed: false, stale: false, staleLabel: null }
-    : status !== null && status.usedByOverlookBytes !== null && !status.measurementFailed
-      ? { bytes: status.usedByOverlookBytes, failed: false, stale: false, staleLabel: null }
-      : retainedUsage !== null
+    : storage !== null && storage.usedByOverlookBytes !== null && !storage.measurementFailed
+      ? { bytes: storage.usedByOverlookBytes, failed: false, stale: false, staleLabel: null }
+      : retainedUsage !== null && storageFailed
         ? {
             bytes: retainedUsage.bytes,
             failed: false,
             stale: true,
-            staleLabel: `Last measured ${formatRelativeTime(retainedUsage.measuredAt, nowMs)} · offline`,
+            staleLabel: `Last measured ${formatRelativeTime(retainedUsage.measuredAt, nowMs)} · refresh failed`,
           }
-        : status !== null && status.measurementFailed
-          ? { bytes: null, failed: true, stale: false, staleLabel: null }
-          : { bytes: null, failed: false, stale: false, staleLabel: null };
+        : retainedUsage !== null
+          ? { bytes: retainedUsage.bytes, failed: false, stale: false, staleLabel: null }
+          : storageFailed
+            ? { bytes: null, failed: true, stale: false, staleLabel: null }
+            : { bytes: null, failed: false, stale: false, staleLabel: null };
 
   // Account capacity: a verified quota (bar), else iCloud's System Settings route,
   // else a plain "unavailable" for a known-quota provider whose call failed.
   const capacity: ProviderCapacityView =
-    connected && status !== null && status.capacity !== null
-      ? { kind: 'known', usedBytes: status.capacity.usedBytes, totalBytes: status.capacity.totalBytes }
-      : connected && status?.capacityRoute === 'system-settings'
+    connected && storage !== null && storage.capacity !== null
+      ? { kind: 'known', usedBytes: storage.capacity.usedBytes, totalBytes: storage.capacity.totalBytes }
+      : connected && storage?.capacityRoute === 'system-settings'
         ? { kind: 'route' }
         : connected && descriptor?.capabilities.quota === 'known'
           ? { kind: 'unavailable' }
@@ -268,11 +305,13 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         announcement={announcement}
         primaryLabel={primaryLabel}
         primaryVariant={connected ? 'secondary' : 'primary'}
-        primaryDisabled={connection === 'checking' || connectionOperation !== null || descriptor?.available === false}
+        primaryDisabled={connection === 'checking' || connectionOperation !== null || (!connected && descriptor?.available === false)}
         onPrimary={onPrimary}
         canRefresh={connected}
         refreshLabel={usage.failed ? 'Try again' : 'Refresh'}
-        onRefresh={refresh}
+        onRefresh={() => {
+          if (targetId !== null) refreshStorage(targetId);
+        }}
         onCapacityRoute={openCapacitySettings}
       />
 
@@ -301,7 +340,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         {connectError === null ? null : <p className="ovl-settings__disconnectError">{connectError}</p>}
       </Dialog>
 
-      {connection === 'disconnected' && providers.length > 1 && targetId !== null ? (
+      {!connected && providers.length > 1 && targetId !== null ? (
         <Field label="Backup provider" hint="Choose where encrypted library data is stored.">
           <Segmented
             label="Backup provider"
@@ -310,6 +349,7 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
             onChange={(providerId) => {
               setTargetId(providerId);
               setStatusLoad(null);
+              setStorageLoad(null);
               setConnectError(null);
             }}
           />

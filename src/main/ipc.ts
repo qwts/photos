@@ -9,7 +9,7 @@ import type { HandlerErrorReport } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
 import type { LibraryDescriptor } from '../shared/library/registry.js';
 import type { RelocationRuntime } from './library/relocation-runtime.js';
-import type { ProviderDescriptor, ProviderStorageStatus } from '../shared/backup/provider-descriptor.js';
+import type { ProviderConnectionStatus, ProviderDescriptor, ProviderStorageMetrics } from '../shared/backup/provider-descriptor.js';
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
@@ -687,7 +687,8 @@ export interface BackupFacade {
   prepareEphemeral(photoId: string): Promise<'durable' | 'ephemeral'>;
   restoreOriginals(photoIds?: readonly string[]): Promise<RestoreOriginalsSummary>;
   providers(): Promise<{ providers: readonly ProviderDescriptor[]; defaultProviderId: string }>;
-  providerStatus(providerId: string): Promise<ProviderStorageStatus>;
+  providerStatus(providerId: string): Promise<ProviderConnectionStatus>;
+  providerStorage(providerId: string): Promise<ProviderStorageMetrics>;
   /** Runs the addressed provider's instant or interactive handshake. */
   connect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;
   disconnect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;
@@ -738,6 +739,9 @@ export function registerBackupHandlers(getFacade: () => BackupFacade): void {
   );
   ipcMain.handle(channels.backupProviderStatus.name, (_event, request: unknown) =>
     wrapHandler(channels.backupProviderStatus, async ({ providerId }) => getFacade().providerStatus(providerId))(request),
+  );
+  ipcMain.handle(channels.backupProviderStorage.name, (_event, request: unknown) =>
+    wrapHandler(channels.backupProviderStorage, async ({ providerId }) => getFacade().providerStorage(providerId))(request),
   );
   ipcMain.handle(channels.backupConnect.name, (_event, request: unknown) =>
     wrapHandler(channels.backupConnect, async ({ providerId }) => getFacade().connect(providerId))(request),
