@@ -15,7 +15,7 @@ test('filesystem interop harness provides bounded provider semantics', async () 
   assert.deepEqual(await store.put(firstPath, Buffer.from('first')), { bytes: 5 });
   assert.equal((await store.get(firstPath)).toString(), 'first');
   assert.deepEqual(await store.verify(firstPath), {
-    sha256: 'a7937b64b8caa58f03721bb6bacf5c78cb235ac308b2bf9c4cb314132a6d675a',
+    sha256: 'a7937b64b8caa58f03721bb6bacf5c78cb235febe0e70b1b84cd99541461a08e',
     bytes: 5,
   });
 
