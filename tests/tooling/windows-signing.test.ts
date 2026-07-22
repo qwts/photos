@@ -75,8 +75,9 @@ describe('Windows ARM64 packaging + signing (#683)', () => {
     assert.match(builder, /rfc3161TimeStampServer: http/u);
   });
 
-  test('a full release requires every platform signed, Windows included', () => {
+  test('release asset labels use the Windows signing gate independently', () => {
     const release = source('.github/workflows/release.yml');
-    assert.match(release, /SIGNED: \$\{\{ secrets\.CSC_LINK != '' && secrets\.APPLE_API_KEY != '' && secrets\.WIN_CSC_LINK != '' \}\}/u);
+    assert.match(release, /WINDOWS_SIGNED: \$\{\{ secrets\.WIN_CSC_LINK != '' \}\}/u);
+    assert.match(release, /if \[ "\$WINDOWS_SIGNED" = "true" \]; then status=signed; else status=unsigned; fi/u);
   });
 });
