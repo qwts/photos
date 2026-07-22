@@ -17,6 +17,7 @@ import { Inspector } from '../inspector/Inspector';
 import { Lightbox } from '../lightbox/Lightbox';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
 import { commandPlatform, useCommandDispatcher } from '../state/use-command-dispatcher';
+import { commandMenuDialogClass } from '../state/command-menu-dialog';
 import { RECENT_WINDOW_MS } from '../state/use-library-photos';
 import { LibrarySwitcher } from './LibrarySwitcher';
 import { MoveResumeBanner } from './MoveResumeBanner';
@@ -365,17 +366,12 @@ export function Shell({
     const target = state.photos.find(({ id }) => id === state.lightboxId);
     const context: CommandMenuContext = {
       surface: state.lightboxId === null ? 'grid' : 'lightbox',
-      dialog: state.importOpen
-        ? 'import'
-        : state.exportOpen
-          ? 'export'
-          : state.settingsOpen
-            ? 'settings'
-            : state.librariesOpen
-              ? 'libraries'
-              : shortcutSurface !== null || interopEntry !== null || unlockAlbumId !== null || offload.activePhotoIds !== null
-                ? 'other'
-                : 'none',
+      dialog: commandMenuDialogClass(state, {
+        shortcut: shortcutSurface !== null,
+        interop: interopEntry !== null,
+        unlock: unlockAlbumId !== null,
+        offload: offload.activePhotoIds !== null,
+      }),
       editable: editableFocus,
       hasLibrary: true,
       hasPhotos: state.photos.length > 0,
