@@ -84,11 +84,14 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          # Mirrors the gate in package.yml: full release only when the mac
-          # build could sign AND notarize (cert-only would leave Gatekeeper
-          # rejecting the app — package.yml's spctl gate fails that build
-          # anyway); otherwise the historical unsigned pre-release (#128).
-          SIGNED: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY != '' }}
+          # Mirrors the gates in package.yml: a full release requires every
+          # shipped platform to be signed — the mac build could sign AND
+          # notarize (cert-only would leave Gatekeeper rejecting the app;
+          # package.yml's spctl gate fails that build anyway) AND the Windows
+          # legs are Authenticode-signed (WIN_CSC_LINK; package.yml's signtool
+          # gate fails an unverifiable signature). Otherwise the historical
+          # unsigned pre-release (#128, #683).
+          SIGNED: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY != '' && secrets.WIN_CSC_LINK != '' }}
         run: |
           if [ "$SIGNED" = "true" ]; then
             prerelease=false
