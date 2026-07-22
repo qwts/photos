@@ -145,7 +145,12 @@ export class HistoryService {
       if (target === 'trashed') this.onManifestChanged?.();
     }
     if (record.inverse.kind === 'album-order') this.onManifestChanged?.();
-    if (record.inverse.kind === 'board-layout') this.onBoardsChanged?.(record.inverse.boardId);
+    if (record.inverse.kind === 'board-layout') {
+      // Reverting a board layout must both reload the canvas and owe a fresh
+      // backup manifest, so the reverted layout is what a later restore sees.
+      this.onManifestChanged?.();
+      this.onBoardsChanged?.(record.inverse.boardId);
+    }
     return result;
   }
 
