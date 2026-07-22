@@ -61,12 +61,12 @@ import { AppLockHost } from './crypto/app-lock-host.js';
 import { registerQuitTeardown, registerSingleInstance } from './app-bootstrap.js';
 import { ProtectedRuntime } from './library/protected-runtime.js';
 import { registerAppServices } from './register-app-services.js';
-import { runDevSeeds } from './library/dev-seed.js';
+import { devSeedAccess, runDevSeeds } from './library/dev-seed.js';
 import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
 import { installApplicationMenu, refreshApplicationMenu } from './application-menu.js';
-import { configureInteropRuntime, interopRuntimeBusy, lockInteropRuntime } from './interop/runtime.js';
+import { configureInteropRuntime as configureInterop, interopRuntimeBusy, lockInteropRuntime } from './interop/runtime.js';
 import { closeProductionInboundMoveLibrary, configureProductionInboundMove } from './interop/inbound-move-production.js';
 import { WorkTracker } from './work-tracker.js';
 import type { LibraryParts } from './library/library-parts.js';
@@ -784,7 +784,12 @@ function getRestoreRuntime(): RestoreRuntime {
 
 void externalOpen.whenReady().then(async () => {
   if (await exitForReleaseSmokeIfRequested(app)) return;
-  configureInteropRuntime(app.getPath('userData'), pickSafeStorage(), (url) => shell.openExternal(url));
+  configureInterop(
+    app.getPath('userData'),
+    pickSafeStorage(),
+    (url) => shell.openExternal(url),
+    harnessEnv('OVERLOOK_INTEROP_PCLOUD_ROOT'),
+  );
   configureProductionInboundMove(
     () => requireParts('inbound Move'),
     () => getImportService() && importRuntime,
@@ -871,17 +876,7 @@ void externalOpen.whenReady().then(async () => {
   await runDevSeeds({
     contentAvailable: lock.snapshot().state === 'unconfigured-unlocked' || lock.snapshot().state === 'unlocked',
     harnessEnv,
-    open: () => {
-      const service = getLibraryService();
-      if (libraryParts === undefined) return undefined;
-      const parts = libraryParts;
-      return {
-        db: parts.db,
-        blobStore: parts.blobStore,
-        currentKey: () => parts.keyStore.currentKey(),
-        photos: () => service.stats().photos,
-      };
-    },
+    open: () => devSeedAccess(getLibraryService(), libraryParts),
   });
   externalOpen.finishBootstrap();
 });

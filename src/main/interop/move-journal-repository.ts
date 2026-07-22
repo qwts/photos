@@ -225,6 +225,7 @@ export class MoveJournalRepository {
     const request: RecordEnvelope = envelope;
     this.db.transaction(() => {
       this.ensureJournal(request, 'reviewing', at);
+      const existing = this.getItem(request.header.transferId, request.payload.record.identity.interopId);
       runNamed(
         this.db,
         `INSERT OR IGNORE INTO interop_move_items (
@@ -241,7 +242,7 @@ export class MoveJournalRepository {
           recordJson: JSON.stringify(request.payload.record),
         },
       );
-      this.assertSameQueuedRequest(request, reviewCategory);
+      this.assertSameQueuedRequest(request, existing?.reviewCategory ?? reviewCategory);
       this.updateJournal(request.header.transferId, 'reviewing', request.header.sequence, at);
       this.putAudit({
         eventKey: `${request.header.messageId}:queued`,

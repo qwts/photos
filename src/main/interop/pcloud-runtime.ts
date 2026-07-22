@@ -15,6 +15,7 @@ export interface InteropPCloudRuntimeOptions {
   readonly isWorkActive?: (() => boolean) | undefined;
   readonly fetchImpl?: typeof fetch | undefined;
   readonly connectFlow?: ((tokenStore: PCloudTokenStore) => Promise<PCloudConnectResult>) | undefined;
+  readonly objectStore?: InteropObjectStore | undefined;
 }
 
 export class InteropPCloudRuntime {
@@ -28,10 +29,12 @@ export class InteropPCloudRuntime {
       safeStorage: options.safeStorage,
       dataDir: join(options.profileDirectory, 'interop', 'provider-auth', 'pcloud'),
     });
-    this.#objectStore = createPCloudInteropStore({
-      auth: () => this.#tokenStore.load(),
-      ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
-    });
+    this.#objectStore =
+      options.objectStore ??
+      createPCloudInteropStore({
+        auth: () => this.#tokenStore.load(),
+        ...(options.fetchImpl === undefined ? {} : { fetchImpl: options.fetchImpl }),
+      });
     const connectFlow = options.connectFlow;
     this.#connect =
       connectFlow === undefined

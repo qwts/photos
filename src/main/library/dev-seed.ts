@@ -1,4 +1,6 @@
 import { seedLibrary, seedSynthetic } from './seed.js';
+import type { LibraryService } from './library-service.js';
+import type { LibraryParts } from './library-parts.js';
 
 // Dev/E2E seed harness (#72/#74), extracted from the composition root. Both
 // seeds are no-ops on a non-empty library — re-runs on the same profile must
@@ -13,6 +15,16 @@ export interface DevSeedOptions {
   readonly harnessEnv: (name: string) => string | undefined;
   /** Triggers the lazy library bootstrap and exposes the open parts. */
   readonly open: () => { db: SeedDb; blobStore: SeedBlobs; currentKey: () => SeedKey; photos: () => number } | undefined;
+}
+
+export function devSeedAccess(service: LibraryService, parts: LibraryParts | undefined): ReturnType<DevSeedOptions['open']> {
+  if (parts === undefined) return undefined;
+  return {
+    db: parts.db,
+    blobStore: parts.blobStore,
+    currentKey: () => parts.keyStore.currentKey(),
+    photos: () => service.stats().photos,
+  };
 }
 
 export async function runDevSeeds(options: DevSeedOptions): Promise<void> {
