@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted 2026-07-16 on issue [#383](https://github.com/qwts/photos/issues/383) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands). This ADR extends [ADR-0004](./ADR-0004-Encryption-And-Key-Management.md), [ADR-0005](./ADR-0005-Library-Data-Model.md), [ADR-0007](./ADR-0007-Backup-Format-And-Offload.md), [ADR-0011](./ADR-0011-Provider-Catalog-Capabilities-And-Switching.md), and [ADR-0013](./ADR-0013-App-Lock-Key-Release-And-Protected-Albums.md); it rewrites none of them.
+Accepted 2026-07-16 on issue [#383](https://github.com/qwts/photos/issues/383) (proposed and owner-accepted the same day; any section may still be amended by owner veto before its implementing code lands).
+
+**Amended 2026-07-22 by [ADR-0028](./ADR-0028-Remote-Custody-Binding-And-Custody-Safe-Disconnect.md) (#723):** §6's profile-scoped credential slots stand, but a library's non-secret custody binding (which provider **account** holds its offloaded originals) is library-scoped state in its database; replacing the account behind a credential slot no longer silently repoints custody operations.
+
+This ADR extends [ADR-0004](./ADR-0004-Encryption-And-Key-Management.md), [ADR-0005](./ADR-0005-Library-Data-Model.md), [ADR-0007](./ADR-0007-Backup-Format-And-Offload.md), [ADR-0011](./ADR-0011-Provider-Catalog-Capabilities-And-Switching.md), and [ADR-0013](./ADR-0013-App-Lock-Key-Release-And-Protected-Albums.md); it rewrites none of them.
 
 Section map for the epic's children: §1–§3, §7 govern [#384](https://github.com/qwts/photos/issues/384) (registry + keys), §4–§5 govern [#385](https://github.com/qwts/photos/issues/385) (lifecycle), §1, §5 and the identity rules in §2 govern [#386](https://github.com/qwts/photos/issues/386) (switcher UI), §2 and §6 govern [#387](https://github.com/qwts/photos/issues/387) (per-library scoping).
 

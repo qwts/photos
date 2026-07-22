@@ -35,6 +35,7 @@ decision gets a new ADR that links back to the one it replaces.
 | [ADR-0025](./ADR-0025-Encrypted-Activity-History-And-Capability-Aware-Undo.md)               | Activity History & Capability Undo   | Accepted |
 | [ADR-0026](./ADR-0026-Video-And-Animated-Media.md)                                           | Video & Animated Media               | Accepted |
 | [ADR-0027](./ADR-0027-Native-macOS-Photo-Interoperability-And-Plaintext-Custody-Boundary.md) | Native macOS Photo Interop & Custody | Accepted |
+| [ADR-0028](./ADR-0028-Remote-Custody-Binding-And-Custody-Safe-Disconnect.md)                 | Remote Custody Binding & Disconnect  | Accepted |
 
 ## Template
 
