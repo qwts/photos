@@ -64,7 +64,6 @@ try {
   validateProvisioningProfile(profile, {
     applicationId: APPLICATION_ID,
     teamId: TEAM_ID,
-    iCloudContainerId: ICLOUD_CONTAINER_ID,
     ubiquityContainerId: UBIQUITY_CONTAINER_ID,
   });
 } catch (error) {
@@ -78,13 +77,9 @@ if (stringEntitlement(mainEntitlements, 'com.apple.application-identifier') !== 
 if (stringEntitlement(mainEntitlements, 'com.apple.developer.team-identifier') !== TEAM_ID) {
   fail(`main executable lacks team identifier ${TEAM_ID}`);
 }
-for (const [key, identifier] of [
-  ['com.apple.developer.icloud-container-identifiers', ICLOUD_CONTAINER_ID],
-  ['com.apple.developer.ubiquity-container-identifiers', UBIQUITY_CONTAINER_ID],
-]) {
-  if (!mainEntitlements.includes(`[Key] ${key}`) || !mainEntitlements.includes(`[String] ${identifier}`)) {
-    fail(`main executable lacks ${key} authorization for ${identifier}`);
-  }
+const ubiquityKey = 'com.apple.developer.ubiquity-container-identifiers';
+if (!mainEntitlements.includes(`[Key] ${ubiquityKey}`) || !mainEntitlements.includes(`[String] ${UBIQUITY_CONTAINER_ID}`)) {
+  fail(`main executable lacks ${ubiquityKey} authorization for ${UBIQUITY_CONTAINER_ID}`);
 }
 if (!mainEntitlements.includes('[Key] com.apple.developer.icloud-services') || !mainEntitlements.includes('[String] CloudDocuments')) {
   fail('main executable lacks CloudDocuments authorization');

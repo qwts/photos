@@ -22,9 +22,13 @@ entitlements:
 
 - `com.apple.application-identifier`
 - `com.apple.developer.team-identifier`
-- `com.apple.developer.icloud-container-identifiers`
 - `com.apple.developer.ubiquity-container-identifiers` containing the Team-ID-prefixed container
 - `com.apple.developer.icloud-services` containing `CloudDocuments`
+
+`com.apple.developer.icloud-container-identifiers` is the CloudKit production-
+container entitlement. The Documents provider does not claim or require it;
+`FileManager.url(forUbiquityContainerIdentifier:)` is authorized by the
+Team-ID-prefixed ubiquity-container entitlement above.
 
 Renderer and other helper executables inherit only Electron hardened-runtime
 allowances. They must not receive the application identity or iCloud container

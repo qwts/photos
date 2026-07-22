@@ -105,7 +105,6 @@ SignatureState Signature(const std::string& expectedBundleId, const std::string&
     }
 
     const bool iCloudTrusted =
-        ArrayContains(entitlements, CFSTR("com.apple.developer.icloud-container-identifiers"), expectedContainer) &&
         ArrayContains(entitlements, CFSTR("com.apple.developer.ubiquity-container-identifiers"),
                       expectedUbiquityContainer) &&
         ArrayContains(entitlements, CFSTR("com.apple.developer.icloud-services"), @"CloudDocuments");

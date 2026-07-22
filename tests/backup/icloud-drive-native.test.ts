@@ -68,7 +68,6 @@ describe('iCloud Drive native bridge gating (#656)', () => {
       'NSFileCoordinatorWritingForDeleting',
       'startDownloadingUbiquitousItemAtURL',
       'unresolvedConflictVersionsOfItemAtURL',
-      'com.apple.developer.icloud-container-identifiers',
       'com.apple.developer.ubiquity-container-identifiers',
       'CloudDocuments',
     ]) {
