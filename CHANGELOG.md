@@ -1,5 +1,11 @@
 # photos
 
+## 0.60.1
+
+### Patch Changes
+
+- cb5ba37: Render provider connections immediately after authorization while storage usage and quota refresh independently with cancellation and a deadline.
+
 ## 0.60.0
 
 ### Minor Changes
