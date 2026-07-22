@@ -1,10 +1,11 @@
 import type { InteropErrorCode, InteropOperation, InteropTransferPhase } from '../../../shared/interop/contract.js';
 import type { InteropCounts } from '../../../shared/interop/messages.js';
+import type { InteropInboundStatus } from '../../../shared/interop/inbound-ui.js';
 
 export type InteropEntryContext = 'selection' | 'album' | 'lightbox' | 'settings';
 export type InteropProviderId = 'pcloud' | 'google-drive' | 'icloud-drive';
 export type InteropProviderState = 'disconnected' | 'connecting' | 'connected' | 'reconnect-required' | 'unavailable';
-export type InteropPairingState = 'unpaired' | 'pairing' | 'paired' | 'invalid';
+export type InteropPairingState = 'not-configured' | 'locked' | 'unlocked';
 
 export interface InteropVisibleConflict {
   readonly interopId: string;
@@ -60,7 +61,7 @@ export function blockedInteropWorkflow(entry: InteropEntryContext, total: number
       state: 'disconnected',
       detail: 'Connect an isolated Transfer & Sync provider and import a pairing bundle before review.',
     },
-    pairing: 'unpaired',
+    pairing: 'not-configured',
     phase: 'queued',
     counts: { ...EMPTY_INTEROP_COUNTS, total },
     processed: 0,
@@ -70,6 +71,31 @@ export function blockedInteropWorkflow(entry: InteropEntryContext, total: number
       message: 'Eligibility has not been checked. No records or originals have been transferred.',
       retryable: true,
     },
+  };
+}
+
+export function visibleInboundWorkflow(status: InteropInboundStatus): InteropVisibleWorkflow {
+  const batch = status.batches.find((candidate) => candidate.transferId === status.selectedTransferId) ?? status.batches[0];
+  return {
+    entry: 'settings',
+    operation: 'move',
+    target: 'overlook',
+    provider: {
+      id: 'pcloud',
+      label: 'pCloud',
+      state:
+        status.provider.status === 'connected' ? 'connected' : status.provider.status === 'expired' ? 'reconnect-required' : 'disconnected',
+      detail: 'Isolated encrypted interoperability namespace. Backup authorization is separate.',
+    },
+    pairing: status.pairing.status,
+    phase: status.progress.phase,
+    counts: batch?.counts ?? EMPTY_INTEROP_COUNTS,
+    processed: status.progress.processed,
+    conflicts:
+      batch?.items
+        .filter((item) => item.reviewCategory === 'conflict')
+        .map((item) => ({ interopId: item.interopId, label: item.label, fields: ['retained for review'] })) ?? [],
+    error: status.error,
   };
 }
 

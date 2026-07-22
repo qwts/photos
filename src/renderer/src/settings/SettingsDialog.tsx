@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
+import { defineMessages, useIntl } from 'react-intl';
 import type { MessageDescriptor } from 'react-intl';
 
 import { Dialog } from '../components/Dialog';
-import { Button } from '../components/Button';
 import { Icon, type IconName } from '../components/Icon';
 import { GeneralPane } from './GeneralPane';
 import { KeyDialog, type KeyDialogMode } from './KeyDialog';
@@ -12,6 +11,7 @@ import { StoragePane } from './StoragePane';
 import { RestoreWorkflow } from '../restore/RestoreWorkflow';
 import { AppPasswordDialog, type AppPasswordMode } from './AppPasswordDialog';
 import type { AppSettings, SettingsPatch } from '../../../shared/settings/settings.js';
+import { TransferPane } from './TransferPane.js';
 
 import './settings.css';
 
@@ -37,7 +37,6 @@ const messages = defineMessages({
   storage: { id: 'settings.nav.storage', defaultMessage: 'Storage & Backup' },
   transfer: { id: 'settings.nav.transfer', defaultMessage: 'Transfer & Sync' },
   privacy: { id: 'settings.nav.privacy', defaultMessage: 'Privacy' },
-  transferSettings: { id: 'settings.transfer.label', defaultMessage: 'Transfer and Sync settings' },
   restoreTitle: { id: 'settings.restore.title', defaultMessage: 'Restore from cloud backup' },
 });
 
@@ -198,23 +197,7 @@ export function SettingsDialog({
           ) : section === 'storage' ? (
             <StoragePane settings={settings} selectedPhotoIds={selectedPhotoIds} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
           ) : section === 'transfer' ? (
-            <section className="ovl-settings__transfer" aria-label={intl.formatMessage(messages.transferSettings)}>
-              <h3>
-                <FormattedMessage id="settings.transfer.heading" defaultMessage="Transfer & Sync" />
-              </h3>
-              <p>
-                <FormattedMessage
-                  id="settings.transfer.body"
-                  defaultMessage="Pair Overlook with Image Trail through an isolated encrypted provider namespace. Backup credentials and files are never reused."
-                />
-              </p>
-              <p className="mono-data">
-                <FormattedMessage id="settings.transfer.status" defaultMessage="Not paired · provider not connected" />
-              </p>
-              <Button className="ovl-settings__transferAction" variant="primary" icon="refresh-cw" onClick={onTransfer}>
-                <FormattedMessage id="settings.transfer.open" defaultMessage="Open Transfer & Sync" />
-              </Button>
-            </section>
+            <TransferPane onOpen={onTransfer} />
           ) : (
             <PrivacyPane
               settings={settings}

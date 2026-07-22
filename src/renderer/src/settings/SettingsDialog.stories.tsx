@@ -19,12 +19,14 @@ interface StoryWindow extends Window {
   quickActionPatches?: readonly (readonly QuickActionCommandId[])[];
   releaseInitialProviderStatus?: () => void;
   releaseProviderDisconnect?: () => void;
+  releaseInteropUnlock?: () => void;
 }
 
 function installStub(options?: {
   readonly deferInitialProviderStatus?: boolean;
   readonly deferProviderDisconnect?: boolean;
   readonly deferQuickActionSettings?: boolean;
+  readonly deferInteropUnlock?: boolean;
   readonly iCloudAvailable?: boolean;
 }): void {
   let current: AppSettings = { ...defaultSettings };
@@ -262,6 +264,94 @@ function installStub(options?: {
     },
     export: () => Promise.resolve({ exported: true, count: diagnosticReports.length }),
   };
+  let interopStatus: Awaited<ReturnType<OverlookApi['interop']['status']>> = {
+    provider: { provider: 'pcloud', status: 'not-connected', busy: false },
+    pairing: { status: 'not-configured', pairingId: null, keyId: null, createdAt: null },
+    batches: [],
+    selectedTransferId: null,
+    progress: { transferId: null, phase: 'queued', processed: 0, total: 0, accepted: 0, retained: 0 },
+    error: null,
+  };
+  const interopListeners = new Set<Parameters<OverlookApi['interop']['onChanged']>[0]>();
+  const interopUnlock =
+    options?.deferInteropUnlock === true
+      ? new Promise<void>((resolve) => {
+          storyWindow.releaseInteropUnlock = resolve;
+        })
+      : Promise.resolve();
+  const setInterop = (next: typeof interopStatus): Promise<typeof interopStatus> => {
+    interopStatus = next;
+    for (const listener of interopListeners) listener(next);
+    return Promise.resolve(next);
+  };
+  const interopApi: OverlookApi['interop'] = {
+    status: () => Promise.resolve(interopStatus),
+    connectProvider: () => setInterop({ ...interopStatus, provider: { provider: 'pcloud', status: 'connected', busy: false } }),
+    disconnectProvider: () => setInterop({ ...interopStatus, provider: { provider: 'pcloud', status: 'not-connected', busy: false } }),
+    selectPairing: () =>
+      setInterop({
+        ...interopStatus,
+        pairing: {
+          status: 'locked',
+          pairingId: 'd9afc67d-781c-4e8b-a396-bcf8c4fc9739',
+          keyId: 'interop:81ad4f06-0ecf-4a24-8c65-fcd34075cf15',
+          createdAt: '2026-07-21T12:00:00.000Z',
+        },
+      }),
+    unlockPairing: async () => {
+      await interopUnlock;
+      return setInterop({ ...interopStatus, pairing: { ...interopStatus.pairing, status: 'unlocked' } });
+    },
+    refresh: () =>
+      setInterop({
+        ...interopStatus,
+        selectedTransferId: 'fc0b0b81-114f-480b-8ff6-a1531e57b605',
+        batches: [
+          {
+            transferId: 'fc0b0b81-114f-480b-8ff6-a1531e57b605',
+            counts: {
+              total: 2,
+              eligible: 1,
+              duplicate: 0,
+              conflict: 0,
+              metadataOnly: 1,
+              unsupported: 0,
+              skipped: 0,
+              failed: 0,
+              acknowledged: 0,
+              finalized: 0,
+            },
+            items: [
+              {
+                interopId: '665fc4f8-8287-42db-b195-f7828d530da8',
+                label: 'Mountain',
+                reviewCategory: 'eligible',
+                original: 'available',
+                outcome: 'pending',
+                reason: null,
+              },
+            ],
+          },
+        ],
+        progress: {
+          transferId: 'fc0b0b81-114f-480b-8ff6-a1531e57b605',
+          phase: 'reviewing',
+          processed: 0,
+          total: 2,
+          accepted: 0,
+          retained: 0,
+        },
+      }),
+    start: () => Promise.resolve(interopStatus),
+    pause: () => Promise.resolve(interopStatus),
+    resume: () => Promise.resolve(interopStatus),
+    cancel: () => Promise.resolve(interopStatus),
+    retry: () => Promise.resolve(interopStatus),
+    onChanged: (listener) => {
+      interopListeners.add(listener);
+      return () => interopListeners.delete(listener);
+    },
+  };
   (globalThis as { overlook?: Partial<OverlookApi> }).overlook = {
     settings: settingsApi,
     backup: backupApi,
@@ -269,6 +359,7 @@ function installStub(options?: {
     restore: restoreApi,
     appLock: appLockApi,
     diagnostics: diagnosticsApi,
+    interop: interopApi,
     library: {
       albums: () => Promise.resolve({ albums: [{ id: 'family', name: 'Family', count: 4 }] }),
       stats: () => Promise.resolve({ photos: 1542, bytes: 48_000_000_000, pending: 0, lastBackupAt: null, offloadedBytes: 12_600_000_000 }),
@@ -529,12 +620,30 @@ export const ContentOwnsScrolling: Story = {
 
 export const TransferAndSyncAction: Story = {
   args: { onTransfer: fn() },
+  decorators: [
+    (Story) => {
+      installStub({ deferInteropUnlock: true });
+      return <Story />;
+    },
+  ],
   play: async ({ canvasElement, args }) => {
     const body = within(canvasElement.ownerDocument.body);
     await userEvent.click(body.getByRole('tab', { name: 'Transfer & Sync' }));
-    const action = await waitFor(() => body.getByRole('button', { name: 'Open Transfer & Sync' }));
+    await userEvent.click(await waitFor(() => body.getByRole('button', { name: 'Connect pCloud' })));
+    const selectBundle = await waitFor(() => body.getByRole('button', { name: 'Select bundle…' }));
+    await waitFor(() => expect(selectBundle).toBeEnabled());
+    await userEvent.click(selectBundle);
+    await waitFor(() => expect(body.getByTestId('interop-pairing-card')).toHaveTextContent('locked'));
+    const password = await waitFor(() => body.getByLabelText('Pairing bundle password'));
+    await userEvent.type(password, 'pairing password');
+    await userEvent.click(body.getByRole('button', { name: 'Unlock for this session' }));
+    await expect(password).toHaveValue('');
+    (globalThis as unknown as StoryWindow).releaseInteropUnlock?.();
+    await waitFor(() => expect(body.queryByLabelText('Pairing bundle password')).not.toBeInTheDocument());
+    await userEvent.click(body.getByRole('button', { name: 'Check for incoming transfers' }));
+    const action = await waitFor(() => body.getByRole('button', { name: 'Review 2 incoming items' }));
 
-    await expect(action).toHaveClass('ovl-button', 'ovl-button--primary', 'ovl-settings__transferAction');
+    await expect(body.getByText('Outbound Move and Sync are not available yet.')).toBeVisible();
     action.focus();
     await expect(action).toHaveFocus();
     await userEvent.keyboard('{Enter}');
