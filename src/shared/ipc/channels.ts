@@ -13,7 +13,7 @@ import {
   providerConnectionStatusSchema,
   providerDescriptorSchema,
   providerIdSchema,
-  providerStorageMetricsSchema,
+  providerCapacityStatusSchema,
 } from '../backup/provider-descriptor.js';
 import { diagnosticsChannels } from './diagnostics-channels.js';
 import { llmChannels, llmEvents } from './llm-channels.js';
@@ -634,10 +634,10 @@ export const channels = {
     z.object({}),
     z.object({ providers: z.array(providerDescriptorSchema).readonly(), defaultProviderId: providerIdSchema }),
   ),
-  // Connection authority is prompt and independent from slow remote metrics
+  // Connection authority is prompt and independent from provider capacity
   // (#721). A completed OAuth flow must never wait on inventory or quota.
   backupProviderStatus: defineChannel('backup:provider-status', z.object({ providerId: providerIdSchema }), providerConnectionStatusSchema),
-  backupProviderStorage: defineChannel('backup:provider-storage', z.object({ providerId: providerIdSchema }), providerStorageMetricsSchema),
+  backupProviderStorage: defineChannel('backup:provider-storage', z.object({ providerId: providerIdSchema }), providerCapacityStatusSchema),
   // Provider connect/disconnect (#254): connect runs whatever handshake the
   // registered provider needs — local providers connect instantly while
   // interactive providers open a system-browser OAuth flow. Tokens never cross

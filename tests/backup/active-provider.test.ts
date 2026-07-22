@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { Readable } from 'node:stream';
 
 import { createActiveProvider } from '../../src/main/backup/active-provider.js';
 import type { StorageProvider } from '../../src/main/backup/provider.js';
@@ -49,6 +50,32 @@ describe('active-provider delegator (#256)', () => {
 
     active = null;
     assert.equal(provider.id, 'pcloud', 'disconnected delegates to the Connect target');
+  });
+
+  test('backup writes route exclusively through settings.providerId (#721)', async () => {
+    const writes: string[] = [];
+    const recording = (id: string): StorageProvider => ({
+      ...fake(id),
+      put: () => {
+        writes.push(id);
+        return Promise.resolve({ bytes: 1 });
+      },
+    });
+    const registry = new Map<string, StorageProvider>([
+      ['google-drive', recording('google-drive')],
+      ['pcloud', recording('pcloud')],
+      ['icloud-drive', recording('icloud-drive')],
+    ]);
+    let selected = 'google-drive';
+    const provider = createActiveProvider({ registry, activeId: () => selected, defaultId: () => 'pcloud' });
+
+    await provider.put('blobs/aa/google', Readable.from([Buffer.from('g')]));
+    selected = 'pcloud';
+    await provider.put('blobs/bb/pcloud', Readable.from([Buffer.from('p')]));
+    selected = 'icloud-drive';
+    await provider.put('blobs/cc/icloud', Readable.from([Buffer.from('i')]));
+
+    assert.deepEqual(writes, ['google-drive', 'pcloud', 'icloud-drive']);
   });
 
   test('an active id this build never registered falls back to the default (stale packaged "mock")', () => {

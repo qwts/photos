@@ -9,7 +9,7 @@ import type { HandlerErrorReport } from '../shared/ipc/registry.js';
 import type { AppSettings, SettingsPatch } from '../shared/settings/settings.js';
 import type { LibraryDescriptor } from '../shared/library/registry.js';
 import type { RelocationRuntime } from './library/relocation-runtime.js';
-import type { ProviderConnectionStatus, ProviderDescriptor, ProviderStorageMetrics } from '../shared/backup/provider-descriptor.js';
+import type { ProviderCapacityStatus, ProviderConnectionStatus, ProviderDescriptor } from '../shared/backup/provider-descriptor.js';
 import type { RestoreDiscoverResponse, RestoreRunResponse } from '../shared/backup/restore-contract.js';
 import type { ImportService } from './import/import-service.js';
 import type { LibraryService } from './library/library-service.js';
@@ -688,7 +688,7 @@ export interface BackupFacade {
   restoreOriginals(photoIds?: readonly string[]): Promise<RestoreOriginalsSummary>;
   providers(): Promise<{ providers: readonly ProviderDescriptor[]; defaultProviderId: string }>;
   providerStatus(providerId: string): Promise<ProviderConnectionStatus>;
-  providerStorage(providerId: string): Promise<ProviderStorageMetrics>;
+  providerStorage(providerId: string): Promise<ProviderCapacityStatus>;
   /** Runs the addressed provider's instant or interactive handshake. */
   connect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;
   disconnect(providerId: string): Promise<{ ok: boolean; reason: string | null }>;

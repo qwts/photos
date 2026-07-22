@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
-import { useFormats } from '../i18n/use-formats.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -10,9 +9,9 @@ import { Slider } from '../components/Slider';
 import { Switch } from '../components/Switch';
 import { Field } from './Field';
 import { OffloadedStorage } from './OffloadedStorage';
-import { ProviderCard, type ProviderCapacityView, type ProviderConnectionState, type ProviderUsageView } from './ProviderCard';
+import { ProviderCard, type ProviderCapacityView, type ProviderConnectionState } from './ProviderCard';
 import type { AppSettings } from '../../../shared/settings/settings.js';
-import type { ProviderConnectionStatus, ProviderDescriptor, ProviderStorageMetrics } from '../../../shared/backup/provider-descriptor.js';
+import type { ProviderCapacityStatus, ProviderConnectionStatus, ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
 import { destructiveActions } from '../../../shared/destructive-actions.js';
 
 // Storage & Backup section (#114, updated by #239, #254): the provider
@@ -32,13 +31,8 @@ type ProviderStatusLoad =
 
 type ProviderStorageLoad =
   | { readonly targetId: string; readonly state: 'loading' }
-  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderStorageMetrics }
+  | { readonly targetId: string; readonly state: 'ready'; readonly value: ProviderCapacityStatus }
   | { readonly targetId: string; readonly state: 'error' };
-
-/** Last successfully-measured usage for the addressed provider, retained so a
- * failed/offline refresh can show the figure marked stale rather than blanking
- * it (#684 invariant I5). */
-type RetainedUsage = { readonly targetId: string; readonly bytes: number; readonly measuredAt: string };
 
 type ConnectionOperation = 'connect' | 'disconnect';
 
@@ -79,7 +73,6 @@ export interface StoragePaneProps {
 
 export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: StoragePaneProps): ReactElement {
   const intl = useIntl();
-  const { formatBytes, formatRelativeTime } = useFormats();
   const [statusLoad, setStatusLoad] = useState<ProviderStatusLoad | null>(null);
   const [storageLoad, setStorageLoad] = useState<ProviderStorageLoad | null>(null);
   const [providers, setProviders] = useState<readonly ProviderDescriptor[]>([]);
@@ -87,15 +80,11 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   const [connectionOperation, setConnectionOperation] = useState<ConnectionOperation | null>(null);
   const [disconnectConfirmation, setDisconnectConfirmation] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [retained, setRetained] = useState<RetainedUsage | null>(null);
-  // Wall clock captured out of render (purity) so a stale figure's "last
-  // measured N ago" is computed against the time of the most recent status.
-  const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const statusRequestRef = useRef(0);
   const storageRequestRef = useRef(0);
   const operationRef = useRef<ConnectionOperation | null>(null);
 
-  const refreshStorage = useCallback((providerId: string) => {
+  const loadCapacity = useCallback((providerId: string) => {
     const request = storageRequestRef.current + 1;
     storageRequestRef.current = request;
     setStorageLoad({ targetId: providerId, state: 'loading' });
@@ -104,10 +93,6 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
       .then((loaded) => {
         if (storageRequestRef.current !== request) return;
         setStorageLoad({ targetId: providerId, state: 'ready', value: loaded });
-        setNowMs(Date.now());
-        if (loaded.usedByOverlookBytes !== null && !loaded.measurementFailed && loaded.measuredAt !== null) {
-          setRetained({ targetId: providerId, bytes: loaded.usedByOverlookBytes, measuredAt: loaded.measuredAt });
-        }
       })
       .catch(() => {
         if (storageRequestRef.current === request) setStorageLoad({ targetId: providerId, state: 'error' });
@@ -125,13 +110,12 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
       .then((loaded) => {
         if (statusRequestRef.current !== request) return;
         setStatusLoad({ targetId, state: 'ready', value: loaded });
-        setNowMs(Date.now());
-        if (loaded.connected) refreshStorage(targetId);
+        if (loaded.connected) loadCapacity(targetId);
       })
       .catch(() => {
         if (statusRequestRef.current === request) setStatusLoad({ targetId, state: 'error' });
       });
-  }, [refreshStorage, targetId]);
+  }, [loadCapacity, targetId]);
 
   const changeConnection = useCallback(
     (operation: ConnectionOperation) => {
@@ -185,20 +169,6 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
     refresh();
   }, [refresh]);
 
-  // Usage must reflect remote reality after it changes (#684). A completed backup
-  // (upload/cleanup/integrity repair) re-sums the figure; reconnect and app
-  // restart re-measure through the effects above; manual Refresh below covers the
-  // rest. Offload/remote-deletion flows also finish through backup completion.
-  useEffect(
-    () =>
-      window.overlook.backup.onCompleted(() => {
-        if (targetId !== null && statusLoad?.targetId === targetId && statusLoad.state === 'ready' && statusLoad.value.connected) {
-          refreshStorage(targetId);
-        }
-      }),
-    [refreshStorage, statusLoad, targetId],
-  );
-
   const openCapacitySettings = useCallback(() => {
     if (targetId === null) return;
     void window.overlook.backup.openCapacitySettings({ providerId: targetId });
@@ -206,9 +176,6 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
 
   const status = statusLoad?.targetId === targetId && statusLoad.state === 'ready' ? statusLoad.value : null;
   const storage = storageLoad?.targetId === targetId && storageLoad.state === 'ready' ? storageLoad.value : null;
-  const storageFailed =
-    storageLoad?.targetId === targetId &&
-    (storageLoad.state === 'error' || (storageLoad.state === 'ready' && storageLoad.value.measurementFailed));
   const descriptor = providers.find((provider) => provider.id === targetId) ?? status?.provider ?? null;
   const errored = statusLoad?.targetId === targetId && statusLoad.state === 'error';
   const connected = status !== null && settings.providerId === targetId && status.connected;
@@ -217,27 +184,6 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
   const bandwidth = settings.bandwidthLimit;
   const disconnecting = connectionOperation === 'disconnect';
   const connecting = connectionOperation === 'connect';
-  const retainedUsage = retained?.targetId === targetId ? retained : null;
-
-  // "Used by Overlook" view: a current measurement, else the retained figure
-  // marked stale, else calculation-failure, else the measuring skeleton.
-  const usage: ProviderUsageView = !connected
-    ? { bytes: null, failed: false, stale: false, staleLabel: null }
-    : storage !== null && storage.usedByOverlookBytes !== null && !storage.measurementFailed
-      ? { bytes: storage.usedByOverlookBytes, failed: false, stale: false, staleLabel: null }
-      : retainedUsage !== null && storageFailed
-        ? {
-            bytes: retainedUsage.bytes,
-            failed: false,
-            stale: true,
-            staleLabel: `Last measured ${formatRelativeTime(retainedUsage.measuredAt, nowMs)} · refresh failed`,
-          }
-        : retainedUsage !== null
-          ? { bytes: retainedUsage.bytes, failed: false, stale: false, staleLabel: null }
-          : storageFailed
-            ? { bytes: null, failed: true, stale: false, staleLabel: null }
-            : { bytes: null, failed: false, stale: false, staleLabel: null };
-
   // Account capacity: a verified quota (bar), else iCloud's System Settings route,
   // else a plain "unavailable" for a known-quota provider whose call failed.
   const capacity: ProviderCapacityView =
@@ -255,18 +201,6 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
       : `${descriptor.capabilities.verification === 'server-checksum' ? 'Server checksum' : 'Verify by download'} · ${
           descriptor.capabilities.resumableUpload ? 'resumable uploads' : 'restarts interrupted uploads'
         }`;
-
-  // Only announce measurement outcomes while connected — a checking/disconnected
-  // card measures nothing, so it must not push "Measuring…" to the live region.
-  const announcement = !connected
-    ? null
-    : usage.failed
-      ? `Couldn’t measure ${name} usage. Try again.`
-      : usage.stale
-        ? `${name} is offline. Showing the last measured usage.`
-        : usage.bytes === null
-          ? `Measuring ${name} backup usage…`
-          : `Used by Overlook: ${formatBytes(usage.bytes)}.`;
 
   const primaryLabel = disconnecting
     ? intl.formatMessage(messages.disconnecting)
@@ -298,20 +232,13 @@ export function StoragePane({ settings, selectedPhotoIds, onPatch, onRestore }: 
         name={name}
         connection={connection}
         account={status?.account ?? null}
-        usage={usage}
         capacity={capacity}
         capabilitiesLine={capabilitiesLine}
         message={connectError}
-        announcement={announcement}
         primaryLabel={primaryLabel}
         primaryVariant={connected ? 'secondary' : 'primary'}
         primaryDisabled={connection === 'checking' || connectionOperation !== null || (!connected && descriptor?.available === false)}
         onPrimary={onPrimary}
-        canRefresh={connected}
-        refreshLabel={usage.failed ? 'Try again' : 'Refresh'}
-        onRefresh={() => {
-          if (targetId !== null) refreshStorage(targetId);
-        }}
         onCapacityRoute={openCapacitySettings}
       />
 

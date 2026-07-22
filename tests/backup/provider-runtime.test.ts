@@ -141,41 +141,94 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(quotaCalls, 0);
   });
 
-  for (const stalled of ['listLibraries', 'list', 'quota'] as const) {
-    test(`storage metrics bound a stalled ${stalled} call without changing authority (#721)`, async () => {
-      const { runtime: r } = runtime({ providerId: () => 'mock', storageTimeoutMs: 15 });
-      r.buildProvider({ mockRootDir: join(tmpdir(), `overlook-runtime-storage-${stalled}`), fault: undefined });
-      const provider = r.provider('mock');
-      assert.ok(provider);
-      const libraryId = r.libraryId();
-      const stall = (signal?: AbortSignal): Promise<never> =>
-        new Promise<never>((_resolve, reject) => {
-          const fail = (): void => reject(signal?.reason instanceof Error ? signal.reason : new Error('aborted'));
-          if (signal?.aborted === true) fail();
-          else signal?.addEventListener('abort', fail, { once: true });
-        });
-      provider.listLibraries = stalled === 'listLibraries' ? stall : () => Promise.resolve(stalled === 'list' ? [libraryId] : []);
-      if (stalled === 'list') provider.forLibrary = () => provider;
-      provider.list = stalled === 'list' ? (_prefix, signal) => stall(signal) : () => Promise.resolve([]);
-      provider.quota = stalled === 'quota' ? stall : () => Promise.resolve({ usedBytes: 0, totalBytes: 1024 });
+  test('storage status calls only the provider-native quota API (#721)', async () => {
+    const { runtime: r } = runtime({ providerId: () => 'mock' });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-native-quota'), fault: undefined });
+    const provider = r.provider('mock');
+    assert.ok(provider);
+    provider.listLibraries = () => {
+      throw new Error('inventory measurement must not run');
+    };
+    provider.list = () => {
+      throw new Error('recursive inventory measurement must not run');
+    };
+    let quotaCalls = 0;
+    provider.quota = () => {
+      quotaCalls += 1;
+      return Promise.resolve({ usedBytes: 256, totalBytes: 1024 });
+    };
 
-      const first = r.storage('mock');
-      assert.equal(r.storage('mock'), first, 'concurrent refreshes share one measurement');
-      const metrics = await first;
+    const capacity = await r.storage('mock');
 
-      assert.equal((await r.status('mock')).connected, true);
-      assert.equal(r.activeId(), 'mock');
-      if (stalled === 'quota') {
-        assert.equal(metrics.capacity, null);
-        assert.equal(metrics.measurementFailed, false);
-        assert.equal(metrics.usedByOverlookBytes, 0);
-      } else {
-        assert.deepEqual(metrics.capacity, { usedBytes: 0, totalBytes: 1024 });
-        assert.equal(metrics.measurementFailed, true);
-        assert.equal(metrics.usedByOverlookBytes, null);
-      }
+    assert.equal(quotaCalls, 1);
+    assert.deepEqual(capacity, { capacity: { usedBytes: 256, totalBytes: 1024 }, capacityRoute: 'none' });
+  });
+
+  test('connect reactivates existing sealed authority without another OAuth flow (#721)', async () => {
+    let providerId: string | null = 'google-drive';
+    const { runtime: r } = runtime({
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
     });
-  }
+    r.tokenStore().save({ accessToken: 'existing-pcloud-token', apiHost: 'api.pcloud.com', connectedAt: '2026-07-22T00:00:00.000Z' });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-reactivate'), fault: undefined });
+
+    assert.deepEqual(await r.connect('pcloud'), { ok: true, reason: null });
+    assert.equal(providerId, 'pcloud');
+  });
+
+  test('Google Drive reactivates its sealed refresh token without opening OAuth (#721)', async () => {
+    let providerId: string | null = 'pcloud';
+    let browserOpens = 0;
+    const { runtime: r } = runtime({
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+      googleDriveClientId: () => 'desktop.apps.googleusercontent.com',
+      openExternal: () => {
+        browserOpens += 1;
+        return Promise.resolve();
+      },
+    });
+    r.googleTokenStore().save({
+      clientId: 'desktop.apps.googleusercontent.com',
+      refreshToken: 'existing-google-refresh-token',
+      connectedAt: '2026-07-22T00:00:00.000Z',
+    });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-google-reactivate'), fault: undefined });
+
+    assert.deepEqual(await r.connect('google-drive'), { ok: true, reason: null });
+    assert.equal(providerId, 'google-drive');
+    assert.equal(browserOpens, 0);
+  });
+
+  test('capacity bounds a stalled native quota call without changing authority (#721)', async () => {
+    const { runtime: r } = runtime({ providerId: () => 'mock', storageTimeoutMs: 15 });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-capacity-stall'), fault: undefined });
+    const provider = r.provider('mock');
+    assert.ok(provider);
+    provider.listLibraries = () => {
+      throw new Error('inventory measurement must not run');
+    };
+    provider.list = () => {
+      throw new Error('recursive inventory measurement must not run');
+    };
+    provider.quota = (signal) =>
+      new Promise<never>((_resolve, reject) => {
+        const fail = (): void => reject(signal?.reason instanceof Error ? signal.reason : new Error('aborted'));
+        if (signal?.aborted === true) fail();
+        else signal?.addEventListener('abort', fail, { once: true });
+      });
+
+    const first = r.storage('mock');
+    assert.equal(r.storage('mock'), first, 'concurrent capacity requests share one native quota call');
+    assert.deepEqual(await first, { capacity: null, capacityRoute: 'none' });
+    assert.equal((await r.status('mock')).connected, true);
+    assert.equal(r.activeId(), 'mock');
+  });
 
   test('pCloud disconnect verifies custody and persisted selection before reporting success', async () => {
     let providerId: string | null = 'pcloud';
@@ -308,6 +361,10 @@ describe('provider runtime policy (#256)', () => {
     assert.deepEqual(await r.connect('icloud-drive'), { ok: true, reason: null });
     assert.equal(providerId, 'icloud-drive');
     assert.equal((await r.status('icloud-drive')).connected, true);
+
+    providerId = 'pcloud';
+    assert.deepEqual(await r.connect('icloud-drive'), { ok: true, reason: null }, 'sealed iCloud authority reactivates the provider');
+    assert.equal(providerId, 'icloud-drive');
 
     const restarted = runtime(options).runtime;
     restarted.buildProvider({ mockRootDir: join(root, 'restart-mock'), fault: undefined });
