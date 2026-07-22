@@ -25,22 +25,27 @@ test('iCloud Drive composes through settings, backup, offload, and restore-origi
     expect(await page.evaluate(`window.overlook.backup.connect({ providerId: 'icloud-drive' })`)).toEqual({ ok: true, reason: null });
     type Status = {
       connected: boolean;
+      provider: { id: string; capabilities: { quota: string; verification: string } };
+    };
+    type Storage = {
       usedByOverlookBytes: number | null;
       measurementFailed: boolean;
       capacity: { usedBytes: number; totalBytes: number } | null;
       capacityRoute: 'system-settings' | 'none';
-      provider: { id: string; capabilities: { quota: string; verification: string } };
     };
     const status = await page.evaluate<Status>(`window.overlook.backup.providerStatus({ providerId: 'icloud-drive' })`);
+    const storage = await page.evaluate<Storage>(`window.overlook.backup.providerStorage({ providerId: 'icloud-drive' })`);
     // #684: iCloud stays connected and, having no account-quota API, reports a
     // null capacity with the System Settings route — never a fabricated total or
     // local disk space. The used measurement is Overlook's own objects (its exact
     // pre-backup value is asserted to grow after the backup below, I2).
     expect(status).toMatchObject({
       connected: true,
+      provider: { id: 'icloud-drive', capabilities: { quota: 'unknown', verification: 'download-hash' } },
+    });
+    expect(storage).toMatchObject({
       capacity: null,
       capacityRoute: 'system-settings',
-      provider: { id: 'icloud-drive', capabilities: { quota: 'unknown', verification: 'download-hash' } },
     });
 
     await page.getByRole('button', { name: 'Settings' }).click();
@@ -57,7 +62,7 @@ test('iCloud Drive composes through settings, backup, offload, and restore-origi
     await expect
       .poll(() =>
         page
-          .evaluate<Status>(`window.overlook.backup.providerStatus({ providerId: 'icloud-drive' })`)
+          .evaluate<Storage>(`window.overlook.backup.providerStorage({ providerId: 'icloud-drive' })`)
           .then((s) => s.usedByOverlookBytes ?? 0),
       )
       .toBeGreaterThan(0);
