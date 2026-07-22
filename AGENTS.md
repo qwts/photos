@@ -139,7 +139,7 @@ this file in the same PR as the change — never after the fact.
   existing links resolve. Never add content there — it is not indexed by code
   search, cannot be reviewed in a PR, and agents working from a clone never see
   it (see
-  [ENG-0003](https://github.com/qwts/playbook-software-engineering/blob/master/docs/decisions/ENG-0003-repo-is-documentation-source-of-truth.md)).
+  [ENG-0003](https://github.com/qwts/playbook-engineering/blob/master/docs/decisions/ENG-0003-repo-is-documentation-source-of-truth.md)).
 - **ADR gate:** an issue labeled `adr` changes an architectural contract — do
   not start its implementation until the governing ADR in
   [`docs/adr/`](docs/adr/) reads `Status: Accepted`
