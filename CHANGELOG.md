@@ -1,5 +1,11 @@
 # photos
 
+## 0.60.3
+
+### Patch Changes
+
+- 1ed9497: Bind development and packaged launches to the Overlook application profile, remove the obsolete application identity, and keep the local mock provider exclusive to the E2E harness.
+
 ## 0.60.2
 
 ### Patch Changes
