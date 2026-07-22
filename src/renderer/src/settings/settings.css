@@ -230,6 +230,66 @@
   color: var(--text-faint);
 }
 
+/* Provider storage figures (#684). "Used by Overlook" and account capacity are
+   two distinct rows; the value never wraps mid-number. */
+.ovl-settings__providerFigure {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ovl-settings__providerFigureLabel {
+  font: var(--type-meta);
+  color: var(--text-muted);
+}
+
+.ovl-settings__providerFigureValue {
+  color: var(--text-body);
+  white-space: nowrap;
+}
+
+.ovl-settings__providerFigure[data-stale] .ovl-settings__providerFigureValue {
+  color: var(--text-faint);
+}
+
+.ovl-settings__providerStale {
+  font: var(--type-meta);
+  color: var(--accent-amber);
+}
+
+.ovl-settings__providerRoute {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--type-meta);
+  color: var(--accent-cyan);
+  cursor: pointer;
+  border-radius: var(--radius-1);
+}
+
+.ovl-settings__providerRoute:hover {
+  text-decoration: underline;
+}
+
+.ovl-settings__providerRoute:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ovl-settings__providerRefresh {
+  margin-top: var(--space-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-settings__providerFigure--loading .ovl-settings__providerMeta {
+    animation: none;
+  }
+}
+
 .ovl-settings__disconnectCopy,
 .ovl-settings__disconnectError {
   margin: 0;

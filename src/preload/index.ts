@@ -46,6 +46,7 @@ const backupProviders = createInvoker(channels.backupProviders, invokeTransport)
 const backupProviderStatus = createInvoker(channels.backupProviderStatus, invokeTransport);
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
+const backupOpenCapacitySettings = createInvoker(channels.backupOpenCapacitySettings, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
 const boardList = createInvoker(channels.boardList, invokeTransport);
 const historyStatus = createInvoker(channels.historyStatus, invokeTransport);
@@ -225,6 +226,7 @@ const overlook: OverlookApi = {
     providerStatus: backupProviderStatus,
     connect: backupConnect,
     disconnect: backupDisconnect,
+    openCapacitySettings: backupOpenCapacitySettings,
   }),
   export: Object.freeze({
     pickDestination: createInvoker(channels.exportPickDestination, invokeTransport),

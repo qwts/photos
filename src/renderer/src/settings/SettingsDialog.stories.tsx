@@ -157,13 +157,51 @@ function installStub(options?: {
           : providerId === googleDriveProvider.id
             ? googleDriveProvider
             : mockProvider;
+      const measuredAt = '2026-07-22T00:00:00.000Z';
       return current.providerId !== providerId
-        ? { provider, connected: false, account: null, usedBytes: null, totalBytes: null }
+        ? {
+            provider,
+            connected: false,
+            account: null,
+            usedByOverlookBytes: null,
+            measuredAt: null,
+            measurementFailed: false,
+            capacity: null,
+            capacityRoute: 'none' as const,
+          }
         : providerId === iCloudDriveProvider.id
-          ? { provider, connected: true, account: null, usedBytes: null, totalBytes: null }
+          ? // iCloud: measured usage + honest System Settings capacity route.
+            {
+              provider,
+              connected: true,
+              account: 'm.rivera@icloud.com',
+              usedByOverlookBytes: 51_742_097_408,
+              measuredAt,
+              measurementFailed: false,
+              capacity: null,
+              capacityRoute: 'system-settings' as const,
+            }
           : providerId === googleDriveProvider.id
-            ? { provider, connected: true, account: null, usedBytes: 42_000_000_000, totalBytes: 100_000_000_000 }
-            : { provider, connected: true, account: null, usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 };
+            ? {
+                provider,
+                connected: true,
+                account: 'm.rivera@gmail.com',
+                usedByOverlookBytes: 12_400_000_000,
+                measuredAt,
+                measurementFailed: false,
+                capacity: { usedBytes: 42_000_000_000, totalBytes: 100_000_000_000 },
+                capacityRoute: 'none' as const,
+              }
+            : {
+                provider,
+                connected: true,
+                account: null,
+                usedByOverlookBytes: 380_000_000_000,
+                measuredAt,
+                measurementFailed: false,
+                capacity: { usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
+                capacityRoute: 'none' as const,
+              };
     },
     // Connect/disconnect (#254) mirror main's mock policy: flip providerId.
     connect: ({ providerId }) => {
@@ -176,6 +214,7 @@ function installStub(options?: {
       apply({ providerId: null });
       return { ok: true, reason: null };
     },
+    openCapacitySettings: () => Promise.resolve({ ok: true }),
   };
   const keysApi = {
     status: () => Promise.resolve({ fingerprint: '9F2C·4A81·D0E7·5B3A' }),

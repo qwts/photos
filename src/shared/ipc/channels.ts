@@ -9,7 +9,7 @@ import {
   relocationMoveResponseSchema,
   relocationStateSchema,
 } from '../library/relocation.js';
-import { providerDescriptorSchema, providerIdSchema } from '../backup/provider-descriptor.js';
+import { providerDescriptorSchema, providerIdSchema, providerStorageStatusSchema } from '../backup/provider-descriptor.js';
 import { diagnosticsChannels } from './diagnostics-channels.js';
 import { llmChannels, llmEvents } from './llm-channels.js';
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
@@ -626,20 +626,11 @@ export const channels = {
     z.object({}),
     z.object({ providers: z.array(providerDescriptorSchema).readonly(), defaultProviderId: providerIdSchema }),
   ),
-  // Provider connection card (#114): addressed provider, connection truth,
-  // and nullable quota for providers that do not expose it.
-  backupProviderStatus: defineChannel(
-    'backup:provider-status',
-    z.object({ providerId: providerIdSchema }),
-    z.object({
-      provider: providerDescriptorSchema,
-      connected: z.boolean(),
-      /** Account label when the provider exposes one; otherwise null. */
-      account: z.string().nullable(),
-      usedBytes: z.number().nonnegative().nullable(),
-      totalBytes: z.number().nonnegative().nullable(),
-    }),
-  ),
+  // Provider connection card (#114, #684): addressed provider, connection truth,
+  // Overlook's own measured usage, and source-gated account capacity. See
+  // providerStorageStatusSchema — the two figures never blend and capacity
+  // appears only from a verified account-quota API.
+  backupProviderStatus: defineChannel('backup:provider-status', z.object({ providerId: providerIdSchema }), providerStorageStatusSchema),
   // Provider connect/disconnect (#254): connect runs whatever handshake the
   // registered provider needs — local providers connect instantly while
   // interactive providers open a system-browser OAuth flow. Tokens never cross
@@ -653,6 +644,14 @@ export const channels = {
     'backup:disconnect',
     z.object({ providerId: providerIdSchema }),
     z.object({ ok: z.boolean(), reason: z.string().nullable() }),
+  ),
+  // Capacity route (#684): when a provider has no in-app account-capacity figure
+  // (iCloud), the card routes the user to the OS surface that owns it. Main opens
+  // a fixed System Settings URL — no renderer-supplied URL crosses the boundary.
+  backupOpenCapacitySettings: defineChannel(
+    'backup:open-capacity-settings',
+    z.object({ providerId: providerIdSchema }),
+    z.object({ ok: z.boolean() }),
   ),
   ...llmChannels,
   // Settings store (#111): typed get + validated partial patch. The locked
