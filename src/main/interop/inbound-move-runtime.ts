@@ -46,6 +46,12 @@ export interface IncomingMoveRunResult {
   readonly changedPhotoIds: readonly string[];
 }
 
+export interface InboundMoveRunControl {
+  readonly beforeItem?: ((item: IncomingMoveItem, index: number, total: number) => Promise<void> | void) | undefined;
+  readonly itemCompleted?:
+    ((item: IncomingMoveItem, acceptance: InboundAcceptance, index: number, total: number) => Promise<void> | void) | undefined;
+}
+
 export interface InboundMoveRuntimeOptions {
   readonly store: InteropObjectStore;
   readonly custody: () => InteropKeyCustody;
@@ -112,7 +118,7 @@ export class InboundMoveRuntime {
     });
   }
 
-  async start(transferId: string): Promise<IncomingMoveRunResult> {
+  async start(transferId: string, control: InboundMoveRunControl = {}): Promise<IncomingMoveRunResult> {
     return this.withWork(async () => {
       const custody = this.options.custody();
       const transfer = (await this.#discovery.discover(custody.pairingId)).find((candidate) => candidate.transferId === transferId);
@@ -121,7 +127,8 @@ export class InboundMoveRuntime {
       let accepted = 0;
       let retained = 0;
       const changedPhotoIds: string[] = [];
-      for (const item of batch.items) {
+      for (const [index, item] of batch.items.entries()) {
+        await control.beforeItem?.(item, index, batch.items.length);
         const result = await this.acceptItem(item, custody);
         if (result.accepted) accepted += 1;
         else retained += 1;
@@ -129,6 +136,7 @@ export class InboundMoveRuntime {
           changedPhotoIds.push(result.targetLocalId);
           this.options.onPhotoChanged?.(result.targetLocalId);
         }
+        await control.itemCompleted?.(item, result, index, batch.items.length);
       }
       return { transferId, accepted, retained, changedPhotoIds };
     });
