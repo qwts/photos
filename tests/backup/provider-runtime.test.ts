@@ -111,6 +111,31 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(flipped, 'mock');
   });
 
+  test('connection status never waits for storage inventory or quota (#721)', async () => {
+    const { runtime: r } = runtime({ providerId: () => 'mock' });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-status-fast'), fault: undefined });
+    const provider = r.provider('mock');
+    assert.ok(provider);
+    let inventoryCalls = 0;
+    let quotaCalls = 0;
+    provider.listLibraries = () => {
+      inventoryCalls += 1;
+      return Promise.reject(new Error('inventory must not run during connection status'));
+    };
+    provider.quota = () => {
+      quotaCalls += 1;
+      return Promise.reject(new Error('quota must not run during connection status'));
+    };
+
+    assert.deepEqual(await r.status('mock'), {
+      provider: (await r.descriptors()).find(({ id }) => id === 'mock'),
+      connected: true,
+      account: null,
+    });
+    assert.equal(inventoryCalls, 0);
+    assert.equal(quotaCalls, 0);
+  });
+
   test('pCloud disconnect verifies custody and persisted selection before reporting success', async () => {
     let providerId: string | null = 'pcloud';
     const { runtime: r } = runtime({
