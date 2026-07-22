@@ -40,7 +40,6 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'view.mode.grid':
         case 'view.mode.list':
         case 'help.open':
-        // Menu-only (#690): no keyboard binding, so the dispatcher never sees it.
         case 'help.activity':
         case 'album.membership.add':
         case 'album.membership.remove':

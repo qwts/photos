@@ -1528,18 +1528,31 @@
     {
       "id": "encrypted-library-activity-history",
       "wiki": "Activity-History",
+      "$note": "Activity is reached only from Help → Activity… (#690), never a sidebar row; the Help-menu command and its dialog open are covered by application-menu.spec.ts, and Sidebar.stories.tsx regression-guards the row's absence.",
       "coverage": [
         {
           "type": "playwright-e2e",
           "path": "tests/e2e/activity.spec.ts"
         },
         {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/application-menu.spec.ts"
+        },
+        {
           "type": "storybook",
           "path": "src/renderer/src/activity/ActivityDialog.stories.tsx"
         },
         {
+          "type": "storybook",
+          "path": "src/renderer/src/shell/Sidebar.stories.tsx"
+        },
+        {
           "type": "unit-dom",
-          "paths": ["tests/activity/activity-repository.test.ts", "tests/backup/restore-engine.test.ts"]
+          "paths": [
+            "tests/activity/activity-repository.test.ts",
+            "tests/backup/restore-engine.test.ts",
+            "tests/main/application-menu-model.test.ts"
+          ]
         }
       ]
     },
