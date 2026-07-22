@@ -101,8 +101,11 @@ provenance**:
 The binding is **library-scoped** (it travels with the library directory and
 appears in its database), while credentials remain **profile-scoped**
 (ADR-0017 §6 unchanged): an account authenticates a profile; custody binds a
-library's rows. Secrets never enter the table — `account_id` must be a
-non-secret subject identifier, never a token.
+library's rows. One conservative, non-secret summary — the custody hint on
+the library's registry entry (§4) — bridges the two scopes so profile-wide
+credential removal can see sealed libraries' stakes. Secrets never enter the
+table or the hint — `account_id` must be a non-secret subject identifier,
+never a token.
 
 ### 2. Account authority identity — every adapter must name its account
 
@@ -155,24 +158,45 @@ bound authority, and its provider-scoped cursors become authority-scoped.
 
 ### 4. Ordinary disconnect/switch is custody-gated, with restore-first
 
-Disconnect and switch gain a **preflight** over the active library: the exact
-count and total bytes of rows whose sole durable copy is bound to the
-authority being removed (`offloaded` rows plus `error` rows that retain a
-binding).
+Disconnect and switch gain a **preflight** whose at-risk set is the union of:
 
-- **Zero sole-custody rows**: disconnect proceeds as today — credentials
-  cleared, `providerId → null`, remote objects untouched. Authority records
-  with no referencing rows are deleted.
-- **One or more**: the ordinary path is **blocked**. The dialog reports the
-  exact item and byte counts and offers **Restore all originals first**,
-  which runs the existing verified restore-originals workflow
+- rows whose sole durable copy is bound to the authority being removed
+  (`offloaded` rows plus `error` rows that retain a binding), with exact item
+  and byte counts;
+- the active library's **legacy-unbound** `offloaded` rows (§7). Their home
+  cannot yet be proven _or disproven_, so removing any provider credential
+  while they exist counts them as at-risk — with distinct copy ("not yet
+  verified") — rather than letting a `NULL` binding read as zero;
+- sole-custody rows in the profile's **other libraries** that depend on the
+  same credential slot. Credentials are profile-scoped (ADR-0017 §6), so
+  clearing `provider-auth/<providerId>` affects every library, but closed
+  libraries' databases are sealed and cannot be counted at preflight time.
+  Each library therefore maintains a conservative, non-secret **custody
+  hint** on its profile registry entry (`libraries.json`, ADR-0017 §1):
+  provider ID, account ID, and sole-custody item/byte totals. The hint is
+  written **before** the first binding transaction commits and cleared only
+  after a verified zero recount — stale-non-zero over-blocks (safe),
+  stale-zero is impossible short of a crash inside that ordering. The
+  preflight names each affected library from its hint.
+
+Then:
+
+- **Empty at-risk set**: disconnect proceeds as today — credentials cleared,
+  `providerId → null`, remote objects untouched. Authority records with no
+  referencing rows are deleted.
+- **Non-empty**: the ordinary path is **blocked**. The dialog reports the
+  per-library item and byte counts and offers **Restore all originals
+  first**, which runs the existing verified restore-originals workflow
   (download → authenticate envelope → verify content address → durable commit
   → ledger `offloaded → synced` with the binding cleared per §1). Disconnect
-  unlocks only when the preflight recount reaches zero. Interruption,
-  offline, auth expiry, insufficient space, corrupt/missing remote objects,
-  or verification failure leave the provider connected and every unresolved
-  row bound and `offloaded` (or `error` with binding, for remote loss) —
-  ADR-0007's failure-truth states, unchanged.
+  unlocks only when the preflight recount reaches an empty set. Legacy-
+  unbound rows clear through §6 namespace proof + §7 reconciliation (binding
+  them) followed by the same restore path; another library's rows clear by
+  opening that library and restoring there — the ordinary path never proceeds
+  on its behalf. Interruption, offline, auth expiry, insufficient space,
+  corrupt/missing remote objects, or verification failure leave the provider
+  connected and every unresolved row bound and `offloaded` (or `error` with
+  binding, for remote loss) — ADR-0007's failure-truth states, unchanged.
 - The ADR-0011 active-work rejection still applies first; this gate is
   additive.
 - Disconnect **never deletes remote objects** — unchanged, and now stated as
@@ -194,6 +218,12 @@ ceremony (ADR-0023 vocabulary):
   **retains** `provider_id`, `account_id`, `account_label`, `remote_root`.
   Bound ledger rows are untouched: still `offloaded`, still bound — never
   relabeled `local`, missing, or corrupt.
+- The profile's other libraries are never written at removal time (their
+  databases are sealed): their authorities remain `bound`, and at next open
+  the empty credential slot surfaces as the equivalent
+  bound-but-disconnected condition (§6's reconnect path, §3's
+  `custody-disconnected` fail-closed reads). No library's rows are relabeled
+  by another's ceremony.
 - The library enters a surfaced **provider required** condition, derived from
   the existence of `provider-required` authorities with dependent rows — not
   a second persisted flag. It survives restart and library switching (it
@@ -235,7 +265,8 @@ migration **must not** guess:
 - The migration adds the table and column with `custody_authority_id = NULL`
   for every existing row. A `NULL`-bound `offloaded` row is **legacy-unbound**:
   custody operations on it are gated exactly like `provider-required` (§5)
-  until it is bound.
+  until it is bound, and it counts as at-risk in every §4 preflight — an
+  unproven home is never read as "not affected".
 - **Binding is earned by verification**: when a connected provider passes §6
   namespace proof for this library, a bounded reconciliation pass (riding the
   ADR-0012 scrub cadence) verifies each legacy row's object under
@@ -286,10 +317,14 @@ contract:
   implied.
 - **Harder**: one more custody table and a ledger column ride the
   forward-only migration chain; every adapter must surface account identity
-  or lose connectability; the offload transaction grows a binding write; the
-  scrub carries the legacy reconciliation pass until old libraries age out.
+  or lose connectability; the offload transaction grows a binding write plus
+  the write-ahead registry custody hint (§4), which amends ADR-0017 §1's
+  "derived status is never persisted" rule for this one conservative summary;
+  the scrub carries the legacy reconciliation pass until old libraries age
+  out.
 - **Implementation slices** (filed after acceptance; each independently
-  reviewable): (a) schema + ledger transaction changes (§1, §7 migration);
+  reviewable): (a) schema + ledger transaction changes and the registry
+  custody hint (§1, §4 hint, §7 migration);
   (b) adapter account identity + descriptor/contract tests (§2);
   (c) custody-handle routing and typed fail-closed reasons (§3);
   (d) disconnect preflight, restore-first gate, emergency path (§4–§5);
