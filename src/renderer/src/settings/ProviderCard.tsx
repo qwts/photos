@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
+import './settings.css';
 import { useFormats } from '../i18n/use-formats.js';
 import { Badge } from '../components/Badge';
 import { Button, type ButtonVariant } from '../components/Button';
