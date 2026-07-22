@@ -1,5 +1,11 @@
 # photos
 
+## 0.52.0
+
+### Minor Changes
+
+- df45fcb: Add persistent, accessible album reordering from drag handles, keyboard controls, and album action menus.
+
 ## 0.51.0
 
 ### Minor Changes
