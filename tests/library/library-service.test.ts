@@ -13,6 +13,7 @@ import { channels } from '../../src/shared/ipc/channels.js';
 import { createInvoker, wrapHandler } from '../../src/shared/ipc/registry.js';
 import type { PhotoInsert } from '../../src/shared/library/types.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
+import { serializeBoard, type Board } from '../../src/shared/moodboard/board.js';
 
 // Contract tests (#71): the renderer-side invoker talks to the wrapped main
 // handlers over a fake transport — both directions schema-validated — against
@@ -258,5 +259,38 @@ describe('library IPC contract', () => {
     // seed (offloaded + synced) and the deleted row leaves pendingCount
     // (#120 — it neither uploads nor shows in ENCRYPTING N), so 17 of 20.
     assert.equal(stats.pending, 17);
+  });
+});
+
+describe('LibraryService boards (#694)', () => {
+  const board = (id: string): Board => ({
+    id,
+    title: 'Board ' + id,
+    notes: '',
+    size: { width: 1600, height: 1200 },
+    background: 'ink',
+    placements: [
+      { id: 'p1', photoId: 'ph1', x: 10, y: 20, w: 200, h: 150, rotation: 0, crop: { x: 0, y: 0, w: 1, h: 1 }, z: 1, groupId: null },
+    ],
+  });
+
+  test('saves, reads, lists, and deletes boards without touching photo events', () => {
+    const { service, events } = seededService();
+    assert.deepEqual(service.listBoards(), []);
+    service.saveBoard(board('a'));
+    service.saveBoard(board('b'));
+    assert.deepEqual(
+      service.listBoards().map((b) => b.id),
+      ['a', 'b'],
+    );
+    assert.equal(serializeBoard(service.getBoard('a') as Board), serializeBoard(board('a')));
+    assert.equal(service.getBoard('missing'), null);
+    service.deleteBoard('a');
+    assert.deepEqual(
+      service.listBoards().map((b) => b.id),
+      ['b'],
+    );
+    // Board edits are not photo mutations — they never fire libraryChanged.
+    assert.deepEqual(events.changed, []);
   });
 });

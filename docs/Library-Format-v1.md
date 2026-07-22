@@ -379,6 +379,12 @@ Schema, as of `abbb413`: **23 application tables** plus `schema_migrations`, and
 a `photos_fts` **FTS5 virtual table** declared `content='photos',
 content_rowid='rowid'` (external content) kept current by exactly **three
 triggers** — `photos_fts_ai`, `_ad`, `_au` on insert/delete/update.
+`src/main/db/migrations.ts` remains the source of truth and has grown since;
+migration 18 (#515) adds a `boards` table — album-class moodboard organizational
+metadata (board fields in columns; the ordered placement list as canonical JSON
+in a `placements` column). Placements are references, so `boards` has **no
+foreign key to `photos`**: deleting a photo leaves an "unavailable" placement
+rather than cascading the layout away.
 
 **10 migrations**, forward-only with no down path, each applied in its own
 transaction and tracked in `schema_migrations(version, applied_at)` — _not_

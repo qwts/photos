@@ -47,6 +47,7 @@ const backupProviderStatus = createInvoker(channels.backupProviderStatus, invoke
 const backupConnect = createInvoker(channels.backupConnect, invokeTransport);
 const backupDisconnect = createInvoker(channels.backupDisconnect, invokeTransport);
 const libraryAlbums = createInvoker(channels.libraryAlbums, invokeTransport);
+const boardList = createInvoker(channels.boardList, invokeTransport);
 const historyStatus = createInvoker(channels.historyStatus, invokeTransport);
 const protectedAlbumsList = createInvoker(channels.protectedAlbumsList, invokeTransport);
 const protectedAlbumPickRecovery = createInvoker(channels.protectedAlbumPickRecovery, invokeTransport);
@@ -177,6 +178,12 @@ const overlook: OverlookApi = {
     removePhotos: createInvoker(channels.albumRemovePhotos, invokeTransport),
     movePhotos: createInvoker(channels.albumMovePhotos, invokeTransport),
     reorder: createInvoker(channels.albumReorder, invokeTransport),
+  }),
+  boards: Object.freeze({
+    list: async () => boardList({}),
+    get: createInvoker(channels.boardGet, invokeTransport),
+    save: createInvoker(channels.boardSave, invokeTransport),
+    delete: createInvoker(channels.boardDelete, invokeTransport),
   }),
   protectedAlbums: Object.freeze({
     list: async () => protectedAlbumsList({}),

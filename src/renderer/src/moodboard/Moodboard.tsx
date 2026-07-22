@@ -104,6 +104,8 @@ export interface MoodboardProps {
   readonly initialSelection?: readonly string[];
   /** Photo ids available to add — used to repopulate an emptied board. */
   readonly availablePhotoIds?: readonly string[];
+  /** Notified whenever the board changes, so the host can persist it. */
+  readonly onBoardChange?: (board: Board) => void;
 }
 
 export function Moodboard({
@@ -112,6 +114,7 @@ export function Moodboard({
   onExport,
   initialSelection,
   availablePhotoIds = [],
+  onBoardChange,
 }: MoodboardProps): ReactElement {
   const intl = useIntl();
   const { announce } = useAnnouncer();
@@ -131,6 +134,11 @@ export function Moodboard({
   const order = useMemo(() => readingOrder(board), [board]);
   const total = order.length;
   const say = useCallback((message: string) => announce(message, 'polite', ANNOUNCE_KEY), [announce]);
+
+  // Notify the host of every board change so it can persist the layout.
+  useEffect(() => {
+    onBoardChange?.(board);
+  }, [board, onBoardChange]);
 
   const patch = useCallback((next: readonly Placement[]) => {
     setBoard((current) => ({ ...current, placements: [...next] }));

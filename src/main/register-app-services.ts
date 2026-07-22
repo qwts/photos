@@ -19,6 +19,7 @@ import type { ActivityFacade } from './activity/activity-publication.js';
 import type { HistoryService } from './history/history-service.js';
 import {
   registerAlbumHandlers,
+  registerBoardHandlers,
   registerBackupHandlers,
   registerDiagnosticsHandlers,
   registerExportHandlers,
@@ -113,6 +114,7 @@ export function registerAppServices(options: AppServicesOptions): void {
   });
   registerLibraryHandlers(options.getLibrary, options.onManifestChanged, options.getActivity);
   registerAlbumHandlers(options.getLibrary, ulid, options.getActivity, options.onManifestChanged);
+  registerBoardHandlers(options.getLibrary);
   registerActivityHandlers(options.getActivity, options.requireContentAccess);
   registerHistoryHandlers(options.getHistory, options.requireContentAccess);
   registerProtectedAlbumHandlers(
