@@ -3,10 +3,11 @@
  * data-driven and set inline. */
 
 .ovl-moodboard {
-  position: relative;
-  flex: 1;
+  /* Fill the relative shell content area (which is not a flex container — the
+   * grid engine fills it the same way). flex:1 alone collapses to 0 height. */
+  position: absolute;
+  inset: 0;
   min-width: 0;
-  min-height: 0;
   display: flex;
 }
 

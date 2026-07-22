@@ -1678,13 +1678,18 @@
             "tests/db/library-db.test.ts",
             "tests/library/library-service.test.ts",
             "tests/history/history-service.test.ts",
-            "tests/backup/board-backup.test.ts"
+            "tests/backup/board-backup.test.ts",
+            "tests/moodboard/board-scale.test.ts"
           ]
         },
         {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/moodboard.spec.ts"
+        },
+        {
           "type": "deferred",
-          "issue": 697,
-          "reason": "Electron E2E (arrange -> restart/library-switch/backup-restore -> identical layout; export geometry/color; locked isolation) and the >=200-placement perf pass land with #697 (PR-5). This first slice is in-memory, so its persistence/export/perf flows are not yet exercisable end to end."
+          "issue": 696,
+          "reason": "The composed-board export at declared dimensions + color space (I4 raster / export-geometry E2E) is deferred to #696 pending the export owner's confirmation of the color-managed render path (spec section 09); transcode.ts currently strips ICC on the JPEG path. The board->output geometry is covered by the pure export-layout unit test."
         },
         {
           "type": "manual",
