@@ -176,6 +176,12 @@
   "commands.library.import": {
     "defaultMessage": "Import Photos…"
   },
+  "commands.library.move": {
+    "defaultMessage": "Move Library…"
+  },
+  "commands.library.new": {
+    "defaultMessage": "New Library…"
+  },
   "commands.library.source.all": {
     "defaultMessage": "All Photos"
   },
@@ -272,6 +278,9 @@
   "commands.view.lightbox.zoomReset": {
     "defaultMessage": "Reset zoom"
   },
+  "commands.view.mode.feed": {
+    "defaultMessage": "Feed"
+  },
   "commands.view.mode.grid": {
     "defaultMessage": "Grid"
   },
@@ -280,6 +289,9 @@
   },
   "commands.view.mode.moodboard": {
     "defaultMessage": "Moodboard"
+  },
+  "commands.view.sidebar.toggle": {
+    "defaultMessage": "Toggle Sidebar"
   },
   "common.cancel": {
     "defaultMessage": "Cancel"

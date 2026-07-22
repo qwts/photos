@@ -381,6 +381,7 @@ export function Shell({
       hasPhotos: state.photos.length > 0,
       hasTarget: target !== undefined,
       targetTrashable: target?.deletedAt === null,
+      inAlbum: state.album !== null,
       selectionCount: state.selection.size,
       appLockConfigured: lockConfigured,
       providerBusy: false,

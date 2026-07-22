@@ -15,6 +15,8 @@ export const commandMenuContextSchema = z
     hasPhotos: z.boolean(),
     hasTarget: z.boolean(),
     targetTrashable: z.boolean(),
+    /** The active route is an album (#689 Photo menu "Remove from Album"). */
+    inAlbum: z.boolean(),
     selectionCount: z.number().int().nonnegative().max(100_000),
     appLockConfigured: z.boolean(),
     providerBusy: z.boolean(),
@@ -34,6 +36,7 @@ export const EMPTY_COMMAND_MENU_CONTEXT: CommandMenuContext = {
   hasPhotos: false,
   hasTarget: false,
   targetTrashable: false,
+  inAlbum: false,
   selectionCount: 0,
   appLockConfigured: false,
   providerBusy: false,

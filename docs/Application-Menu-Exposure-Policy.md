@@ -59,6 +59,31 @@ The menu does not reproduce every sidebar destination, settings control, album
 operation, or background task. It exposes stable entry points and lets the
 destination surface retain its own contextual workflow.
 
+### macOS six-menu realignment (#689)
+
+The macOS bar is the canonical surface — it is what the design system's
+`components/app/MenuBar.jsx` depicts (Windows/Linux have no native menu bar in
+the design). #689 rebuilt the **darwin** template to that exact six-menu spec —
+**Overlook · File · Edit · View · Photo · Help**, in this order — dropping the
+`#531` Window menu and flattening the Settings-sections submenu into top-level
+Overlook items. Every item still projects a shared-registry command id
+(ADR-0024 parity); Cut/Copy/Paste and About/Quit remain OS roles the design
+mock cannot render.
+
+New registry commands joined the menu here: `library.move` (⇧⌘M), `library.new`,
+`view.sidebar.toggle`, `view.mode.feed`, `view.mode.moodboard`, plus native
+exposure for `photo.export` (⇧⌘E, projected into both File → "Export Selection…"
+and Photo → "Export…"), `selection.clear`, `photo.restore`, and
+`album.membership.add`/`remove`. Their cross-surface handler wiring +
+target-aware enablement land in the #689 follow-up PR; until then they are
+present but **disabled**, so the menu never shows an enabled item that does
+nothing. `view.mode.feed`/`view.mode.moodboard` stay disabled until those views
+exist (Moodboard is #515). The Help → `help.activity` item is owned by #690.
+
+The **Windows/Linux** template is unchanged (still File/Tools/Help placement per
+ADR-0024 §5). Removing it to match the design — which specs no non-mac menu bar
+— needs an ADR-0024 amendment and is tracked separately.
+
 ## Command exposure matrix
 
 `Native` means eligible for the application menu. `Context` includes toolbar,

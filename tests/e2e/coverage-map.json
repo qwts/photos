@@ -66,6 +66,7 @@
     {
       "id": "native-application-menu",
       "wiki": "Acceptance-Test-Native-Application-Menu",
+      "$note": "#689 rebuilt the macOS bar to the design-system six-menu spec (Overlook · File · Edit · View · Photo · Help). The structure/order/accelerators and target-aware Photo menu are asserted by application-menu.spec.ts (`…six-menu design-system spec…`) and application-menu-model.test.ts; the renderer-side context publication (Shell.tsx `inAlbum`, use-command-dispatcher exhaustiveness) is plumbing with no standalone user-facing flow. Newly-projected items' handlers land in the #689 follow-up.",
       "coverage": [
         {
           "type": "playwright-e2e",

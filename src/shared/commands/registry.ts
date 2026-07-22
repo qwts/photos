@@ -51,6 +51,8 @@ export type CommandId =
   | 'app.lock.now'
   | 'app.search.focus'
   | 'library.switch'
+  | 'library.move'
+  | 'library.new'
   | 'library.import'
   | 'library.source.all'
   | 'library.source.favorites'
@@ -71,8 +73,10 @@ export type CommandId =
   | 'album.reorder.bottom'
   | 'view.inspector.toggle'
   | 'view.inspector.detach'
+  | 'view.sidebar.toggle'
   | 'view.mode.grid'
   | 'view.mode.list'
+  | 'view.mode.feed'
   | 'view.mode.moodboard'
   | 'view.lightbox.close'
   | 'view.lightbox.previous'
@@ -128,6 +132,8 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'app.lock.now': { id: 'commands.app.lock.now', defaultMessage: 'Lock Now' },
   'app.search.focus': { id: 'commands.app.search.focus', defaultMessage: 'Focus search' },
   'library.switch': { id: 'commands.library.switch', defaultMessage: 'Switch Library…' },
+  'library.move': { id: 'commands.library.move', defaultMessage: 'Move Library…' },
+  'library.new': { id: 'commands.library.new', defaultMessage: 'New Library…' },
   'library.import': { id: 'commands.library.import', defaultMessage: 'Import Photos…' },
   'library.source.all': { id: 'commands.library.source.all', defaultMessage: 'All Photos' },
   'library.source.favorites': { id: 'commands.library.source.favorites', defaultMessage: 'Favorites' },
@@ -148,8 +154,10 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'album.reorder.bottom': { id: 'commands.album.reorder.bottom', defaultMessage: 'Move to bottom' },
   'view.inspector.toggle': { id: 'commands.view.inspector.toggle', defaultMessage: 'Show or hide Inspector' },
   'view.inspector.detach': { id: 'commands.view.inspector.detach', defaultMessage: 'Open Inspector in Separate Window' },
+  'view.sidebar.toggle': { id: 'commands.view.sidebar.toggle', defaultMessage: 'Toggle Sidebar' },
   'view.mode.grid': { id: 'commands.view.mode.grid', defaultMessage: 'Grid' },
   'view.mode.list': { id: 'commands.view.mode.list', defaultMessage: 'List' },
+  'view.mode.feed': { id: 'commands.view.mode.feed', defaultMessage: 'Feed' },
   'view.mode.moodboard': { id: 'commands.view.mode.moodboard', defaultMessage: 'Moodboard' },
   'view.lightbox.close': { id: 'commands.view.lightbox.close', defaultMessage: 'Exit lightbox' },
   'view.lightbox.previous': { id: 'commands.view.lightbox.previous', defaultMessage: 'Previous photo' },
@@ -243,10 +251,29 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     native: { menu: 'file', lockSafe: true, queueable: true },
   },
   {
+    id: 'library.move',
+    label: label('library.move', 'Move Library…'),
+    surfaces: [],
+    target: 'window',
+    key: 'm',
+    primaryModifier: true,
+    shift: true,
+    native: { menu: 'file', lockSafe: false, queueable: true },
+  },
+  {
+    id: 'library.new',
+    label: label('library.new', 'New Library…'),
+    surfaces: [],
+    target: 'window',
+    native: { menu: 'file', lockSafe: false, queueable: true },
+  },
+  {
     id: 'library.import',
     label: label('library.import', 'Import Photos…'),
     surfaces: [],
     target: 'window',
+    key: 'i',
+    primaryModifier: true,
     native: { menu: 'file', lockSafe: false, queueable: true },
   },
   {
@@ -292,6 +319,7 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     surfaces: ['global', 'grid'],
     target: 'selection',
     key: 'Escape',
+    native: { menu: 'edit', lockSafe: false, queueable: false },
   },
   {
     id: 'history.undo',
@@ -317,6 +345,7 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     label: label('album.membership.add', 'Add to album'),
     surfaces: [],
     target: 'selection',
+    native: { menu: 'photo', lockSafe: false, queueable: false },
     quickAction: { icon: 'album', availability: 'library', target: 'selection-if-included' },
   },
   {
@@ -324,6 +353,7 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     label: label('album.membership.remove', 'Remove from album'),
     surfaces: [],
     target: 'selection',
+    native: { menu: 'photo', lockSafe: false, queueable: false },
   },
   { id: 'album.rename', label: label('album.rename', 'Rename album…'), surfaces: [], target: 'focused-item' },
   { id: 'album.delete', label: label('album.delete', 'Delete album…'), surfaces: [], target: 'focused-item' },
@@ -358,6 +388,13 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     native: { menu: 'view', lockSafe: false, queueable: false },
   },
   {
+    id: 'view.sidebar.toggle',
+    label: label('view.sidebar.toggle', 'Toggle Sidebar'),
+    surfaces: [],
+    target: 'window',
+    native: { menu: 'view', lockSafe: false, queueable: false },
+  },
+  {
     id: 'view.mode.grid',
     label: label('view.mode.grid', 'Grid'),
     surfaces: [],
@@ -367,6 +404,16 @@ export const COMMANDS: readonly CommandDescriptor[] = [
   {
     id: 'view.mode.list',
     label: label('view.mode.list', 'List'),
+    surfaces: [],
+    target: 'window',
+    native: { menu: 'view', lockSafe: false, queueable: true },
+  },
+  {
+    // As Feed projects the view state (#689). The Feed view has not landed
+    // yet, so its menu item stays disabled rather than hardcoding a dead radio.
+    // (Moodboard landed with #515 and is enabled below.)
+    id: 'view.mode.feed',
+    label: label('view.mode.feed', 'Feed'),
     surfaces: [],
     target: 'window',
     native: { menu: 'view', lockSafe: false, queueable: true },
@@ -426,6 +473,10 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     label: label('photo.export', 'Export…'),
     surfaces: [],
     target: 'selection',
+    key: 'e',
+    primaryModifier: true,
+    shift: true,
+    native: { menu: 'photo', lockSafe: false, queueable: false },
     quickAction: { icon: 'share', availability: 'anywhere', target: 'selection-if-included' },
   },
   { id: 'photo.open', label: label('photo.open', 'Open'), surfaces: [], target: 'focused-item' },
@@ -446,6 +497,7 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     label: label('photo.restore', 'Restore photo'),
     surfaces: [],
     target: 'selection',
+    native: { menu: 'photo', lockSafe: false, queueable: false },
     quickAction: { icon: 'refresh-cw', availability: 'trash', target: 'selection-if-included' },
   },
   {
