@@ -753,7 +753,7 @@
       ]
     },
     {
-      "id": "m08-provider-storage-usage-status",
+      "id": "m08-provider-native-capacity-status",
       "wiki": "User-Story-M08-Backup-offload-engine-provider-abstraction-mock-first",
       "coverage": [
         {
@@ -774,7 +774,7 @@
         },
         {
           "type": "unit-dom",
-          "paths": ["tests/backup/provider-cancellation.test.ts", "tests/backup/provider-usage.test.ts"]
+          "paths": ["tests/backup/active-provider.test.ts", "tests/backup/provider-runtime.test.ts"]
         }
       ]
     },
