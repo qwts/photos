@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { defineMessages, useIntl } from 'react-intl';
 
 import { useFormats } from '../i18n/use-formats.js';
 import { Badge } from '../components/Badge';
@@ -56,58 +57,88 @@ export interface ProviderCardProps {
   readonly onCapacityRoute: () => void;
 }
 
-const USED_LABEL = 'Used by Overlook';
+const messages = defineMessages({
+  checking: { id: 'settings.provider.badge.checking', defaultMessage: 'Checking…' },
+  connected: { id: 'settings.provider.badge.connected', defaultMessage: 'Connected' },
+  statusUnavailable: { id: 'settings.provider.badge.unavailable', defaultMessage: 'Status unavailable' },
+  notConnected: { id: 'settings.provider.badge.notConnected', defaultMessage: 'Not connected' },
+  checkingConnection: { id: 'settings.provider.checkingConnection', defaultMessage: 'Checking connection…' },
+  couldNotCheck: { id: 'settings.provider.couldNotCheck', defaultMessage: 'Could not check this provider’s connection.' },
+  measurementFailed: { id: 'settings.provider.measurementFailed', defaultMessage: 'Couldn’t measure usage right now.' },
+  usedLabel: { id: 'settings.provider.usedByOverlook', defaultMessage: 'Used by Overlook' },
+  measuring: { id: 'settings.provider.measuring', defaultMessage: 'Measuring your backups…' },
+  usedAccessible: {
+    id: 'settings.provider.usedAccessible',
+    defaultMessage: 'Used by Overlook, {human}, {exact} bytes',
+  },
+  capacityBar: { id: 'settings.provider.capacityBar', defaultMessage: '{name} capacity' },
+  capacityDetail: { id: 'settings.provider.capacityDetail', defaultMessage: '{used} of {total} used' },
+  capacityRoute: { id: 'settings.provider.capacityRoute', defaultMessage: '{name} capacity — View in System Settings' },
+  opensSettings: { id: 'settings.provider.opensSettings', defaultMessage: ' (opens System Settings)' },
+  capacityUnavailable: { id: 'settings.provider.capacityUnavailable', defaultMessage: 'Account capacity unavailable.' },
+  regionLabel: { id: 'settings.provider.regionLabel', defaultMessage: '{name} backup' },
+});
 
 export function ProviderCard(props: ProviderCardProps): ReactElement {
+  const intl = useIntl();
   const { formatBytes, formatCount } = useFormats();
   const { name, connection, account, usage, capacity } = props;
   const connected = connection === 'connected';
+  const usedLabel = intl.formatMessage(messages.usedLabel);
 
-  const usedName = usage.bytes === null ? null : `${USED_LABEL}, ${formatBytes(usage.bytes)}, ${formatCount(usage.bytes)} bytes`;
+  const usedName =
+    usage.bytes === null
+      ? undefined
+      : intl.formatMessage(messages.usedAccessible, { human: formatBytes(usage.bytes), exact: formatCount(usage.bytes) });
 
   return (
-    <div className="ovl-settings__provider" role="group" aria-label={`${name} backup`} data-testid="provider-card">
+    <div
+      className="ovl-settings__provider"
+      role="group"
+      aria-label={intl.formatMessage(messages.regionLabel, { name })}
+      data-testid="provider-card"
+    >
       <Icon name="cloud" size={20} color={connected ? 'var(--accent-cyan)' : 'var(--text-faint)'} />
       <div className="ovl-settings__providerBody">
         <div className="ovl-settings__providerHead">
           <span className="ovl-settings__providerName">{name}</span>
           {connection === 'checking' ? (
-            <Badge tone="neutral">Checking…</Badge>
+            <Badge tone="neutral">{intl.formatMessage(messages.checking)}</Badge>
           ) : connected ? (
             <Badge tone="green" icon="cloud-check">
-              Connected
+              {intl.formatMessage(messages.connected)}
             </Badge>
           ) : connection === 'error' ? (
             <Badge tone="neutral" icon="cloud-alert">
-              Status unavailable
+              {intl.formatMessage(messages.statusUnavailable)}
             </Badge>
           ) : (
-            <Badge tone="neutral">Not connected</Badge>
+            <Badge tone="neutral">{intl.formatMessage(messages.notConnected)}</Badge>
           )}
         </div>
 
         {account === null ? null : <div className="ovl-settings__providerMeta mono-data">{account}</div>}
 
         {connection === 'checking' ? (
-          <div className="ovl-settings__providerMeta">Checking connection…</div>
+          <div className="ovl-settings__providerMeta">{intl.formatMessage(messages.checkingConnection)}</div>
         ) : connection === 'error' ? (
-          <div className="ovl-settings__providerMeta">Could not check this provider’s connection.</div>
+          <div className="ovl-settings__providerMeta">{intl.formatMessage(messages.couldNotCheck)}</div>
         ) : connected ? (
           <>
             {usage.failed ? (
               <div className="ovl-settings__providerMeta" role="status">
-                Couldn’t measure usage right now.
+                {intl.formatMessage(messages.measurementFailed)}
               </div>
             ) : usage.bytes === null ? (
               <div className="ovl-settings__providerFigure ovl-settings__providerFigure--loading">
-                <span className="ovl-settings__providerFigureLabel">{USED_LABEL}</span>
-                <span className="ovl-settings__providerMeta">Measuring your backups…</span>
+                <span className="ovl-settings__providerFigureLabel">{usedLabel}</span>
+                <span className="ovl-settings__providerMeta">{intl.formatMessage(messages.measuring)}</span>
               </div>
             ) : (
               <>
                 <div className="ovl-settings__providerFigure" data-stale={usage.stale ? '' : undefined}>
-                  <span className="ovl-settings__providerFigureLabel">{USED_LABEL}</span>
-                  <span className="ovl-settings__providerFigureValue mono-data" aria-label={usedName ?? undefined}>
+                  <span className="ovl-settings__providerFigureLabel">{usedLabel}</span>
+                  <span className="ovl-settings__providerFigureValue mono-data" aria-label={usedName}>
                     {formatBytes(usage.bytes)}
                   </span>
                 </div>
@@ -119,8 +150,11 @@ export function ProviderCard(props: ProviderCardProps): ReactElement {
 
             {capacity.kind === 'known' ? (
               <ProgressBar
-                label={`${name} capacity`}
-                detail={`${formatBytes(capacity.usedBytes)} of ${formatBytes(capacity.totalBytes)} used`}
+                label={intl.formatMessage(messages.capacityBar, { name })}
+                detail={intl.formatMessage(messages.capacityDetail, {
+                  used: formatBytes(capacity.usedBytes),
+                  total: formatBytes(capacity.totalBytes),
+                })}
                 value={capacity.usedBytes}
                 max={Math.max(capacity.totalBytes, 1)}
                 tone="cyan"
@@ -128,11 +162,11 @@ export function ProviderCard(props: ProviderCardProps): ReactElement {
             ) : capacity.kind === 'route' ? (
               <button type="button" className="ovl-settings__providerRoute" onClick={props.onCapacityRoute}>
                 <Icon name="sliders-horizontal" size={14} />
-                {name} capacity — View in System Settings
-                <span className="ovl-sr-only"> (opens System Settings)</span>
+                {intl.formatMessage(messages.capacityRoute, { name })}
+                <span className="ovl-sr-only">{intl.formatMessage(messages.opensSettings)}</span>
               </button>
             ) : capacity.kind === 'unavailable' ? (
-              <div className="ovl-settings__providerMeta">Account capacity unavailable.</div>
+              <div className="ovl-settings__providerMeta">{intl.formatMessage(messages.capacityUnavailable)}</div>
             ) : null}
 
             {props.capabilitiesLine === null ? null : <div className="ovl-settings__providerMeta mono-data">{props.capabilitiesLine}</div>}

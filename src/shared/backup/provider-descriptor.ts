@@ -62,5 +62,4 @@ export const providerStorageStatusSchema = z.object({
   capacityRoute: z.enum(['system-settings', 'none']),
 });
 
-export type ProviderCapacity = z.output<typeof providerCapacitySchema>;
 export type ProviderStorageStatus = z.output<typeof providerStorageStatusSchema>;
