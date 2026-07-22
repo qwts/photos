@@ -16,6 +16,7 @@ import { AlbumDropDialog } from './AlbumDropDialog';
 import { useAlbumPhotoDrop } from './use-album-photo-drop';
 import { ContextMenu } from '../components/ContextMenu';
 import { commandById } from '../../../shared/commands/registry.js';
+import type { CommandPlatform } from '../../../shared/commands/registry.js';
 import { useAlbumReorder, type AlbumReorderCommand } from './use-album-reorder';
 
 // The shell stylesheet carries the sidebar/rail rules; importing it here
@@ -151,6 +152,7 @@ function SideRow({
 }
 
 export interface SidebarProps {
+  readonly platform: CommandPlatform;
   readonly counts: SourceCounts | null;
   readonly stats: LibraryStats | null;
   readonly albums: readonly AlbumSummary[];
@@ -171,6 +173,7 @@ export interface SidebarProps {
 // shows the encrypted badge, the settings gear (opens the M09 dialog), a
 // live aggregate bar while a backup runs (#108), and the mono storage line.
 export function Sidebar({
+  platform,
   counts,
   stats,
   albums,
@@ -496,6 +499,7 @@ export function Sidebar({
           }}
           position={albumReorder.albums.findIndex(({ id }) => id === albumMenu.album.id)}
           total={albumReorder.albums.length}
+          platform={platform}
           onReorder={(command) => {
             const album = albumMenu.album;
             setAlbumMenu(null);
