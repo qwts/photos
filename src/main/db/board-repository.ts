@@ -84,3 +84,51 @@ export function saveBoard(db: BetterSqlite3.Database, board: Board, now: () => s
 export function deleteBoard(db: BetterSqlite3.Database, id: string): void {
   run(db, `DELETE FROM boards WHERE id = @id`, { id });
 }
+
+// ---- backup / restore (#701) --------------------------------------------
+
+/** A board plus its durable ordering/identity fields — required for a byte-
+ * stable backup round trip (the manifest is itself JSON). */
+export interface StoredBoard extends Board {
+  readonly position: number;
+  readonly createdAt: string;
+}
+
+interface StoredBoardRow extends BoardRow {
+  readonly position: number;
+  readonly created_at: string;
+}
+
+function rowToStoredBoard(row: StoredBoardRow): StoredBoard {
+  return { ...rowToBoard(row), position: row.position, createdAt: row.created_at };
+}
+
+/** Snapshot every board (with ordering/identity) for the backup manifest. */
+export function boardsSnapshot(db: BetterSqlite3.Database): StoredBoard[] {
+  return queryAll<StoredBoardRow>(db, `SELECT ${SELECT_COLUMNS}, position, created_at FROM boards ORDER BY position, id`).map(
+    rowToStoredBoard,
+  );
+}
+
+/** Rebuild boards from a manifest into an empty catalog (restore path). */
+export function restoreBoards(db: BetterSqlite3.Database, boards: readonly StoredBoard[]): void {
+  for (const board of boards) {
+    const normalized = normalizeBoard(board);
+    runNamed(
+      db,
+      `INSERT INTO boards (id, title, notes, board_width, board_height, background, placements, position, created_at)
+         VALUES (@id, @title, @notes, @board_width, @board_height, @background, @placements, @position, @created_at)`,
+      {
+        id: normalized.id,
+        title: normalized.title,
+        notes: normalized.notes,
+        board_width: normalized.size.width,
+        board_height: normalized.size.height,
+        background: normalized.background,
+        placements: JSON.stringify(normalized.placements),
+        position: board.position,
+        created_at: board.createdAt,
+      },
+    );
+  }
+}

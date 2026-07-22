@@ -3,8 +3,9 @@ import { activityEventTypes } from '../../shared/activity/types.js';
 import type { ActivityEvent } from '../../shared/activity/types.js';
 
 import { mediaInfoSchema } from '../../shared/library/media-info.js';
+import { boardSchema } from '../../shared/moodboard/board.js';
 
-export const BACKUP_MANIFEST_SCHEMA_VERSION = 4 as const;
+export const BACKUP_MANIFEST_SCHEMA_VERSION = 5 as const;
 
 const ulidSchema = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u, 'expected a Crockford ULID');
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u, 'expected a lowercase SHA-256 digest');
@@ -281,7 +282,7 @@ export const backupActivityEventV4Schema = z.strictObject({
 export const backupManifestV4Schema = z
   .strictObject({
     ...backupManifestV3Schema.shape,
-    schema: z.literal(BACKUP_MANIFEST_SCHEMA_VERSION),
+    schema: z.literal(4),
     activity: z.array(backupActivityEventV4Schema).readonly(),
   })
   .superRefine((manifest, context) => {
@@ -304,6 +305,38 @@ export const backupManifestV4Schema = z
     }
   });
 
+// Moodboard boards (#701): album-class organizational metadata carried in the
+// manifest with their ordering/identity, so a restore reproduces the exact
+// board layouts (invariant I2 across backup/restore).
+export const backupManifestBoardV5Schema = boardSchema.extend({
+  position: z.number().int().nonnegative(),
+  createdAt: z.string().min(1),
+});
+
+export const backupManifestV5Schema = z
+  .strictObject({
+    ...backupManifestV4Schema.shape,
+    schema: z.literal(BACKUP_MANIFEST_SCHEMA_VERSION),
+    boards: z.array(backupManifestBoardV5Schema).readonly(),
+  })
+  .superRefine((manifest, context) => {
+    const { boards, ...withoutBoards } = manifest;
+    const previous = backupManifestV4Schema.safeParse({ ...withoutBoards, schema: 4 });
+    if (!previous.success) {
+      context.addIssue({ code: 'custom', message: `schema-4 records are inconsistent: ${z.prettifyError(previous.error)}` });
+    }
+    const ids = new Set<string>();
+    const positions = new Set<number>();
+    for (const [index, board] of boards.entries()) {
+      if (ids.has(board.id)) context.addIssue({ code: 'custom', path: ['boards', index, 'id'], message: 'board IDs must be unique' });
+      if (positions.has(board.position)) {
+        context.addIssue({ code: 'custom', path: ['boards', index, 'position'], message: 'board positions must be unique' });
+      }
+      ids.add(board.id);
+      positions.add(board.position);
+    }
+  });
+
 export type BackupManifestV1 = z.infer<typeof backupManifestV1Schema>;
 export type BackupManifestPhotoV2 = z.infer<typeof backupManifestPhotoV2Schema>;
 export type BackupManifestAlbumV2 = z.infer<typeof backupManifestAlbumV2Schema>;
@@ -313,7 +346,9 @@ export type ProtectedBackupObjectV3 = z.infer<typeof protectedBackupObjectV3Sche
 export type ProtectedBackupPhotoV3 = z.infer<typeof protectedBackupPhotoV3Schema>;
 export type BackupManifestV3 = z.infer<typeof backupManifestV3Schema>;
 export type BackupManifestV4 = z.infer<typeof backupManifestV4Schema>;
-export type RestorableBackupManifest = BackupManifestV2 | BackupManifestV3 | BackupManifestV4;
+export type BackupManifestBoardV5 = z.infer<typeof backupManifestBoardV5Schema>;
+export type BackupManifestV5 = z.infer<typeof backupManifestV5Schema>;
+export type RestorableBackupManifest = BackupManifestV2 | BackupManifestV3 | BackupManifestV4 | BackupManifestV5;
 
 export interface BackupManifestSnapshot {
   readonly databaseSchema: number;
@@ -330,6 +365,10 @@ export interface BackupManifestSnapshotV3 extends BackupManifestSnapshot {
 
 export interface BackupManifestSnapshotV4 extends BackupManifestSnapshotV3 {
   readonly activity: readonly ActivityEvent[];
+}
+
+export interface BackupManifestSnapshotV5 extends BackupManifestSnapshotV4 {
+  readonly boards: readonly BackupManifestBoardV5[];
 }
 
 export type ParsedBackupManifest =
@@ -359,6 +398,19 @@ export function buildBackupManifestV4(input: {
   readonly snapshot: BackupManifestSnapshotV4;
 }): BackupManifestV4 {
   return backupManifestV4Schema.parse({
+    schema: 4,
+    libraryId: input.libraryId,
+    generatedAt: input.generatedAt,
+    ...input.snapshot,
+  });
+}
+
+export function buildBackupManifestV5(input: {
+  readonly libraryId: string;
+  readonly generatedAt: string;
+  readonly snapshot: BackupManifestSnapshotV5;
+}): BackupManifestV5 {
+  return backupManifestV5Schema.parse({
     schema: BACKUP_MANIFEST_SCHEMA_VERSION,
     libraryId: input.libraryId,
     generatedAt: input.generatedAt,
@@ -392,10 +444,17 @@ export function parseBackupManifest(input: unknown): ParsedBackupManifest {
     }
     return { restorable: true, manifest: parsed.data };
   }
-  if (version.data.schema === BACKUP_MANIFEST_SCHEMA_VERSION) {
+  if (version.data.schema === 4) {
     const parsed = backupManifestV4Schema.safeParse(input);
     if (!parsed.success) {
       throw new BackupManifestError(`invalid schema-4 manifest: ${z.prettifyError(parsed.error)}`);
+    }
+    return { restorable: true, manifest: parsed.data };
+  }
+  if (version.data.schema === BACKUP_MANIFEST_SCHEMA_VERSION) {
+    const parsed = backupManifestV5Schema.safeParse(input);
+    if (!parsed.success) {
+      throw new BackupManifestError(`invalid schema-5 manifest: ${z.prettifyError(parsed.error)}`);
     }
     return { restorable: true, manifest: parsed.data };
   }

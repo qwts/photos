@@ -851,7 +851,7 @@ export class PhotosRepository {
     this.db.transaction(() => {
       const occupied = queryGet<{ count: number }>(
         this.db,
-        `SELECT (SELECT count(*) FROM photos) + (SELECT count(*) FROM albums) + (SELECT count(*) FROM keys) AS count`,
+        `SELECT (SELECT count(*) FROM photos) + (SELECT count(*) FROM albums) + (SELECT count(*) FROM keys) + (SELECT count(*) FROM boards) AS count`,
       );
       if ((occupied?.count ?? 0) !== 0) throw new Error('restore requires an empty staged catalog');
       for (const key of keys) {
