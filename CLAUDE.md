@@ -1,4 +1,4 @@
-# photos — Claude Code guide
+# Overlook — Claude Code guide
 
 Start with **`AGENTS.md`**. It is the shared agent-context file and holds the
 communication rules, pre-edit checkpoints, working agreement (draft PR first,

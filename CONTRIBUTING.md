@@ -1,4 +1,4 @@
-# Contributing to photos
+# Contributing to Overlook
 
 The canonical contributor and agent workflow guide lives in the repo:
 
