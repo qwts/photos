@@ -2,7 +2,7 @@ import { mkE2eTmpDir } from './support/tmp-dir.js';
 import { createInboundMoveFixture } from './support/inbound-move.js';
 import { expect, test } from './support/app.js';
 
-test('pCloud inbound Move imports a native photo, uploads ACK, and resumes idempotently after restart', async ({ launchOverlook }) => {
+test('pCloud inbound Move imports once and restores its durable ACK status after restart', async ({ launchOverlook }) => {
   const fixtureRoot = mkE2eTmpDir('overlook-e2e-inbound-move-fixture-');
   const fixture = await createInboundMoveFixture(fixtureRoot);
   const launched = await launchOverlook({
@@ -68,8 +68,9 @@ test('pCloud inbound Move imports a native photo, uploads ACK, and resumes idemp
   await resumedSettings.getByRole('button', { name: 'Check for incoming transfers' }).click();
   await resumedSettings.getByRole('button', { name: 'Review 1 incoming item' }).click();
   const resumedMove = resumed.page.getByRole('dialog', { name: 'Move to Overlook' });
-  await resumedMove.getByRole('button', { name: 'Start move' }).click();
-  await expect(resumedMove.locator('[data-phase="completed"]')).toBeVisible({ timeout: 30_000 });
+  await expect(resumedMove.locator('[data-phase="completed"]')).toBeVisible();
+  await expect(resumedMove).toContainText('1 / 1 · 1 acknowledged');
+  await expect(resumedMove.getByRole('button', { name: 'Start move' })).toBeDisabled();
   const resumedRows = await resumed.page.evaluate<{ id: string }[]>(
     `window.overlook.library.page({ source: 'all', limit: 20 }).then((result) => result.photos)`,
   );

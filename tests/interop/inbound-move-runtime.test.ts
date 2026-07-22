@@ -240,6 +240,9 @@ test('explicit refresh previews, imports durably, and resumes ACK upload without
   store.failAcknowledgementOnce = true;
   await assert.rejects(runtime.start(TRANSFER_ID), /injected acknowledgement upload failure/u);
   assert.equal(imports, 1, 'durable receipt advances committed rows without repeating native import');
+  const interruptedPreview = await runtime.refresh();
+  assert.equal(interruptedPreview[0]?.counts.acknowledged, 1, 'refresh reads the durable journal count');
+  assert.equal(interruptedPreview[0]?.items[0]?.outcome, 'failed', 'undelivered acknowledgement remains retryable');
 
   const resumed = await runtime.start(TRANSFER_ID);
   assert.equal(resumed.accepted, 1);
@@ -253,6 +256,9 @@ test('explicit refresh previews, imports durably, and resumes ACK upload without
   assert.equal(acknowledgement.payload.kind, 'acknowledgement');
   if (acknowledgement.payload.kind !== 'acknowledgement') throw new Error('Expected acknowledgement.');
   assert.deepEqual(acknowledgement.payload.acknowledgedMessageIds, [RECORD_MESSAGE_ID, BLOB_MESSAGE_ID]);
+  const resumedPreview = await runtime.refresh();
+  assert.equal(resumedPreview[0]?.counts.acknowledged, 1);
+  assert.equal(resumedPreview[0]?.items[0]?.outcome, 'accepted');
   assert.equal(objects.require(TRANSFER_ID, moveOutboxMessagePath(1, RECORD_MESSAGE_ID)).phase, 'ack-uploaded');
   assert.equal(objects.require(TRANSFER_ID, moveOutboxMessagePath(2, BLOB_MESSAGE_ID)).phase, 'ack-uploaded');
   db.close();

@@ -25,9 +25,8 @@ import { StatusBar } from './StatusBar';
 import { ToastAction } from './ToastAction';
 import { useOffloadWorkflow } from '../offload/use-offload-workflow';
 import { Toolbar } from './Toolbar';
-import { InteropWorkflowDialog } from '../interop/InteropWorkflowDialog';
-import { InboundMoveDialog } from '../interop/InboundMoveDialog';
-import { blockedInteropWorkflow, type InteropEntryContext } from '../interop/visible-workflow.js';
+import { InteropEntryDialog } from '../interop/InboundMoveDialog';
+import type { InteropEntryContext } from '../interop/visible-workflow.js';
 import { ProtectedAlbumUnlockDialog } from '../protected/ProtectedAlbumUnlockDialog';
 import { ProtectedAlbumView } from '../protected/ProtectedAlbumView';
 import { createBoundedExternalDropReporter, installExternalFileDropBoundary } from './external-file-drop';
@@ -847,14 +846,7 @@ export function Shell({
       </div>
       <ToastHost className="ovl-shell__toast" toasts={toastItems} onDismiss={() => dispatch({ type: 'toast/dismissed' })} />
       <StatusBar stats={stats} />
-      {interopEntry === null ? null : interopEntry.context === 'settings' ? (
-        <InboundMoveDialog onClose={() => setInteropEntry(null)} />
-      ) : (
-        <InteropWorkflowDialog
-          state={blockedInteropWorkflow(interopEntry.context, interopEntry.total)}
-          onClose={() => setInteropEntry(null)}
-        />
-      )}
+      <InteropEntryDialog entry={interopEntry} onClose={() => setInteropEntry(null)} />
     </div>
   );
 }

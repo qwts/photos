@@ -12,7 +12,9 @@ import type {
 import type { InteropPairingState, InteropProviderState } from '../../src/shared/interop/runtime-state.js';
 
 const transferId = 'fc0b0b81-114f-480b-8ff6-a1531e57b605';
+const secondTransferId = '2107cfbc-3d4d-4e32-9150-8378e42820d9';
 const interopId = '665fc4f8-8287-42db-b195-f7828d530da8';
+const secondInteropId = '3fe6f1f5-c8c2-4ded-81a2-63fc8b7e9257';
 
 const item = {
   request: {
@@ -25,12 +27,26 @@ const item = {
     },
   },
   reviewCategory: 'metadata-only',
+  acknowledged: false,
+  outcome: 'pending',
+  reason: null,
 } as unknown as IncomingMoveItem;
 
 const batch = {
   transferId,
   items: [item],
-  counts: { eligible: 0, duplicate: 0, conflict: 0, 'metadata-only': 1, unsupported: 0, skipped: 0 },
+  counts: {
+    total: 1,
+    eligible: 0,
+    duplicate: 0,
+    conflict: 0,
+    metadataOnly: 1,
+    unsupported: 0,
+    skipped: 0,
+    failed: 0,
+    acknowledged: 0,
+    finalized: 0,
+  },
 } satisfies IncomingMoveBatch;
 
 const accepted: InboundAcceptance = {
@@ -42,6 +58,28 @@ const accepted: InboundAcceptance = {
   photoChanged: false,
   reason: 'Metadata copied; the source original was retained.',
 };
+
+function pendingBatch(id: string, recordId: string): IncomingMoveBatch {
+  return {
+    ...batch,
+    transferId: id,
+    items: [
+      {
+        ...item,
+        request: {
+          ...item.request,
+          payload: {
+            ...item.request.payload,
+            record: {
+              ...item.request.payload.record,
+              identity: { ...item.request.payload.record.identity, interopId: recordId },
+            },
+          },
+        },
+      },
+    ],
+  };
+}
 
 function harness(runtime: InboundMoveControllerOptions['runtime']): {
   controller: InboundMoveController;
@@ -115,6 +153,52 @@ describe('InboundMoveController (#676)', () => {
     assert.equal(completed.batches[0]?.items[0]?.outcome, 'accepted');
     assert.ok(events.includes('reviewing'));
     assert.ok(events.includes('completed'));
+  });
+
+  test('advances to every discovered transfer instead of pinning the first batch', async () => {
+    const batches = [pendingBatch(transferId, interopId), pendingBatch(secondTransferId, secondInteropId)];
+    const runtime = {
+      refresh: () => Promise.resolve(batches),
+      start: async (id: string, control: InboundMoveRunControl = {}): Promise<IncomingMoveRunResult> => {
+        const selected = batches.find((candidate) => candidate.transferId === id);
+        const selectedItem = selected?.items[0];
+        if (selectedItem === undefined) throw new Error('Unknown transfer.');
+        await control.beforeItem?.(selectedItem, 0, 1);
+        await control.itemCompleted?.(selectedItem, accepted, 0, 1);
+        return { transferId: id, accepted: 1, retained: 0, changedPhotoIds: [] };
+      },
+    };
+    const { controller } = harness(() => runtime);
+
+    await controller.refresh();
+    await controller.start(transferId);
+    await controller.drain();
+    const next = await controller.status();
+    assert.equal(next.selectedTransferId, secondTransferId);
+    assert.equal(next.progress.phase, 'reviewing');
+
+    await controller.start(secondTransferId);
+    await controller.drain();
+    const completed = await controller.status();
+    assert.equal(completed.selectedTransferId, secondTransferId);
+    assert.equal(completed.progress.phase, 'completed');
+  });
+
+  test('refresh preserves durable item outcomes and acknowledgement counts', async () => {
+    const durable = {
+      ...batch,
+      items: [{ ...item, outcome: 'accepted' as const }],
+      counts: { ...batch.counts, acknowledged: 1 },
+    };
+    const { controller } = harness(() => ({
+      refresh: () => Promise.resolve([durable]),
+      start: () => Promise.resolve({ transferId, accepted: 1, retained: 0, changedPhotoIds: [] }),
+    }));
+
+    const status = await controller.refresh();
+    assert.equal(status.batches[0]?.counts.acknowledged, 1);
+    assert.equal(status.batches[0]?.items[0]?.outcome, 'accepted');
+    assert.deepEqual(status.progress, { transferId, phase: 'completed', processed: 1, total: 1, accepted: 1, retained: 0 });
   });
 
   test('pause blocks the next item boundary and cancel drains to a resumable state', async () => {

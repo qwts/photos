@@ -2,7 +2,22 @@ import { useEffect, useState, type ReactElement } from 'react';
 
 import type { InteropInboundStatus } from '../../../shared/interop/inbound-ui.js';
 import { InteropWorkflowDialog } from './InteropWorkflowDialog.js';
-import { blockedInteropWorkflow, visibleInboundWorkflow } from './visible-workflow.js';
+import { blockedInteropWorkflow, visibleInboundWorkflow, type InteropEntryContext } from './visible-workflow.js';
+
+export function InteropEntryDialog({
+  entry,
+  onClose,
+}: {
+  readonly entry: { readonly context: InteropEntryContext; readonly total: number } | null;
+  readonly onClose: () => void;
+}): ReactElement | null {
+  if (entry === null) return null;
+  return entry.context === 'settings' ? (
+    <InboundMoveDialog onClose={onClose} />
+  ) : (
+    <InteropWorkflowDialog state={blockedInteropWorkflow(entry.context, entry.total)} onClose={onClose} />
+  );
+}
 
 export function InboundMoveDialog({ onClose }: { readonly onClose: () => void }): ReactElement {
   const [status, setStatus] = useState<InteropInboundStatus | null>(null);
