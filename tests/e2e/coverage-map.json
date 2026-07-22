@@ -1,5 +1,5 @@
 {
-  "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered \u2014 automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
+  "$comment": "Acceptance coverage ledger (#82, ADR-0001): every user-facing flow declares how it is covered — automated (playwright-e2e / storybook / unit-dom), manual (with a reason), or deferred (with an issue). check-e2e-coverage-map.mjs validates shape and path existence; check-acceptance-coverage-diff.mjs forces updates alongside renderer changes. Each epic seeds its own entries.",
   "entries": [
     {
       "id": "visual-accessibility-preferences",
@@ -1716,6 +1716,28 @@
         {
           "type": "manual",
           "reason": "Screen-reader traversal of the parallel reading-order list staying in sync with the role=application canvas, 200% text reflow of the panel and toolbar, and reduced-motion (no inertial/snap/drop animation) need the documented manual accessibility pass."
+        }
+      ]
+    },
+    {
+      "id": "mpeg-ts-media-support",
+      "wiki": "ADR-0026-Video-And-Animated-Media",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "paths": ["tests/library/mpeg-ts.test.ts", "tests/library/media-info-format.test.ts", "tests/library/media-signatures.test.ts"]
+        },
+        {
+          "type": "storybook",
+          "paths": [
+            "src/renderer/src/lightbox/LightboxVideo.stories.tsx",
+            "src/renderer/src/components/PhotoTile.stories.tsx",
+            "src/renderer/src/inspector/Inspector.stories.tsx"
+          ]
+        },
+        {
+          "type": "deferred",
+          "issue": 548
         }
       ]
     }
