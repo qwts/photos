@@ -208,4 +208,9 @@ test('Windows/Linux menu is unchanged: keeps Window menu and no Overlook app men
   // The non-mac File menu still carries the flattened settings + quit fallback.
   assert.notEqual(find(template, 'app.settings.open'), undefined);
   assert.notEqual(find(template, 'view.lightbox.close'), undefined);
+  // #689 scopes the ⌘I Import accelerator to macOS; win/linux Import stays
+  // accelerator-free (the shared descriptor's key must not leak there).
+  assert.equal(find(template, 'library.import')?.accelerator, undefined);
+  const mac = buildApplicationMenuTemplate('darwin', 'Overlook', grid, () => {});
+  assert.equal(find(mac, 'library.import')?.accelerator, 'CommandOrControl+I');
 });

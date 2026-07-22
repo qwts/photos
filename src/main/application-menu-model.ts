@@ -169,10 +169,15 @@ function settingsItems(context: CommandMenuContext, dispatch: CommandDispatch, t
 
 const separator: MenuItemConstructorOptions = { type: 'separator' };
 
+/** Drop a menu item's accelerator without changing its command dispatch. */
+function withoutAccelerator(item: MenuItemConstructorOptions): MenuItemConstructorOptions {
+  const { accelerator: _accelerator, ...rest } = item;
+  return rest;
+}
+
 /** Re-project a command into a second menu slot: distinct item id, no accelerator, same command dispatch. */
 function alias(item: MenuItemConstructorOptions, id: string): MenuItemConstructorOptions {
-  const { accelerator: _accelerator, ...rest } = item;
-  return { ...rest, id };
+  return { ...withoutAccelerator(item), id };
 }
 
 /**
@@ -296,7 +301,9 @@ function otherApplicationMenuTemplate(
       submenu: [
         ...settingsItems(context, dispatch, translate),
         separator,
-        commandItem('library.import', context, dispatch, translate),
+        // #689 scopes the ⌘I accelerator to the macOS bar; keep the Windows/
+        // Linux Import item accelerator-free so those menus stay unchanged.
+        withoutAccelerator(commandItem('library.import', context, dispatch, translate)),
         commandItem('library.switch', context, dispatch, translate),
         separator,
         { role: 'quit' },
