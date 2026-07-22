@@ -1124,23 +1124,11 @@
   "settings.provider.couldNotCheck": {
     "defaultMessage": "Could not check this provider’s connection."
   },
-  "settings.provider.measurementFailed": {
-    "defaultMessage": "Couldn’t measure usage right now."
-  },
-  "settings.provider.measuring": {
-    "defaultMessage": "Measuring your backups…"
-  },
   "settings.provider.opensSettings": {
     "defaultMessage": "(opens System Settings)"
   },
   "settings.provider.regionLabel": {
     "defaultMessage": "{name} backup"
-  },
-  "settings.provider.usedAccessible": {
-    "defaultMessage": "Used by Overlook, {human}, {exact} bytes"
-  },
-  "settings.provider.usedByOverlook": {
-    "defaultMessage": "Used by Overlook"
   },
   "settings.restore.title": {
     "defaultMessage": "Restore from cloud backup"

@@ -171,28 +171,18 @@ function installStub(options?: {
       };
     },
     providerStorage: ({ providerId }) => {
-      const measuredAt = '2026-07-22T00:00:00.000Z';
       return Promise.resolve(
         providerId === iCloudDriveProvider.id
           ? {
-              usedByOverlookBytes: 51_742_097_408,
-              measuredAt,
-              measurementFailed: false,
               capacity: null,
               capacityRoute: 'system-settings' as const,
             }
           : providerId === googleDriveProvider.id
             ? {
-                usedByOverlookBytes: 12_400_000_000,
-                measuredAt,
-                measurementFailed: false,
                 capacity: { usedBytes: 42_000_000_000, totalBytes: 100_000_000_000 },
                 capacityRoute: 'none' as const,
               }
             : {
-                usedByOverlookBytes: 380_000_000_000,
-                measuredAt,
-                measurementFailed: false,
                 capacity: { usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
                 capacityRoute: 'none' as const,
               },
@@ -461,7 +451,6 @@ export const StorageOpensByDefault: Story = {
     const resolvedBounds = dialog.getBoundingClientRect();
     await expect(resolvedBounds.width).toBeCloseTo(loadingBounds.width, 0);
     await expect(resolvedBounds.height).toBeCloseTo(loadingBounds.height, 0);
-    await expect(body.getByText('Used by Overlook')).toBeVisible();
     await expect(body.getByText('380 GB of 500 GB used')).toBeVisible();
     await expect(body.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
     await expect(body.getByText('12.6 GB stored only in your verified cloud backup. Thumbnails remain on this Mac.')).toBeVisible();
@@ -528,7 +517,6 @@ export const DisconnectHidesBackupControls: Story = {
     // Reconnect: instant with the mock, quota and the knobs return.
     await userEvent.click(body.getByRole('button', { name: 'Connect Local mock' }));
     await waitFor(() => expect(body.getByText('Connected')).toBeVisible());
-    await expect(body.getByText('Used by Overlook')).toBeVisible();
     await expect(body.getByText('380 GB of 500 GB used')).toBeVisible();
     await expect(body.getByRole('switch', { name: 'Back up new imports automatically' })).toBeVisible();
   },
@@ -544,10 +532,9 @@ export const ProviderSelectionAndUnknownQuota: Story = {
     );
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'iCloud Drive' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect iCloud Drive' }));
-    // iCloud reports measured usage but has no account-quota API — no bar, and an
-    // honest System Settings capacity route rather than STORAGE USAGE NOT REPORTED.
-    await waitFor(() => expect(body.getByText('Used by Overlook')).toBeVisible());
-    await expect(body.getByRole('button', { name: /View in System Settings/u })).toBeVisible();
+    // iCloud has no account-quota API — no bar, and an honest System Settings
+    // capacity route instead of a fabricated measurement.
+    await waitFor(() => expect(body.getByRole('button', { name: /View in System Settings/u })).toBeVisible());
     await expect(body.queryByRole('progressbar')).not.toBeInTheDocument();
     await expect(body.getByText(/Verify by download/u)).toBeVisible();
   },
@@ -582,9 +569,8 @@ export const GoogleDriveSelection: Story = {
     );
     await userEvent.click(await waitFor(() => body.getByRole('radio', { name: 'Google Drive' })));
     await userEvent.click(body.getByRole('button', { name: 'Connect Google Drive' }));
-    // Google Drive: measured usage distinct from the account-wide verified quota bar.
-    await waitFor(() => expect(body.getByText('Used by Overlook')).toBeVisible());
-    await expect(body.getByText('42 GB of 100 GB used')).toBeVisible();
+    // Google Drive: account-wide capacity comes from about.storageQuota.
+    await waitFor(() => expect(body.getByText('42 GB of 100 GB used')).toBeVisible());
     await expect(body.getByText(/Server checksum · resumable uploads/u)).toBeVisible();
   },
 };

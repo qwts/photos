@@ -14,9 +14,8 @@ import { createPCloudConnect, type PCloudConnectResult } from './pcloud/connect.
 import { PCloudProvider } from './pcloud/pcloud-provider.js';
 import { PCloudTokenStore } from './pcloud/token-store.js';
 import type { StorageProvider } from './provider.js';
-import { buildProviderStorageMetrics, measureUsedByOverlookBytes } from './provider-usage.js';
 import { raceWithAbort } from './provider.js';
-import type { ProviderConnectionStatus, ProviderDescriptor, ProviderStorageMetrics } from '../../shared/backup/provider-descriptor.js';
+import type { ProviderCapacityStatus, ProviderConnectionStatus, ProviderDescriptor } from '../../shared/backup/provider-descriptor.js';
 import { ICloudDriveProvider } from './icloud-drive/icloud-drive-provider.js';
 import { ICloudDriveAuthorityStore } from './icloud-drive/authority-store.js';
 import type { ICloudDriveNativeBridge, ICloudDriveUnavailableReason } from './icloud-drive/native-bridge.js';
@@ -45,9 +44,7 @@ export interface ProviderRuntimeOptions {
   readonly googleDriveClientSecret?: (() => string | null) | undefined;
   readonly fetchImpl?: typeof fetch | undefined;
   readonly iCloudDriveBridge: ICloudDriveNativeBridge;
-  /** Injectable clock for the usage `measuredAt` stamp; defaults to wall time. */
-  readonly now?: (() => string) | undefined;
-  /** Test seams; production probes connection for at most 5s and metrics for 30s. */
+  /** Test seams; production probes connection for at most 5s and capacity for 30s. */
   readonly statusTimeoutMs?: number | undefined;
   readonly storageTimeoutMs?: number | undefined;
 }
@@ -70,7 +67,7 @@ export class ProviderRuntime {
   private readonly disconnectInFlight = new Map<string, Promise<PCloudConnectResult>>();
   private readonly storageInFlight = new Map<
     string,
-    { readonly controller: AbortController; readonly promise: Promise<ProviderStorageMetrics> }
+    { readonly controller: AbortController; readonly promise: Promise<ProviderCapacityStatus> }
   >();
 
   constructor(options: ProviderRuntimeOptions) {
@@ -195,12 +192,8 @@ export class ProviderRuntime {
     this.iCloudDriveProviderInstance = undefined;
   }
 
-  private now(): string {
-    return this.options.now?.() ?? new Date().toISOString();
-  }
-
-  /** Connection authority is intentionally cheap (#721): remote inventory and
-   * account quota live behind storage(), so a completed OAuth flow can render
+  /** Connection authority is intentionally cheap (#721): provider capacity
+   * lives behind storage(), so a completed OAuth flow can render
    * Connected without waiting on the provider network. */
   async status(providerId: string): Promise<ProviderConnectionStatus> {
     const provider = this.provider(providerId);
@@ -215,15 +208,15 @@ export class ProviderRuntime {
     return { provider: descriptor, connected, account: null };
   }
 
-  /** Bounded, informational storage metrics (#684/#721). Calls are single-flight
-   * per provider; timeout or failure degrades only the figures and never mutates
+  /** Bounded, informational provider capacity (#721). Calls are single-flight
+   * per provider; timeout or failure degrades only capacity and never mutates
    * provider selection or credential custody. */
-  storage(providerId: string): Promise<ProviderStorageMetrics> {
+  storage(providerId: string): Promise<ProviderCapacityStatus> {
     const pending = this.storageInFlight.get(providerId);
     if (pending !== undefined) return pending.promise;
     const controller = new AbortController();
-    const promise = this.measureStorage(providerId, controller)
-      .catch(() => failedStorageMetrics(providerId))
+    const promise = this.loadCapacity(providerId, controller)
+      .catch(() => unavailableCapacity(providerId))
       .finally(() => {
         if (this.storageInFlight.get(providerId)?.promise === promise) this.storageInFlight.delete(providerId);
       });
@@ -231,28 +224,30 @@ export class ProviderRuntime {
     return promise;
   }
 
-  private async measureStorage(providerId: string, controller: AbortController): Promise<ProviderStorageMetrics> {
+  private async loadCapacity(providerId: string, controller: AbortController): Promise<ProviderCapacityStatus> {
     const timeout = setTimeout(
-      () => controller.abort(new Error('provider storage metrics timed out')),
+      () => controller.abort(new Error('provider capacity timed out')),
       this.options.storageTimeoutMs ?? DEFAULT_STORAGE_TIMEOUT_MS,
     );
     timeout.unref();
     const provider = this.provider(providerId);
     try {
-      if (provider === undefined || this.activeId() !== providerId) return emptyStorageMetrics();
+      if (provider === undefined || this.activeId() !== providerId) return emptyCapacity();
       const descriptor = await raceWithAbort(this.descriptor(provider), controller.signal);
-      const forcedStall = !this.options.isPackaged && this.options.harnessEnv('OVERLOOK_PROVIDER_STORAGE_STALL') === providerId;
-      const stalled = (): Promise<never> => new Promise<never>(() => undefined);
-      return await buildProviderStorageMetrics({
-        descriptor,
-        connected: true,
-        measure: () => raceWithAbort(forcedStall ? stalled() : measureUsedByOverlookBytes(provider, controller.signal), controller.signal),
-        quota:
-          provider.capabilities.quota === 'known'
-            ? () => raceWithAbort(forcedStall ? stalled() : provider.quota(controller.signal), controller.signal)
-            : null,
-        now: () => this.now(),
-      });
+      if (provider.capabilities.quota === 'unknown') {
+        return { ...emptyCapacity(), capacityRoute: descriptor.id === 'icloud-drive' ? 'system-settings' : 'none' };
+      }
+      try {
+        const forcedStall = !this.options.isPackaged && this.options.harnessEnv('OVERLOOK_PROVIDER_STORAGE_STALL') === providerId;
+        const stalled = (): Promise<never> => new Promise<never>(() => undefined);
+        const quota = await raceWithAbort(forcedStall ? stalled() : provider.quota(controller.signal), controller.signal);
+        return {
+          ...emptyCapacity(),
+          capacity: quota.totalBytes === null ? null : { usedBytes: quota.usedBytes, totalBytes: quota.totalBytes },
+        };
+      } catch {
+        return emptyCapacity();
+      }
     } finally {
       clearTimeout(timeout);
     }
@@ -276,6 +271,12 @@ export class ProviderRuntime {
     const descriptor = (await this.descriptors()).find((candidate) => candidate.id === providerId);
     if (provider === undefined || descriptor?.available !== true) {
       return { ok: false, reason: descriptor?.unavailableReason ?? 'This provider is not available on this device.' };
+    }
+    // Selecting a provider with existing sealed authority is activation, not a
+    // new OAuth grant.
+    if ((await provider.authState()) === 'connected') {
+      this.options.setProviderId(providerId);
+      return { ok: true, reason: null };
     }
     if (providerId === 'pcloud') {
       return this.connectPCloud();
@@ -500,25 +501,21 @@ export class ProviderRuntime {
 
   private abortStorage(providerId: string): void {
     const operation = this.storageInFlight.get(providerId);
-    operation?.controller.abort(new Error('provider storage metrics cancelled'));
+    operation?.controller.abort(new Error('provider capacity cancelled'));
     this.storageInFlight.delete(providerId);
   }
 }
 
-function emptyStorageMetrics(): ProviderStorageMetrics {
+function emptyCapacity(): ProviderCapacityStatus {
   return {
-    usedByOverlookBytes: null,
-    measuredAt: null,
-    measurementFailed: false,
     capacity: null,
     capacityRoute: 'none',
   };
 }
 
-function failedStorageMetrics(providerId: string): ProviderStorageMetrics {
+function unavailableCapacity(providerId: string): ProviderCapacityStatus {
   return {
-    ...emptyStorageMetrics(),
-    measurementFailed: true,
+    ...emptyCapacity(),
     capacityRoute: providerId === 'icloud-drive' ? 'system-settings' : 'none',
   };
 }
