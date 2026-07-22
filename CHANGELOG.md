@@ -1,5 +1,11 @@
 # photos
 
+## 0.54.0
+
+### Minor Changes
+
+- 57a48ae: Wire the opt-in LLM assistant's provider custody to IPC: list, connect, and disconnect cloud providers over the validated `llm:*` channels, exposed on `window.overlook.llm`. Keys are validated against the provider before they are sealed into OS-keychain custody, and never cross back to the renderer.
+
 ## 0.53.0
 
 ### Minor Changes
