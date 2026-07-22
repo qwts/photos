@@ -72,6 +72,9 @@ export function MoodboardRoute({ photos, onExport }: MoodboardRouteProps): React
   useEffect(() => {
     return window.overlook.boards.onReload(({ boardId }) => {
       if (boardId !== BOARD_ID) return;
+      // Cancel any pending debounced save: it captured the pre-undo board and
+      // would otherwise write the reverted layout back after the reload.
+      clearTimeout(saveTimer.current);
       void window.overlook.boards.get({ boardId: BOARD_ID }).then((result) => {
         if (result.board === null) return;
         dirtyRef.current = false;
