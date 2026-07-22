@@ -1,5 +1,11 @@
 # photos
 
+## 0.60.2
+
+### Patch Changes
+
+- 6b65091: Restore Settings cloud-provider activation and native capacity calls without recursively measuring remote library contents.
+
 ## 0.60.1
 
 ### Patch Changes
