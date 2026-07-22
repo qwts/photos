@@ -1013,6 +1013,54 @@
   "settings.nav.transfer": {
     "defaultMessage": "Transfer & Sync"
   },
+  "settings.provider.badge.checking": {
+    "defaultMessage": "Checking…"
+  },
+  "settings.provider.badge.connected": {
+    "defaultMessage": "Connected"
+  },
+  "settings.provider.badge.notConnected": {
+    "defaultMessage": "Not connected"
+  },
+  "settings.provider.badge.unavailable": {
+    "defaultMessage": "Status unavailable"
+  },
+  "settings.provider.capacityBar": {
+    "defaultMessage": "{name} capacity"
+  },
+  "settings.provider.capacityDetail": {
+    "defaultMessage": "{used} of {total} used"
+  },
+  "settings.provider.capacityRoute": {
+    "defaultMessage": "{name} capacity — View in System Settings"
+  },
+  "settings.provider.capacityUnavailable": {
+    "defaultMessage": "Account capacity unavailable."
+  },
+  "settings.provider.checkingConnection": {
+    "defaultMessage": "Checking connection…"
+  },
+  "settings.provider.couldNotCheck": {
+    "defaultMessage": "Could not check this provider’s connection."
+  },
+  "settings.provider.measurementFailed": {
+    "defaultMessage": "Couldn’t measure usage right now."
+  },
+  "settings.provider.measuring": {
+    "defaultMessage": "Measuring your backups…"
+  },
+  "settings.provider.opensSettings": {
+    "defaultMessage": "(opens System Settings)"
+  },
+  "settings.provider.regionLabel": {
+    "defaultMessage": "{name} backup"
+  },
+  "settings.provider.usedAccessible": {
+    "defaultMessage": "Used by Overlook, {human}, {exact} bytes"
+  },
+  "settings.provider.usedByOverlook": {
+    "defaultMessage": "Used by Overlook"
+  },
   "settings.restore.title": {
     "defaultMessage": "Restore from cloud backup"
   },

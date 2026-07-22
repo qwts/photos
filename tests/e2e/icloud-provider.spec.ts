@@ -23,27 +23,45 @@ test('iCloud Drive composes through settings, backup, offload, and restore-origi
     await page.locator('.ovl-tile__img').first().waitFor();
 
     expect(await page.evaluate(`window.overlook.backup.connect({ providerId: 'icloud-drive' })`)).toEqual({ ok: true, reason: null });
-    const status = await page.evaluate<{
+    type Status = {
       connected: boolean;
-      usedBytes: number | null;
-      totalBytes: number | null;
+      usedByOverlookBytes: number | null;
+      measurementFailed: boolean;
+      capacity: { usedBytes: number; totalBytes: number } | null;
+      capacityRoute: 'system-settings' | 'none';
       provider: { id: string; capabilities: { quota: string; verification: string } };
-    }>(`window.overlook.backup.providerStatus({ providerId: 'icloud-drive' })`);
+    };
+    const status = await page.evaluate<Status>(`window.overlook.backup.providerStatus({ providerId: 'icloud-drive' })`);
+    // #684: iCloud measures Overlook's own usage (empty before any backup) but has
+    // no account-quota API, so capacity is null with the System Settings route —
+    // never a fabricated total or local disk space.
     expect(status).toMatchObject({
       connected: true,
-      usedBytes: null,
-      totalBytes: null,
+      usedByOverlookBytes: 0,
+      measurementFailed: false,
+      capacity: null,
+      capacityRoute: 'system-settings',
       provider: { id: 'icloud-drive', capabilities: { quota: 'unknown', verification: 'download-hash' } },
     });
 
     await page.getByRole('button', { name: 'Settings' }).click();
     await expect(page.getByTestId('provider-card')).toContainText('iCloud Drive');
-    await expect(page.getByTestId('provider-card')).toContainText('storage usage not reported');
+    await expect(page.getByTestId('provider-card')).toContainText('Used by Overlook');
+    await expect(page.getByTestId('provider-card')).not.toContainText('STORAGE USAGE NOT REPORTED');
+    await expect(page.getByTestId('provider-card').getByRole('button', { name: /View in System Settings/u })).toBeVisible();
     await expect(page.getByTestId('provider-card')).toContainText('Verify by download');
     await page.keyboard.press('Escape');
 
     await page.getByRole('button', { name: 'Back up' }).click();
     await expect(page.getByTestId('screen-reader-announcer-polite')).toContainText('Backup complete', { timeout: 20_000 });
+    // I2: after a backup the measured figure reflects the new remote objects.
+    await expect
+      .poll(() =>
+        page
+          .evaluate<Status>(`window.overlook.backup.providerStatus({ providerId: 'icloud-drive' })`)
+          .then((s) => s.usedByOverlookBytes ?? 0),
+      )
+      .toBeGreaterThan(0);
     const offloaded = await page.evaluate<{ offloaded: number }>(`window.overlook.backup.offload({ photoIds: ['01J8SEEDPHOTO0000'] })`);
     expect(offloaded.offloaded).toBe(1);
     await expect(page.locator('.ovl-grid__cell').first().getByRole('img', { name: 'Offloaded to cloud' })).toBeVisible();
