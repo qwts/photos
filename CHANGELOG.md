@@ -1,5 +1,11 @@
 # photos
 
+## 0.51.0
+
+### Minor Changes
+
+- 1056377: Import manually discovered Image Trail Move originals into encrypted native custody and upload resumable acknowledgements.
+
 ## 0.50.0
 
 ### Minor Changes
