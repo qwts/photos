@@ -52,16 +52,18 @@ const moveMessages = defineMessages({
 
 export interface LibrarySwitcherProps {
   readonly onClose: () => void;
+  /** Open straight into the "New library…" form (File → New Library…, #689). */
+  readonly startInCreate?: boolean;
 }
 
-export function LibrarySwitcher({ onClose }: LibrarySwitcherProps): ReactElement {
+export function LibrarySwitcher({ onClose, startInCreate = false }: LibrarySwitcherProps): ReactElement {
   const intl = useIntl();
   const { formatRelativeTime } = useFormats();
   const { announce } = useAnnouncer();
   const [libs, setLibs] = useState<readonly LibraryDescriptor[] | null>(null);
   // "4h ago" stamps are relative to load time, not render time (purity).
   const [loadedAt, setLoadedAt] = useState(0);
-  const [phase, setPhase] = useState<Phase>('list');
+  const [phase, setPhase] = useState<Phase>(startInCreate ? 'create' : 'list');
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [switchTarget, setSwitchTarget] = useState<LibraryDescriptor | null>(null);
   const [removeTarget, setRemoveTarget] = useState<LibraryDescriptor | null>(null);

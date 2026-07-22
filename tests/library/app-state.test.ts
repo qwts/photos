@@ -29,6 +29,13 @@ describe('app state reducer', () => {
     assert.equal(apply(initialAppState, { type: 'view/set', view: 'list' }).view, 'list');
   });
 
+  test('sidebar visibility toggles from the View menu (#689)', () => {
+    assert.equal(initialAppState.sidebarOpen, true);
+    const hidden = apply(initialAppState, { type: 'sidebar/toggled' });
+    assert.equal(hidden.sidebarOpen, false);
+    assert.equal(apply(hidden, { type: 'sidebar/toggled' }).sidebarOpen, true);
+  });
+
   test('selection toggles, selects all, clears', () => {
     let state = apply(initialAppState, { type: 'selection/toggled', photoId: 'a' }, { type: 'selection/toggled', photoId: 'b' });
     assert.deepEqual([...state.selection].sort(), ['a', 'b']);

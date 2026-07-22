@@ -27,6 +27,8 @@ export interface AppState {
   readonly selection: ReadonlySet<string>;
   readonly lightboxId: string | null;
   readonly inspectorOpen: boolean;
+  /** Sidebar visibility — toggled from View → Toggle Sidebar (#689). */
+  readonly sidebarOpen: boolean;
   readonly inspectorDetached: boolean;
   /** The surface that owns the docked Inspector lifecycle. */
   readonly inspectorSource: 'lightbox' | 'selection' | null;
@@ -66,6 +68,7 @@ export const initialAppState: AppState = {
   selection: new Set<string>(),
   lightboxId: null,
   inspectorOpen: false,
+  sidebarOpen: true,
   inspectorDetached: false,
   inspectorSource: null,
   inspectorPhotoId: null,
@@ -102,6 +105,7 @@ export type AppAction =
   | { type: 'lightbox/stepped'; delta: 1 | -1 }
   | { type: 'lightbox/closed' }
   | { type: 'inspector/toggled' }
+  | { type: 'sidebar/toggled' }
   | { type: 'inspector/detached' }
   | { type: 'inspector/detached-closed' }
   | { type: 'inspector/stepped'; delta: 1 | -1 }
@@ -257,6 +261,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return state.inspectorSource === 'lightbox'
         ? { ...state, lightboxId: null, inspectorOpen: false, inspectorSource: null, inspectorPhotoId: null }
         : { ...state, lightboxId: null };
+    case 'sidebar/toggled':
+      return { ...state, sidebarOpen: !state.sidebarOpen };
     case 'inspector/toggled': {
       if (state.inspectorOpen) {
         return { ...state, inspectorOpen: false, inspectorSource: null, inspectorPhotoId: null };

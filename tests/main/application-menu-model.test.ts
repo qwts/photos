@@ -161,22 +161,38 @@ test('Activity is a Help-menu command, not a sidebar/library surface (#690)', ()
   assert.equal(commandEnabled('help.activity', { ...grid, surface: 'locked' }), false);
 });
 
-test('commands pending handler wiring are disabled until the follow-up PR (#689)', () => {
-  // These project into the menu structure now but stay disabled until their
-  // cross-surface handlers + target-aware enablement land in the next slice.
-  for (const id of [
-    'library.move',
-    'library.new',
-    'view.sidebar.toggle',
-    'view.mode.feed',
-    'photo.export',
-    'photo.restore',
-    'album.membership.add',
-    'album.membership.remove',
-    'selection.clear',
-  ] as const) {
-    assert.equal(commandEnabled(id, { ...grid, source: 'deleted', inAlbum: true, hasTarget: true, selectionCount: 3 }), false);
+test('File/Edit/View additions are target-aware and enabled with a library (#689)', () => {
+  assert.equal(commandEnabled('library.move', grid), true);
+  assert.equal(commandEnabled('library.move', { ...grid, hasLibrary: false }), false);
+  assert.equal(commandEnabled('library.new', grid), true);
+  assert.equal(commandEnabled('view.sidebar.toggle', grid), true);
+  assert.equal(commandEnabled('view.sidebar.toggle', { ...grid, dialog: 'settings' }), false);
+  // Clear Selection needs a non-empty selection outside an editable field.
+  assert.equal(commandEnabled('selection.clear', { ...grid, selectionCount: 2 }), true);
+  assert.equal(commandEnabled('selection.clear', grid), false);
+  assert.equal(commandEnabled('selection.clear', { ...grid, selectionCount: 2, editable: true }), false);
+  // Feed has no view yet — it stays disabled.
+  assert.equal(commandEnabled('view.mode.feed', grid), false);
+});
+
+test('Photo menu commands resolve the lightbox target or the selection (#689)', () => {
+  const lightbox: CommandMenuContext = { ...grid, surface: 'lightbox', hasTarget: true, targetTrashable: true };
+  const selection: CommandMenuContext = { ...grid, selectionCount: 3 };
+  const empty = grid;
+  for (const id of ['photo.favorite.toggle', 'photo.export', 'photo.trash', 'album.membership.add'] as const) {
+    assert.equal(commandEnabled(id, lightbox), true);
+    assert.equal(commandEnabled(id, selection), true);
+    assert.equal(commandEnabled(id, empty), false);
   }
+  // Move to Trash refuses an already-trashed lightbox target.
+  assert.equal(commandEnabled('photo.trash', { ...lightbox, targetTrashable: false }), false);
+  // Add to Album is unavailable on Trash rows; Remove from Album needs an album.
+  assert.equal(commandEnabled('album.membership.add', { ...selection, source: 'deleted' }), false);
+  assert.equal(commandEnabled('album.membership.remove', selection), false);
+  assert.equal(commandEnabled('album.membership.remove', { ...selection, inAlbum: true }), true);
+  // Restore is Trash-only.
+  assert.equal(commandEnabled('photo.restore', { ...selection, source: 'deleted' }), true);
+  assert.equal(commandEnabled('photo.restore', selection), false);
 });
 
 test('checked state follows only the focused window context (#689)', () => {

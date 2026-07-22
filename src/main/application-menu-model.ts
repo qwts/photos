@@ -27,6 +27,11 @@ function locked(context: CommandMenuContext): boolean {
   return context.surface === 'locked';
 }
 
+/** A deterministic photo target: the focused lightbox photo or an intentional selection. */
+function hasPhotoTarget(context: CommandMenuContext): boolean {
+  return (context.surface === 'lightbox' && context.hasTarget) || context.selectionCount > 0;
+}
+
 export function commandEnabled(id: CommandId, context: CommandMenuContext): boolean {
   if (locked(context) && commandById(id).native?.lockSafe !== true) return false;
   switch (id) {
@@ -65,26 +70,40 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
       return context.surface === 'grid' && context.dialog === 'none';
     case 'view.lightbox.close':
       return context.surface === 'lightbox' && context.dialog === 'none';
-    case 'photo.favorite.toggle':
-      return context.surface === 'lightbox' && context.dialog === 'none' && context.hasTarget;
     case 'photo.original.mark':
     case 'photo.original.unmark':
-    case 'photo.trash':
       return context.surface === 'lightbox' && context.dialog === 'none' && context.targetTrashable;
-    // #689: these items now project into the macOS menu structure, but their
-    // cross-surface handler wiring + target-aware enablement lands in the
-    // follow-up PR. They stay disabled until then so the menu never shows an
-    // enabled item that does nothing. (Feed stays disabled until that view
-    // lands; Moodboard shipped with #515 and is enabled with Grid/List above.)
-    case 'library.move':
-    case 'library.new':
-    case 'view.sidebar.toggle':
-    case 'view.mode.feed':
+    // #689 Photo menu — target-aware (focused lightbox photo or intentional
+    // selection), never on Trash rows; the executing adapter revalidates.
+    case 'photo.favorite.toggle':
+      return context.dialog === 'none' && context.source !== 'deleted' && hasPhotoTarget(context);
+    case 'photo.trash':
+      // The focused lightbox photo must be trashable; a grid selection is
+      // trashable when the route is not already Trash. The adapter revalidates.
+      return (
+        context.dialog === 'none' &&
+        ((context.surface === 'lightbox' && context.hasTarget && context.targetTrashable) ||
+          (context.surface !== 'lightbox' && context.source !== 'deleted' && context.selectionCount > 0))
+      );
     case 'photo.export':
-    case 'photo.restore':
+      return context.dialog === 'none' && hasPhotoTarget(context);
     case 'album.membership.add':
+      return context.dialog === 'none' && context.source !== 'deleted' && context.hasLibrary && hasPhotoTarget(context);
     case 'album.membership.remove':
+      return context.dialog === 'none' && context.inAlbum && hasPhotoTarget(context);
+    case 'photo.restore':
+      return context.dialog === 'none' && context.source === 'deleted' && hasPhotoTarget(context);
+    // #689 File/Edit/View additions wired to their handlers.
+    case 'library.move':
+      return context.hasLibrary && context.dialog === 'none';
+    case 'library.new':
+      return context.dialog === 'none';
+    case 'view.sidebar.toggle':
+      return (context.surface === 'grid' || context.surface === 'lightbox') && context.dialog === 'none';
     case 'selection.clear':
+      return context.surface === 'grid' && context.dialog === 'none' && !context.editable && context.selectionCount > 0;
+    // Feed view has not landed yet (#689) — the item stays disabled.
+    case 'view.mode.feed':
       return false;
     case 'album.rename':
     case 'album.delete':
