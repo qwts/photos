@@ -7,6 +7,13 @@ Accepted (2026-07-15; implements
 [ADR-0007](./ADR-0007-Backup-Format-And-Offload.md) and
 [ADR-0009](./ADR-0009-Cloud-Recovery-Bootstrap-And-Manifest-V2.md))
 
+**Amended 2026-07-22 by
+[ADR-0028](./ADR-0028-Remote-Custody-Binding-And-Custody-Safe-Disconnect.md)
+(#723):** the scrub walks `offloaded` rows against their recorded custody
+authority rather than the current selection, its provider-scoped cursors
+become authority-scoped, and it carries the bounded reconciliation pass that
+binds legacy `offloaded` rows after namespace verification.
+
 ## Context
 
 Verify-after-upload proves an object was correct when it landed, but it does

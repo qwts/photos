@@ -7,6 +7,13 @@ the owner may veto or amend on issue
 [#102](https://github.com/qwts/photos/issues/102) — the M08 engine builds
 against these sections)
 
+**Amended 2026-07-22 by
+[ADR-0028](./ADR-0028-Remote-Custody-Binding-And-Custody-Safe-Disconnect.md)
+(#723):** a transition into `offloaded` additionally records the custody
+authority (provider, account, remote root) that verified the upload, and the
+failure-truth vocabulary gains a distinct wrong-account state; offloaded
+reads and restore are addressed by that recorded authority.
+
 ## Context
 
 M08 builds the backup/offload engine; the contract must exist first: what

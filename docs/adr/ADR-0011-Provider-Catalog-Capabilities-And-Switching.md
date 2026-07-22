@@ -6,6 +6,15 @@ Accepted (2026-07-14 on
 [#280](https://github.com/qwts/photos/issues/280), implemented by merged
 [PR #298](https://github.com/qwts/photos/pull/298)).
 
+**Amended 2026-07-22 by
+[ADR-0028](./ADR-0028-Remote-Custody-Binding-And-Custody-Safe-Disconnect.md)
+(#723):** disconnect and switch are additionally custody-gated — the
+active-work rejection below still applies, but a provider/account holding
+sole remote custody of offloaded originals cannot be removed through the
+ordinary path until those originals are restored and verified locally, and
+custody operations for bound rows are addressed by the recorded authority,
+never by the current selection.
+
 ## Context
 
 The backup and restore engines already depend on `StorageProvider`, but the
