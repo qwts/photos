@@ -121,6 +121,18 @@ jobs:
               export CSC_LINK="$WIN_CSC_LINK"
               export CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD"
             fi
+            # sharp ships its native binary as per-arch @img/sharp-win32-<arch>
+            # optional deps; npm ci on the x64 runner installs only the host
+            # (x64) one, so a cross-compiled arm64 build would bundle the x64
+            # sharp binary (caught by verify-windows-arch). Re-resolve sharp's
+            # optional deps for the target platform (--cpu/--os), then drop the
+            # non-target win32 binaries so only the correct payload ships.
+            # Nothing after this reinstalls them, and better-sqlite3 is rebuilt
+            # for the target arch by electron-builder's npmRebuild (#683).
+            if [ "$WIN_ARCH" != "x64" ]; then
+              npm install --no-save --cpu="$WIN_ARCH" --os=win32 sharp
+              find node_modules/@img -maxdepth 1 -type d -name 'sharp-win32-*' ! -name "sharp-win32-$WIN_ARCH" -exec rm -rf {} +
+            fi
             npm run "package:win:$WIN_ARCH"
             # Prove the cross-compiled payloads are genuinely the target arch:
             # the installed executable and every native .node, not the i386 NSIS

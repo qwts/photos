@@ -44,6 +44,15 @@ describe('Windows ARM64 packaging + signing (#683)', () => {
     assert.match(workflow, /node scripts\/verify-windows-arch\.mjs "\$WIN_ARCH"/u);
   });
 
+  test('cross-compiled legs re-resolve sharp for the target arch and drop host binaries', () => {
+    const workflow = source('.github/workflows/package.yml');
+    // npm ci installs only the host sharp binary; the arm64 leg must pull the
+    // target-arch @img/sharp-win32-<arch> and prune the rest, or a mixed
+    // payload would ship (and fail verify-windows-arch).
+    assert.match(workflow, /npm install --no-save --cpu="\$WIN_ARCH" --os=win32 sharp/u);
+    assert.match(workflow, /find node_modules\/@img .* -name 'sharp-win32-\*' ! -name "sharp-win32-\$WIN_ARCH"/u);
+  });
+
   test('Windows signing is env-gated and isolated from the mac certificate', () => {
     const workflow = source('.github/workflows/package.yml');
     const builder = source('electron-builder.yml');
