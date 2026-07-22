@@ -135,8 +135,15 @@ export function Moodboard({
   const total = order.length;
   const say = useCallback((message: string) => announce(message, 'polite', ANNOUNCE_KEY), [announce]);
 
-  // Notify the host of every board change so it can persist the layout.
+  // Notify the host of every board change so it can persist the layout — but
+  // not for the initial (loaded/seeded) board, so opening the view never
+  // triggers a redundant save.
+  const boardSettledRef = useRef(false);
   useEffect(() => {
+    if (!boardSettledRef.current) {
+      boardSettledRef.current = true;
+      return;
+    }
     onBoardChange?.(board);
   }, [board, onBoardChange]);
 
