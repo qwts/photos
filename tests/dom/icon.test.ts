@@ -100,6 +100,19 @@ const VOCABULARY = [
   'file-key',
   'fingerprint',
   'upload',
+  // Moodboard view glyphs the design's Moodboard.jsx uses beyond the readme
+  // list (#515): the view Segmented option and the floating board toolbar
+  // (align, group, layer order, crop, zoom, fit, share).
+  'layout-dashboard',
+  'align-horizontal-justify-center',
+  'group',
+  'bring-to-front',
+  'send-to-back',
+  'crop',
+  'zoom-in',
+  'zoom-out',
+  'maximize-2',
+  'layers',
 ] as const;
 
 describe('Icon', () => {

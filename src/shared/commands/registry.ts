@@ -73,6 +73,7 @@ export type CommandId =
   | 'view.inspector.detach'
   | 'view.mode.grid'
   | 'view.mode.list'
+  | 'view.mode.moodboard'
   | 'view.lightbox.close'
   | 'view.lightbox.previous'
   | 'view.lightbox.next'
@@ -149,6 +150,7 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'view.inspector.detach': { id: 'commands.view.inspector.detach', defaultMessage: 'Open Inspector in Separate Window' },
   'view.mode.grid': { id: 'commands.view.mode.grid', defaultMessage: 'Grid' },
   'view.mode.list': { id: 'commands.view.mode.list', defaultMessage: 'List' },
+  'view.mode.moodboard': { id: 'commands.view.mode.moodboard', defaultMessage: 'Moodboard' },
   'view.lightbox.close': { id: 'commands.view.lightbox.close', defaultMessage: 'Exit lightbox' },
   'view.lightbox.previous': { id: 'commands.view.lightbox.previous', defaultMessage: 'Previous photo' },
   'view.lightbox.next': { id: 'commands.view.lightbox.next', defaultMessage: 'Next photo' },
@@ -365,6 +367,13 @@ export const COMMANDS: readonly CommandDescriptor[] = [
   {
     id: 'view.mode.list',
     label: label('view.mode.list', 'List'),
+    surfaces: [],
+    target: 'window',
+    native: { menu: 'view', lockSafe: false, queueable: true },
+  },
+  {
+    id: 'view.mode.moodboard',
+    label: label('view.mode.moodboard', 'Moodboard'),
     surfaces: [],
     target: 'window',
     native: { menu: 'view', lockSafe: false, queueable: true },

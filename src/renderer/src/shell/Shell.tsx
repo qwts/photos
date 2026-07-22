@@ -279,7 +279,11 @@ export function Shell({
         return;
       case 'view.mode.grid':
       case 'view.mode.list':
-        dispatch({ type: 'view/set', view: nativeCommand.id === 'view.mode.grid' ? 'grid' : 'list' });
+      case 'view.mode.moodboard':
+        dispatch({
+          type: 'view/set',
+          view: nativeCommand.id === 'view.mode.grid' ? 'grid' : nativeCommand.id === 'view.mode.list' ? 'list' : 'moodboard',
+        });
         return;
       case 'view.lightbox.close':
         dispatch({ type: 'lightbox/closed' });

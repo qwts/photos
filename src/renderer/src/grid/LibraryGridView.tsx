@@ -433,7 +433,7 @@ export function LibraryGridView({
         photos={state.photos}
         total={total}
         zoom={state.zoom}
-        mode={state.view}
+        mode={state.view === 'list' ? 'list' : 'grid'}
         topInset={inTrash}
         onNeedMore={loadMore}
         renderTile={renderTile}

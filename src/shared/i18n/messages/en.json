@@ -278,6 +278,9 @@
   "commands.view.mode.list": {
     "defaultMessage": "List"
   },
+  "commands.view.mode.moodboard": {
+    "defaultMessage": "Moodboard"
+  },
   "common.cancel": {
     "defaultMessage": "Cancel"
   },
@@ -1132,6 +1135,9 @@
   },
   "toolbar.view.list": {
     "defaultMessage": "List"
+  },
+  "toolbar.view.moodboard": {
+    "defaultMessage": "Moodboard"
   },
   "toolbar.zoom": {
     "defaultMessage": "Zoom"

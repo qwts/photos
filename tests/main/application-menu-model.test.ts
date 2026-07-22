@@ -86,3 +86,11 @@ test('checked state follows only the focused window context (#531)', () => {
   assert.equal(find(template, 'view.mode.list')?.checked, true);
   assert.equal(find(template, 'view.inspector.toggle')?.checked, true);
 });
+
+test('the moodboard view radio checks only when the board view is active (#515)', () => {
+  const onBoard = buildApplicationMenuTemplate('darwin', 'Overlook', { ...grid, view: 'moodboard' }, () => {});
+  assert.equal(find(onBoard, 'view.mode.moodboard')?.checked, true);
+  assert.equal(find(onBoard, 'view.mode.grid')?.checked, false);
+  const onGrid = buildApplicationMenuTemplate('darwin', 'Overlook', { ...grid, view: 'grid' }, () => {});
+  assert.equal(find(onGrid, 'view.mode.moodboard')?.checked, false);
+});
