@@ -84,7 +84,6 @@ SignatureState Signature(const std::string& expectedBundleId, const std::string&
     CFNumberGetValue(flagsValue, kCFNumberSInt32Type, &flags);
     NSString* expectedTeam = String(kExpectedTeamIdentifier);
     NSString* expectedApplication = String(kExpectedApplicationIdentifier);
-    NSString* expectedUbiquityContainer = [NSString stringWithFormat:@"%@.%@", expectedTeam, expectedContainer];
     const auto* applicationIdentifier = static_cast<CFStringRef>(
         CFDictionaryGetValue(entitlements, CFSTR("com.apple.application-identifier")));
     const auto* entitlementTeam = static_cast<CFStringRef>(
@@ -106,7 +105,8 @@ SignatureState Signature(const std::string& expectedBundleId, const std::string&
 
     const bool iCloudTrusted =
         ArrayContains(entitlements, CFSTR("com.apple.developer.ubiquity-container-identifiers"),
-                      expectedUbiquityContainer) &&
+                      expectedContainer) &&
+        ArrayContains(entitlements, CFSTR("com.apple.developer.icloud-container-identifiers"), expectedContainer) &&
         ArrayContains(entitlements, CFSTR("com.apple.developer.icloud-services"), @"CloudDocuments");
     CFRelease(information);
     return iCloudTrusted ? SignatureState::kTrusted : SignatureState::kUnentitled;

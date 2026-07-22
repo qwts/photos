@@ -11,28 +11,29 @@ The contract matrix is the canonical readiness record.
 - Team ID: `Z5DM34QS5U`
 - Application ID: `Z5DM34QS5U.com.zts1.overlook`
 - iCloud Documents container: `iCloud.com.zts1.overlook`
-- signed ubiquity-container entitlement: `Z5DM34QS5U.iCloud.com.zts1.overlook`
+- signed iCloud and ubiquity-container entitlement: `iCloud.com.zts1.overlook`
 
 The container must be created and attached to the app identifier in Apple
 Developer before a matching Developer ID provisioning profile is generated.
 Profiles and Apple Account material remain outside the repository.
 
-The provisioning profile must authorize the application/team identity and the
-Team-ID-prefixed ubiquity container. Apple may encode the latter as the exact
-container or as its generated Team-ID wildcard. Developer ID profiles generated
-with the portal's legacy iCloud Documents option can omit the service list.
+The provisioning profile must authorize the application/team identity, the
+production iCloud and ubiquity container, and iCloud Documents. The release
+profile uses Apple's current compatibility mode; its `icloud-services = *`
+authorization permits the app's narrower `CloudDocuments` claim.
 
 The signed main executable must claim all of these entitlements exactly:
 
 - `com.apple.application-identifier`
 - `com.apple.developer.team-identifier`
-- `com.apple.developer.ubiquity-container-identifiers` containing the Team-ID-prefixed container
+- `com.apple.developer.icloud-container-identifiers` containing the iCloud container
+- `com.apple.developer.ubiquity-container-identifiers` containing the iCloud container
 - `com.apple.developer.icloud-services` containing `CloudDocuments`
 
-`com.apple.developer.icloud-container-identifiers` is the CloudKit production-
-container entitlement. The Documents provider does not claim or require it;
-`FileManager.url(forUbiquityContainerIdentifier:)` is authorized by the
-Team-ID-prefixed ubiquity-container entitlement above.
+The current iCloud Documents profile authorizes both container entitlement
+families. Overlook still uses file coordination and
+`FileManager.url(forUbiquityContainerIdentifier:)`; it does not use CloudKit
+records or databases.
 
 Renderer and other helper executables inherit only Electron hardened-runtime
 allowances. They must not receive the application identity or iCloud container

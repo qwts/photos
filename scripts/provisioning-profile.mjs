@@ -37,6 +37,7 @@ export function validateProvisioningProfile(metadata, expected, now = Date.now()
   }
   if (expected.ubiquityContainerId !== undefined) {
     const ubiquityContainers = metadata.entitlements?.['com.apple.developer.ubiquity-container-identifiers'];
+    const iCloudContainers = metadata.entitlements?.['com.apple.developer.icloud-container-identifiers'];
     const services = metadata.entitlements?.['com.apple.developer.icloud-services'];
     if (
       !Array.isArray(ubiquityContainers) ||
@@ -44,11 +45,14 @@ export function validateProvisioningProfile(metadata, expected, now = Date.now()
     ) {
       throw new Error(`profile does not authorize ubiquity container ${expected.ubiquityContainerId}`);
     }
-    // Developer ID profiles generated with Apple's legacy iCloud Documents
-    // option authorize the ubiquity container but can omit this app entitlement.
-    // When the profile does constrain services, it must include Documents. The
-    // packaged executable is verified separately and must always claim it.
-    if (services !== undefined && (!Array.isArray(services) || !services.includes('CloudDocuments'))) {
+    if (
+      expected.iCloudContainerId !== undefined &&
+      (!Array.isArray(iCloudContainers) ||
+        !iCloudContainers.some((authorized) => authorizesIdentifier(authorized, expected.iCloudContainerId)))
+    ) {
+      throw new Error(`profile does not authorize iCloud container ${expected.iCloudContainerId}`);
+    }
+    if (services !== '*' && (!Array.isArray(services) || !services.includes('CloudDocuments'))) {
       throw new Error('profile does not authorize iCloud Documents');
     }
   }

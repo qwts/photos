@@ -6,7 +6,6 @@ import { pathToFileURL } from 'node:url';
 
 import {
   OVERLOOK_ICLOUD_CONTAINER_ID,
-  OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
   OVERLOOK_MAC_APPLICATION_ID,
   OVERLOOK_MAC_BUNDLE_ID,
   OVERLOOK_PRODUCT_NAME,
@@ -66,14 +65,13 @@ describe('macOS release signing safety (#357)', () => {
     }
     for (const entitlement of [
       'com.apple.developer.icloud-services',
+      'com.apple.developer.icloud-container-identifiers',
       'com.apple.developer.ubiquity-container-identifiers',
       OVERLOOK_ICLOUD_CONTAINER_ID,
-      OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
       'CloudDocuments',
     ]) {
       assert.match(provisioned, new RegExp(entitlement.replaceAll('.', '\\.'), 'u'));
     }
-    assert.doesNotMatch(provisioned, /com\.apple\.developer\.icloud-container-identifiers/u);
     assert.match(packager, /iCloud\.com\.zts1\.overlook/u);
     assert.match(packager, /Z5DM34QS5U/u);
     assert.match(packager, /com\.zts1\.overlook/u);
@@ -98,13 +96,14 @@ describe('macOS release signing safety (#357)', () => {
       'com.apple.application-identifier',
       'com.apple.developer.team-identifier',
       'com.apple.developer.icloud-services',
+      'com.apple.developer.icloud-container-identifiers',
       'com.apple.developer.ubiquity-container-identifiers',
       'Overlook Helper (Renderer)',
     ]) {
       assert.ok(provisionedVerifier.includes(contract), `verifier must enforce ${contract}`);
     }
     assert.match(provisionedVerifier, /ICLOUD_CONTAINER_ID = `iCloud\.\$\{BUNDLE_ID\}`/u);
-    assert.match(provisionedVerifier, /UBIQUITY_CONTAINER_ID = `\$\{TEAM_ID\}\.\$\{ICLOUD_CONTAINER_ID\}`/u);
+    assert.match(provisionedVerifier, /UBIQUITY_CONTAINER_ID = ICLOUD_CONTAINER_ID/u);
     assert.match(provisionedVerifier, /codesign/u);
     assert.match(source('scripts/verify-macos-app-launch.mjs'), /ditto/u);
     for (const binary of ['ditto', 'plutil', 'security']) assert.match(knip, new RegExp(binary, 'u'));
@@ -172,8 +171,9 @@ describe('provisioning profile validation (#360)', () => {
     const entitlements = {
       'com.apple.application-identifier': OVERLOOK_MAC_APPLICATION_ID,
       'com.apple.developer.team-identifier': OVERLOOK_TEAM_ID,
-      'com.apple.developer.ubiquity-container-identifiers': [OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID],
-      'com.apple.developer.icloud-services': ['CloudDocuments'],
+      'com.apple.developer.icloud-container-identifiers': [OVERLOOK_ICLOUD_CONTAINER_ID],
+      'com.apple.developer.ubiquity-container-identifiers': [OVERLOOK_ICLOUD_CONTAINER_ID],
+      'com.apple.developer.icloud-services': '*',
     };
     const metadata = {
       entitlements,
@@ -183,7 +183,8 @@ describe('provisioning profile validation (#360)', () => {
     const expected = {
       applicationId: OVERLOOK_MAC_APPLICATION_ID,
       teamId: OVERLOOK_TEAM_ID,
-      ubiquityContainerId: OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
+      iCloudContainerId: OVERLOOK_ICLOUD_CONTAINER_ID,
+      ubiquityContainerId: OVERLOOK_ICLOUD_CONTAINER_ID,
     };
     validateProvisioningProfile(metadata, expected, 0);
     validateProvisioningProfile(
@@ -191,15 +192,21 @@ describe('provisioning profile validation (#360)', () => {
         ...metadata,
         entitlements: {
           ...entitlements,
-          'com.apple.developer.ubiquity-container-identifiers': [`${OVERLOOK_TEAM_ID}.*`],
+          'com.apple.developer.ubiquity-container-identifiers': ['iCloud.com.zts1.*'],
         },
       },
       expected,
       0,
     );
-    const { ['com.apple.developer.icloud-services']: _services, ...legacyProfileEntitlements } = entitlements;
-    validateProvisioningProfile({ ...metadata, entitlements: legacyProfileEntitlements }, expected, 0);
-    for (const unauthorized of [`${OVERLOOK_TEAM_ID}.iCloud.com.zts1.other`, `${OVERLOOK_TEAM_ID}*`, `OTHERTEAM.*`]) {
+    validateProvisioningProfile(
+      {
+        ...metadata,
+        entitlements: { ...entitlements, 'com.apple.developer.icloud-services': ['CloudDocuments'] },
+      },
+      expected,
+      0,
+    );
+    for (const unauthorized of ['iCloud.com.zts1.other', 'iCloud.com.zts1*', 'iCloud.com.other.*']) {
       assert.throws(
         () =>
           validateProvisioningProfile(
@@ -216,22 +223,15 @@ describe('provisioning profile validation (#360)', () => {
         /does not authorize ubiquity container/u,
       );
     }
-    for (const key of ['com.apple.developer.ubiquity-container-identifiers', 'com.apple.developer.icloud-services']) {
+    for (const key of [
+      'com.apple.developer.icloud-container-identifiers',
+      'com.apple.developer.ubiquity-container-identifiers',
+      'com.apple.developer.icloud-services',
+    ]) {
       assert.throws(
         () => validateProvisioningProfile({ ...metadata, entitlements: { ...entitlements, [key]: [] } }, expected, 0),
         /does not authorize/u,
       );
     }
-    validateProvisioningProfile(
-      {
-        ...metadata,
-        entitlements: {
-          ...entitlements,
-          'com.apple.developer.icloud-container-identifiers': [],
-        },
-      },
-      expected,
-      0,
-    );
   });
 });
