@@ -1,5 +1,6 @@
 import type { MediaInfo } from './media-info.js';
-import type { FileKind } from './types.js';
+import { detectTsLayout, probeTransportStream } from './mpeg-ts.js';
+import type { FileKind, ImageFileKind } from './types.js';
 
 // Signature-first classification per ADR-0026 §2: content decides, names
 // hint. Pure, bounded byte inspection — no decoding, no dependencies — so
@@ -48,7 +49,7 @@ function isHeicBrand(brand: string): boolean {
  * image signature matches (callers keep their extension-derived kind — the
  * sniffer only ever *corrects* toward evidence, ADR-0026 §2).
  */
-export function sniffImageKind(bytes: Uint8Array): Exclude<FileKind, 'raw' | 'other'> | null {
+export function sniffImageKind(bytes: Uint8Array): ImageFileKind | null {
   if (startsWith(bytes, GIF87) || startsWith(bytes, GIF89)) return 'gif';
   if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP') return 'webp';
   if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'jpeg';
@@ -195,13 +196,25 @@ function probeWebp(bytes: Uint8Array): MediaInfo {
 }
 
 /**
- * Bounded animation probe (ADR-0026 §2/§9) for signature-validated GIF/WebP
- * bytes. Truncated or hostile input degrades fields to null — probe results
- * are facts or absent, never guesses. Returns null for kinds without
- * animation semantics.
+ * Signature-first classification for the video kinds (ADR-0026 §2). Returns
+ * `'video'` for a validated MPEG-TS cadence (#548). Names never decide — a
+ * `.ts` whose bytes are not a transport stream is rejected here and (per §2)
+ * is not an import candidate. Returns null when no video signature matches.
+ */
+export function sniffVideoKind(bytes: Uint8Array): Extract<FileKind, 'video'> | null {
+  if (detectTsLayout(bytes) !== null) return 'video';
+  return null;
+}
+
+/**
+ * Bounded probe (ADR-0026 §2/§9) for signature-validated media bytes. GIF/WebP
+ * animation facts (#547); MPEG-TS container/stream facts (#548). Truncated or
+ * hostile input degrades fields to null / `probeIncomplete` — probe results are
+ * facts or absent, never guesses. Returns null for kinds without probed facts.
  */
 export function probeMediaInfo(bytes: Uint8Array, kind: FileKind): MediaInfo | null {
   if (kind === 'gif' && sniffImageKind(bytes) === 'gif') return probeGif(bytes);
   if (kind === 'webp' && sniffImageKind(bytes) === 'webp') return probeWebp(bytes);
+  if (kind === 'video' && detectTsLayout(bytes) !== null) return probeTransportStream(bytes);
   return null;
 }

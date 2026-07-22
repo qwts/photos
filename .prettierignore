@@ -11,6 +11,9 @@ playwright-report/
 test-results/
 package-lock.json
 design/handoff/
+# Binary media fixtures with source-like extensions (.ts/.mts/.m2ts transport
+# streams are real bytes, not TypeScript). Inputs, not source (#548).
+tests/fixtures/
 # Generated verbatim by scripts/generate-third-party-notices.mjs; the
 # licenses:notices freshness check compares raw generator output byte-for-byte,
 # so prettier must not reformat it (#461).

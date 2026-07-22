@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["tests/**/*.test.ts", "tests/dom/css-loader.ts", "tests/dom/register.ts", "tests/e2e/**/*.spec.ts", "scripts/*.mjs"],
-  "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "scripts/**/*.mjs"],
+  "project": ["src/**/*.{ts,tsx}", "tests/**/*.ts", "!tests/fixtures/**", "scripts/**/*.mjs"],
   "ignoreExportsUsedInFile": true,
   "ignoreBinaries": ["ditto", "plutil", "security", "ps", "mount"],
   "ignoreDependencies": ["@formatjs/cli", "node-addon-api", "node-test-github-reporter", "prebuildify"]

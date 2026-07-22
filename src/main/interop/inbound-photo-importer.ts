@@ -9,12 +9,12 @@ import { extractMetadata, type ExtractedMetadata } from '../import/exif.js';
 import type { ThumbnailOutcome, ThumbnailService } from '../import/thumbnail-service.js';
 import { queryGet } from '../db/sql.js';
 import type { InteropReviewCategory } from '../../shared/interop/contract.js';
-import type { FileKind, PhotoInsert, PhotoRecord } from '../../shared/library/types.js';
+import type { FileKind, ImageFileKind, PhotoInsert, PhotoRecord } from '../../shared/library/types.js';
 import { probeMediaInfo, sniffImageKind } from '../../shared/library/media-signatures.js';
 import type { InteropAlbum, InteropRecord } from '../../shared/interop/records.js';
 import type { InteropRepository } from './interop-repository.js';
 
-const extensions: Readonly<Record<Exclude<FileKind, 'raw' | 'other'>, string>> = {
+const extensions: Readonly<Record<ImageFileKind, string>> = {
   jpeg: 'jpg',
   png: 'png',
   heic: 'heic',
@@ -22,7 +22,7 @@ const extensions: Readonly<Record<Exclude<FileKind, 'raw' | 'other'>, string>> =
   webp: 'webp',
 };
 
-const mimeTypes: Readonly<Record<Exclude<FileKind, 'raw' | 'other'>, readonly string[]>> = {
+const mimeTypes: Readonly<Record<ImageFileKind, readonly string[]>> = {
   jpeg: ['image/jpeg'],
   png: ['image/png'],
   heic: ['image/heic', 'image/heif'],
@@ -34,7 +34,7 @@ export function deterministicInboundPhotoId(interopId: string): string {
   return `interop-${interopId.toLowerCase()}`;
 }
 
-export function inboundFileName(record: InteropRecord, kind: Exclude<FileKind, 'raw' | 'other'>): string {
+export function inboundFileName(record: InteropRecord, kind: ImageFileKind): string {
   const sanitized = (record.title ?? '')
     .normalize('NFKC')
     .replace(/[\p{Cc}/\\:]/gu, ' ')
@@ -218,7 +218,7 @@ export class InboundPhotoImporter {
 
   private photoInsert(
     record: InteropRecord,
-    kind: Exclude<FileKind, 'raw' | 'other'>,
+    kind: ImageFileKind,
     photoId: string,
     keyId: number,
     bytes: Buffer,

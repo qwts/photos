@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { mediaInfoSchema } from '../library/media-info.js';
-import type { InteropJsonObject } from './json.js';
+import { interopJsonObjectSchema, type InteropJsonObject } from './json.js';
 
 // ADR-0026 §8: media facts cross the Image Trail boundary inside contract
 // v1's open product-specific object — `roundTripMetadata.overlook.media` —
@@ -35,9 +35,12 @@ export function mediaBlockFrom(overlook: InteropJsonObject): InteropMediaBlock |
 }
 
 /** Returns a copy of `overlook` carrying the media block (or stripped of it
- * when `block` is null); other product round-trip keys are preserved. */
+ * when `block` is null); other product round-trip keys are preserved. The
+ * validated block is normalized to a plain JSON object (undefined optional
+ * fields dropped) so it satisfies the strict interop JSON value type. */
 export function withMediaBlock(overlook: InteropJsonObject, block: InteropMediaBlock | null): InteropJsonObject {
   const { [INTEROP_MEDIA_BLOCK_KEY]: _existing, ...rest } = overlook;
   if (block === null) return rest;
-  return { ...rest, [INTEROP_MEDIA_BLOCK_KEY]: interopMediaBlockSchema.parse(block) };
+  const normalized = interopJsonObjectSchema.parse(JSON.parse(JSON.stringify(interopMediaBlockSchema.parse(block))));
+  return { ...rest, [INTEROP_MEDIA_BLOCK_KEY]: normalized };
 }

@@ -29,7 +29,7 @@ export const backupManifestV1Schema = z.strictObject({
 export const backupManifestPhotoV2Schema = z.strictObject({
   id: z.string().min(1),
   fileName: z.string().min(1),
-  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'gif', 'webp', 'other']),
+  fileKind: z.enum(['jpeg', 'raw', 'png', 'heic', 'gif', 'webp', 'video', 'audio', 'other']),
   width: z.number().int().nonnegative(),
   height: z.number().int().nonnegative(),
   bytes: z.number().int().nonnegative(),
