@@ -1677,7 +1677,8 @@
             "tests/db/board-repository.test.ts",
             "tests/db/library-db.test.ts",
             "tests/library/library-service.test.ts",
-            "tests/history/history-service.test.ts"
+            "tests/history/history-service.test.ts",
+            "tests/backup/board-backup.test.ts"
           ]
         },
         {

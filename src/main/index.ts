@@ -17,6 +17,7 @@ import { TestFileCredentialAnchorStore } from './crypto/test-credential-anchor.j
 import { pickSafeStorage } from './crypto/safe-storage-runtime.js';
 import { openLibraryDatabase } from './db/database.js';
 import { PhotosRepository, verifySearchIndexAsync } from './db/photos-repository.js';
+import { boardsSnapshot } from './db/board-repository.js';
 import { run } from './db/sql.js';
 import type { FullService } from './fullres/full-service.js';
 import { createFullRuntime } from './fullres/full-runtime.js';
@@ -469,6 +470,7 @@ function getBackupEngine(): BackupEngine {
       libraryId: () => getProviderRuntime().libraryId(),
       manifestSnapshot: () => repo.manifestSnapshot(),
       activitySnapshot: () => activityBackupSnapshot(parts.db),
+      boardsSnapshot: () => boardsSnapshot(parts.db),
       // Live reads (#111): every run and every maybeAutoRun sees the
       // store's current values — no restart needed after a settings change.
       settings: () => {

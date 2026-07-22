@@ -11,6 +11,7 @@ import { KeyStore, type SafeStorageLike } from '../crypto/keystore.js';
 import { installRecoveredMaster } from '../crypto/recovery.js';
 import { openLibraryDatabase } from '../db/database.js';
 import { PhotosRepository } from '../db/photos-repository.js';
+import { boardsSnapshot, restoreBoards } from '../db/board-repository.js';
 import { ProtectedRecoveryRepository } from '../db/protected-recovery-repository.js';
 import { ActivityRepository } from '../activity/activity-repository.js';
 import type { ThumbnailService } from '../import/thumbnail-service.js';
@@ -371,16 +372,27 @@ export class RestoreEngine {
     try {
       const repo = new PhotosRepository(db);
       repo.restoreManifest(candidate.manifest, discovery.bootstrap.keys);
+      if ('boards' in candidate.manifest) restoreBoards(db, candidate.manifest.boards);
       if (candidate.manifest.schema !== 2) new ProtectedRecoveryRepository(db).restore(candidate.manifest);
-      if (candidate.manifest.schema === 4) new ActivityRepository(db).restoreSnapshot(candidate.manifest.activity);
+      if (candidate.manifest.schema === 4 || candidate.manifest.schema === 5) {
+        new ActivityRepository(db).restoreSnapshot(candidate.manifest.activity);
+      }
       const rebuilt = repo.manifestSnapshot();
+      const expectedBoards = candidate.manifest.schema === 5 ? candidate.manifest.boards : [];
       const expected = {
         keyIds: candidate.manifest.keyIds,
         totals: candidate.manifest.totals,
         photos: candidate.manifest.photos,
         albums: candidate.manifest.albums,
+        boards: expectedBoards,
       };
-      const actual = { keyIds: rebuilt.keyIds, totals: rebuilt.totals, photos: rebuilt.photos, albums: rebuilt.albums };
+      const actual = {
+        keyIds: rebuilt.keyIds,
+        totals: rebuilt.totals,
+        photos: rebuilt.photos,
+        albums: rebuilt.albums,
+        boards: boardsSnapshot(db),
+      };
       if (!isDeepStrictEqual(actual, expected)) throw new RestoreError('corrupt', 'rebuilt catalog does not match the manifest');
       for (const photo of candidate.manifest.photos) {
         if (!(await store.verifyOriginal(photo.contentHash, discovery.resolveKey, photo.id))) {
