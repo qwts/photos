@@ -121,7 +121,7 @@ test('a11y: the composed shell — sidebar, toolbar, grid, and status bar togeth
     const main = page.getByRole('main');
     await expect(main.getByRole('heading', { level: 1 })).toHaveText('All Photos');
     await expect(page.getByRole('contentinfo')).toBeVisible();
-    const firstPhoto = page.getByRole('listitem').first();
+    const firstPhoto = page.locator('.ovl-grid__cell').first();
     await expect(firstPhoto).toHaveAttribute('aria-posinset', '1');
     await expect(firstPhoto).toHaveAttribute('aria-setsize', '12');
     await expect(firstPhoto.locator('.ovl-tile__open')).toHaveAccessibleName(/Open IMG_\d+\.(?:JPG|RAF)/u);

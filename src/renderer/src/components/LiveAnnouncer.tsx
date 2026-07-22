@@ -42,13 +42,7 @@ function LiveRegion({
     return () => clearTimeout(timer);
   }, [active, onNext]);
   return (
-    <div
-      className="ovl-live-region"
-      data-testid={`screen-reader-announcer-${priority}`}
-      role={priority === 'polite' ? 'status' : 'alert'}
-      aria-live={priority}
-      aria-atomic="true"
-    >
+    <div className="ovl-live-region" data-testid={`screen-reader-announcer-${priority}`} aria-live={priority} aria-atomic="true">
       {active === undefined ? null : <span key={active.id}>{active.text}</span>}
     </div>
   );

@@ -83,6 +83,7 @@ export function useAlbumReorder(albums: readonly AlbumSummary[]): {
   const [invalid, setInvalid] = useState(false);
   const originRef = useRef<readonly string[]>(incomingOrder);
   const interactionSignatureRef = useRef('');
+  const pointerCommittedRef = useRef(false);
   const displayOrder = previewOrder ?? incomingOrder;
   const byId = new Map(albums.map((album) => [album.id, album]));
   const orderedAlbums = displayOrder.flatMap((id) => {
@@ -191,15 +192,28 @@ export function useAlbumReorder(albums: readonly AlbumSummary[]): {
         onDragStart: (event) => {
           originRef.current = displayOrder;
           interactionSignatureRef.current = signature;
+          pointerCommittedRef.current = false;
           setDraggingId(album.id);
           beginAlbumReorderDrag(event.dataTransfer, album.id);
         },
         onDragEnd: () => {
+          if (pointerCommittedRef.current) {
+            pointerCommittedRef.current = false;
+            return;
+          }
           if (draggingId === album.id) {
+            const originalPosition = originRef.current.indexOf(album.id);
             setPreviewOrder(null);
             setDraggingId(null);
             setInvalid(false);
             endAlbumReorderDrag();
+            publish(
+              intl.formatMessage(messages.cancelled, {
+                name: album.name,
+                position: originalPosition + 1,
+                total: originRef.current.length,
+              }),
+            );
           }
         },
         onKeyDown: (event) => {
@@ -292,6 +306,7 @@ export function useAlbumReorder(albums: readonly AlbumSummary[]): {
           if (album === undefined) return;
           const from = originRef.current.indexOf(album.id);
           const to = displayOrder.indexOf(album.id);
+          pointerCommittedRef.current = true;
           commit(album, displayOrder, commandFor(from, to, displayOrder.length));
         },
       };

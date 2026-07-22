@@ -196,6 +196,7 @@
 
 .ovl-siderow {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-3);
   height: 28px; /* the mock's own row height */
@@ -394,6 +395,7 @@
 
 .ovl-sidebar__albumlist {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: 0;
   margin: 0;
@@ -416,13 +418,14 @@
 
 .ovl-sidebar__album-reorder {
   position: absolute;
+  z-index: 1;
   inset-inline-start: 4px;
-  top: 3px;
+  top: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-1);
