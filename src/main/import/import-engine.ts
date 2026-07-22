@@ -4,7 +4,7 @@ import { Readable } from 'node:stream';
 import type { ExtractedMetadata } from './exif.js';
 import type { ThumbnailOutcome, ThumbnailRequest } from './thumbnail-service.js';
 import type { EnvelopeKey, KeyResolver } from '../crypto/envelope.js';
-import { probeMediaInfo, sniffImageKind } from '../../shared/library/media-signatures.js';
+import { probeMediaInfo, sniffImageKind, sniffVideoKind } from '../../shared/library/media-signatures.js';
 import type { MediaInfo } from '../../shared/library/media-info.js';
 import type { FileKind, PhotoInsert, PhotoRecord } from '../../shared/library/types.js';
 
@@ -239,7 +239,12 @@ export class ImportEngine {
       // a spoofed suffix records the format the bytes actually are. The name
       // and extension stay untouched (custody, §4). Deterministic from bytes,
       // so resumed batches re-derive the same answer.
-      const kind = sniffImageKind(bytes) ?? file.kind;
+      // Video kinds are signature-confirmed too (0x47 TS cadence, #548): a
+      // still-image signature wins first, then a container signature, and only
+      // then the extension hint — so a valid transport stream classifies as
+      // video by content, while a spoofed `.ts` that is really a JPEG records
+      // jpeg (ADR-0026 §2).
+      const kind = sniffImageKind(bytes) ?? sniffVideoKind(bytes) ?? file.kind;
       const mediaInfo = probeMediaInfo(bytes, kind);
 
       if (file.stage === 'pending') {
