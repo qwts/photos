@@ -1,10 +1,10 @@
-# Contributing to photos
+# Contributing to Overlook
 
 This page is the canonical contributor and agent workflow guide. Read it
 before starting tracked work, and update this page when workflow, documentation,
 issue-claim, branch, PR, or validation rules change.
 
-photos is built in small, issue-scoped slices. Canonical milestone, user-story,
+Overlook is built in small, issue-scoped slices. Canonical milestone, user-story,
 ADR, and project notes live in `docs/`. Root-level repo markdown files are
 stubs unless they are `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or root
 `README.md`.

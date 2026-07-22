@@ -15,7 +15,7 @@ function profileApp(
   calls: string[];
 } {
   const calls: string[] = [];
-  const defaults = paths ?? { appData: '/profiles', userData: '/profiles/photos' };
+  const defaults = paths ?? { appData: '/profiles', userData: '/profiles/electron' };
   return {
     app: {
       isPackaged,
@@ -35,10 +35,20 @@ describe('app profile identity', () => {
     assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, 'path:userData:/tmp/overlook-profile']);
   });
 
+  it('binds an unpackaged launch to the stable Overlook profile by default', () => {
+    const appData = mkdtempSync(join(tmpdir(), 'overlook-app-profile-development-'));
+    const stable = join(appData, OVERLOOK_PRODUCT_NAME);
+    const { app, calls } = profileApp(false, { appData, userData: join(appData, 'electron') });
+
+    assert.equal(configureAppProfile(app, undefined), undefined);
+    assert.equal(existsSync(stable), true);
+    assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:${stable}`]);
+  });
+
   it('ignores profile overrides and creates the stable profile before binding it in packaged builds', () => {
     const appData = mkdtempSync(join(tmpdir(), 'overlook-app-profile-first-launch-'));
     const stable = join(appData, OVERLOOK_PRODUCT_NAME);
-    const { app, calls } = profileApp(true, { appData, userData: join(appData, 'photos') });
+    const { app, calls } = profileApp(true, { appData, userData: join(appData, 'electron') });
 
     assert.equal(configureAppProfile(app, '/tmp/overlook-profile'), undefined);
     assert.equal(existsSync(stable), true);
@@ -69,35 +79,5 @@ describe('app profile identity', () => {
     configureAppProfile(app, undefined);
 
     assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:${initial}`]);
-  });
-
-  it('recovers the pre-product-name photos profile in place', () => {
-    const appData = mkdtempSync(join(tmpdir(), 'overlook-app-profile-legacy-'));
-    const stable = join(appData, OVERLOOK_PRODUCT_NAME);
-    const legacy = join(appData, 'photos');
-    mkdirSync(join(legacy, 'library'), { recursive: true });
-    mkdirSync(join(legacy, 'provider-auth', 'pcloud'), { recursive: true });
-    writeFileSync(join(legacy, 'library', 'library.db'), 'encrypted');
-    writeFileSync(join(legacy, 'provider-auth', 'pcloud', 'pcloud-auth.bin'), 'sealed');
-    const { app, calls } = profileApp(true, { appData, userData: stable });
-
-    configureAppProfile(app, undefined);
-
-    assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:${legacy}`]);
-  });
-
-  it('keeps an established Overlook profile when a stale photos profile also exists', () => {
-    const appData = mkdtempSync(join(tmpdir(), 'overlook-app-profile-both-'));
-    const stable = join(appData, OVERLOOK_PRODUCT_NAME);
-    const legacy = join(appData, 'photos');
-    mkdirSync(stable, { recursive: true });
-    mkdirSync(join(legacy, 'library'), { recursive: true });
-    writeFileSync(join(stable, 'libraries.json'), '{"version":1,"entries":[]}');
-    writeFileSync(join(legacy, 'library', 'library.db'), 'stale');
-    const { app, calls } = profileApp(true, { appData, userData: stable });
-
-    configureAppProfile(app, undefined);
-
-    assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:${stable}`]);
   });
 });

@@ -1,6 +1,6 @@
 # Testing Strategy
 
-> Canonical reference for how photos is tested: the lanes, what runs when and
+> Canonical reference for how Overlook is tested: the lanes, what runs when and
 > where, and the policy for adding coverage when features land. Lives in
 > `docs/`, versioned with the code it describes.
 

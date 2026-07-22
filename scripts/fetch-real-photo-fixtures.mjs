@@ -80,7 +80,7 @@ function proxyUrl(sourceUrl) {
 }
 
 async function download(sourceUrl) {
-  const response = await fetch(proxyUrl(sourceUrl), { headers: { 'user-agent': 'qwts-photos-fixture-fetch/1.0' } });
+  const response = await fetch(proxyUrl(sourceUrl), { headers: { 'user-agent': 'qwts-overlook-fixture-fetch/1.0' } });
   if (!response.ok) throw new Error(`fixture download failed: ${String(response.status)} ${sourceUrl}`);
   return Buffer.from(await response.arrayBuffer());
 }

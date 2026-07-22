@@ -2,7 +2,7 @@
 
 // Fails lint when a package.json dependency uses anything but an exact version pin.
 // Dependabot owns upgrades; humans don't hand-edit ranges. (Stricter than image-trail's
-// "latest"-only ban, per the photos tooling epic: ^/~/ranges/tags all fail.)
+// "latest"-only ban, per the Overlook tooling epic: ^/~/ranges/tags all fail.)
 
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';

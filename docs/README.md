@@ -1,4 +1,4 @@
-# photos Documentation
+# Overlook Documentation
 
 This directory holds photos' canonical process, planning, and SOP
 documentation. It is the source of truth: docs are versioned with the code they
