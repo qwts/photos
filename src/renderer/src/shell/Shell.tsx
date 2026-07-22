@@ -9,6 +9,7 @@ import { Icon } from '../components/Icon';
 import { TitleBar } from '../components/TitleBar';
 import { ToastHost, type ToastItem } from '../components/Toast';
 import { LibraryGridView } from '../grid/LibraryGridView';
+import { MoodboardRoute } from '../moodboard/MoodboardRoute';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ExportDialog } from '../export/ExportDialog';
 import { SettingsDialog, type SettingsSection } from '../settings/SettingsDialog';
@@ -80,6 +81,10 @@ export function Shell({
   const [shortcutSurface, setShortcutSurface] = useState<CommandSurface | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>();
   const [exportPhotoIds, setExportPhotoIds] = useState<readonly string[] | null>(null);
+  const openExport = (photoIds: readonly string[]): void => {
+    setExportPhotoIds([...photoIds]);
+    dispatch({ type: 'dialog/set', dialog: 'export', open: true });
+  };
   const handledNativeSequenceRef = useRef(0);
   const [editableFocus, setEditableFocus] = useState(false);
   useCommandDispatcher(platform, setShortcutSurface, shortcutSurface !== null);
@@ -760,11 +765,8 @@ export function Shell({
             onToggleInspector={() => {
               dispatch({ type: 'inspector/toggled' });
             }}
-            onExport={() => {
-              // Lightbox entry point (#100): count=1, the focused photo.
-              setExportPhotoIds([current.id]);
-              dispatch({ type: 'dialog/set', dialog: 'export', open: true });
-            }}
+            // Lightbox entry point (#100): count=1, the focused photo.
+            onExport={() => openExport([current.id])}
             onTransfer={() => openInterop('lightbox', [current.id])}
             onOffload={() => {
               offload.open([current.id], false, () => dispatch({ type: 'lightbox/closed' }));
@@ -820,15 +822,14 @@ export function Shell({
               {viewTitle}
             </h1>
           ) : null}
-          {state.protectedAlbum === null ? (
+          {state.protectedAlbum === null && state.view === 'moodboard' ? (
+            <MoodboardRoute photos={state.photos} onExport={openExport} />
+          ) : state.protectedAlbum === null ? (
             <LibraryGridView
               platform={commandPlatform(platform)}
               knownTotal={counts === null ? null : counts[state.source]}
               activeAlbum={albums.find((album) => album.id === state.album) ?? null}
-              onExport={(photoIds) => {
-                setExportPhotoIds(photoIds);
-                dispatch({ type: 'dialog/set', dialog: 'export', open: true });
-              }}
+              onExport={openExport}
               onOffload={offload.open}
               onTransfer={openInterop}
             />
