@@ -34,14 +34,14 @@ export function createActiveProvider(options: ActiveProviderOptions): StoragePro
     get capabilities() {
       return delegate().capabilities;
     },
-    listLibraries: () => delegate().listLibraries(),
+    listLibraries: (signal) => delegate().listLibraries(signal),
     forLibrary: (libraryId) => delegate().forLibrary(libraryId),
     authState: () => delegate().authState(),
     put: (path, bytes) => delegate().put(path, bytes),
     getStream: (path) => delegate().getStream(path),
-    list: (prefix) => delegate().list(prefix),
+    list: (prefix, signal) => delegate().list(prefix, signal),
     delete: (path) => delegate().delete(path),
-    quota: () => delegate().quota(),
+    quota: (signal) => delegate().quota(signal),
     verify: (path) => delegate().verify(path),
   };
 }

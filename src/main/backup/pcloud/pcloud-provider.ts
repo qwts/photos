@@ -88,10 +88,10 @@ export class PCloudProvider implements StorageProvider {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  async listLibraries(): Promise<readonly string[]> {
+  async listLibraries(signal?: AbortSignal): Promise<readonly string[]> {
     let data: Record<string, unknown>;
     try {
-      data = await this.api('listfolder', { path: this.root.slice(0, this.root.lastIndexOf('/')) });
+      data = await this.api('listfolder', { path: this.root.slice(0, this.root.lastIndexOf('/')) }, undefined, signal);
     } catch (error) {
       if (error instanceof ProviderError && error.kind === 'not-found') return [];
       throw error;
@@ -103,9 +103,10 @@ export class PCloudProvider implements StorageProvider {
       .sort();
     const libraries: string[] = [];
     for (const libraryId of candidates) {
+      signal?.throwIfAborted();
       try {
         const root = this.root.slice(0, this.root.lastIndexOf('/'));
-        const marker = await this.api('listfolder', { path: `${root}/${libraryId}/recovery` });
+        const marker = await this.api('listfolder', { path: `${root}/${libraryId}/recovery` }, undefined, signal);
         const recovery = marker['metadata'] as PCloudFileMeta | undefined;
         if (recovery?.contents?.some((entry) => !entry.isfolder && entry.name === 'bootstrap.ovrb') === true) {
           libraries.push(libraryId);
@@ -142,6 +143,7 @@ export class PCloudProvider implements StorageProvider {
     method: string,
     params: Record<string, string>,
     file?: { readonly filename: string; readonly payload: Buffer },
+    signal?: AbortSignal,
   ): Promise<Record<string, unknown>> {
     const record = this.record();
     let body: FormData | URLSearchParams;
@@ -161,7 +163,11 @@ export class PCloudProvider implements StorageProvider {
     }
     let response: Response;
     try {
-      response = await this.fetchImpl(`https://${record.apiHost}/${method}`, { method: 'POST', body });
+      response = await this.fetchImpl(`https://${record.apiHost}/${method}`, {
+        method: 'POST',
+        body,
+        ...(signal === undefined ? {} : { signal }),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'network failure';
       throw new ProviderError(redactTokens(`pCloud ${method} failed: ${message}`), 'transient');
@@ -239,10 +245,10 @@ export class PCloudProvider implements StorageProvider {
     return Readable.fromWeb(response.body);
   }
 
-  async list(prefix: string): Promise<readonly RemoteEntry[]> {
+  async list(prefix: string, signal?: AbortSignal): Promise<readonly RemoteEntry[]> {
     let data: Record<string, unknown>;
     try {
-      data = await this.api('listfolder', { path: this.remotePath(prefix), recursive: '1' });
+      data = await this.api('listfolder', { path: this.remotePath(prefix), recursive: '1' }, undefined, signal);
     } catch (error) {
       if (error instanceof ProviderError && error.kind === 'not-found') {
         // A prefix nobody wrote to yet lists as empty, like the mock.
@@ -253,6 +259,7 @@ export class PCloudProvider implements StorageProvider {
     const entries: RemoteEntry[] = [];
     const walk = (nodes: readonly PCloudFileMeta[], parent: string): void => {
       for (const node of nodes) {
+        signal?.throwIfAborted();
         if (node.isfolder) {
           walk(node.contents ?? [], `${parent}/${node.name}`);
         } else if (typeof node.size === 'number') {
@@ -277,8 +284,8 @@ export class PCloudProvider implements StorageProvider {
     }
   }
 
-  async quota(): Promise<ProviderQuota> {
-    const data = await this.api('userinfo', {});
+  async quota(signal?: AbortSignal): Promise<ProviderQuota> {
+    const data = await this.api('userinfo', {}, undefined, signal);
     const usedBytes = typeof data['usedquota'] === 'number' ? data['usedquota'] : 0;
     const totalBytes = typeof data['quota'] === 'number' ? data['quota'] : 0;
     return { usedBytes, totalBytes };

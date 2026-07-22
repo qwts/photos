@@ -52,8 +52,9 @@ export class MockProvider implements StorageProvider {
     this.libraryId = options.libraryId ?? 'mock-library';
   }
 
-  async listLibraries(): Promise<readonly string[]> {
+  async listLibraries(signal?: AbortSignal): Promise<readonly string[]> {
     this.assertAuth();
+    signal?.throwIfAborted();
     try {
       await stat(this.resolve('recovery/bootstrap.ovrb'));
       return [this.libraryId];
@@ -119,8 +120,9 @@ export class MockProvider implements StorageProvider {
     return createReadStream(target);
   }
 
-  async list(prefix: string): Promise<readonly RemoteEntry[]> {
+  async list(prefix: string, signal?: AbortSignal): Promise<readonly RemoteEntry[]> {
     this.assertAuth();
+    signal?.throwIfAborted();
     const dir = this.resolve(prefix);
     let names: string[];
     try {
@@ -130,6 +132,7 @@ export class MockProvider implements StorageProvider {
     }
     const entries: RemoteEntry[] = [];
     for (const name of names) {
+      signal?.throwIfAborted();
       const full = join(dir, name);
       const info = await stat(full).catch(() => null);
       if (info?.isFile() === true) {
@@ -144,12 +147,12 @@ export class MockProvider implements StorageProvider {
     await rm(this.resolve(path), { force: true });
   }
 
-  async quota(): Promise<ProviderQuota> {
+  async quota(signal?: AbortSignal): Promise<ProviderQuota> {
     // No catch: a disconnected provider fails this data call with kind=auth
     // like every other (PR #200 review); an empty/missing root lists as [].
     this.assertAuth();
     let usedBytes = 0;
-    for (const entry of await this.list('.')) {
+    for (const entry of await this.list('.', signal)) {
       usedBytes += entry.bytes;
     }
     return { usedBytes, totalBytes: this.totalBytes };
@@ -180,8 +183,8 @@ export class FaultInjectingProvider implements StorageProvider {
     this.capabilities = inner.capabilities;
   }
 
-  listLibraries(): Promise<readonly string[]> {
-    return this.inner.listLibraries();
+  listLibraries(signal?: AbortSignal): Promise<readonly string[]> {
+    return this.inner.listLibraries(signal);
   }
 
   forLibrary(libraryId: string): StorageProvider {
@@ -220,16 +223,16 @@ export class FaultInjectingProvider implements StorageProvider {
     return this.inner.getStream(path);
   }
 
-  async list(prefix: string): Promise<readonly RemoteEntry[]> {
-    return this.inner.list(prefix);
+  async list(prefix: string, signal?: AbortSignal): Promise<readonly RemoteEntry[]> {
+    return this.inner.list(prefix, signal);
   }
 
   async delete(path: string): Promise<void> {
     return this.inner.delete(path);
   }
 
-  async quota(): Promise<ProviderQuota> {
-    return this.inner.quota();
+  async quota(signal?: AbortSignal): Promise<ProviderQuota> {
+    return this.inner.quota(signal);
   }
 
   async verify(path: string): Promise<{ sha256: string; bytes: number }> {

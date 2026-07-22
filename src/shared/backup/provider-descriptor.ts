@@ -41,11 +41,18 @@ export const providerCapacitySchema = z.object({
   totalBytes: z.number().nonnegative(),
 });
 
-export const providerStorageStatusSchema = z.object({
+/** Prompt connection authority. Remote inventory and quota are deliberately
+ * excluded so OAuth completion can render before storage metrics finish. */
+export const providerConnectionStatusSchema = z.object({
   provider: providerDescriptorSchema,
   connected: z.boolean(),
   /** Account label when the provider exposes one; otherwise null. */
   account: z.string().nullable(),
+});
+
+/** Slow, informational storage metrics. Failures here never change provider
+ * authority and are fetched independently from providerConnectionStatus. */
+export const providerStorageMetricsSchema = z.object({
   /** "Used by Overlook": exact bytes summed from Overlook's own remote objects.
    * Null when not connected or the current measurement produced no figure. */
   usedByOverlookBytes: z.number().nonnegative().nullable(),
@@ -62,4 +69,5 @@ export const providerStorageStatusSchema = z.object({
   capacityRoute: z.enum(['system-settings', 'none']),
 });
 
-export type ProviderStorageStatus = z.output<typeof providerStorageStatusSchema>;
+export type ProviderConnectionStatus = z.output<typeof providerConnectionStatusSchema>;
+export type ProviderStorageMetrics = z.output<typeof providerStorageMetricsSchema>;

@@ -9,7 +9,12 @@ import {
   relocationMoveResponseSchema,
   relocationStateSchema,
 } from '../library/relocation.js';
-import { providerDescriptorSchema, providerIdSchema, providerStorageStatusSchema } from '../backup/provider-descriptor.js';
+import {
+  providerConnectionStatusSchema,
+  providerDescriptorSchema,
+  providerIdSchema,
+  providerStorageMetricsSchema,
+} from '../backup/provider-descriptor.js';
 import { diagnosticsChannels } from './diagnostics-channels.js';
 import { llmChannels, llmEvents } from './llm-channels.js';
 import { restoreDiscoverResponseSchema, restoreProgressSchema, restoreRunResponseSchema } from '../backup/restore-contract.js';
@@ -629,11 +634,10 @@ export const channels = {
     z.object({}),
     z.object({ providers: z.array(providerDescriptorSchema).readonly(), defaultProviderId: providerIdSchema }),
   ),
-  // Provider connection card (#114, #684): addressed provider, connection truth,
-  // Overlook's own measured usage, and source-gated account capacity. See
-  // providerStorageStatusSchema — the two figures never blend and capacity
-  // appears only from a verified account-quota API.
-  backupProviderStatus: defineChannel('backup:provider-status', z.object({ providerId: providerIdSchema }), providerStorageStatusSchema),
+  // Connection authority is prompt and independent from slow remote metrics
+  // (#721). A completed OAuth flow must never wait on inventory or quota.
+  backupProviderStatus: defineChannel('backup:provider-status', z.object({ providerId: providerIdSchema }), providerConnectionStatusSchema),
+  backupProviderStorage: defineChannel('backup:provider-storage', z.object({ providerId: providerIdSchema }), providerStorageMetricsSchema),
   // Provider connect/disconnect (#254): connect runs whatever handshake the
   // registered provider needs — local providers connect instantly while
   // interactive providers open a system-browser OAuth flow. Tokens never cross

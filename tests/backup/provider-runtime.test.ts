@@ -120,14 +120,19 @@ describe('provider runtime policy (#256)', () => {
     let quotaCalls = 0;
     provider.listLibraries = () => {
       inventoryCalls += 1;
-      return Promise.reject(new Error('inventory must not run during connection status'));
+      return new Promise<never>(() => undefined);
     };
     provider.quota = () => {
       quotaCalls += 1;
-      return Promise.reject(new Error('quota must not run during connection status'));
+      return new Promise<never>(() => undefined);
     };
 
-    assert.deepEqual(await r.status('mock'), {
+    const status = await Promise.race([
+      r.status('mock'),
+      new Promise<'timed-out'>((resolve) => setTimeout(() => resolve('timed-out'), 100)),
+    ]);
+    assert.notEqual(status, 'timed-out');
+    assert.deepEqual(status, {
       provider: (await r.descriptors()).find(({ id }) => id === 'mock'),
       connected: true,
       account: null,
@@ -135,6 +140,42 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(inventoryCalls, 0);
     assert.equal(quotaCalls, 0);
   });
+
+  for (const stalled of ['listLibraries', 'list', 'quota'] as const) {
+    test(`storage metrics bound a stalled ${stalled} call without changing authority (#721)`, async () => {
+      const { runtime: r } = runtime({ providerId: () => 'mock', storageTimeoutMs: 15 });
+      r.buildProvider({ mockRootDir: join(tmpdir(), `overlook-runtime-storage-${stalled}`), fault: undefined });
+      const provider = r.provider('mock');
+      assert.ok(provider);
+      const libraryId = r.libraryId();
+      const stall = (signal?: AbortSignal): Promise<never> =>
+        new Promise<never>((_resolve, reject) => {
+          const fail = (): void => reject(signal?.reason instanceof Error ? signal.reason : new Error('aborted'));
+          if (signal?.aborted === true) fail();
+          else signal?.addEventListener('abort', fail, { once: true });
+        });
+      provider.listLibraries = stalled === 'listLibraries' ? stall : () => Promise.resolve(stalled === 'list' ? [libraryId] : []);
+      if (stalled === 'list') provider.forLibrary = () => provider;
+      provider.list = stalled === 'list' ? (_prefix, signal) => stall(signal) : () => Promise.resolve([]);
+      provider.quota = stalled === 'quota' ? stall : () => Promise.resolve({ usedBytes: 0, totalBytes: 1024 });
+
+      const first = r.storage('mock');
+      assert.equal(r.storage('mock'), first, 'concurrent refreshes share one measurement');
+      const metrics = await first;
+
+      assert.equal((await r.status('mock')).connected, true);
+      assert.equal(r.activeId(), 'mock');
+      if (stalled === 'quota') {
+        assert.equal(metrics.capacity, null);
+        assert.equal(metrics.measurementFailed, false);
+        assert.equal(metrics.usedByOverlookBytes, 0);
+      } else {
+        assert.deepEqual(metrics.capacity, { usedBytes: 0, totalBytes: 1024 });
+        assert.equal(metrics.measurementFailed, true);
+        assert.equal(metrics.usedByOverlookBytes, null);
+      }
+    });
+  }
 
   test('pCloud disconnect verifies custody and persisted selection before reporting success', async () => {
     let providerId: string | null = 'pcloud';

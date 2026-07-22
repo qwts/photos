@@ -34,6 +34,14 @@ export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): Provide
     isWorkActive: deps.isWorkActive,
     isPackaged: app.isPackaged,
     harnessEnv: deps.harnessEnv,
+    googleDriveClientId: () => deps.harnessEnv('OVERLOOK_GOOGLE_DRIVE_CLIENT_ID') ?? null,
+    storageTimeoutMs: storageTimeout(deps.harnessEnv('OVERLOOK_PROVIDER_STORAGE_TIMEOUT_MS')),
     iCloudDriveBridge,
   });
+}
+
+function storageTimeout(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const milliseconds = Number(value);
+  return Number.isInteger(milliseconds) && milliseconds >= 10 && milliseconds <= 30_000 ? milliseconds : undefined;
 }

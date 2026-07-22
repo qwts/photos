@@ -135,21 +135,22 @@ export class GoogleDriveProvider implements StorageProvider {
     this.options.paths.clear();
   }
 
-  async listLibraries(): Promise<readonly string[]> {
-    const root = await this.resolveOverlookFolder(false);
+  async listLibraries(signal?: AbortSignal): Promise<readonly string[]> {
+    const root = await this.resolveOverlookFolder(false, signal);
     if (root === null) return [];
-    const children = await this.listChildren(root);
+    const children = await this.listChildren(root, signal);
     const candidates = children
       .filter((entry) => isFolder(entry) && typeof entry.name === 'string' && /^[A-Za-z0-9_-]{1,64}$/u.test(entry.name))
       .sort((a, b) => String(a.name).localeCompare(String(b.name)));
     const libraries: string[] = [];
     for (const candidate of candidates) {
+      signal?.throwIfAborted();
       const libraryId = candidate.name as string;
       const candidateId = idOf(candidate);
       if (candidateId === null) continue;
       this.options.paths.setFolderId(this.pathLibraryId(libraryId), '', candidateId);
       const scoped = this.forLibrary(libraryId) as GoogleDriveProvider;
-      if ((await scoped.resolveFile('recovery/bootstrap.ovrb')) !== null) libraries.push(libraryId);
+      if ((await scoped.resolveFile('recovery/bootstrap.ovrb', false, signal)) !== null) libraries.push(libraryId);
     }
     return libraries;
   }
@@ -209,13 +210,13 @@ export class GoogleDriveProvider implements StorageProvider {
     return Readable.fromWeb(response.body);
   }
 
-  async list(prefix: string): Promise<readonly RemoteEntry[]> {
+  async list(prefix: string, signal?: AbortSignal): Promise<readonly RemoteEntry[]> {
     if (prefix !== '.') assertSafeRemotePath(prefix);
     const normalized = prefix === '.' ? '' : prefix;
-    const folderId = await this.resolveFolder(normalized, false);
+    const folderId = await this.resolveFolder(normalized, false, signal);
     if (folderId === null) return [];
     const entries: RemoteEntry[] = [];
-    await this.walk(folderId, normalized, entries);
+    await this.walk(folderId, normalized, entries, signal);
     return entries.sort((a, b) => a.path.localeCompare(b.path));
   }
 
@@ -229,10 +230,10 @@ export class GoogleDriveProvider implements StorageProvider {
     this.validatedIds.delete(file.id);
   }
 
-  async quota(): Promise<ProviderQuota> {
+  async quota(signal?: AbortSignal): Promise<ProviderQuota> {
     const url = new URL(`${API}/about`);
     url.searchParams.set('fields', 'storageQuota(usage,limit)');
-    const data = await this.json(url.toString(), undefined, 'read quota');
+    const data = await this.json(url.toString(), undefined, 'read quota', signal);
     const storageQuota =
       typeof data['storageQuota'] === 'object' && data['storageQuota'] !== null ? (data['storageQuota'] as Record<string, unknown>) : {};
     const usedBytes = bytesOf(storageQuota['usage']);
@@ -281,15 +282,16 @@ export class GoogleDriveProvider implements StorageProvider {
     this.options.paths.setFolderId(`root_${pathHash(`${this.rootName}\0${this.owner}`).slice(0, 59)}`, '', id);
   }
 
-  private async walk(folderId: string, relativePath: string, out: RemoteEntry[]): Promise<void> {
-    for (const child of await this.listChildren(folderId)) {
+  private async walk(folderId: string, relativePath: string, out: RemoteEntry[], signal?: AbortSignal): Promise<void> {
+    for (const child of await this.listChildren(folderId, signal)) {
+      signal?.throwIfAborted();
       const id = idOf(child);
       const name = typeof child.name === 'string' ? child.name : null;
       if (id === null || name === null || name.includes('/')) continue;
       const childPath = relativePath === '' ? name : `${relativePath}/${name}`;
       if (isFolder(child)) {
         this.options.paths.setFolderId(this.pathLibraryId(), childPath, id);
-        await this.walk(id, childPath, out);
+        await this.walk(id, childPath, out, signal);
       } else {
         const bytes = bytesOf(child.size);
         if (bytes !== null) {
@@ -300,18 +302,21 @@ export class GoogleDriveProvider implements StorageProvider {
     }
   }
 
-  private async resolveOverlookFolder(create: boolean): Promise<string | null> {
+  private async resolveOverlookFolder(create: boolean, signal?: AbortSignal): Promise<string | null> {
     const cached = this.cachedRootId();
-    if (cached !== null && (await this.validFolder(cached))) return cached;
+    if (cached !== null && (await this.validFolder(cached, signal))) return cached;
     if (cached !== null) this.setCachedRootId(null);
     const identity = 'overlook-root';
-    const found = await this.findOne([
-      `name = '${quoteQuery(this.rootName)}'`,
-      `mimeType = '${FOLDER_MIME}'`,
-      `'root' in parents`,
-      `trashed = false`,
-      this.propertyQuery(identity),
-    ]);
+    const found = await this.findOne(
+      [
+        `name = '${quoteQuery(this.rootName)}'`,
+        `mimeType = '${FOLDER_MIME}'`,
+        `'root' in parents`,
+        `trashed = false`,
+        this.propertyQuery(identity),
+      ],
+      signal,
+    );
     const foundId = found === null ? null : idOf(found);
     if (foundId !== null) {
       this.setCachedRootId(foundId);
@@ -324,24 +329,27 @@ export class GoogleDriveProvider implements StorageProvider {
     return id;
   }
 
-  private async resolveFolder(path: string, create: boolean): Promise<string | null> {
+  private async resolveFolder(path: string, create: boolean, signal?: AbortSignal): Promise<string | null> {
     if (path !== '') assertSafeRemotePath(path);
     const cacheLibraryId = this.pathLibraryId();
     const cached = this.options.paths.folderId(cacheLibraryId, path);
-    if (cached !== null && (await this.validFolder(cached))) return cached;
+    if (cached !== null && (await this.validFolder(cached, signal))) return cached;
     if (cached !== null) this.options.paths.setFolderId(cacheLibraryId, path, null);
 
-    const root = await this.resolveOverlookFolder(create);
+    const root = await this.resolveOverlookFolder(create, signal);
     if (root === null) return null;
     if (path === '') {
       const identity = `library:${this.options.libraryId}`;
-      const found = await this.findOne([
-        `name = '${quoteQuery(this.options.libraryId)}'`,
-        `mimeType = '${FOLDER_MIME}'`,
-        `'${quoteQuery(root)}' in parents`,
-        'trashed = false',
-        this.propertyQuery(identity),
-      ]);
+      const found = await this.findOne(
+        [
+          `name = '${quoteQuery(this.options.libraryId)}'`,
+          `mimeType = '${FOLDER_MIME}'`,
+          `'${quoteQuery(root)}' in parents`,
+          'trashed = false',
+          this.propertyQuery(identity),
+        ],
+        signal,
+      );
       let id = found === null ? null : idOf(found);
       if (id === null && create) id = await this.createFolder(this.options.libraryId, root, identity);
       if (id !== null) this.options.paths.setFolderId(cacheLibraryId, '', id);
@@ -349,43 +357,49 @@ export class GoogleDriveProvider implements StorageProvider {
     }
 
     const parentPath = posix.dirname(path) === '.' ? '' : posix.dirname(path);
-    const parentId = await this.resolveFolder(parentPath, create);
+    const parentId = await this.resolveFolder(parentPath, create, signal);
     if (parentId === null) return null;
     const name = posix.basename(path);
     const identity = `library:${this.options.libraryId}/folder:${path}`;
-    const found = await this.findOne([
-      `name = '${quoteQuery(name)}'`,
-      `mimeType = '${FOLDER_MIME}'`,
-      `'${quoteQuery(parentId)}' in parents`,
-      'trashed = false',
-      this.propertyQuery(identity),
-    ]);
+    const found = await this.findOne(
+      [
+        `name = '${quoteQuery(name)}'`,
+        `mimeType = '${FOLDER_MIME}'`,
+        `'${quoteQuery(parentId)}' in parents`,
+        'trashed = false',
+        this.propertyQuery(identity),
+      ],
+      signal,
+    );
     let id = found === null ? null : idOf(found);
     if (id === null && create) id = await this.createFolder(name, parentId, identity);
     if (id !== null) this.options.paths.setFolderId(cacheLibraryId, path, id);
     return id;
   }
 
-  private async resolveFile(path: string, refresh = false): Promise<{ id: string; metadata: DriveFile } | null> {
+  private async resolveFile(path: string, refresh = false, signal?: AbortSignal): Promise<{ id: string; metadata: DriveFile } | null> {
     assertSafeRemotePath(path);
     const cacheLibraryId = this.pathLibraryId();
     const cached = this.options.paths.fileId(cacheLibraryId, path);
     if (cached !== null) {
-      const metadata = await this.validFile(cached, refresh);
+      const metadata = await this.validFile(cached, refresh, signal);
       if (metadata !== null) return { id: cached, metadata };
       this.options.paths.setFileId(cacheLibraryId, path, null);
     }
     const parentPath = posix.dirname(path) === '.' ? '' : posix.dirname(path);
-    const parentId = await this.resolveFolder(parentPath, false);
+    const parentId = await this.resolveFolder(parentPath, false, signal);
     if (parentId === null) return null;
     const identity = `library:${this.options.libraryId}/file:${path}`;
-    const found = await this.findOne([
-      `name = '${quoteQuery(posix.basename(path))}'`,
-      `mimeType != '${FOLDER_MIME}'`,
-      `'${quoteQuery(parentId)}' in parents`,
-      'trashed = false',
-      this.propertyQuery(identity),
-    ]);
+    const found = await this.findOne(
+      [
+        `name = '${quoteQuery(posix.basename(path))}'`,
+        `mimeType != '${FOLDER_MIME}'`,
+        `'${quoteQuery(parentId)}' in parents`,
+        'trashed = false',
+        this.propertyQuery(identity),
+      ],
+      signal,
+    );
     const id = found === null ? null : idOf(found);
     if (id === null) return null;
     this.options.paths.setFileId(cacheLibraryId, path, id);
@@ -397,9 +411,9 @@ export class GoogleDriveProvider implements StorageProvider {
     return `appProperties has { key='overlookOwner' and value='${this.owner}' } and appProperties has { key='overlookPathHash' and value='${pathHash(identity)}' }`;
   }
 
-  private async validFolder(id: string): Promise<boolean> {
+  private async validFolder(id: string, signal?: AbortSignal): Promise<boolean> {
     if (this.validatedIds.has(id)) return true;
-    const metadata = await this.metadataOrNull(id);
+    const metadata = await this.metadataOrNull(id, signal);
     if (metadata !== null && isFolder(metadata)) {
       this.validatedIds.add(id);
       return true;
@@ -407,9 +421,9 @@ export class GoogleDriveProvider implements StorageProvider {
     return false;
   }
 
-  private async validFile(id: string, refresh: boolean): Promise<DriveFile | null> {
+  private async validFile(id: string, refresh: boolean, signal?: AbortSignal): Promise<DriveFile | null> {
     if (!refresh && this.validatedIds.has(id)) return { id };
-    const metadata = await this.metadataOrNull(id);
+    const metadata = await this.metadataOrNull(id, signal);
     if (metadata !== null && !isFolder(metadata) && metadata.trashed !== true) {
       this.validatedIds.add(id);
       return metadata;
@@ -417,11 +431,11 @@ export class GoogleDriveProvider implements StorageProvider {
     return null;
   }
 
-  private async metadataOrNull(id: string): Promise<DriveFile | null> {
+  private async metadataOrNull(id: string, signal?: AbortSignal): Promise<DriveFile | null> {
     const url = new URL(`${API}/files/${encodeURIComponent(id)}`);
     url.searchParams.set('fields', FILE_FIELDS);
     try {
-      return await this.json(url.toString(), undefined, 'read file metadata');
+      return await this.json(url.toString(), undefined, 'read file metadata', signal);
     } catch (error) {
       if (error instanceof ProviderError && error.kind === 'not-found') return null;
       throw error;
@@ -444,26 +458,27 @@ export class GoogleDriveProvider implements StorageProvider {
     return id;
   }
 
-  private async findOne(clauses: readonly string[]): Promise<DriveFile | null> {
-    const files = await this.listQuery(clauses.join(' and '));
+  private async findOne(clauses: readonly string[], signal?: AbortSignal): Promise<DriveFile | null> {
+    const files = await this.listQuery(clauses.join(' and '), signal);
     return files.sort((a, b) => String(a.id).localeCompare(String(b.id)))[0] ?? null;
   }
 
-  private listChildren(parentId: string): Promise<DriveFile[]> {
-    return this.listQuery(`'${quoteQuery(parentId)}' in parents and trashed = false`);
+  private listChildren(parentId: string, signal?: AbortSignal): Promise<DriveFile[]> {
+    return this.listQuery(`'${quoteQuery(parentId)}' in parents and trashed = false`, signal);
   }
 
-  private async listQuery(query: string): Promise<DriveFile[]> {
+  private async listQuery(query: string, signal?: AbortSignal): Promise<DriveFile[]> {
     const files: DriveFile[] = [];
     let pageToken: string | null = null;
     do {
+      signal?.throwIfAborted();
       const url = new URL(`${API}/files`);
       url.searchParams.set('q', query);
       url.searchParams.set('spaces', 'drive');
       url.searchParams.set('pageSize', '1000');
       url.searchParams.set('fields', `nextPageToken,files(${FILE_FIELDS})`);
       if (pageToken !== null) url.searchParams.set('pageToken', pageToken);
-      const data = (await this.json(url.toString(), undefined, 'list files')) as DriveFileList;
+      const data = (await this.json(url.toString(), undefined, 'list files', signal)) as DriveFileList;
       if (Array.isArray(data.files)) files.push(...(data.files as DriveFile[]));
       pageToken = typeof data.nextPageToken === 'string' && data.nextPageToken !== '' ? data.nextPageToken : null;
     } while (pageToken !== null);
@@ -512,8 +527,13 @@ export class GoogleDriveProvider implements StorageProvider {
     });
   }
 
-  private async json(url: string, init: RequestInit | undefined, operation: string): Promise<Record<string, unknown>> {
-    const response = await this.authorizedFetch(url, init);
+  private async json(
+    url: string,
+    init: RequestInit | undefined,
+    operation: string,
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.authorizedFetch(url, signal === undefined ? init : { ...init, signal });
     if (!response.ok) throw await this.responseError(response, operation);
     return (await response.json()) as Record<string, unknown>;
   }

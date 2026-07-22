@@ -31,6 +31,30 @@ export class ProviderError extends Error {
   }
 }
 
+/** Rejects promptly when a bounded provider operation is cancelled. Native
+ * promises cannot always be interrupted, so late results are deliberately
+ * ignored after the abort boundary wins. */
+export function raceWithAbort<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (signal === undefined) return operation;
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+  return new Promise<T>((resolve, reject) => {
+    const finish = (settle: () => void): void => {
+      signal.removeEventListener('abort', onAbort);
+      settle();
+    };
+    const onAbort = (): void => finish(() => reject(abortReason(signal)));
+    signal.addEventListener('abort', onAbort, { once: true });
+    void operation.then(
+      (value) => finish(() => resolve(value)),
+      (error: unknown) => finish(() => reject(error instanceof Error ? error : new Error('provider operation failed'))),
+    );
+  });
+}
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Error('provider operation aborted');
+}
+
 /** Remote paths are OUR vocabulary: forward-slash relative segments only.
  * Backslashes and drive letters would re-split under Windows node:path
  * (PR #200 review), so they are rejected outright, as are traversal and
@@ -57,7 +81,7 @@ export interface StorageProvider {
   readonly capabilities: ProviderCapabilities;
 
   /** Enumerates provider-owned Overlook library homes. */
-  listLibraries(): Promise<readonly string[]>;
+  listLibraries(signal?: AbortSignal): Promise<readonly string[]>;
 
   /** Returns the same provider authority scoped to one discovered library. */
   forLibrary(libraryId: string): StorageProvider;
@@ -72,11 +96,11 @@ export interface StorageProvider {
 
   /** Entries under `prefix`, non-recursive semantics left to adapters —
    * the engine only lists blob fan-out directories and manifest/. */
-  list(prefix: string): Promise<readonly RemoteEntry[]>;
+  list(prefix: string, signal?: AbortSignal): Promise<readonly RemoteEntry[]>;
 
   delete(path: string): Promise<void>;
 
-  quota(): Promise<ProviderQuota>;
+  quota(signal?: AbortSignal): Promise<ProviderQuota>;
 
   /** Verify-after-upload per ADR-0007: the provider-side checksum (sha256
    * hex) and size for `path`. Adapters without a checksum call MUST

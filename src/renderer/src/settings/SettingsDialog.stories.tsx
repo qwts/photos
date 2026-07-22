@@ -157,24 +157,24 @@ function installStub(options?: {
           : providerId === googleDriveProvider.id
             ? googleDriveProvider
             : mockProvider;
+      return {
+        provider,
+        connected: current.providerId === providerId,
+        account:
+          current.providerId !== providerId
+            ? null
+            : providerId === iCloudDriveProvider.id
+              ? 'm.rivera@icloud.com'
+              : providerId === googleDriveProvider.id
+                ? 'm.rivera@gmail.com'
+                : null,
+      };
+    },
+    providerStorage: ({ providerId }) => {
       const measuredAt = '2026-07-22T00:00:00.000Z';
-      return current.providerId !== providerId
-        ? {
-            provider,
-            connected: false,
-            account: null,
-            usedByOverlookBytes: null,
-            measuredAt: null,
-            measurementFailed: false,
-            capacity: null,
-            capacityRoute: 'none' as const,
-          }
-        : providerId === iCloudDriveProvider.id
-          ? // iCloud: measured usage + honest System Settings capacity route.
-            {
-              provider,
-              connected: true,
-              account: 'm.rivera@icloud.com',
+      return Promise.resolve(
+        providerId === iCloudDriveProvider.id
+          ? {
               usedByOverlookBytes: 51_742_097_408,
               measuredAt,
               measurementFailed: false,
@@ -183,9 +183,6 @@ function installStub(options?: {
             }
           : providerId === googleDriveProvider.id
             ? {
-                provider,
-                connected: true,
-                account: 'm.rivera@gmail.com',
                 usedByOverlookBytes: 12_400_000_000,
                 measuredAt,
                 measurementFailed: false,
@@ -193,15 +190,13 @@ function installStub(options?: {
                 capacityRoute: 'none' as const,
               }
             : {
-                provider,
-                connected: true,
-                account: null,
                 usedByOverlookBytes: 380_000_000_000,
                 measuredAt,
                 measurementFailed: false,
                 capacity: { usedBytes: 380_000_000_000, totalBytes: 500_000_000_000 },
                 capacityRoute: 'none' as const,
-              };
+              },
+      );
     },
     // Connect/disconnect (#254) mirror main's mock policy: flip providerId.
     connect: ({ providerId }) => {

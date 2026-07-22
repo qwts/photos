@@ -1,4 +1,4 @@
-import type { ProviderDescriptor, ProviderStorageStatus } from '../../shared/backup/provider-descriptor.js';
+import type { ProviderDescriptor, ProviderStorageMetrics } from '../../shared/backup/provider-descriptor.js';
 import type { ProviderQuota, StorageProvider } from './provider.js';
 
 // Provider storage status (#684). Two independent figures that never blend:
@@ -16,11 +16,12 @@ import type { ProviderQuota, StorageProvider } from './provider.js';
 /** Sums the bytes of every Overlook-owned remote object across all discoverable
  * libraries. Throws if any listing fails — callers treat that as a
  * calculation-failure (the figure is absent, never fabricated). */
-export async function measureUsedByOverlookBytes(provider: StorageProvider): Promise<number> {
-  const libraries = await provider.listLibraries();
+export async function measureUsedByOverlookBytes(provider: StorageProvider, signal?: AbortSignal): Promise<number> {
+  const libraries = await provider.listLibraries(signal);
   let total = 0;
   for (const libraryId of libraries) {
-    const entries = await provider.forLibrary(libraryId).list('.');
+    signal?.throwIfAborted();
+    const entries = await provider.forLibrary(libraryId).list('.', signal);
     for (const entry of entries) {
       total += entry.bytes;
     }
@@ -28,7 +29,7 @@ export async function measureUsedByOverlookBytes(provider: StorageProvider): Pro
   return total;
 }
 
-export interface ProviderStorageStatusInputs {
+export interface ProviderStorageMetricsInputs {
   readonly descriptor: ProviderDescriptor;
   readonly connected: boolean;
   /** Measures "Used by Overlook"; a throw becomes measurementFailed. */
@@ -44,13 +45,10 @@ export interface ProviderStorageStatusInputs {
  * own figure. Capacity renders only from a verified quota that reports a finite
  * total; otherwise iCloud routes to System Settings and other providers show a
  * plain "unavailable". */
-export async function buildProviderStorageStatus(inputs: ProviderStorageStatusInputs): Promise<ProviderStorageStatus> {
+export async function buildProviderStorageMetrics(inputs: ProviderStorageMetricsInputs): Promise<ProviderStorageMetrics> {
   const { descriptor, connected } = inputs;
   if (!connected) {
     return {
-      provider: descriptor,
-      connected,
-      account: null,
       usedByOverlookBytes: null,
       measuredAt: null,
       measurementFailed: false,
@@ -59,35 +57,21 @@ export async function buildProviderStorageStatus(inputs: ProviderStorageStatusIn
     };
   }
 
-  let usedByOverlookBytes: number | null = null;
-  let measuredAt: string | null = null;
-  let measurementFailed = false;
-  try {
-    usedByOverlookBytes = await inputs.measure();
-    measuredAt = inputs.now();
-  } catch {
-    measurementFailed = true;
-  }
+  const [measurementResult, quotaResult] = await Promise.allSettled([
+    inputs.measure(),
+    inputs.quota === null ? Promise.resolve(null) : inputs.quota(),
+  ]);
+  const usedByOverlookBytes = measurementResult.status === 'fulfilled' ? measurementResult.value : null;
+  const measuredAt = measurementResult.status === 'fulfilled' ? inputs.now() : null;
+  const measurementFailed = measurementResult.status === 'rejected';
+  const quota = quotaResult.status === 'fulfilled' ? quotaResult.value : null;
+  const capacity: ProviderStorageMetrics['capacity'] =
+    quota?.totalBytes === null || quota === null ? null : { usedBytes: quota.usedBytes, totalBytes: quota.totalBytes };
 
-  let capacity: ProviderStorageStatus['capacity'] = null;
-  if (inputs.quota !== null) {
-    try {
-      const quota = await inputs.quota();
-      if (quota.totalBytes !== null) {
-        capacity = { usedBytes: quota.usedBytes, totalBytes: quota.totalBytes };
-      }
-    } catch {
-      capacity = null;
-    }
-  }
-
-  const capacityRoute: ProviderStorageStatus['capacityRoute'] =
+  const capacityRoute: ProviderStorageMetrics['capacityRoute'] =
     capacity === null && descriptor.id === 'icloud-drive' ? 'system-settings' : 'none';
 
   return {
-    provider: descriptor,
-    connected: true,
-    account: null,
     usedByOverlookBytes,
     measuredAt,
     measurementFailed,

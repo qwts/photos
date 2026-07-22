@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildProviderStorageStatus, measureUsedByOverlookBytes } from '../../src/main/backup/provider-usage.js';
+import { buildProviderStorageMetrics, measureUsedByOverlookBytes } from '../../src/main/backup/provider-usage.js';
 import type { ProviderDescriptor } from '../../src/shared/backup/provider-descriptor.js';
 import type { ProviderQuota, RemoteEntry, StorageProvider } from '../../src/main/backup/provider.js';
 
@@ -68,13 +68,13 @@ describe('measureUsedByOverlookBytes (#684)', () => {
   });
 });
 
-describe('buildProviderStorageStatus (#684)', () => {
+describe('buildProviderStorageMetrics (#684, #721)', () => {
   const measures = (bytes: number) => () => Promise.resolve(bytes);
   const quotaOf = (usedBytes: number, totalBytes: number | null) => (): Promise<ProviderQuota> =>
     Promise.resolve({ usedBytes, totalBytes });
 
   test('disconnected: both figures absent, no route, no failure flag', async () => {
-    const status = await buildProviderStorageStatus({
+    const status = await buildProviderStorageMetrics({
       descriptor: descriptor('pcloud', 'known'),
       connected: false,
       measure: measures(999),
@@ -82,9 +82,6 @@ describe('buildProviderStorageStatus (#684)', () => {
       now: () => NOW,
     });
     assert.deepEqual(status, {
-      provider: descriptor('pcloud', 'known'),
-      connected: false,
-      account: null,
       usedByOverlookBytes: null,
       measuredAt: null,
       measurementFailed: false,
@@ -94,14 +91,13 @@ describe('buildProviderStorageStatus (#684)', () => {
   });
 
   test('known-quota provider: used figure + verified capacity + timestamp', async () => {
-    const status = await buildProviderStorageStatus({
+    const status = await buildProviderStorageMetrics({
       descriptor: descriptor('google-drive', 'known'),
       connected: true,
       measure: measures(12_400_000_000),
       quota: quotaOf(42_000_000_000, 100_000_000_000),
       now: () => NOW,
     });
-    assert.equal(status.connected, true);
     assert.equal(status.usedByOverlookBytes, 12_400_000_000);
     assert.equal(status.measuredAt, NOW);
     assert.equal(status.measurementFailed, false);
@@ -109,37 +105,35 @@ describe('buildProviderStorageStatus (#684)', () => {
     assert.equal(status.capacityRoute, 'none');
   });
 
-  test('measurement failure keeps the account connected and offers no fabricated figure', async () => {
-    const status = await buildProviderStorageStatus({
+  test('measurement failure offers no fabricated figure while quota remains independent', async () => {
+    const status = await buildProviderStorageMetrics({
       descriptor: descriptor('google-drive', 'known'),
       connected: true,
       measure: () => Promise.reject(new Error('list failed')),
       quota: quotaOf(42, 100),
       now: () => NOW,
     });
-    assert.equal(status.connected, true, 'connection authority is unchanged by a measurement failure (I5)');
     assert.equal(status.usedByOverlookBytes, null);
     assert.equal(status.measuredAt, null);
     assert.equal(status.measurementFailed, true);
     assert.deepEqual(status.capacity, { usedBytes: 42, totalBytes: 100 }, 'capacity is independent of the used measurement');
   });
 
-  test('quota failure leaves the account connected with no capacity and no route (known provider)', async () => {
-    const status = await buildProviderStorageStatus({
+  test('quota failure leaves no capacity and no route (known provider)', async () => {
+    const status = await buildProviderStorageMetrics({
       descriptor: descriptor('pcloud', 'known'),
       connected: true,
       measure: measures(500),
       quota: () => Promise.reject(new Error('quota 403')),
       now: () => NOW,
     });
-    assert.equal(status.connected, true);
     assert.equal(status.usedByOverlookBytes, 500);
     assert.equal(status.capacity, null);
     assert.equal(status.capacityRoute, 'none', 'a non-iCloud provider does not offer the System Settings route');
   });
 
   test('a quota without a finite total yields no capacity bar', async () => {
-    const status = await buildProviderStorageStatus({
+    const status = await buildProviderStorageMetrics({
       descriptor: descriptor('pcloud', 'known'),
       connected: true,
       measure: measures(500),
@@ -151,7 +145,7 @@ describe('buildProviderStorageStatus (#684)', () => {
   });
 
   test('iCloud (unknown quota): used figure + System Settings route, never a total', async () => {
-    const status = await buildProviderStorageStatus({
+    const status = await buildProviderStorageMetrics({
       descriptor: descriptor('icloud-drive', 'unknown'),
       connected: true,
       measure: measures(51_742_097_408),
@@ -164,7 +158,7 @@ describe('buildProviderStorageStatus (#684)', () => {
   });
 
   test('zero used is a real, reported figure', async () => {
-    const status = await buildProviderStorageStatus({
+    const status = await buildProviderStorageMetrics({
       descriptor: descriptor('icloud-drive', 'unknown'),
       connected: true,
       measure: measures(0),
@@ -174,5 +168,37 @@ describe('buildProviderStorageStatus (#684)', () => {
     assert.equal(status.usedByOverlookBytes, 0);
     assert.equal(status.measurementFailed, false);
     assert.equal(status.capacityRoute, 'system-settings');
+  });
+
+  test('inventory and quota start concurrently', async () => {
+    let inventoryStarted = false;
+    let quotaStarted = false;
+    let releaseInventory!: () => void;
+    let releaseQuota!: () => void;
+    const inventory = new Promise<number>((resolve) => {
+      releaseInventory = () => resolve(5);
+    });
+    const quota = new Promise<ProviderQuota>((resolve) => {
+      releaseQuota = () => resolve({ usedBytes: 2, totalBytes: 10 });
+    });
+    const pending = buildProviderStorageMetrics({
+      descriptor: descriptor('google-drive', 'known'),
+      connected: true,
+      measure: () => {
+        inventoryStarted = true;
+        return inventory;
+      },
+      quota: () => {
+        quotaStarted = true;
+        return quota;
+      },
+      now: () => NOW,
+    });
+    await Promise.resolve();
+    assert.equal(inventoryStarted, true);
+    assert.equal(quotaStarted, true);
+    releaseInventory();
+    releaseQuota();
+    await pending;
   });
 });
