@@ -3,14 +3,17 @@ import { defineMessages, useIntl } from 'react-intl';
 
 import './phototile.css';
 import type { PreviewFailureReason } from '../../../shared/library/preview.js';
+import { formatDuration } from '../../../shared/library/media-info-format.js';
 import { FavoriteButton } from './FavoriteButton';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 import { PhotoOpenButton } from './PhotoOpenButton';
 import { previewFailureLabel } from './previewFailureLabel';
 import { StatusGlyph, type SyncState } from './StatusGlyph';
 
 export interface PhotoTileProps {
-  readonly src: string;
+  /** Poster/thumbnail URL. Optional: placeholder tiles (video/audio/probing
+   * with no decoded frame) render kind iconography instead of an image. */
+  readonly src?: string;
   readonly alt?: string;
   /** Full screen-reader label when filename-only `alt` lacks date/place context. */
   readonly accessibleName?: string | undefined;
@@ -20,6 +23,15 @@ export interface PhotoTileProps {
   readonly status?: SyncState;
   readonly showStatus?: boolean;
   readonly previewFailure?: PreviewFailureReason | null;
+  /** Video duration in seconds → the monospace duration pill (design §Grid
+   * tiles). Null/undefined for stills. */
+  readonly duration?: number | null | undefined;
+  /** Preserved-only video: the pill reads "PRESERVED" with a film glyph
+   * instead of a play time (ADR-0026 §3/§7). */
+  readonly preserved?: boolean;
+  /** Kind-iconography placeholder when no poster frame exists yet (a success
+   * state, never a failed import): 'video' | 'audio' | 'probing'. */
+  readonly placeholder?: 'video' | 'audio' | 'probing' | null | undefined;
   readonly retentionLabel?: string | undefined;
   /** Opens the photo (tile body). */
   readonly onClick?: () => void;
@@ -42,7 +54,18 @@ export interface PhotoTileProps {
 
 const messages = defineMessages({
   moreActions: { id: 'library.photo.moreActions', defaultMessage: 'More actions for {photo}' },
+  videoDurationTitle: { id: 'library.photo.video.durationTitle', defaultMessage: 'Video · {duration}' },
+  videoTitle: { id: 'library.photo.video.title', defaultMessage: 'Video' },
+  videoPreservedTitle: { id: 'library.photo.video.preservedTitle', defaultMessage: 'Video — preserved on this device' },
+  videoPreservedPill: { id: 'library.photo.video.preservedPill', defaultMessage: 'PRESERVED' },
 });
+
+/** Kind iconography for placeholder tiles (design §Grid tiles). */
+const PLACEHOLDER_ICON: Readonly<Record<'video' | 'audio' | 'probing', IconName>> = {
+  video: 'film',
+  audio: 'music',
+  probing: 'loader',
+};
 
 function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean, label: string): void {
   image.dataset['unavailable'] = unavailable ? 'true' : 'false';
@@ -66,6 +89,9 @@ export function PhotoTile({
   status = 'local',
   showStatus = true,
   previewFailure,
+  duration,
+  preserved = false,
+  placeholder,
   retentionLabel,
   onClick,
   onToggleSelect,
@@ -119,23 +145,29 @@ export function PhotoTile({
         onFocus={onFocus}
         onKeyDown={onKeyDown}
       />
-      <Fragment key={`${src}:${previewFailure ?? ''}`}>
-        <img
-          src={src}
-          alt=""
-          loading="lazy"
-          draggable={false}
-          className="ovl-tile__img"
-          data-unavailable="false"
-          onLoad={(event) => {
-            setPreviewUnavailable(event.currentTarget, false, unavailableLabel);
-          }}
-          onError={(event) => {
-            setPreviewUnavailable(event.currentTarget, true, unavailableLabel);
-          }}
-        />
-        <div className="ovl-tile__unavailable mono-data" />
-      </Fragment>
+      {placeholder ? (
+        <div className={`ovl-tile__placeholder${placeholder === 'probing' ? ' ovl-tile__placeholder--probing' : ''}`}>
+          <Icon name={PLACEHOLDER_ICON[placeholder]} size={28} strokeWidth={1.75} />
+        </div>
+      ) : (
+        <Fragment key={`${src}:${previewFailure ?? ''}`}>
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            className="ovl-tile__img"
+            data-unavailable="false"
+            onLoad={(event) => {
+              setPreviewUnavailable(event.currentTarget, false, unavailableLabel);
+            }}
+            onError={(event) => {
+              setPreviewUnavailable(event.currentTarget, true, unavailableLabel);
+            }}
+          />
+          <div className="ovl-tile__unavailable mono-data" />
+        </Fragment>
+      )}
       <div className="ovl-tile__hover-overlay" />
       {quickActions}
       {onToggleSelect === undefined ? null : (
@@ -186,6 +218,23 @@ export function PhotoTile({
         </span>
       ) : null}
       {retentionLabel === undefined ? null : <span className="ovl-tile__retention mono-data">{retentionLabel}</span>}
+      {duration == null && !preserved ? null : (
+        <span
+          className="ovl-tile__duration"
+          title={
+            preserved
+              ? intl.formatMessage(messages.videoPreservedTitle)
+              : duration == null
+                ? intl.formatMessage(messages.videoTitle)
+                : intl.formatMessage(messages.videoDurationTitle, { duration: formatDuration(duration) })
+          }
+        >
+          <Icon name={preserved ? 'film' : 'play'} size={9} strokeWidth={2} />
+          <span className="mono-data">
+            {preserved ? intl.formatMessage(messages.videoPreservedPill) : duration == null ? '' : formatDuration(duration)}
+          </span>
+        </span>
+      )}
     </div>
   );
 }

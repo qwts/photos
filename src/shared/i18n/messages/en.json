@@ -557,6 +557,18 @@
   "library.photo.moreActions": {
     "defaultMessage": "More actions for {photo}"
   },
+  "library.photo.video.durationTitle": {
+    "defaultMessage": "Video · {duration}"
+  },
+  "library.photo.video.preservedPill": {
+    "defaultMessage": "PRESERVED"
+  },
+  "library.photo.video.preservedTitle": {
+    "defaultMessage": "Video — preserved on this device"
+  },
+  "library.photo.video.title": {
+    "defaultMessage": "Video"
+  },
   "library.quickActions.actionLabel": {
     "defaultMessage": "{action}. {target}"
   },

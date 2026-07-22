@@ -44,6 +44,45 @@ export const StateMatrix: Story = {
   render: () => <Matrix />,
 };
 
+// #548 — video/audio grid tiles: duration pill (playable), PRESERVED pill,
+// and kind-iconography placeholders (audio, probing). Grids never move; the
+// poster/placeholder never plays inline (ADR-0026 §6/§7).
+function VideoTiles(): ReactElement {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 120px)', gap: 'var(--grid-gap)', padding: 'var(--space-7)' }}>
+      <div style={{ aspectRatio: '1' }}>
+        <PhotoTile src={realPhoto} alt="Video, 24 seconds, Big Sur" duration={24} onToggleFavorite={fn()} />
+      </div>
+      <div style={{ aspectRatio: '1' }}>
+        <PhotoTile src={realPhoto} alt="Video, 2 minutes 8 seconds" duration={128} onToggleFavorite={fn()} />
+      </div>
+      <div style={{ aspectRatio: '1' }}>
+        <PhotoTile alt="ProRes clip, preserved on this device" placeholder="video" preserved onToggleFavorite={fn()} />
+      </div>
+      <div style={{ aspectRatio: '1' }}>
+        <PhotoTile alt="voice-note.mp2, audio" placeholder="audio" onToggleFavorite={fn()} />
+      </div>
+      <div style={{ aspectRatio: '1' }}>
+        <PhotoTile alt="Transport stream, probing" placeholder="probing" onToggleFavorite={fn()} />
+      </div>
+    </div>
+  );
+}
+
+export const VideoAndAudioTiles: Story = {
+  render: () => <VideoTiles />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Playable video shows a monospace duration; preserved-only reads PRESERVED.
+    await expect(canvas.getByText('0:24')).toBeVisible();
+    await expect(canvas.getByText('2:08')).toBeVisible();
+    await expect(canvas.getByText('PRESERVED')).toBeVisible();
+    // No <video>/<audio> element renders in the grid — posters never play inline.
+    await expect(canvasElement.querySelector('video')).toBeNull();
+    await expect(canvasElement.querySelector('audio')).toBeNull();
+  },
+};
+
 export const ProtectedOriginal: Story = {
   args: {
     src: realPhoto,
