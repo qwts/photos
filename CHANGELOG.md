@@ -1,5 +1,62 @@
 # photos
 
+## 0.57.0
+
+### Minor Changes
+
+- c83a667: Wire the macOS menu's newly-projected commands to their cross-surface handlers, completing #689. File → Move Library… / New Library… open the library switcher (New Library… straight into create mode); File/Photo → Export Selection… / Export… open the Export dialog for the focused photo or selection; Edit → Clear Selection clears the selection; View → Toggle Sidebar shows/hides the sidebar (new `sidebarOpen` state); Photo → Toggle Favorite / Add to Album… / Remove from Album / Move to Trash / Restore act on the focused lightbox photo or the intentional selection, sharing the same handlers and target resolution as the toolbar and context menu (ADR-0024 parity). Each item is disabled with its enablement reason when there is no deterministic target. The native-command router was extracted from `Shell` into `useNativeCommandRouter`.
+- df83336: Include moodboards in encrypted backup and restore (part of #515). The backup
+  manifest advances to schema 5, carrying each board with its ordering/identity as
+  canonical serialized layout; restore rebuilds the boards into the staged catalog
+  and the post-restore deep-equality check now verifies boards alongside photos
+  and albums. This completes the backup/restore half of invariant I2 — a board's
+  exact layout survives a backup and restore round trip. Schema-4 manifests remain
+  readable; boards are absent from them and restore to none.
+- 6316eea: Persist moodboards in the encrypted library (part of #515). Boards are now
+  stored as album-class organizational metadata inside the whole-DB SQLCipher
+  `library.db` (migration 18): board-level fields in columns, the ordered
+  placement list as canonical byte-stable JSON. The Moodboard view loads its
+  board on open and saves layout changes back (debounced) over new zod-validated
+  `board:*` IPC channels, so a board survives app restart and library switch — a
+  switch reloads the renderer against the newly activated library, restoring the
+  exact layout (invariant I2). Placements are references with no photo foreign
+  key, so deleting a photo leaves an honest "unavailable" placement rather than
+  cascading the layout away. Backup/restore inclusion of boards lands in a
+  follow-up slice.
+- 9335ac1: Undo/redo for moodboard layout edits through the shared activity history (part
+  of #515, ADR-0024/0025). Each committed gesture (the canvas coalesces a gesture
+  into one debounced save) records a single undoable `board.layout` command whose
+  inverse is the canonical before/after board, so ⌘Z reverts one gesture at a
+  time and ⌘⇧Z re-applies it — capability-checked and idempotent like every other
+  undoable command. Undo/redo rewrites the board in the main process and pushes a
+  `board:reload` event so the open canvas reflects the reverted layout instead of
+  overwriting it. Board layout changes now appear in the Activity log.
+- 0227a20: Publish native Windows ARM64 installers alongside x64 (first slices of #683).
+  The Package/Release workflows now build a Windows leg per architecture on the
+  x64 `windows-latest` runner and emit architecture-qualified NSIS installers
+  (`Overlook-<version>-<arch>.exe`, uploaded as `overlook-windows-x64` /
+  `overlook-windows-arm64`) so the two can never overwrite or be confused. A new
+  `verify-windows-arch.mjs` gate reads the PE machine type of the installed
+  `Overlook.exe` and every shipped `*.node` (sharp, encrypted SQLite) and fails
+  the leg on any mixed-architecture payload from a bad cross-compile. Windows
+  Authenticode signing is wired env-gated behind `WIN_CSC_LINK` /
+  `WIN_CSC_KEY_PASSWORD` (SHA-256 + RFC 3161 timestamp, verified with
+  `signtool`), mirroring the macOS signing foundation; a tag is a full release
+  only when every platform can sign. Builds stay unsigned pre-releases until the
+  owner supplies the certificate. Ships the ARM64 signed-release manual
+  acceptance checklist.
+
+### Patch Changes
+
+- a9911d1: Verify the Moodboard view end to end and fix a rendering bug it caught (part of
+  #515). A new Electron E2E confirms the view renders in the real app and a
+  board's layout survives an app restart byte-stably (invariant I2), and a
+  scale/perf test exercises the board domain at 250 placements (correctness at
+  scale plus a generous hot-path budget). The E2E surfaced that the canvas
+  collapsed to zero height inside the shell's (non-flex) content area — it now
+  fills that area the way the grid does, so the Moodboard is visible in the app,
+  not only in isolated stories.
+
 ## 0.56.0
 
 ### Minor Changes
