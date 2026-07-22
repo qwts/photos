@@ -15,6 +15,9 @@ const DEV_CSP = [
   "worker-src 'self' blob:",
   // Mirror production's protocol allowances (#75 thumbs, #91 full-res).
   "img-src 'self' overlook-thumb: overlook-full:",
+  // Range-served video originals + the MPEG-TS MediaSource remux path (#548,
+  // ADR-0026 §5): overlook-full: streams the original, blob: is the MSE object URL.
+  "media-src 'self' overlook-full: blob:",
 ].join('; ');
 
 function relaxCspForDev(): Plugin {

@@ -35,13 +35,15 @@ function probeCodec(codec: string): boolean {
 }
 
 /**
- * True once the MPEG-TS → fragmented-MP4 remux adapter (§5) is wired into the
- * renderer this session. Until the adapter and Range-served `overlook-full://`
- * playback land, MPEG-TS resolves preserved-only on every device — the honest
- * per-device answer, flipped by presence of the adapter, not by a stored flag.
+ * True when this device can run the MPEG-TS → fragmented-MP4 remux path (§5):
+ * MediaSource plus fMP4 decode for the v1 H.264 + AAC matrix. Kept import-light
+ * (no mpegts.js import here) so the grid's tile derivation stays cheap; the
+ * concrete adapter (ts-remux.ts) guards again before it attaches. The answer is
+ * derived per device at runtime, never stored.
  */
 export function transportStreamRemuxAvailable(): boolean {
-  return false;
+  if (typeof window === 'undefined' || typeof window.MediaSource === 'undefined') return false;
+  return window.MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E,mp4a.40.2"');
 }
 
 export function deviceMediaCapabilities(): DeviceMediaCapabilities {
