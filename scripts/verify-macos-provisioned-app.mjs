@@ -8,7 +8,7 @@ const TEAM_ID = 'Z5DM34QS5U';
 const BUNDLE_ID = 'com.zts1.overlook';
 const APPLICATION_ID = `${TEAM_ID}.${BUNDLE_ID}`;
 const ICLOUD_CONTAINER_ID = `iCloud.${BUNDLE_ID}`;
-const UBIQUITY_CONTAINER_ID = `${TEAM_ID}.${ICLOUD_CONTAINER_ID}`;
+const UBIQUITY_CONTAINER_ID = ICLOUD_CONTAINER_ID;
 const BIOMETRIC_REASON = 'Unlock Overlook with Touch ID.';
 
 function fail(message) {
@@ -64,6 +64,7 @@ try {
   validateProvisioningProfile(profile, {
     applicationId: APPLICATION_ID,
     teamId: TEAM_ID,
+    iCloudContainerId: ICLOUD_CONTAINER_ID,
     ubiquityContainerId: UBIQUITY_CONTAINER_ID,
   });
 } catch (error) {
@@ -80,6 +81,10 @@ if (stringEntitlement(mainEntitlements, 'com.apple.developer.team-identifier') !
 const ubiquityKey = 'com.apple.developer.ubiquity-container-identifiers';
 if (!mainEntitlements.includes(`[Key] ${ubiquityKey}`) || !mainEntitlements.includes(`[String] ${UBIQUITY_CONTAINER_ID}`)) {
   fail(`main executable lacks ${ubiquityKey} authorization for ${UBIQUITY_CONTAINER_ID}`);
+}
+const iCloudContainerKey = 'com.apple.developer.icloud-container-identifiers';
+if (!mainEntitlements.includes(`[Key] ${iCloudContainerKey}`) || !mainEntitlements.includes(`[String] ${ICLOUD_CONTAINER_ID}`)) {
+  fail(`main executable lacks ${iCloudContainerKey} authorization for ${ICLOUD_CONTAINER_ID}`);
 }
 if (!mainEntitlements.includes('[Key] com.apple.developer.icloud-services') || !mainEntitlements.includes('[String] CloudDocuments')) {
   fail('main executable lacks CloudDocuments authorization');

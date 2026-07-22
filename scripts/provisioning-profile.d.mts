@@ -7,6 +7,7 @@ export interface ProvisioningProfileMetadata {
 export interface ExpectedProvisioningIdentity {
   readonly applicationId: string;
   readonly teamId: string;
+  readonly iCloudContainerId?: string;
   readonly ubiquityContainerId?: string;
 }
 
