@@ -158,7 +158,23 @@ export const StatusUnavailable: Story = {
   args: {
     connection: 'error',
     account: null,
+    message: null,
     primaryLabel: 'Try again',
     canRefresh: false,
+  },
+};
+
+// A failed connect surfaces the backend's actionable reason, not generic copy.
+export const ConnectError: Story = {
+  args: {
+    connection: 'error',
+    account: null,
+    message: 'Google Drive sign-in was cancelled. Try connecting again.',
+    primaryLabel: 'Try again',
+    canRefresh: false,
+  },
+  play: async ({ canvasElement }) => {
+    const card = within(canvasElement);
+    await expect(card.getByText('Google Drive sign-in was cancelled. Try connecting again.')).toBeVisible();
   },
 };
