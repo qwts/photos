@@ -48,12 +48,9 @@ test('Settings and lightbox entries preserve their underlying surfaces', async (
     await page.getByRole('button', { name: 'Settings' }).click();
     const settings = page.getByRole('dialog', { name: 'Settings' });
     await settings.getByRole('tab', { name: 'Transfer & Sync' }).click();
-    await settings.getByRole('button', { name: 'Open Transfer & Sync' }).click();
-
-    const settingsTransfer = page.getByRole('dialog', { name: 'Move to Image Trail' });
-    await expect(settingsTransfer).toContainText('settings · queued');
-    await settingsTransfer.locator('.ovl-dialog__footer').getByRole('button', { name: 'Close' }).click();
     await expect(settings).toBeVisible();
+    await expect(settings.getByTestId('interop-provider-card')).toContainText('not connected');
+    await expect(settings).toContainText('Outbound Move and Sync are not available yet.');
     await page.keyboard.press('Escape');
 
     await page.locator('.ovl-grid__cell').first().click();
