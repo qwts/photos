@@ -94,6 +94,62 @@ describe('probeTransportStream — bounded PAT/PMT probe (§2/§9)', () => {
     const info = probeTransportStream(malformed);
     assert.equal(info.probeIncomplete, true);
   });
+
+  test('a PMT that spans packets is reassembled, not parsed from a truncated prefix', () => {
+    // Build a program whose PMT is pushed past one packet by a large
+    // program-info descriptor block; the ES loop (H.264 + AAC) lands in the
+    // continuation packet. A prefix-only parse would miss both streams.
+    const patSection = [0x00, 0xb0, 0x0d, 0x00, 0x01, 0xc1, 0x00, 0x00, 0x00, 0x01, 0xe1, 0x00, 0, 0, 0, 0];
+    const descriptorLen = 160; // forces the ES loop into a second packet
+    const esLoop = [0x1b, 0xe1, 0x01, 0xf0, 0x00, 0x0f, 0xe1, 0x02, 0xf0, 0x00];
+    const pmtBody = [
+      0xe1,
+      0x00, // reserved + PCR_PID 0x0100
+      0xf0 | ((descriptorLen >> 8) & 0x0f),
+      descriptorLen & 0xff,
+      ...Array.from({ length: descriptorLen }, () => 0x00),
+      ...esLoop,
+    ];
+    const sectionLength = 5 + pmtBody.length + 4; // program_number..last + body + CRC
+    const pmtSection = [
+      0x02,
+      0xb0 | ((sectionLength >> 8) & 0x0f),
+      sectionLength & 0xff,
+      0x00,
+      0x01,
+      0xc1,
+      0x00,
+      0x00,
+      ...pmtBody,
+      0,
+      0,
+      0,
+      0,
+    ];
+
+    const packet = (pid: number, pusi: boolean, payload: readonly number[]): number[] => {
+      const head = [0x47, ((pusi ? 0x40 : 0) | ((pid >> 8) & 0x1f)) & 0xff, pid & 0xff, 0x10];
+      const body = [...(pusi ? [0x00] : []), ...payload];
+      return [...head, ...body, ...Array.from({ length: 188 - head.length - body.length }, () => 0xff)];
+    };
+    // The section is longer than one packet payload; split across two PID-0x0100 packets.
+    const firstFill = 184 - 1; // payload capacity after the pointer byte
+    const stream = new Uint8Array([
+      ...packet(0x0000, true, patSection),
+      ...packet(0x0100, true, pmtSection.slice(0, firstFill)),
+      ...[
+        0x47,
+        0x01,
+        0x00,
+        0x10,
+        ...pmtSection.slice(firstFill),
+        ...Array.from({ length: 184 - (pmtSection.length - firstFill) }, () => 0xff),
+      ],
+    ]);
+    const info = probeTransportStream(stream);
+    assert.equal(info.probeIncomplete, false, 'reassembled section is complete');
+    assert.deepEqual((info.streams ?? []).map((s) => s.codec).sort(), ['AAC', 'H.264']);
+  });
 });
 
 describe('classification is by signature, never suffix (I2)', () => {

@@ -214,11 +214,19 @@ describe('import engine integration (#87)', () => {
       [
         { path: join(videoFixtures, 'supported-h264-aac.ts'), fileName: 'supported-h264-aac.ts', kind: 'video' },
         { path: join(videoFixtures, 'spoofed-jpeg.ts'), fileName: 'spoofed-jpeg.ts', kind: 'video' },
+        { path: join(videoFixtures, 'malformed-no-cadence.ts'), fileName: 'malformed-no-cadence.ts', kind: 'video' },
       ],
       'copy',
       videoFixtures,
     );
+    // supported → video, spoofed → jpeg; the malformed `.ts` matches no
+    // signature and is rejected, leaving no library row (ADR-0026 §2, scenario 6).
     assert.equal(summary.imported, 2);
+    assert.equal(summary.failed, 1);
+    assert.equal(
+      [...rows.values()].some((row) => row.fileName === 'malformed-no-cadence.ts'),
+      false,
+    );
 
     const tsRow = [...rows.values()].find((row) => row.fileName === 'supported-h264-aac.ts');
     assert.equal(tsRow?.fileKind, 'video');
