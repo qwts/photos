@@ -57,3 +57,11 @@
   color: var(--text-faint);
   font: var(--type-meta);
 }
+
+/* Right-aligned accelerator hint (e.g. the `?` on Keyboard shortcuts). */
+.ovl-context-menu__hint {
+  margin-inline-start: auto;
+  padding-inline: var(--space-1);
+  color: var(--text-faint);
+  font: var(--type-meta);
+}

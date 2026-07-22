@@ -722,14 +722,8 @@
   "menu.photo": {
     "defaultMessage": "Photo"
   },
-  "menu.settingsSections": {
-    "defaultMessage": "Settings Sections"
-  },
   "menu.view": {
     "defaultMessage": "View"
-  },
-  "menu.window": {
-    "defaultMessage": "Window"
   },
   "moodboard.align.bottom": {
     "defaultMessage": "Align bottom"
@@ -1348,6 +1342,9 @@
   },
   "sidebar.trash.actions": {
     "defaultMessage": "Trash actions"
+  },
+  "titlebar.help": {
+    "defaultMessage": "Help"
   },
   "toast.announcement": {
     "defaultMessage": "{title} — {detail}"

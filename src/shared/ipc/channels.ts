@@ -209,6 +209,9 @@ export const channels = {
   ...inspectorWindowChannels,
   commandRendererReady: defineChannel('commands:renderer-ready', commandMenuContextSchema, z.object({})),
   commandContextUpdate: defineChannel('commands:context-update', commandMenuContextSchema, z.object({})),
+  // Opens the project help externally. The macOS Help menu dispatches `help.open`
+  // in main; the Windows/Linux titlebar Help menu reaches the same action here.
+  helpOpen: defineChannel('help:open', z.object({}), z.object({})),
   appLockStatus: defineChannel('app-lock:status', z.object({}), appLockStatusSchema),
   appLockUnlock: defineChannel(
     'app-lock:unlock',

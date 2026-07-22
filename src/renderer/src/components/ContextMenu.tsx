@@ -9,6 +9,8 @@ export interface ContextMenuItem {
   readonly icon: IconName;
   readonly action: () => void;
   readonly detail?: string | undefined;
+  /** Right-aligned accelerator hint (e.g. `?`); part of the item's name. */
+  readonly hint?: string | undefined;
   readonly disabledReason?: string | undefined;
   readonly danger?: boolean | undefined;
   readonly separatorBefore?: boolean | undefined;
@@ -21,9 +23,11 @@ export interface ContextMenuProps {
   readonly items: readonly ContextMenuItem[];
   readonly onClose: () => void;
   readonly closeOnSelect?: boolean | undefined;
+  /** Which item takes focus on open — `last` for keyboard opens via ↑/End. */
+  readonly initialFocus?: 'first' | 'last' | undefined;
 }
 
-export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true }: ContextMenuProps): ReactElement {
+export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true, initialFocus = 'first' }: ContextMenuProps): ReactElement {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -31,8 +35,9 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
     if (menu === null) return;
     menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - menu.offsetWidth - 8))}px`;
     menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - menu.offsetHeight - 8))}px`;
-    menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-  }, [x, y]);
+    const menuItems = menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    (initialFocus === 'last' ? menuItems[menuItems.length - 1] : menuItems[0])?.focus();
+  }, [x, y, initialFocus]);
 
   useEffect(() => {
     const close = (): void => onClose();
@@ -101,6 +106,7 @@ export function ContextMenu({ label, x, y, items, onClose, closeOnSelect = true 
                 <span className="ovl-context-menu__meta">{item.detail}</span>
               </span>
             )}
+            {item.hint === undefined ? null : <span className="ovl-context-menu__hint">{item.hint}</span>}
           </button>
         </div>
       ))}

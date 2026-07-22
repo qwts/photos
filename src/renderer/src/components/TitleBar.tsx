@@ -10,6 +10,9 @@ export interface TitleBarProps {
   readonly trafficLightInset?: number;
   /** Centered no-drag island (#386: the library switcher trigger). */
   readonly center?: ReactNode;
+  /** No-drag affordance left of the window controls — the Windows/Linux
+   *  titlebar Help menu (#699). Never rendered in the macOS variant. */
+  readonly help?: ReactNode;
   readonly onMinimize?: () => void;
   readonly onToggleMaximize?: () => void;
   readonly onClose?: () => void;
@@ -20,7 +23,15 @@ export interface TitleBarProps {
 // so macOS draws real traffic lights over our reserved inset. win/linux: no
 // native chrome exists, so minimal custom controls call the #50 IPC channels
 // (wired by the caller — this component stays Electron-free for Storybook).
-export function TitleBar({ platform, trafficLightInset = 78, center, onMinimize, onToggleMaximize, onClose }: TitleBarProps): ReactElement {
+export function TitleBar({
+  platform,
+  trafficLightInset = 78,
+  center,
+  help,
+  onMinimize,
+  onToggleMaximize,
+  onClose,
+}: TitleBarProps): ReactElement {
   const isMac = platform === 'darwin';
   return (
     <header className="ovl-titlebar">
@@ -30,6 +41,7 @@ export function TitleBar({ platform, trafficLightInset = 78, center, onMinimize,
       <div className="ovl-titlebar__spacer" />
       {isMac ? null : (
         <div className="ovl-titlebar__controls">
+          {help}
           <button type="button" aria-label="Minimize" className="ovl-titlebar__button" onClick={onMinimize}>
             <Icon name="minus" size={13} />
           </button>

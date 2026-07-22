@@ -32,6 +32,11 @@ function commandPlatform(): CommandPlatform {
   return 'linux';
 }
 
+// `help.open` opens the project README externally. On macOS the native Help menu
+// dispatches it in-process (see `dispatch`); on Windows/Linux the renderer
+// titlebar Help menu reaches the same action through the `helpOpen` channel.
+const HELP_URL = 'https://github.com/qwts/photos#readme';
+
 function isAuthorized(state: string): boolean {
   return state === 'unconfigured-unlocked' || state === 'unlocked';
 }
@@ -52,6 +57,12 @@ export class ApplicationMenuController {
     ipcMain.handle(channels.commandContextUpdate.name, (event, request: unknown) =>
       wrapHandler(channels.commandContextUpdate, (context) => {
         this.setRendererState(event.sender.id, context, true);
+        return {};
+      })(request),
+    );
+    ipcMain.handle(channels.helpOpen.name, (_event, request: unknown) =>
+      wrapHandler(channels.helpOpen, () => {
+        void shell.openExternal(HELP_URL);
         return {};
       })(request),
     );
@@ -106,6 +117,13 @@ export class ApplicationMenuController {
   }
 
   private refresh(): void {
+    if (commandPlatform() !== 'darwin') {
+      // Windows/Linux run with no native menu bar (ADR-0024 §5): commands live
+      // on the toolbar, sidebar, titlebar, and keyboard, and the two otherwise
+      // menu-only Help commands live in the renderer titlebar Help menu.
+      Menu.setApplicationMenu(null);
+      return;
+    }
     Menu.setApplicationMenu(
       Menu.buildFromTemplate(
         buildApplicationMenuTemplate(
@@ -143,7 +161,7 @@ export class ApplicationMenuController {
       return;
     }
     if (id === 'help.open') {
-      void shell.openExternal('https://github.com/qwts/photos#readme');
+      void shell.openExternal(HELP_URL);
       return;
     }
 

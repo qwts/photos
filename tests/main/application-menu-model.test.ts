@@ -215,18 +215,26 @@ test('the moodboard view radio checks only when the board view is active (#515)'
   assert.equal(find(onGrid, 'view.mode.moodboard')?.checked, false);
 });
 
-test('Windows/Linux menu is unchanged: keeps Window menu and no Overlook app menu (#689)', () => {
-  const template = buildApplicationMenuTemplate('win32', 'Overlook', grid, () => {});
+test('Windows and Linux draw no native application menu (#699)', () => {
+  // The native menu is a macOS-only surface; win/linux commands live on the
+  // toolbar/sidebar/titlebar/keyboard and the renderer titlebar Help menu.
   assert.deepEqual(
-    template.map(({ label, role }) => label ?? role),
-    ['File', 'Edit', 'View', 'Photo', 'Window', 'help'],
+    buildApplicationMenuTemplate('win32', 'Overlook', grid, () => {}),
+    [],
   );
-  // The non-mac File menu still carries the flattened settings + quit fallback.
-  assert.notEqual(find(template, 'app.settings.open'), undefined);
-  assert.notEqual(find(template, 'view.lightbox.close'), undefined);
-  // #689 scopes the ⌘I Import accelerator to macOS; win/linux Import stays
-  // accelerator-free (the shared descriptor's key must not leak there).
-  assert.equal(find(template, 'library.import')?.accelerator, undefined);
-  const mac = buildApplicationMenuTemplate('darwin', 'Overlook', grid, () => {});
-  assert.equal(find(mac, 'library.import')?.accelerator, 'CommandOrControl+I');
+  assert.deepEqual(
+    buildApplicationMenuTemplate('linux', 'Overlook', grid, () => {}),
+    [],
+  );
+});
+
+test('macOS Help menu mirrors the shared HELP_MENU_ITEMS list with a separator (#699)', () => {
+  const template = buildApplicationMenuTemplate('darwin', 'Overlook', grid, () => {});
+  const help = template.find((menu) => menu.role === 'help');
+  assert.ok(help !== undefined && Array.isArray(help.submenu));
+  const shape = help.submenu.map((item) => (item.type === 'separator' ? '—' : item.id));
+  assert.deepEqual(shape, ['help.shortcuts', 'help.activity', '—', 'help.privacy', 'help.open']);
+  // Privacy keeps its distinct Help id so it does not collide with the app-menu
+  // Privacy item — native ids stay unique.
+  assert.equal(new Set(ids(template)).size, ids(template).length);
 });

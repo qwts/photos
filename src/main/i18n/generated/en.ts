@@ -78,7 +78,5 @@ export const en: Readonly<Record<string, string>> = {
   "menu.edit": "Edit",
   "menu.file": "File",
   "menu.photo": "Photo",
-  "menu.settingsSections": "Settings Sections",
   "menu.view": "View",
-  "menu.window": "Window",
 };

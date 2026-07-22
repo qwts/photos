@@ -1740,6 +1740,28 @@
           "issue": 548
         }
       ]
+    },
+    {
+      "id": "titlebar-help-menu",
+      "wiki": "Titlebar-Help-Menu",
+      "coverage": [
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/application-menu.spec.ts"
+        },
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/components/TitlebarHelpMenu.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/main/application-menu-model.test.ts"]
+        },
+        {
+          "type": "manual",
+          "reason": "Follow the Titlebar Help Menu spec (§05/§08): on real Windows/Linux confirm no native menu bar renders, the titlebar Help button opens the ContextMenu with correct pointer placement and viewport-edge clamping across desktop-environment window-control layouts, RTL mirroring, reduced-motion, 200% text scaling, and native menu/menuitem screen-reader semantics that automated lanes cannot fully observe."
+        }
+      ]
     }
   ]
 }

@@ -23,6 +23,7 @@ const VOCABULARY = [
   'lock',
   'shield-check',
   'key-round',
+  'keyboard',
   'cloud',
   'cloud-upload',
   'cloud-download',
@@ -79,6 +80,8 @@ const VOCABULARY = [
   // list (#99): the folder picker and the done check.
   'folder',
   'circle-check',
+  // Titlebar Help menu (#699): the Help button/Overlook Help glyph.
+  'circle-help',
   // SettingsDialog nav glyph the design's SettingsDialog.jsx uses beyond the
   // readme list (#112): the General section row.
   'sliders-horizontal',

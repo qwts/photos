@@ -7,6 +7,7 @@ import { useFormats } from '../i18n/use-formats.js';
 import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/library/types.js';
 import { Icon } from '../components/Icon';
 import { TitleBar } from '../components/TitleBar';
+import { TitlebarHelpMenu } from '../components/TitlebarHelpMenu';
 import { ToastHost, type ToastItem } from '../components/Toast';
 import { PrimaryLibraryView } from './PrimaryLibraryView';
 import { fullUrl } from '../../../shared/library/full-url.js';
@@ -199,7 +200,7 @@ export function Shell({
   const [unlockAlbumId, setUnlockAlbumId] = useState<string | null>(null);
   const unlockOriginRef = useRef<HTMLButtonElement | null>(null);
 
-  useNativeCommandRouter({
+  const runNativeCommand = useNativeCommandRouter({
     nativeCommand,
     state,
     dispatch,
@@ -466,6 +467,7 @@ export function Shell({
             <Icon name="chevrons-up-down" size={12} color="var(--text-faint)" />
           </button>
         }
+        help={<TitlebarHelpMenu platform={platform} onCommand={runNativeCommand} />}
         onMinimize={() => {
           void window.overlook.minimizeWindow();
         }}
