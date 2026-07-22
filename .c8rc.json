@@ -6,6 +6,8 @@
     "**/*.test.ts",
     "src/main/index.ts",
     "src/main/ipc.ts",
+    "src/main/llm/llm-ipc.ts",
+    "src/main/llm/llm-runtime.ts",
     "src/main/app-bootstrap.ts",
     "src/main/backup/provider-runtime-factory.ts",
     "src/main/backup/restore-runtime-factory.ts",
