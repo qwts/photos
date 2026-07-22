@@ -9,6 +9,7 @@ import { thumbUrl } from '../../../shared/library/thumb-url.js';
 import type { PhotoRecord } from '../../../shared/library/types.js';
 import { destructiveActions } from '../../../shared/destructive-actions.js';
 import { LightboxViewport } from './LightboxViewport';
+import { LightboxVideo } from './LightboxVideo';
 import { DEFAULT_VIEW_INTENT } from './geometry.js';
 import { useLightboxChrome } from './use-lightbox-chrome';
 import { usePrefersReducedMotion } from './use-reduced-motion.js';
@@ -137,6 +138,7 @@ export function Lightbox({
   // ADR-0026 §7: the full viewer plays animated GIF/WebP with source timing,
   // but under prefers-reduced-motion it opens on the static poster and waits
   // for an intentional play action. The choice resets on every photo change.
+  const isVideo = photo.fileKind === 'video';
   const animated = (photo.fileKind === 'gif' || photo.fileKind === 'webp') && photo.mediaInfo?.animated === true;
   const reducedMotion = usePrefersReducedMotion();
   // Derived, not effect-reset: playback consent is held per photo id, so
@@ -190,18 +192,31 @@ export function Lightbox({
       onFocusCapture={wakeChrome}
       onBlurCapture={armTimer}
     >
-      <LightboxViewport
-        key={requestKey}
-        requestKey={requestKey}
-        photo={photo}
-        viewIntent={viewIntent}
-        onViewIntentChange={setViewIntent}
-        imageSrc={source}
-        chromeVisible={chrome}
-        onActivity={wakeChrome}
-        onDimensionsResolved={onRepairDimensions}
-        platform={platform}
-      />
+      {isVideo ? (
+        <LightboxVideo
+          key={photo.id}
+          photo={photo}
+          src={imageSrc ?? fullUrl(photo.id)}
+          posterSrc={posterSrc ?? thumbUrl(photo.id, 'mid')}
+          chromeVisible={chrome}
+          onActivity={wakeChrome}
+          onExport={onExport}
+          onTransfer={onTransfer}
+        />
+      ) : (
+        <LightboxViewport
+          key={requestKey}
+          requestKey={requestKey}
+          photo={photo}
+          viewIntent={viewIntent}
+          onViewIntentChange={setViewIntent}
+          imageSrc={source}
+          chromeVisible={chrome}
+          onActivity={wakeChrome}
+          onDimensionsResolved={onRepairDimensions}
+          platform={platform}
+        />
+      )}
       {photo.fileKind === 'raw' ? (
         <span className={`ovl-lightbox__preview ovl-lightbox__chrome${chromeClass} mono-data`}>Preview</span>
       ) : null}
@@ -244,7 +259,7 @@ export function Lightbox({
         <IconButton icon="chevron-right" size="lg" label={`Next (${direction === 'rtl' ? '←' : '→'})`} onClick={onNext} />
       </div>
       <div className={`ovl-lightbox__strip ovl-lightbox__chrome${chromeClass}`}>
-        <span className="ovl-lightbox__exif mono-data">{exifStrip(photo)}</span>
+        {isVideo ? null : <span className="ovl-lightbox__exif mono-data">{exifStrip(photo)}</span>}
         {offloaded && ephemeralStage !== null && ephemeralStage !== 'released' ? (
           <div className="ovl-lightbox__custody">
             {ephemeralStage === 'fetching' ? <span className="mono-data">Fetching original…</span> : null}
