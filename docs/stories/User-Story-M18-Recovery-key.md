@@ -1,7 +1,7 @@
 # User Story — M18 Recovery key backup & import
 
 Epic [#240](https://github.com/qwts/photos/issues/240), design reference
-`design/handoff/ui_kits/app/KeyDialog.jsx` + README §7/7b (updated handoff,
+`design/handoff/ui_kits/app/KeyDialog.jsx.txt` + README §7/7b (updated handoff,
 PR #234). Format/KDF: [ADR-0008](../adr/ADR-0008-Recovery-Key-Format.md).
 
 **As a** privacy-conscious photographer, **I want** to export my library key
