@@ -318,8 +318,11 @@ export function Shell({
         setShortcutSurface(state.lightboxId === null ? 'grid' : 'lightbox');
         return;
       case 'help.activity':
-        // Menu-only Activity surface (#690): the dialog/set reducer makes the
-        // dialog family exclusive, so this also closes any open sibling dialog.
+        // Menu-only Activity surface (#690). Clear every open overlay first —
+        // not just the reducer dialog family but also non-reducer modals
+        // (ShortcutHelp, offload, unlock…) — so Activity never stacks a second
+        // focus-trapping Dialog on top of one already mounted.
+        closeOverlays();
         dispatch({ type: 'dialog/set', dialog: 'activity', open: true });
         return;
       case 'app.lock.now':
