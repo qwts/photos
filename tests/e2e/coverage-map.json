@@ -1673,7 +1673,10 @@
             "tests/moodboard/availability.test.ts",
             "tests/moodboard/export-layout.test.ts",
             "tests/library/app-state.test.ts",
-            "tests/main/application-menu-model.test.ts"
+            "tests/main/application-menu-model.test.ts",
+            "tests/db/board-repository.test.ts",
+            "tests/db/library-db.test.ts",
+            "tests/library/library-service.test.ts"
           ]
         },
         {
