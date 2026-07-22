@@ -389,24 +389,24 @@ export class ProviderRuntime {
     return readOrMintLibraryId(this.options.dataDir());
   }
 
-  /** Who Connect targets while disconnected: packaged builds are
-   * pCloud-only; dev/e2e default to the mock, overridable via the
-   * harness-gated OVERLOOK_PROVIDER. */
+  /** Who Connect targets while disconnected. The local mock exists only in
+   * the explicit E2E harness; ordinary development matches the packaged
+   * provider set. */
   defaultTarget(): string {
     const override = this.options.harnessEnv('OVERLOOK_PROVIDER');
     if (
-      override === 'mock' ||
+      (override === 'mock' && this.mockEnabled()) ||
       override === 'pcloud' ||
       override === 'icloud-drive' ||
       (override === 'google-drive' && this.googleClientId() !== null)
     ) {
       return override;
     }
-    return this.options.isPackaged ? 'pcloud' : 'mock';
+    return this.mockEnabled() ? 'mock' : 'pcloud';
   }
 
-  /** settings.providerId with the packaged-build correction: 'mock' is not
-   * a real provider there (never registered), so a stale/default 'mock'
+  /** settings.providerId with the runtime correction: 'mock' is not a real
+   * provider outside E2E (never registered), so a stale/default 'mock'
    * value reads as disconnected instead of silently "backing up" to a local
    * folder. */
   activeId(): string | null {
@@ -414,7 +414,7 @@ export class ProviderRuntime {
     if (raw === null) {
       return null;
     }
-    if (raw === 'mock' && this.options.isPackaged) {
+    if (raw === 'mock' && !this.mockEnabled()) {
       return null;
     }
     if (raw === 'google-drive' && this.googleClientId() === null) {
@@ -429,10 +429,8 @@ export class ProviderRuntime {
     return raw;
   }
 
-  /** The engine-facing provider: pCloud always registered; the mock only
-   * outside packaged builds (dev + e2e, where it stays the default Connect
-   * target so every harness flow is unchanged), optionally fault-armed via
-   * the #110 harness hook. */
+  /** The engine-facing provider: pCloud always registered; the mock only in
+   * E2E, optionally fault-armed via the #110 harness hook. */
   buildProvider(build: { mockRootDir: string; fault: string | undefined; libraryId?: string | undefined }): StorageProvider {
     const registry = new ProviderRegistry();
     const libraryId = build.libraryId ?? this.libraryId();
@@ -453,7 +451,7 @@ export class ProviderRuntime {
     });
     this.iCloudDriveProviderInstance = iCloudProvider;
     registry.register(iCloudProvider);
-    if (!this.options.isPackaged) {
+    if (this.mockEnabled()) {
       const faulty = new FaultInjectingProvider(new MockProvider({ rootDir: build.mockRootDir, libraryId }));
       const fault = build.fault;
       if (fault === 'put' || fault === 'verify-mismatch' || fault === 'auth-expired' || fault === 'transient-get') {
@@ -463,6 +461,10 @@ export class ProviderRuntime {
     }
     this.registryInstance = registry;
     return createActiveProvider({ registry, activeId: () => this.activeId(), defaultId: () => this.defaultTarget() });
+  }
+
+  private mockEnabled(): boolean {
+    return !this.options.isPackaged && this.options.harnessEnv('OVERLOOK_E2E') !== undefined;
   }
 
   private resetGoogleDriveAccountCache(): void {

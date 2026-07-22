@@ -8,6 +8,11 @@ let settingsStore: ScopedSettingsStore | undefined;
 let libraryDataDir = (): string => path.join(app.getPath('userData'), 'library');
 let appearanceHostInstalled = false;
 
+function removeUnavailableMockSelection(store: ScopedSettingsStore): void {
+  const mockAvailable = !app.isPackaged && process.env['OVERLOOK_E2E'] !== undefined;
+  if (!mockAvailable && store.get().providerId === 'mock') store.set({ providerId: null });
+}
+
 export function configureSettingsLibrary(dataDir: () => string): void {
   libraryDataDir = dataDir;
   if (settingsStore !== undefined) activateSettingsLibrary();
@@ -23,7 +28,7 @@ export function getSettingsStore(): ScopedSettingsStore {
       profileFilePath: path.join(app.getPath('userData'), 'settings.json'),
       libraryFilePath: () => path.join(libraryDataDir(), 'settings.json'),
     });
-    if (app.isPackaged && settingsStore.get().providerId === 'mock') settingsStore.set({ providerId: null });
+    removeUnavailableMockSelection(settingsStore);
   }
   return settingsStore;
 }
@@ -31,7 +36,7 @@ export function getSettingsStore(): ScopedSettingsStore {
 export function activateSettingsLibrary(): void {
   const store = getSettingsStore();
   store.activateLibrary();
-  // The mock adapter exists only in development/test. Apply the correction
-  // for every newly active library, not just the startup library.
-  if (app.isPackaged && store.get().providerId === 'mock') store.set({ providerId: null });
+  // The mock adapter exists only in E2E. Apply the correction for every newly
+  // active library, not just the startup library.
+  removeUnavailableMockSelection(store);
 }

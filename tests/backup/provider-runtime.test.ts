@@ -12,8 +12,8 @@ import type { SafeStorageLike } from '../../src/main/crypto/keystore.js';
 import { DeterministicICloudDriveBridge } from '../../src/main/backup/icloud-drive/deterministic-bridge.js';
 import { ICloudDriveAuthorityStore } from '../../src/main/backup/icloud-drive/authority-store.js';
 
-// #256: provider-selection policy — packaged vs dev targets, the stale-mock
-// correction, and the persistent library id.
+// #256: provider-selection policy — production vs explicit E2E targets, the
+// stale-mock correction, and the persistent library id.
 
 const fakeSafeStorage: SafeStorageLike = {
   isEncryptionAvailable: () => true,
@@ -32,7 +32,7 @@ function runtime(overrides: Partial<ProviderRuntimeOptions> = {}) {
       setProviderId: () => undefined,
       providerId: () => null,
       isPackaged: false,
-      harnessEnv: () => undefined,
+      harnessEnv: (name) => (name === 'OVERLOOK_E2E' ? '1' : undefined),
       iCloudDriveBridge: new DeterministicICloudDriveBridge(),
       ...overrides,
     }),
@@ -64,14 +64,18 @@ describe('provider runtime policy (#256)', () => {
     }
   });
 
-  test('defaultTarget: dev → mock, packaged → pcloud, harness override wins in dev', () => {
+  test('defaultTarget: ordinary dev and packaged → pcloud; explicit E2E → mock', () => {
     assert.equal(runtime().runtime.defaultTarget(), 'mock');
+    assert.equal(runtime({ harnessEnv: () => undefined }).runtime.defaultTarget(), 'pcloud');
     assert.equal(runtime({ isPackaged: true }).runtime.defaultTarget(), 'pcloud');
     assert.equal(
       runtime({ harnessEnv: (name) => (name === 'OVERLOOK_PROVIDER' ? 'pcloud' : undefined) }).runtime.defaultTarget(),
       'pcloud',
     );
-    assert.equal(runtime({ harnessEnv: () => 'garbage' }).runtime.defaultTarget(), 'mock');
+    assert.equal(
+      runtime({ harnessEnv: (name) => (name === 'OVERLOOK_PROVIDER' ? 'garbage' : undefined) }).runtime.defaultTarget(),
+      'pcloud',
+    );
     assert.equal(
       runtime({
         harnessEnv: (name) => (name === 'OVERLOOK_PROVIDER' ? 'google-drive' : undefined),
@@ -81,9 +85,10 @@ describe('provider runtime policy (#256)', () => {
     );
   });
 
-  test("activeId: packaged corrects a stale/default 'mock' to disconnected; dev passes it through", () => {
+  test("activeId: only explicit E2E accepts 'mock' authority", () => {
     assert.equal(runtime({ providerId: () => 'mock', isPackaged: true }).runtime.activeId(), null);
     assert.equal(runtime({ providerId: () => 'mock' }).runtime.activeId(), 'mock');
+    assert.equal(runtime({ providerId: () => 'mock', harnessEnv: () => undefined }).runtime.activeId(), null);
     assert.equal(runtime({ providerId: () => 'pcloud', isPackaged: true }).runtime.activeId(), 'pcloud');
     assert.equal(runtime({ providerId: () => 'icloud-drive', isPackaged: true }).runtime.activeId(), null);
     assert.equal(runtime({ providerId: () => 'google-drive' }).runtime.activeId(), null, 'an unconfigured Drive build is disconnected');
@@ -95,6 +100,18 @@ describe('provider runtime policy (#256)', () => {
     const { runtime: unavailable } = runtime({ providerId: () => 'missing-provider' });
     unavailable.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-mock'), fault: undefined });
     assert.equal(unavailable.activeId(), null, 'an unavailable id never falls through to another remote authority');
+  });
+
+  test('ordinary development exposes only production providers and no false connected mock', async () => {
+    const { runtime: r } = runtime({ providerId: () => 'mock', harnessEnv: () => undefined });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-unused-mock'), fault: undefined });
+
+    assert.equal(r.activeId(), null);
+    assert.equal(r.defaultTarget(), 'pcloud');
+    assert.deepEqual(
+      (await r.descriptors()).map(({ id }) => id),
+      ['pcloud', 'google-drive', 'icloud-drive'],
+    );
   });
 
   test('provider-addressed connect flips selection only after success', async () => {
