@@ -45,6 +45,21 @@ describe('app profile identity', () => {
     assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:${stable}`]);
   });
 
+  it('does not discover a legacy photos profile', () => {
+    const appData = mkdtempSync(join(tmpdir(), 'overlook-app-profile-no-legacy-fallback-'));
+    const stable = join(appData, OVERLOOK_PRODUCT_NAME);
+    const legacy = join(appData, 'photos');
+    const initial = join(appData, 'electron');
+    mkdirSync(join(legacy, 'library'), { recursive: true });
+    writeFileSync(join(legacy, 'library', 'library.db'), 'legacy');
+    const { app, calls } = profileApp(true, { appData, userData: initial });
+
+    configureAppProfile(app, undefined);
+
+    assert.equal(existsSync(stable), true);
+    assert.deepEqual(calls, [`name:${OVERLOOK_PRODUCT_NAME}`, `path:userData:${stable}`]);
+  });
+
   it('ignores profile overrides and creates the stable profile before binding it in packaged builds', () => {
     const appData = mkdtempSync(join(tmpdir(), 'overlook-app-profile-first-launch-'));
     const stable = join(appData, OVERLOOK_PRODUCT_NAME);
