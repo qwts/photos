@@ -33,6 +33,8 @@ import {
   registerSettingsHandlers,
 } from './ipc.js';
 import { registerOriginalPolicyHandlers } from './library/original-deletion-ipc.js';
+import { registerLlmHandlers } from './llm/llm-ipc.js';
+import { getLlmFacade } from './llm/llm-runtime.js';
 import { registerActivityHandlers } from './activity/activity-ipc.js';
 import { registerHistoryHandlers } from './history/history-ipc.js';
 import type { LibraryService } from './library/library-service.js';
@@ -152,6 +154,7 @@ export function registerAppServices(options: AppServicesOptions): void {
   registerOriginalPolicyHandlers(options.getLibrary, () => originalDeletion);
   registerLibraryRegistryHandlers(() => options.libraries);
   registerSettingsHandlers(() => getSettingsStore());
+  registerLlmHandlers(getLlmFacade);
   registerDiagnosticsHandlers(getDiagnosticsService, () => pickDiagnosticsExport(options));
   const emitSettingsChanged = createEmitter(events.settingsChanged, options.broadcast);
   getSettingsStore().subscribe((settings) => emitSettingsChanged({ settings }));

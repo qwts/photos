@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 import type { OverlookApi } from '../shared/ipc/api.js';
 import { channels, events } from '../shared/ipc/channels.js';
+import { llmChannels } from '../shared/ipc/llm-channels.js';
 import { createInvoker, createSubscriber, type SubscribeTransport } from '../shared/ipc/registry.js';
 
 // contextBridge is the only thing that belongs in this process. The renderer
@@ -36,6 +37,7 @@ const libraryStats = createInvoker(channels.libraryStats, invokeTransport);
 const settingsGet = createInvoker(channels.settingsGet, invokeTransport);
 const diagnosticsList = createInvoker(channels.diagnosticsList, invokeTransport);
 const diagnosticsPurge = createInvoker(channels.diagnosticsPurge, invokeTransport);
+const llmProviders = createInvoker(llmChannels.llmProviders, invokeTransport);
 const libraryRegistryList = createInvoker(channels.libraryRegistryList, invokeTransport);
 const libraryRegistryCurrent = createInvoker(channels.libraryRegistryCurrent, invokeTransport);
 const libraryRegistryPickLocation = createInvoker(channels.libraryRegistryPickLocation, invokeTransport);
@@ -246,6 +248,13 @@ const overlook: OverlookApi = {
     delete: createInvoker(channels.diagnosticsDelete, invokeTransport),
     purge: async () => diagnosticsPurge({}),
     export: createInvoker(channels.diagnosticsExport, invokeTransport),
+  }),
+  // Opt-in LLM assistant (ADR-0018 §7, #393): provider custody. Keys cross
+  // inbound on connect and never come back out; the Q&A surface lands next.
+  llm: Object.freeze({
+    providers: async () => llmProviders({}),
+    connect: createInvoker(llmChannels.llmConnect, invokeTransport),
+    disconnect: createInvoker(llmChannels.llmDisconnect, invokeTransport),
   }),
   libraries: Object.freeze({
     list: async () => libraryRegistryList({}),

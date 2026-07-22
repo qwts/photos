@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 
 import type { channels, events, FocusChangedPayload, PingRequest, PingResponse } from './channels.js';
+import type { llmChannels } from './llm-channels.js';
 
 type Req<C extends { request: z.ZodType }> = z.input<C['request']>;
 type Res<C extends { response: z.ZodType }> = z.output<C['response']>;
@@ -196,6 +197,13 @@ export interface OverlookApi {
     readonly delete: (request: Req<typeof channels.diagnosticsDelete>) => Promise<Res<typeof channels.diagnosticsDelete>>;
     readonly purge: () => Promise<Res<typeof channels.diagnosticsPurge>>;
     readonly export: (request: Req<typeof channels.diagnosticsExport>) => Promise<Res<typeof channels.diagnosticsExport>>;
+  };
+  // Opt-in LLM assistant provider custody (ADR-0018 §7, #393). estimate/ask/spend
+  // and the llm:inflight subscriber arrive with the Q&A slice.
+  readonly llm: {
+    readonly providers: () => Promise<Res<typeof llmChannels.llmProviders>>;
+    readonly connect: (request: Req<typeof llmChannels.llmConnect>) => Promise<Res<typeof llmChannels.llmConnect>>;
+    readonly disconnect: (request: Req<typeof llmChannels.llmDisconnect>) => Promise<Res<typeof llmChannels.llmDisconnect>>;
   };
   readonly libraries: {
     readonly list: () => Promise<Res<typeof channels.libraryRegistryList>>;
