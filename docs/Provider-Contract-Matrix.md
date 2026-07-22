@@ -8,7 +8,7 @@ is not restore-ready merely because account connection or object upload works.
 | Local mock   | CI                                                  | CI + Electron E2E              | Not applicable                                                                                 | Passed            |
 | pCloud       | Scripted unit + shared contract                     | Shared contract                | Passed 2026-07-14 (`api.pcloud.com`)                                                           | Passed            |
 | Google Drive | Scripted unit + shared contract in PR #344          | Shared contract in PR #344     | Pending owner OAuth client/account                                                             | Live gate pending |
-| iCloud Drive | Scripted native authority + shared contract in #657 | Shared contract in #657        | Passed 2026-07-21 ([run 29884832187](https://github.com/qwts/photos/actions/runs/29884832187)) | Passed            |
+| iCloud Drive | Scripted native authority + shared contract in #657 | Shared contract in #657        | Passed 2026-07-22 ([run 29886355588](https://github.com/qwts/photos/actions/runs/29886355588)) | Passed            |
 
 ## Required restore contract
 

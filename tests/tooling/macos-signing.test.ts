@@ -188,6 +188,31 @@ describe('provisioning profile validation (#360)', () => {
     };
     validateProvisioningProfile(metadata, expected, 0);
     validateProvisioningProfile(
+      metadata,
+      {
+        applicationId: OVERLOOK_MAC_APPLICATION_ID,
+        teamId: OVERLOOK_TEAM_ID,
+        iCloudContainerId: OVERLOOK_ICLOUD_CONTAINER_ID,
+      },
+      0,
+    );
+    assert.throws(
+      () =>
+        validateProvisioningProfile(
+          {
+            ...metadata,
+            entitlements: { ...entitlements, 'com.apple.developer.icloud-container-identifiers': [] },
+          },
+          {
+            applicationId: OVERLOOK_MAC_APPLICATION_ID,
+            teamId: OVERLOOK_TEAM_ID,
+            iCloudContainerId: OVERLOOK_ICLOUD_CONTAINER_ID,
+          },
+          0,
+        ),
+      /does not authorize iCloud container/u,
+    );
+    validateProvisioningProfile(
       {
         ...metadata,
         entitlements: {

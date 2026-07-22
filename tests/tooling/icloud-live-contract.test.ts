@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 
 import { DeterministicICloudDriveBridge } from '../../src/main/backup/icloud-drive/deterministic-bridge.js';
+import { ICloudDriveNativeError, type ICloudDriveNativeListPage } from '../../src/main/backup/icloud-drive/native-bridge.js';
 import {
   ICLOUD_LIVE_CONTRACT_ARGUMENT,
   ICLOUD_LIVE_CONTRACT_MARKER,
@@ -80,5 +81,35 @@ describe('signed packaged iCloud live contract (#659)', () => {
     assert.deepEqual(exits, [1]);
     assert.match(output.join(''), /signed packaged app required/u);
     assert.equal(bridge.calls.length, 0);
+  });
+
+  test('checks scratch cleanup without a final global rediscovery of unrelated recovery homes', async () => {
+    const exits: number[] = [];
+    const output: string[] = [];
+    class CleanupSensitiveBridge extends DeterministicICloudDriveBridge {
+      private globalDiscoveries = 0;
+
+      override list(path: string, cursor: string | null, limit: number, accountToken: string): Promise<ICloudDriveNativeListPage> {
+        if (path === 'Overlook' && cursor === null && (this.globalDiscoveries += 1) > 5) {
+          throw new ICloudDriveNativeError('materialization-delayed');
+        }
+        return super.list(path, cursor, limit, accountToken);
+      }
+    }
+    const bridge = new CleanupSensitiveBridge();
+
+    await runICloudLiveContractIfRequested(
+      { isPackaged: true, exit: (code) => exits.push(code) },
+      { argv: ['Overlook', ICLOUD_LIVE_CONTRACT_ARGUMENT], bridge, write: (value) => output.push(value) },
+    );
+
+    const evidence = JSON.parse(output.join('').slice(ICLOUD_LIVE_CONTRACT_MARKER.length)) as {
+      readonly result: string;
+      readonly cleanup: boolean;
+    };
+    assert.deepEqual(exits, [0]);
+    assert.equal(evidence.result, 'pass');
+    assert.equal(evidence.cleanup, true);
+    assert.equal(bridge.objects.size, 0);
   });
 });
