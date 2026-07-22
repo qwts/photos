@@ -7,10 +7,11 @@
 
 .ovl-progress__head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
   margin-bottom: var(--space-2);
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
 }
 
 .ovl-progress__label {
