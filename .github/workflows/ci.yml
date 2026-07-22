@@ -452,3 +452,13 @@ jobs:
             echo ""
             echo "_Traces, screenshots, and videos are attached to failed tests._"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Documentation governance (ENG-0009): the shared, zero-dependency docs-gov gate,
+  # consumed from qwts/playbook-engineering per ENG-0004's reusable-workflow model so a
+  # governance fix propagates to every repo without per-repo edits. photos' own rules —
+  # include globs, indexes, token budgets, ADR Status field, stale-path scope — live in
+  # docs-gov.config.json at the repo root (the workflow's default config path). A
+  # deterministic gate like lint/format, so it runs on every trigger including drafts.
+  docs-gov:
+    name: Docs governance
+    uses: qwts/playbook-engineering/.github/workflows/docs-governance.yml@v1

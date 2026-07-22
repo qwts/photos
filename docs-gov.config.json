@@ -1,0 +1,46 @@
+{
+  "include": ["docs/**/*.md", "README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"],
+  "indexes": [
+    "README.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "docs/README.md",
+    "docs/Repo-Documentation-Pointer-Map.md",
+    "docs/adr/Architecture-Decision-Records.md",
+    "docs/stories/User-Stories.md"
+  ],
+  "tokenBudgets": {
+    "perDoc": 9500,
+    "bankSlack": 0.25,
+    "overrides": [
+      {
+        "path": "docs/Spike-Multi-Platform-Port.md",
+        "budget": 12000,
+        "reason": "Multi-platform port spike: a single decision record surveying every platform axis (windowing, packaging, native bridges, signing) in one place; splitting it would scatter one comparison the reader needs whole."
+      }
+    ],
+    "contextSets": []
+  },
+  "structure": {
+    "maxHeadingDepth": 4,
+    "summaryWithinTokens": 250,
+    "requiredFields": [
+      {
+        "glob": "docs/adr/ADR-*.md",
+        "fields": [{ "name": "Status", "pattern": "^(Proposed|Accepted|Superseded|Rejected)" }]
+      }
+    ]
+  },
+  "antiPatterns": {
+    "positionalReferences": true,
+    "unresolvedPlaceholders": true,
+    "duplicateParagraphs": { "minLength": 160, "allow": [] },
+    "terminology": []
+  },
+  "integrity": {
+    "links": true,
+    "orphans": true,
+    "stalePaths": { "roots": ["docs", "design"] }
+  }
+}
