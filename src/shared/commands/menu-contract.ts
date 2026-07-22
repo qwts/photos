@@ -19,7 +19,7 @@ export const commandMenuContextSchema = z
     appLockConfigured: z.boolean(),
     providerBusy: z.boolean(),
     inspectorOpen: z.boolean(),
-    view: z.enum(['grid', 'list']),
+    view: z.enum(['grid', 'list', 'moodboard']),
     source: z.enum(['all', 'favorites', 'recent', 'offloaded', 'deleted']),
   })
   .strict();

@@ -61,6 +61,7 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
       return (context.surface === 'grid' || context.surface === 'lightbox') && context.dialog === 'none';
     case 'view.mode.grid':
     case 'view.mode.list':
+    case 'view.mode.moodboard':
       return context.surface === 'grid' && context.dialog === 'none';
     case 'view.lightbox.close':
       return context.surface === 'lightbox' && context.dialog === 'none';
@@ -222,6 +223,7 @@ export function buildApplicationMenuTemplate(
         commandItem('view.inspector.detach', context, dispatch, translate),
         commandItem('view.mode.grid', context, dispatch, translate, { type: 'radio', checked: context.view === 'grid' }),
         commandItem('view.mode.list', context, dispatch, translate, { type: 'radio', checked: context.view === 'list' }),
+        commandItem('view.mode.moodboard', context, dispatch, translate, { type: 'radio', checked: context.view === 'moodboard' }),
         { type: 'separator' },
         commandItem('view.lightbox.close', context, dispatch, translate),
       ],

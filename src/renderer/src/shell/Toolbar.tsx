@@ -37,6 +37,7 @@ const messages = defineMessages({
   view: { id: 'toolbar.view', defaultMessage: 'View' },
   viewGrid: { id: 'toolbar.view.grid', defaultMessage: 'Grid' },
   viewList: { id: 'toolbar.view.list', defaultMessage: 'List' },
+  viewMoodboard: { id: 'toolbar.view.moodboard', defaultMessage: 'Moodboard' },
   zoom: { id: 'toolbar.zoom', defaultMessage: 'Zoom' },
   region: { id: 'toolbar.region', defaultMessage: 'Photo tools' },
   backupNow: { id: 'toolbar.backup.now', defaultMessage: 'Back up now' },
@@ -112,13 +113,14 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
           options={[
             { value: 'grid', label: intl.formatMessage(messages.viewGrid), icon: 'layout-grid', iconOnly: true },
             { value: 'list', label: intl.formatMessage(messages.viewList), icon: 'list', iconOnly: true },
+            { value: 'moodboard', label: intl.formatMessage(messages.viewMoodboard), icon: 'layout-dashboard', iconOnly: true },
           ]}
           value={state.view}
           onChange={(view) => {
             dispatch({ type: 'view/set', view });
           }}
         />
-        <div className="ovl-toolbar__zoom" style={{ visibility: state.view === 'list' ? 'hidden' : 'visible' }}>
+        <div className="ovl-toolbar__zoom" style={{ visibility: state.view === 'grid' ? 'visible' : 'hidden' }}>
           <Icon name="grid-3x3" size={13} color="var(--text-faint)" />
           <Slider
             label={intl.formatMessage(messages.zoom)}

@@ -23,6 +23,12 @@ describe('app state reducer', () => {
     assert.equal(apply(initialAppState, { type: 'zoom/set', zoom: 200 }).zoom, 200);
   });
 
+  test('view switches across grid, list, and moodboard (#515)', () => {
+    assert.equal(initialAppState.view, 'grid');
+    assert.equal(apply(initialAppState, { type: 'view/set', view: 'moodboard' }).view, 'moodboard');
+    assert.equal(apply(initialAppState, { type: 'view/set', view: 'list' }).view, 'list');
+  });
+
   test('selection toggles, selects all, clears', () => {
     let state = apply(initialAppState, { type: 'selection/toggled', photoId: 'a' }, { type: 'selection/toggled', photoId: 'b' });
     assert.deepEqual([...state.selection].sort(), ['a', 'b']);

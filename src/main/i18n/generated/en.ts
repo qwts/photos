@@ -69,6 +69,7 @@ export const en: Readonly<Record<string, string>> = {
   "commands.view.lightbox.zoomReset": "Reset zoom",
   "commands.view.mode.grid": "Grid",
   "commands.view.mode.list": "List",
+  "commands.view.mode.moodboard": "Moodboard",
   "menu.edit": "Edit",
   "menu.file": "File",
   "menu.photo": "Photo",

@@ -4,7 +4,7 @@ import type { ChipFilters, PhotoRecord, SortOrder, SourceFilter } from './types.
 // process-free so the unit lane floors it. The renderer provides it via
 // context; IPC push events dispatch into it.
 
-export type ViewMode = 'grid' | 'list';
+export type ViewMode = 'grid' | 'list' | 'moodboard';
 
 export const ZOOM_MIN = 96;
 export const ZOOM_MAX = 320;
