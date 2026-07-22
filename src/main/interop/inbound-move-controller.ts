@@ -1,4 +1,3 @@
-import type { InteropReviewCategory } from '../../shared/interop/contract.js';
 import type { InteropError } from '../../shared/interop/messages.js';
 import {
   interopInboundStatusSchema,
@@ -36,15 +35,6 @@ class InboundMoveCancelledError extends Error {
   override readonly name = 'InboundMoveCancelledError';
 }
 
-const categories: Readonly<Record<InteropReviewCategory, keyof IncomingMoveBatchStatus['counts']>> = {
-  eligible: 'eligible',
-  duplicate: 'duplicate',
-  conflict: 'conflict',
-  'metadata-only': 'metadataOnly',
-  unsupported: 'unsupported',
-  skipped: 'skipped',
-};
-
 function safeError(error: unknown): InteropError {
   const name = error instanceof Error ? error.name.toLowerCase() : '';
   const message = error instanceof Error ? error.message.toLowerCase() : '';
@@ -77,22 +67,9 @@ function safeError(error: unknown): InteropError {
 }
 
 function batchStatus(batch: IncomingMoveBatch): IncomingMoveBatchStatus {
-  const counts: IncomingMoveBatchStatus['counts'] = {
-    total: batch.items.length,
-    eligible: 0,
-    duplicate: 0,
-    conflict: 0,
-    metadataOnly: 0,
-    unsupported: 0,
-    skipped: 0,
-    failed: 0,
-    acknowledged: 0,
-    finalized: 0,
-  };
-  for (const [category, count] of Object.entries(batch.counts) as [InteropReviewCategory, number][]) counts[categories[category]] = count;
   return {
     transferId: batch.transferId,
-    counts,
+    counts: batch.counts,
     items: batch.items.map(itemStatus),
   };
 }
@@ -105,8 +82,8 @@ function itemStatus(item: IncomingMoveItem): IncomingMoveItemStatus {
     ).slice(0, 160),
     reviewCategory: item.reviewCategory,
     original: item.request.payload.record.original.state,
-    outcome: 'pending',
-    reason: null,
+    outcome: item.outcome,
+    reason: item.reason,
   };
 }
 
@@ -185,15 +162,10 @@ export class InboundMoveController {
     try {
       const batches = await this.options.runtime().refresh();
       this.#batches = batches.map(batchStatus);
-      this.#selectedTransferId = this.#batches[0]?.transferId ?? null;
-      this.#progress = {
-        transferId: this.#selectedTransferId,
-        phase: 'reviewing',
-        processed: 0,
-        total: this.#batches[0]?.counts.total ?? 0,
-        accepted: 0,
-        retained: 0,
-      };
+      const selected = this.#batches.find(batchNeedsWork) ?? this.#batches[0];
+      this.#selectedTransferId = selected?.transferId ?? null;
+      this.#progress =
+        selected === undefined ? emptyProgress() : progressFor(selected, batchNeedsWork(selected) ? 'reviewing' : 'completed');
       this.#error = null;
     } catch (error) {
       this.#error = safeError(error);
@@ -272,7 +244,13 @@ export class InboundMoveController {
         beforeItem: () => this.beforeItem(),
         itemCompleted: (item, acceptance) => this.itemCompleted(transferId, item, acceptance),
       });
-      this.#progress = { ...this.#progress, phase: 'completed' };
+      const next = this.#batches.find((batch) => batch.transferId !== transferId && batchNeedsWork(batch));
+      if (next === undefined) {
+        this.#progress = { ...this.#progress, phase: 'completed' };
+      } else {
+        this.#selectedTransferId = next.transferId;
+        this.#progress = progressFor(next, 'reviewing');
+      }
       this.#error = null;
     } catch (error) {
       this.#error = safeError(error);
@@ -298,7 +276,10 @@ export class InboundMoveController {
         ? batch
         : {
             ...batch,
-            counts: { ...batch.counts, acknowledged: batch.counts.acknowledged + 1 },
+            counts: {
+              ...batch.counts,
+              acknowledged: batch.counts.acknowledged + (acceptance.accepted && !item.acknowledged ? 1 : 0),
+            },
             items: batch.items.map((candidate) =>
               candidate.interopId === interopId
                 ? {
@@ -322,7 +303,7 @@ export class InboundMoveController {
   private clearPreview(): void {
     this.#batches = [];
     this.#selectedTransferId = null;
-    this.#progress = { transferId: null, phase: 'queued', processed: 0, total: 0, accepted: 0, retained: 0 };
+    this.#progress = emptyProgress();
   }
 
   private async publish(): Promise<InteropInboundStatus> {
@@ -330,4 +311,18 @@ export class InboundMoveController {
     this.options.statusChanged?.(status);
     return status;
   }
+}
+
+function batchNeedsWork(batch: IncomingMoveBatchStatus): boolean {
+  return batch.items.some((item) => item.outcome === 'pending' || item.outcome === 'failed');
+}
+
+function progressFor(batch: IncomingMoveBatchStatus, phase: InboundMoveProgress['phase']): InboundMoveProgress {
+  const accepted = batch.items.filter((item) => item.outcome === 'accepted').length;
+  const retained = batch.items.filter((item) => item.outcome === 'retained').length;
+  return { transferId: batch.transferId, phase, processed: accepted + retained, total: batch.counts.total, accepted, retained };
+}
+
+function emptyProgress(): InboundMoveProgress {
+  return { transferId: null, phase: 'queued', processed: 0, total: 0, accepted: 0, retained: 0 };
 }

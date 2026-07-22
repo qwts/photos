@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { InteropReviewCategory } from '../../shared/interop/contract.js';
-import { interopEnvelopeSchema, type InteropEnvelope, type InteropError } from '../../shared/interop/messages.js';
+import { interopEnvelopeSchema, type InteropCounts, type InteropEnvelope, type InteropError } from '../../shared/interop/messages.js';
 import { moveAcknowledgementPath, moveOriginalBlobPath } from '../../shared/interop/sealed-transport-contract.js';
 import { deterministicInboundPhotoId, type InboundAcceptance, type InboundPhotoImporter } from './inbound-photo-importer.js';
 import {
@@ -31,12 +31,15 @@ export interface IncomingMoveItem {
   readonly blobEnvelope: BlobEnvelope | null;
   readonly original: DiscoveredMoveBlob | null;
   readonly reviewCategory: InteropReviewCategory;
+  readonly acknowledged: boolean;
+  readonly outcome: 'pending' | 'accepted' | 'retained' | 'failed';
+  readonly reason: string | null;
 }
 
 export interface IncomingMoveBatch {
   readonly transferId: string;
   readonly items: readonly IncomingMoveItem[];
-  readonly counts: Readonly<Record<InteropReviewCategory, number>>;
+  readonly counts: InteropCounts;
 }
 
 export interface IncomingMoveRunResult {
@@ -69,12 +72,6 @@ export class InboundMoveRuntimeError extends Error {
   override readonly name = 'InboundMoveRuntimeError';
 }
 
-const categories: readonly InteropReviewCategory[] = ['eligible', 'duplicate', 'conflict', 'metadata-only', 'unsupported', 'skipped'];
-
-function emptyCounts(): Record<InteropReviewCategory, number> {
-  return Object.fromEntries(categories.map((category) => [category, 0])) as Record<InteropReviewCategory, number>;
-}
-
 function isRecord(envelope: InteropEnvelope): envelope is RecordEnvelope {
   return envelope.payload.kind === 'record';
 }
@@ -90,6 +87,16 @@ function sanitizedError(reason: string, recordInteropId: string, retryable = fal
     retryable,
     recordInteropId,
   };
+}
+
+function storedErrorMessage(error: unknown): string | null {
+  if (!Array.isArray(error)) return null;
+  for (const candidate of error) {
+    if (typeof candidate !== 'object' || candidate === null) continue;
+    const message = (candidate as Record<string, unknown>)['message'];
+    if (typeof message === 'string') return message.slice(0, 240);
+  }
+  return null;
 }
 
 export class InboundMoveRuntime {
@@ -158,8 +165,7 @@ export class InboundMoveRuntime {
     const originals = new Map(transfer.originals.map((original) => [original.recordInteropId, original] as const));
     const consumed = new Set<number>();
     const consumedOriginals = new Set<string>();
-    const counts = emptyCounts();
-    const items: IncomingMoveItem[] = [];
+    const items: Omit<IncomingMoveItem, 'acknowledged' | 'outcome' | 'reason'>[] = [];
     for (const [sequence, entry] of opened) {
       if (consumed.has(sequence)) continue;
       if (!isRecord(entry.envelope))
@@ -183,7 +189,6 @@ export class InboundMoveRuntime {
         consumedOriginals.add(record.identity.interopId);
       }
       const reviewCategory = this.options.translation.previewRecord(record);
-      counts[reviewCategory] += 1;
       this.journalDiscovery(request, entry.discovered, blobEntry, reviewCategory);
       items.push({
         request,
@@ -198,7 +203,36 @@ export class InboundMoveRuntime {
     if (consumed.size !== opened.size || consumedOriginals.size !== originals.size) {
       throw new InboundMoveRuntimeError('Incoming Move contains unmatched messages or original objects.');
     }
-    return { transferId: transfer.transferId, items, counts };
+    const storedItems = new Map(this.options.journals.items(transfer.transferId).map((item) => [item.interopId, item] as const));
+    const pendingAcknowledgements = new Set(
+      this.options.journals.pendingOutbox(transfer.transferId).map((envelope) => envelope.header.messageId),
+    );
+    const journal = this.options.journals.getJournal(transfer.transferId);
+    if (journal === undefined) throw new InboundMoveRuntimeError('Incoming Move journal was not created during discovery.');
+    return {
+      transferId: transfer.transferId,
+      counts: journal.counts,
+      items: items.map((item) => {
+        const stored = storedItems.get(item.request.payload.record.identity.interopId);
+        if (stored === undefined) throw new InboundMoveRuntimeError('Incoming Move item was not journaled during discovery.');
+        const acknowledgementPending =
+          stored.acknowledgementMessageId !== null && pendingAcknowledgements.has(stored.acknowledgementMessageId);
+        return {
+          ...item,
+          acknowledged: stored.acknowledgedAt !== null,
+          outcome: acknowledgementPending
+            ? 'failed'
+            : stored.state === 'acknowledged' || stored.state === 'finalizing' || stored.state === 'finalized'
+              ? 'accepted'
+              : stored.state === 'rejected'
+                ? 'retained'
+                : stored.state === 'failed'
+                  ? 'failed'
+                  : 'pending',
+          reason: acknowledgementPending ? 'Acknowledgement delivery is pending.' : storedErrorMessage(stored.error),
+        };
+      }),
+    };
   }
 
   private journalDiscovery(
