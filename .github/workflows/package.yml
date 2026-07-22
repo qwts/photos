@@ -124,14 +124,22 @@ jobs:
             # sharp ships its native binary as per-arch @img/sharp-win32-<arch>
             # optional deps; npm ci on the x64 runner installs only the host
             # (x64) one, so a cross-compiled arm64 build would bundle the x64
-            # sharp binary (caught by verify-windows-arch). Re-resolve sharp's
-            # optional deps for the target platform (--cpu/--os), then drop the
-            # non-target win32 binaries so only the correct payload ships.
-            # Nothing after this reinstalls them, and better-sqlite3 is rebuilt
-            # for the target arch by electron-builder's npmRebuild (#683).
+            # sharp binary (caught by verify-windows-arch). Fetch ONLY the
+            # target-arch binary and swap it in: a plain `npm install --cpu/--os
+            # sharp` re-resolves the whole tree's optional deps for the target
+            # and prunes the x64 build toolchain (@rollup/rollup-win32-x64-msvc,
+            # swc, …) that must run natively on this x64 runner. npm pack +
+            # extract touches nothing else; better-sqlite3 is rebuilt for the
+            # target arch by electron-builder's npmRebuild (#683).
             if [ "$WIN_ARCH" != "x64" ]; then
-              npm install --no-save --cpu="$WIN_ARCH" --os=win32 sharp
-              find node_modules/@img -maxdepth 1 -type d -name 'sharp-win32-*' ! -name "sharp-win32-$WIN_ARCH" -exec rm -rf {} +
+              sharp_ver=$(node -p "require('./node_modules/sharp/package.json').version")
+              pkg="sharp-win32-$WIN_ARCH"
+              npm pack "@img/$pkg@$sharp_ver" --pack-destination "$RUNNER_TEMP" >/dev/null
+              dest="node_modules/@img/$pkg"
+              rm -rf "$dest" && mkdir -p "$dest"
+              tar -xzf "$RUNNER_TEMP/img-$pkg-$sharp_ver.tgz" -C "$dest" --strip-components=1
+              # Drop the host-arch sharp binaries so only the target payload ships.
+              find node_modules/@img -maxdepth 1 -type d -name 'sharp-win32-*' ! -name "$pkg" -exec rm -rf {} +
             fi
             npm run "package:win:$WIN_ARCH"
             # Prove the cross-compiled payloads are genuinely the target arch:
