@@ -317,6 +317,11 @@ export function Shell({
       case 'help.shortcuts':
         setShortcutSurface(state.lightboxId === null ? 'grid' : 'lightbox');
         return;
+      case 'help.activity':
+        // Menu-only Activity surface (#690): the dialog/set reducer makes the
+        // dialog family exclusive, so this also closes any open sibling dialog.
+        dispatch({ type: 'dialog/set', dialog: 'activity', open: true });
+        return;
       case 'app.lock.now':
       case 'help.open':
       case 'app.search.focus':

@@ -27,6 +27,7 @@ export const en: Readonly<Record<string, string>> = {
   "commands.grid.focus.pageUp": "Move up one page",
   "commands.grid.focus.right": "Move focus right",
   "commands.grid.focus.up": "Move focus up",
+  "commands.help.activity": "Activity…",
   "commands.help.intro": "Available in the current view",
   "commands.help.open": "Overlook Help",
   "commands.help.shortcuts": "Keyboard shortcuts",

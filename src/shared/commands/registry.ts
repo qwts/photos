@@ -97,6 +97,7 @@ export type CommandId =
   | 'view.lightbox.flipVertical'
   | 'view.lightbox.orientationReset'
   | 'help.shortcuts'
+  | 'help.activity'
   | 'help.open'
   | 'grid.focus.left'
   | 'grid.focus.right'
@@ -172,6 +173,7 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'view.lightbox.flipVertical': { id: 'commands.view.lightbox.flipVertical', defaultMessage: 'Flip vertically' },
   'view.lightbox.orientationReset': { id: 'commands.view.lightbox.orientationReset', defaultMessage: 'Reset orientation' },
   'help.shortcuts': { id: 'commands.help.shortcuts', defaultMessage: 'Keyboard shortcuts' },
+  'help.activity': { id: 'commands.help.activity', defaultMessage: 'Activity…' },
   'help.open': { id: 'commands.help.open', defaultMessage: 'Overlook Help' },
   'grid.focus.left': { id: 'commands.grid.focus.left', defaultMessage: 'Move focus left' },
   'grid.focus.right': { id: 'commands.grid.focus.right', defaultMessage: 'Move focus right' },
@@ -520,6 +522,16 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     key: '?',
     alternateKeys: ['/'],
     native: { menu: 'help', lockSafe: true, queueable: true },
+  },
+  {
+    id: 'help.activity',
+    label: label('help.activity', 'Activity…'),
+    // Menu-only command surface (ADR-0024/ADR-0025): reached from Help, never a
+    // library source or album row. The design system gives it no accelerator,
+    // so it carries no key — the native Help menu supplies keyboard access.
+    surfaces: [],
+    target: 'window',
+    native: { menu: 'help', lockSafe: false, queueable: true },
   },
   {
     id: 'help.open',

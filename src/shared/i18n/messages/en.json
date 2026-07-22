@@ -152,6 +152,9 @@
   "commands.grid.focus.up": {
     "defaultMessage": "Move focus up"
   },
+  "commands.help.activity": {
+    "defaultMessage": "Activity…"
+  },
   "commands.help.intro": {
     "defaultMessage": "Available in the current view"
   },
@@ -1000,9 +1003,6 @@
   },
   "shell.view.recent": {
     "defaultMessage": "Recent imports"
-  },
-  "sidebar.activity": {
-    "defaultMessage": "Activity"
   },
   "sidebar.album.actions": {
     "defaultMessage": "Actions for {name}"

@@ -46,6 +46,14 @@ test('native menu routes the focused window and revalidates checked, modal, targ
     await expect.poll(() => menuState(app, 'app.settings.open')).toMatchObject({ enabled: true });
     await expect.poll(() => menuState(app, 'photo.trash')).toMatchObject({ enabled: false });
 
+    // Activity is reachable only from the Help menu (#690) — never a sidebar row.
+    await expect(page.locator('.ovl-sidebar').getByRole('button', { name: 'Activity' })).toHaveCount(0);
+    await expect.poll(() => menuState(app, 'help.activity')).toMatchObject({ enabled: true });
+    await invokeMenu(app, 'help.activity');
+    await expect(page.getByRole('dialog', { name: 'Activity' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Activity' })).toBeHidden();
+
     await invokeMenu(app, 'app.settings.open.privacy');
     await expect(page.getByTestId('settings-pane')).toHaveAttribute('data-section', 'privacy');
     await invokeMenu(app, 'app.settings.open.storage');

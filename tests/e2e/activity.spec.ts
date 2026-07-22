@@ -2,6 +2,19 @@ import { test, expect, _electron as electron, type ElectronApplication } from '@
 
 import { mkE2eTmpDir } from './support/tmp-dir.js';
 
+// Activity opens only from the Help menu now (#690) — the sidebar row is gone.
+async function openActivity(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ BrowserWindow, Menu }) => {
+    const item = Menu.getApplicationMenu()?.getMenuItemById('help.activity');
+    if (item?.click === undefined) throw new Error('menu item unavailable: help.activity');
+    Reflect.apply(item.click, item, [
+      item,
+      BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0],
+      { triggeredByAccelerator: false },
+    ]);
+  });
+}
+
 function launch(userData: string, seed = false): Promise<ElectronApplication> {
   return electron.launch({
     args: ['.'],
@@ -22,7 +35,7 @@ test('ACCEPTANCE: activity and capability-aware Undo/Redo survive restart (#614,
     await page.locator('.ovl-tile__img').first().waitFor();
     await page.getByRole('button', { name: 'Add to Favorites' }).first().click();
     await expect(page.getByRole('button', { name: 'Remove from Favorites' }).first()).toBeVisible();
-    await page.getByRole('button', { name: 'Activity' }).click();
+    await openActivity(first);
     const dialog = page.getByRole('dialog', { name: 'Activity' });
     await expect(dialog).toContainText('Changed a favorite');
     await dialog.getByRole('button', { name: 'Undo' }).click();
@@ -35,7 +48,7 @@ test('ACCEPTANCE: activity and capability-aware Undo/Redo survive restart (#614,
   try {
     const page = await second.firstWindow();
     await page.getByTestId('virtual-grid').waitFor();
-    await page.getByRole('button', { name: 'Activity' }).click();
+    await openActivity(second);
     const dialog = page.getByRole('dialog', { name: 'Activity' });
     await expect(dialog).toContainText('Undid an action');
     await dialog.getByRole('button', { name: 'Redo' }).click();

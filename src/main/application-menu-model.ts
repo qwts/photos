@@ -52,6 +52,10 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
     case 'history.undo':
     case 'history.redo':
       return context.hasLibrary && context.dialog === 'none' && !context.editable;
+    case 'help.activity':
+      // Activity is per-library and unavailable while locked (the lock guard
+      // above handles locked); available from any surface with a library.
+      return context.hasLibrary;
     case 'view.inspector.toggle':
     case 'view.inspector.detach':
       return (context.surface === 'grid' || context.surface === 'lightbox') && context.dialog === 'none';
@@ -241,6 +245,7 @@ export function buildApplicationMenuTemplate(
       role: 'help',
       submenu: [
         commandItem('help.shortcuts', context, dispatch, translate),
+        commandItem('help.activity', context, dispatch, translate),
         commandItem('help.open', context, dispatch, translate),
         { ...commandItem('app.settings.open.privacy', context, dispatch, translate), id: 'help.privacy' },
       ],

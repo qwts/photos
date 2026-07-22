@@ -44,7 +44,6 @@ const messages = defineMessages({
   sourceRecent: { id: 'sidebar.source.recent', defaultMessage: 'Recent imports' },
   sourceOffloaded: { id: 'sidebar.source.offloaded', defaultMessage: 'Offloaded' },
   sourceDeleted: { id: 'sidebar.source.deleted', defaultMessage: 'Trash' },
-  activity: { id: 'sidebar.activity', defaultMessage: 'Activity' },
 });
 
 const SOURCES: readonly { key: SourceFilter; icon: IconName; label: MessageDescriptor }[] = [
@@ -548,14 +547,6 @@ export function Sidebar({
           }}
         />
       )}
-      <SideRow
-        icon="database"
-        label={intl.formatMessage(messages.activity)}
-        count={null}
-        active={state.activityOpen}
-        collapsed={collapsed}
-        onClick={() => dispatch({ type: 'dialog/set', dialog: 'activity', open: true })}
-      />
       <div className="ovl-sidebar__spacer" />
       {collapsed ? (
         <Tooltip

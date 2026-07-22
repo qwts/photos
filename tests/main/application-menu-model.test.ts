@@ -53,6 +53,31 @@ test('menu enablement fails closed for lock, modal, target, and active-work stat
   assert.equal(commandEnabled('photo.trash', { ...grid, surface: 'lightbox', targetTrashable: true, dialog: 'settings' }), false);
 });
 
+test('Activity is a Help-menu command, not a sidebar/library surface (#690)', () => {
+  const invoked: CommandId[] = [];
+  const template = buildApplicationMenuTemplate('darwin', 'Overlook', grid, (id) => invoked.push(id));
+  const help = template.find((item) => item.role === 'help');
+  assert.ok(help !== undefined && Array.isArray(help.submenu));
+  // Sits with the other Help commands, directly after Keyboard Shortcuts (DS order).
+  const helpIds = (help.submenu as MenuItemConstructorOptions[]).map((item) => item.id);
+  assert.deepEqual(
+    helpIds.filter((id) => id === 'help.shortcuts' || id === 'help.activity'),
+    ['help.shortcuts', 'help.activity'],
+  );
+  const activity = find(template, 'help.activity');
+  assert.ok(activity !== undefined);
+  // Menu-only: the design system gives Activity no accelerator.
+  assert.equal(activity.accelerator, undefined);
+  assert.equal(activity.enabled, true);
+  if (activity.click !== undefined) Reflect.apply(activity.click, activity, [{}, {}, {}]);
+  assert.deepEqual(invoked, ['help.activity']);
+
+  // Per-library and lock-gated: disabled without a library or while locked.
+  assert.equal(commandEnabled('help.activity', grid), true);
+  assert.equal(commandEnabled('help.activity', { ...grid, hasLibrary: false }), false);
+  assert.equal(commandEnabled('help.activity', { ...grid, surface: 'locked' }), false);
+});
+
 test('checked state follows only the focused window context (#531)', () => {
   const template = buildApplicationMenuTemplate(
     'darwin',
