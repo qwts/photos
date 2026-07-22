@@ -656,6 +656,31 @@ const SCHEMA_V17: Migration = {
   },
 };
 
+const SCHEMA_V18: Migration = {
+  version: 18,
+  name: 'moodboards',
+  // #515: a moodboard is album-class organizational metadata — a named board
+  // holding an ordered list of placements (references to photos + display
+  // transforms) stored as canonical JSON. There is deliberately NO foreign key
+  // to photos: deleting a photo must leave an "unavailable" placement, not
+  // cascade-remove it (the layout is byte-stable across the photo's absence).
+  up(db) {
+    db.exec(`
+      CREATE TABLE boards (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        board_width INTEGER NOT NULL CHECK (board_width > 0),
+        board_height INTEGER NOT NULL CHECK (board_height > 0),
+        background TEXT NOT NULL,
+        placements TEXT NOT NULL CHECK (json_valid(placements)),
+        position INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -674,6 +699,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V15,
   SCHEMA_V16,
   SCHEMA_V17,
+  SCHEMA_V18,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */

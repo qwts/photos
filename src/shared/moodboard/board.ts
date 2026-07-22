@@ -116,7 +116,9 @@ export const boardSchema = z.object({
   notes: z.string(),
   size: boardSizeSchema,
   background: boardBackgroundSchema,
-  placements: z.array(placementSchema),
+  // readonly so the schema's inferred board matches the hand-written Board
+  // (readonly placements) across the IPC boundary in both directions.
+  placements: z.array(placementSchema).readonly(),
 });
 
 // ---- normalization + canonical serialization (I2) ------------------------

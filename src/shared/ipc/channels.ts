@@ -21,6 +21,7 @@ import { inspectorWindowChannels, windowEvents } from '../inspector-window-contr
 import { interopChannels, interopEvents } from './interop-channels.js';
 import * as originalPolicy from './original-policy-channels.js';
 import { albumChannels } from './album-channels.js';
+import { boardChannels } from './board-channels.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -455,6 +456,7 @@ export const channels = {
   // never deletes photos (Clear-vs-Delete rules); membership edits dirty
   // the ledger (manifest-relevant, ADR-0007).
   ...albumChannels,
+  ...boardChannels,
   // Import sources (#84): discovery + the source-card scan. Copying is #87.
   importListSources: defineChannel('import:list-sources', z.object({}), z.object({ sources: z.array(importSourceSchema).readonly() })),
   importScanSource: defineChannel('import:scan-source', z.object({ path: z.string() }), scanSummarySchema),

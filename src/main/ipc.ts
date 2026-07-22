@@ -24,6 +24,7 @@ import { mutateWithActivity } from './activity/activity-publication.js';
 import type { ActivityFacade } from './activity/activity-publication.js';
 import { favoriteCommand, moveCompensationCommand, trashCommand } from './history/command-drafts.js';
 import { registerAlbumIpcHandlers } from './library/album-ipc.js';
+import { registerBoardIpcHandlers } from './library/board-ipc.js';
 
 let contentAdmission = (): void => undefined;
 
@@ -232,6 +233,10 @@ export function registerAlbumHandlers(
   onManifestChanged?: () => void,
 ): void {
   registerAlbumIpcHandlers(getService, newId, wrapHandler, getActivity, onManifestChanged);
+}
+
+export function registerBoardHandlers(getService: () => LibraryService): void {
+  registerBoardIpcHandlers(getService, wrapHandler);
 }
 
 export function registerProtectedAlbumHandlers(

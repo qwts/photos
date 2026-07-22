@@ -2,7 +2,9 @@ import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 import { PhotosRepository } from '../db/photos-repository.js';
 import { HistoryLibraryRepository } from '../history/history-library-repository.js';
+import { deleteBoard, getBoard, listBoards, saveBoard } from '../db/board-repository.js';
 import type { AlbumSummary, LibraryStats, PageRequest, PageResult, PhotoRecord, SourceCounts } from '../../shared/library/types.js';
+import type { Board } from '../../shared/moodboard/board.js';
 
 // The renderer's typed window into the library (#71) — the contract M04
 // builds against. Owns pendingCount (design §backup dirtiness) and emits
@@ -18,12 +20,33 @@ export class LibraryService {
   private readonly repo: PhotosRepository;
   private readonly historyRepo: HistoryLibraryRepository;
 
+  private readonly db: BetterSqlite3.Database;
+
   constructor(
     db: BetterSqlite3.Database,
     private readonly events: LibraryEvents,
   ) {
+    this.db = db;
     this.repo = new PhotosRepository(db);
     this.historyRepo = new HistoryLibraryRepository(db);
+  }
+
+  // Moodboard persistence (#515 / #694). Boards are album-class organizational
+  // metadata; edits never touch photo rows, so these do not fire libraryChanged.
+  listBoards(): Board[] {
+    return listBoards(this.db);
+  }
+
+  getBoard(boardId: string): Board | null {
+    return getBoard(this.db, boardId);
+  }
+
+  saveBoard(board: Board): void {
+    saveBoard(this.db, board, () => new Date().toISOString());
+  }
+
+  deleteBoard(boardId: string): void {
+    deleteBoard(this.db, boardId);
   }
 
   page(request: PageRequest): PageResult {
