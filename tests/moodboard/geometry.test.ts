@@ -154,8 +154,9 @@ describe('align / distribute', () => {
 
   test('distribute evenly spaces centers along the axis', () => {
     const out = distributePlacements(trio, ['a', 'b', 'c'], 'horizontal');
-    const centers = out.map((p) => p.x + p.w / 2).sort((m, n) => m - n);
-    assert.equal(centers[1]! - centers[0]!, centers[2]! - centers[1]!);
+    const [a, b, c] = out.map((p) => p.x + p.w / 2).sort((m, n) => m - n);
+    assert.ok(a !== undefined && b !== undefined && c !== undefined);
+    assert.equal(b - a, c - b);
   });
 
   test('distribute needs three placements', () => {
@@ -165,8 +166,9 @@ describe('align / distribute', () => {
 
   test('vertical distribute spaces the y centers', () => {
     const out = distributePlacements(trio, ['a', 'b', 'c'], 'vertical');
-    const centers = out.map((p) => p.y + p.h / 2).sort((m, n) => m - n);
-    assert.equal(centers[1]! - centers[0]!, centers[2]! - centers[1]!);
+    const [a, b, c] = out.map((p) => p.y + p.h / 2).sort((m, n) => m - n);
+    assert.ok(a !== undefined && b !== undefined && c !== undefined);
+    assert.equal(b - a, c - b);
   });
 });
 

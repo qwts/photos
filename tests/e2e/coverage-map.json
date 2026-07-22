@@ -1653,6 +1653,38 @@
           "reason": "docs/acceptance/acceptance-test-gif-webp-animated-media.md covers OS-level reduced-motion toggling, real animation timing/loop playback, and protected-album parity that the hidden Electron harness and Storybook cannot observe (prefers-reduced-motion is forced via a scoped matchMedia patch in stories)."
         }
       ]
+    },
+    {
+      "id": "moodboard-view",
+      "wiki": "Moodboard-View",
+      "coverage": [
+        {
+          "type": "storybook",
+          "path": "src/renderer/src/moodboard/Moodboard.stories.tsx"
+        },
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/moodboard/board.test.ts",
+            "tests/moodboard/geometry.test.ts",
+            "tests/moodboard/reading-order.test.ts",
+            "tests/moodboard/announce.test.ts",
+            "tests/moodboard/availability.test.ts",
+            "tests/moodboard/export-layout.test.ts",
+            "tests/library/app-state.test.ts",
+            "tests/main/application-menu-model.test.ts"
+          ]
+        },
+        {
+          "type": "deferred",
+          "issue": 697,
+          "reason": "Electron E2E (arrange -> restart/library-switch/backup-restore -> identical layout; export geometry/color; locked isolation) and the >=200-placement perf pass land with #697 (PR-5). This first slice is in-memory, so its persistence/export/perf flows are not yet exercisable end to end."
+        },
+        {
+          "type": "manual",
+          "reason": "Screen-reader traversal of the parallel reading-order list staying in sync with the role=application canvas, 200% text reflow of the panel and toolbar, and reduced-motion (no inertial/snap/drop animation) need the documented manual accessibility pass."
+        }
+      ]
     }
   ]
 }
