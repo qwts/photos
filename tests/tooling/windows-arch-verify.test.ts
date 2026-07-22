@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { describe, test } from 'node:test';
@@ -85,5 +86,25 @@ describe('Windows arch verification (#683)', () => {
     const { resolveUnpackedDir } = await windowsArchModule();
     const release = mkdtempSync(join(tmpdir(), 'overlook-release-empty-'));
     await assert.rejects(() => resolveUnpackedDir(release, 'arm64'), /no win\*-unpacked directory found/u);
+  });
+
+  // Guards the CLI entrypoint itself: if the direct-invocation guard breaks (as
+  // it did with new URL(...).pathname on Windows), main() never runs and the
+  // process exits 0 — silently disabling the arch gate. Invoking the script
+  // against a missing release dir MUST exit non-zero, proving main() executed.
+  test('the CLI entrypoint actually runs main() and exits non-zero on failure', () => {
+    const script = join(root, 'scripts/verify-windows-arch.mjs');
+    // Run from an empty cwd so `release/` is absent; the script must report it
+    // and exit 1. A broken guard would skip main() and exit 0 with no output.
+    const emptyCwd = mkdtempSync(join(tmpdir(), 'overlook-no-release-'));
+    assert.throws(
+      () => execFileSync(process.execPath, [script, 'arm64'], { cwd: emptyCwd, stdio: 'pipe' }),
+      (error: unknown) => {
+        const { status, stderr } = error as { status: number | null; stderr: Buffer };
+        assert.equal(status, 1, 'a broken entrypoint would exit 0 instead of failing');
+        assert.match(stderr.toString(), /release directory .* not found/u);
+        return true;
+      },
+    );
   });
 });

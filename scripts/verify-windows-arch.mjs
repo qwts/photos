@@ -18,6 +18,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // COFF machine types (PE\0\0 header, IMAGE_FILE_HEADER.Machine). Only the two
 // architectures Overlook ships are enumerated; anything else is a hard failure.
@@ -150,8 +151,11 @@ async function main() {
 }
 
 // Only run the CLI when invoked directly, so the pure helpers can be imported
-// by the unit tests without touching the filesystem.
-if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) {
+// by the unit tests without touching the filesystem. Use fileURLToPath, NOT
+// new URL(...).pathname: on Windows the latter yields a leading-slash, forward-
+// slash path (/C:/...) that never equals the resolved argv[1] (C:\...), which
+// would silently skip main() and disable the arch gate on the Windows legs.
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
