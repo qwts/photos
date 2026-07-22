@@ -638,6 +638,78 @@
   "lightbox.image.loading": {
     "defaultMessage": "Loading full-resolution image…"
   },
+  "lightbox.video.ann.ended": {
+    "defaultMessage": "Video ended."
+  },
+  "lightbox.video.ann.error": {
+    "defaultMessage": "Video couldn’t be played. The original is unchanged."
+  },
+  "lightbox.video.ann.muted": {
+    "defaultMessage": "Muted."
+  },
+  "lightbox.video.ann.paused": {
+    "defaultMessage": "Paused."
+  },
+  "lightbox.video.ann.playing": {
+    "defaultMessage": "Playing."
+  },
+  "lightbox.video.ann.preserved": {
+    "defaultMessage": "This video can’t be played on this device. The original is saved and can be exported."
+  },
+  "lightbox.video.ann.unmuted": {
+    "defaultMessage": "Unmuted."
+  },
+  "lightbox.video.errorBody": {
+    "defaultMessage": "This video couldn’t be decoded. The original is unchanged and can still be exported."
+  },
+  "lightbox.video.errorHeading": {
+    "defaultMessage": "Playback stopped"
+  },
+  "lightbox.video.exportOriginal": {
+    "defaultMessage": "Export original"
+  },
+  "lightbox.video.fullscreen": {
+    "defaultMessage": "Full screen"
+  },
+  "lightbox.video.loading": {
+    "defaultMessage": "Loading video…"
+  },
+  "lightbox.video.moveToTrail": {
+    "defaultMessage": "Move to Image Trail"
+  },
+  "lightbox.video.mute": {
+    "defaultMessage": "Mute"
+  },
+  "lightbox.video.pause": {
+    "defaultMessage": "Pause"
+  },
+  "lightbox.video.play": {
+    "defaultMessage": "Play video"
+  },
+  "lightbox.video.player": {
+    "defaultMessage": "Video player — {name}"
+  },
+  "lightbox.video.preservedBody": {
+    "defaultMessage": "This {codec} video is saved and protected. It just can’t be decoded here."
+  },
+  "lightbox.video.preservedHeading": {
+    "defaultMessage": "Can't play on this device"
+  },
+  "lightbox.video.seek": {
+    "defaultMessage": "Seek"
+  },
+  "lightbox.video.seekValue": {
+    "defaultMessage": "{at} of {total}"
+  },
+  "lightbox.video.tryAgain": {
+    "defaultMessage": "Try again"
+  },
+  "lightbox.video.unmute": {
+    "defaultMessage": "Unmute"
+  },
+  "lightbox.video.volume": {
+    "defaultMessage": "Volume"
+  },
   "lock.retryCountdown": {
     "defaultMessage": "Try again in {seconds}s"
   },
