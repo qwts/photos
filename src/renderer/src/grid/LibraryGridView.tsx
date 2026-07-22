@@ -5,6 +5,7 @@ import { defineMessages, useIntl } from 'react-intl';
 import type { AlbumSummary, PhotoRecord } from '../../../shared/library/types.js';
 import { useFormats } from '../i18n/use-formats.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
+import { videoTileProps } from '../media/device-capabilities.js';
 import { Icon } from '../components/Icon';
 import { PhotoTile } from '../components/PhotoTile';
 import { useAppState, useAppDispatch } from '../state/app-state-context';
@@ -375,6 +376,7 @@ export function LibraryGridView({
             dispatchQuickActionVisibility({ type: 'target', id: active ? photo.id : null });
           }
         : undefined;
+    const tileMedia = videoTileProps(photo);
     return state.view === 'list' ? (
       <ListRow
         photo={photo}
@@ -405,6 +407,9 @@ export function LibraryGridView({
         isOriginal={photo.isOriginal}
         status={photo.syncState}
         previewFailure={photo.previewFailure}
+        duration={tileMedia?.duration}
+        preserved={tileMedia?.preserved ?? false}
+        placeholder={tileMedia?.placeholder}
         selected={state.selection.has(photo.id)}
         onClick={() => {
           dispatch({ type: 'lightbox/opened', photoId: photo.id });

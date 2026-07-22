@@ -72,6 +72,13 @@ import {
   X,
   ZoomIn,
   ZoomOut,
+  Captions,
+  Film,
+  Loader,
+  Maximize,
+  Music,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 
@@ -154,6 +161,14 @@ export const ICON_NAMES = [
   'x',
   'zoom-in',
   'zoom-out',
+  // Video transport + kind iconography (#548, ADR-0026 §5/§6/§7).
+  'captions',
+  'film',
+  'loader',
+  'maximize',
+  'music',
+  'volume-2',
+  'volume-x',
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -244,6 +259,13 @@ const ICONS = {
   x: X,
   'zoom-in': ZoomIn,
   'zoom-out': ZoomOut,
+  captions: Captions,
+  film: Film,
+  loader: Loader,
+  maximize: Maximize,
+  music: Music,
+  'volume-2': Volume2,
+  'volume-x': VolumeX,
 } satisfies Record<IconName, typeof Album>;
 
 // 14/16/20 are the DS's stated sizes; 11 (Badge glyphs), 12 (Chip remove),
@@ -252,7 +274,8 @@ const ICONS = {
 // window-control glyphs above.
 // 15 and 28 come from the design's own Toolbar.jsx / LibraryGrid.jsx usage.
 // 40 is the drop overlay's hero glyph (#237, index.html).
-export type IconSize = 11 | 12 | 13 | 14 | 15 | 16 | 18 | 20 | 28 | 40;
+// 9 is the grid duration/kind-pill glyph (#548, design PhotoTile.jsx).
+export type IconSize = 9 | 11 | 12 | 13 | 14 | 15 | 16 | 18 | 20 | 28 | 40;
 
 export interface IconProps {
   readonly name: IconName;

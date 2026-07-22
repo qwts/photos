@@ -3,6 +3,7 @@ import { defineMessages, useIntl } from 'react-intl';
 
 import { useFormats } from '../i18n/use-formats.js';
 import { thumbUrl } from '../../../shared/library/thumb-url.js';
+import { mediaInfoRows } from '../../../shared/library/media-info-format.js';
 import { Badge } from '../components/Badge';
 import { MetadataRow } from '../components/MetadataRow';
 import { StatusGlyph } from '../components/StatusGlyph';
@@ -82,6 +83,7 @@ export function Inspector({ photo, providerLabel = 'Cloud', selectionPosition, o
     photo.iso === null ? null : `ISO ${String(photo.iso)}`,
   ].filter((part) => part !== null);
   const dateLine = [formatCalendarDate(photo.takenAt ?? photo.importedAt), photo.place ?? null].filter((part) => part !== null).join(' · ');
+  const mediaRows = mediaInfoRows(photo.fileKind, photo.mediaInfo);
   const provider = providerLabel;
   const statusText: Record<SyncStatus, string> = {
     local: 'Local only — not backed up',
@@ -144,6 +146,13 @@ export function Inspector({ photo, providerLabel = 'Cloud', selectionPosition, o
         {exposure.length === 0 ? null : <MetadataRow label="Exposure" value={exposure.join(' · ')} />}
         {photo.focalLength === null ? null : <MetadataRow label="Focal" value={`${String(photo.focalLength)}MM`} />}
       </Section>
+      {mediaRows.length === 0 ? null : (
+        <Section title="Media">
+          {mediaRows.map((row) => (
+            <MetadataRow key={row.label} label={row.label} value={row.value} />
+          ))}
+        </Section>
+      )}
       <Section title="File">
         <MetadataRow label="Dimensions" value={dimensions} />
         {photo.dimensionStatus === 'metadata-mismatch' ? (
