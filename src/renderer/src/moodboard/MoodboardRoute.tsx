@@ -20,6 +20,9 @@ export interface MoodboardRouteProps {
 export function MoodboardRoute({ photos, onExport }: MoodboardRouteProps): ReactElement {
   const board = useMemo(() => seedBoardFromPhotos('board-local', LOCAL_BOARD_TITLE, photos), [photos]);
   const resolvePlacement = useMemo(() => makeResolver(photos), [photos]);
+  const availablePhotoIds = useMemo(() => photos.filter((photo) => photo.deletedAt === null).map((photo) => photo.id), [photos]);
   const seedKey = board.placements.map((placement) => placement.photoId).join('|');
-  return <Moodboard key={seedKey} board={board} resolvePlacement={resolvePlacement} onExport={onExport} />;
+  return (
+    <Moodboard key={seedKey} board={board} resolvePlacement={resolvePlacement} availablePhotoIds={availablePhotoIds} onExport={onExport} />
+  );
 }

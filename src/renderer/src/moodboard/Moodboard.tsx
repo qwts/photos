@@ -4,7 +4,14 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import './moodboard.css';
 import type { Board, BoardBackground, BoardSize, Placement } from '../../../shared/moodboard/board.js';
-import { BOARD_ZOOM_MAX, BOARD_ZOOM_MIN, BOARD_ZOOM_STEP, MIN_PLACEMENT_SIZE, normalizeBoard } from '../../../shared/moodboard/board.js';
+import {
+  BOARD_ZOOM_MAX,
+  BOARD_ZOOM_MIN,
+  BOARD_ZOOM_STEP,
+  FULL_CROP,
+  MIN_PLACEMENT_SIZE,
+  normalizeBoard,
+} from '../../../shared/moodboard/board.js';
 import {
   alignPlacements,
   bringForward,
@@ -95,9 +102,17 @@ export interface MoodboardProps {
   readonly onExport?: (photoIds: readonly string[]) => void;
   /** Seeds the initial selection (stories, tests); the canvas owns it after. */
   readonly initialSelection?: readonly string[];
+  /** Photo ids available to add — used to repopulate an emptied board. */
+  readonly availablePhotoIds?: readonly string[];
 }
 
-export function Moodboard({ board: initialBoard, resolvePlacement, onExport, initialSelection }: MoodboardProps): ReactElement {
+export function Moodboard({
+  board: initialBoard,
+  resolvePlacement,
+  onExport,
+  initialSelection,
+  availablePhotoIds = [],
+}: MoodboardProps): ReactElement {
   const intl = useIntl();
   const { announce } = useAnnouncer();
   const [board, setBoard] = useState<Board>(() => normalizeBoard(initialBoard));
@@ -180,11 +195,19 @@ export function Moodboard({ board: initialBoard, resolvePlacement, onExport, ini
     dragRef.current = { mode: 'resize', sx: event.clientX, sy: event.clientY, hx, vy, base };
   }, []);
 
-  const onRotatePointerDown = useCallback((event: ReactPointerEvent, base: Placement) => {
-    event.stopPropagation();
-    const rect = canvasRef.current?.getBoundingClientRect();
-    dragRef.current = { mode: 'rotate', cx: (rect?.left ?? 0) + base.x + base.w / 2, cy: (rect?.top ?? 0) + base.y + base.h / 2, base };
-  }, []);
+  const onRotatePointerDown = useCallback(
+    (event: ReactPointerEvent, base: Placement) => {
+      event.stopPropagation();
+      const rect = canvasRef.current?.getBoundingClientRect();
+      // The placement renders inside translate(pan) scale(zoom); the rotate
+      // center must be projected through the same transform so the pointer
+      // angle is measured around the real on-screen center.
+      const cx = (rect?.left ?? 0) + pan.x + (base.x + base.w / 2) * zoom;
+      const cy = (rect?.top ?? 0) + pan.y + (base.y + base.h / 2) * zoom;
+      dragRef.current = { mode: 'rotate', cx, cy, base };
+    },
+    [pan, zoom],
+  );
 
   useEffect(() => {
     const move = (event: PointerEvent): void => {
@@ -339,14 +362,19 @@ export function Moodboard({ board: initialBoard, resolvePlacement, onExport, ini
   const singleSelected = selection.size === 1 ? (board.placements.find((p) => selection.has(p.id)) ?? null) : null;
 
   const toggleCrop = useCallback(() => {
-    setCropMode((current) => {
-      if (!current && singleSelected !== null) {
-        cropSnapshotRef.current = singleSelected;
-        return true;
-      }
-      return false;
-    });
-  }, [singleSelected]);
+    if (cropMode) {
+      setCropMode(false);
+      return;
+    }
+    if (singleSelected === null) return;
+    cropSnapshotRef.current = singleSelected;
+    // A full-frame crop has no room to pan (1 - w = 0); inset it so the arrow
+    // keys can actually move the visible window. Esc restores the snapshot.
+    if (singleSelected.crop.w >= 1 && singleSelected.crop.h >= 1) {
+      patch(board.placements.map((p) => (p.id === singleSelected.id ? { ...p, crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } } : p)));
+    }
+    setCropMode(true);
+  }, [cropMode, singleSelected, board.placements, patch]);
 
   const commitCrop = useCallback(() => {
     cropSnapshotRef.current = null;
@@ -377,16 +405,18 @@ export function Moodboard({ board: initialBoard, resolvePlacement, onExport, ini
   );
 
   const addPhoto = useCallback(() => {
-    const source = board.placements[0] ?? order[0];
-    if (source === undefined) return;
+    // Duplicate an existing placement's photo, or fall back to the first
+    // available library photo so an emptied board can be repopulated.
+    const photoId = board.placements[0]?.photoId ?? availablePhotoIds[0];
+    if (photoId === undefined) return;
     const id = `pl-${crypto.randomUUID()}`;
     const maxZ = board.placements.reduce((m, p) => Math.max(m, p.z), 0);
-    const placement: Placement = { ...source, id, x: 320, y: 220, w: 200, h: 150, rotation: 0, z: maxZ + 1, groupId: null };
+    const placement: Placement = { id, photoId, x: 320, y: 220, w: 200, h: 150, rotation: 0, crop: FULL_CROP, z: maxZ + 1, groupId: null };
     patch([...board.placements, placement]);
     setSelection(new Set([id]));
     setFocusId(id);
     say(announceAdded());
-  }, [board.placements, order, patch, say]);
+  }, [board.placements, availablePhotoIds, patch, say]);
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
     if (event.key === ' ') spaceHeldRef.current = true;

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, waitFor } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import type { ReactElement } from 'react';
 
 import { Moodboard } from './Moodboard';
@@ -153,7 +153,17 @@ export const Placeholders: Story = { args: { board: PLACEHOLDER_BOARD } };
 
 export const Panel: Story = { args: { board: FULL_BOARD, initialSelection: ['p2'] } };
 
-export const Empty: Story = { args: { board: EMPTY_BOARD } };
+export const Empty: Story = {
+  args: { board: EMPTY_BOARD, availablePhotoIds: ['photo-1'] },
+  play: async ({ canvasElement }) => {
+    // The Add action repopulates an emptied board from the available photos.
+    // Scope to the empty state — the floating toolbar also has an Add button.
+    const empty = canvasElement.querySelector<HTMLElement>('.ovl-moodboard__empty');
+    if (empty === null) throw new Error('empty state not rendered');
+    await userEvent.click(within(empty).getByRole('button'));
+    await expect(canvasElement.querySelectorAll('[data-testid^="moodboard-piece-"]')).toHaveLength(1);
+  },
+};
 
 export const Light: Story = { args: { board: FULL_BOARD, initialSelection: ['p1'] }, globals: { theme: 'light' } };
 
