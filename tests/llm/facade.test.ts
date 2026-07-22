@@ -32,12 +32,14 @@ class FakeProvider implements LlmProvider {
   constructor(
     readonly id: LlmProviderId,
     private readonly validateOk = true,
+    private readonly validateError?: Error,
   ) {}
   capabilities(): LlmProviderCapabilities {
     return { features: ['qa'], vision: true };
   }
   validateKey(): Promise<void> {
     this.validateCalls += 1;
+    if (this.validateError !== undefined) return Promise.reject(this.validateError);
     return this.validateOk ? Promise.resolve() : Promise.reject(new LlmRequestError('bad key'));
   }
   qa(): Promise<LlmQaOutcome> {
@@ -116,5 +118,29 @@ describe('llm facade — provider custody (ADR-0018 §7)', () => {
     const result = facade.disconnect('anthropic');
     assert.deepEqual(result, { ok: true, reason: null });
     assert.equal(store.has('anthropic'), false);
+  });
+
+  test('an unexpected connect error falls back to a generic recoverable reason, key never persisted', async () => {
+    // A non-LLM error (e.g. a network fault) is not echoed through — it maps to the generic reason.
+    const provider = new FakeProvider('anthropic', true, new Error('socket hang up'));
+    const { facade, store } = harness([provider]);
+
+    const result = await facade.connect('anthropic', 'sk');
+    assert.equal(result.ok, false);
+    assert.match(result.reason ?? '', /something went wrong/i);
+    assert.equal(store.load('anthropic'), null);
+  });
+
+  test('disconnect surfaces an unexpected failure as ok:false rather than throwing', () => {
+    const runtime = {
+      disconnect() {
+        throw new Error('rm failed');
+      },
+    } as unknown as LlmProviderRuntime;
+    const facade = new LlmFacade({ runtime, selectedProviderId: () => null });
+
+    const result = facade.disconnect('anthropic');
+    assert.equal(result.ok, false);
+    assert.match(result.reason ?? '', /something went wrong/i);
   });
 });
