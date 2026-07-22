@@ -761,6 +761,10 @@
           "path": "tests/e2e/icloud-provider.spec.ts"
         },
         {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/provider-status.spec.ts"
+        },
+        {
           "type": "storybook",
           "path": "src/renderer/src/settings/ProviderCard.stories.tsx"
         },
@@ -770,7 +774,7 @@
         },
         {
           "type": "unit-dom",
-          "path": "tests/backup/provider-usage.test.ts"
+          "paths": ["tests/backup/provider-cancellation.test.ts", "tests/backup/provider-usage.test.ts"]
         }
       ]
     },
@@ -780,7 +784,7 @@
       "coverage": [
         {
           "type": "playwright-e2e",
-          "path": "tests/e2e/settings.spec.ts"
+          "paths": ["tests/e2e/provider-status.spec.ts", "tests/e2e/settings.spec.ts"]
         },
         {
           "type": "storybook",
@@ -1353,7 +1357,11 @@
         },
         {
           "type": "unit-dom",
-          "paths": ["tests/backup/google-drive-connect.test.ts", "tests/backup/google-drive-provider.test.ts"]
+          "paths": [
+            "tests/backup/google-drive-connect.test.ts",
+            "tests/backup/google-drive-provider.test.ts",
+            "tests/backup/provider-cancellation.test.ts"
+          ]
         }
       ]
     },
