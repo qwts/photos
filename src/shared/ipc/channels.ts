@@ -18,6 +18,7 @@ import { commandIdSchema, commandMenuContextSchema } from '../commands/menu-cont
 import { activityPageRequestSchema, activityPageResponseSchema } from '../activity/schemas.js';
 import { historyExecuteRequestSchema, historyExecuteResponseSchema, historyStatusSchema } from '../history/schemas.js';
 import { inspectorWindowChannels, windowEvents } from '../inspector-window-contract.js';
+import { interopChannels, interopEvents } from './interop-channels.js';
 import * as originalPolicy from './original-policy-channels.js';
 import { albumChannels } from './album-channels.js';
 
@@ -225,6 +226,7 @@ export const channels = {
     z.object({ changed: z.boolean() }),
   ),
   appLockRemove: defineChannel('app-lock:remove', z.object({ password: z.string().min(1).max(1024) }), z.object({ removed: z.boolean() })),
+  ...interopChannels,
   appLockPickRecovery: defineChannel('app-lock:pick-recovery', z.object({}), z.object({ path: z.string().nullable() })),
   appLockRecover: defineChannel(
     'app-lock:recover',
@@ -785,6 +787,7 @@ export const events = {
   commandInvoked: defineEvent('commands:invoked', z.object({ id: commandIdSchema })),
   appLockStateChanged: defineEvent('app-lock:state-changed', appLockStatusSchema),
   appLockTouchIdChanged: defineEvent('app-lock:touch-id-changed', touchIdStatusSchema),
+  ...interopEvents,
   // Targeted library pushes (#71) — never refetch-the-world signals.
   libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
   ...originalPolicy.originalPolicyEvents,

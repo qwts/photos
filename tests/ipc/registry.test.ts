@@ -57,6 +57,38 @@ describe('channel registry', () => {
     );
   });
 
+  test('interop IPC accepts one-shot passwords but status cannot carry credentials or keys (#676)', () => {
+    assert.deepEqual(channels.interopPairingUnlock.request.parse({ password: 'pairing password' }), { password: 'pairing password' });
+    assert.throws(() => channels.interopPairingUnlock.request.parse({ password: '' }));
+    const cleanStatus = {
+      provider: { provider: 'pcloud', status: 'connected', busy: false, token: 'secret' },
+      pairing: {
+        status: 'unlocked',
+        pairingId: '665fc4f8-8287-42db-b195-f7828d530da8',
+        keyId: 'interop:81ad4f06-0ecf-4a24-8c65-fcd34075cf15',
+        createdAt: '2026-07-21T12:00:00.000Z',
+        interopKey: 'secret',
+      },
+      batches: [],
+      selectedTransferId: null,
+      progress: { transferId: null, phase: 'queued', processed: 0, total: 0, accepted: 0, retained: 0 },
+      error: null,
+    };
+    assert.throws(() => channels.interopStatus.response.parse(cleanStatus));
+    assert.doesNotThrow(() =>
+      channels.interopStatus.response.parse({
+        ...cleanStatus,
+        provider: { provider: 'pcloud', status: 'connected', busy: false },
+        pairing: {
+          status: 'unlocked',
+          pairingId: '665fc4f8-8287-42db-b195-f7828d530da8',
+          keyId: 'interop:81ad4f06-0ecf-4a24-8c65-fcd34075cf15',
+          createdAt: '2026-07-21T12:00:00.000Z',
+        },
+      }),
+    );
+  });
+
   test('protected album IPC strips domain equality and library custody fields (#327)', () => {
     const parsed = channels.protectedAlbumPage.response.parse({
       photos: [
