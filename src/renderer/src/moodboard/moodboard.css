@@ -1,0 +1,353 @@
+/* Moodboard view (#693 / #515). Colors, type, radii, and elevation reference
+ * tokens only; placement geometry (left/top/width/height/transform) is
+ * data-driven and set inline. */
+
+.ovl-moodboard {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.ovl-moodboard__canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  outline: none;
+  background-color: var(--gray-0);
+  background-image: radial-gradient(var(--border-1) 1px, transparent 1px);
+}
+
+/* Background tone variants (never color-alone — the panel labels each). */
+.ovl-moodboard__canvas[data-bg='ink'] {
+  background-color: var(--gray-0);
+}
+.ovl-moodboard__canvas[data-bg='paper'] {
+  background-color: var(--gray-4);
+}
+.ovl-moodboard__canvas[data-bg='sepia'] {
+  background-color: var(--surface-photo-overlay-soft);
+}
+.ovl-moodboard__canvas[data-bg='navy'] {
+  background-color: var(--surface-photo-overlay-strong);
+}
+
+.ovl-moodboard__scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+/* A single placement. */
+.ovl-moodboard__piece {
+  position: absolute;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-1);
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+  background-color: var(--gray-3);
+  cursor: move;
+}
+.ovl-moodboard__piece:focus-visible {
+  outline: 2px solid var(--accent-cyan-bright);
+  outline-offset: 2px;
+}
+.ovl-moodboard__piece[data-selected='true'] {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 0;
+}
+.ovl-moodboard__piece img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.ovl-moodboard__piece[data-availability='offloaded'] img {
+  opacity: 0.5;
+}
+
+.ovl-moodboard__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  text-align: center;
+  padding: var(--space-2);
+  color: var(--text-faint);
+  font: var(--type-meta);
+}
+.ovl-moodboard__piece[data-availability='unavailable'] {
+  background-color: var(--gray-2);
+}
+.ovl-moodboard__piece[data-availability='locked'] {
+  background-image: repeating-linear-gradient(45deg, var(--gray-3), var(--gray-3) 6px, var(--gray-2) 6px, var(--gray-2) 12px);
+  color: var(--text-muted);
+}
+
+.ovl-moodboard__badge {
+  position: absolute;
+  left: var(--space-1);
+  bottom: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 1px 6px;
+  border: 1px solid var(--border-photo-overlay);
+  border-radius: var(--radius-full);
+  background-color: var(--surface-photo-overlay-medium);
+  color: var(--text-photo-overlay);
+  font: var(--type-meta);
+}
+
+/* Selection handles + rotate handle (selection cyan). */
+.ovl-moodboard__handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: var(--white-1);
+  border: 1.5px solid var(--accent-cyan);
+  border-radius: 2px;
+  z-index: 6;
+}
+.ovl-moodboard__rotate {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: var(--accent-cyan);
+  border: 2px solid var(--white-1);
+  border-radius: 50%;
+  z-index: 6;
+  cursor: grab;
+}
+.ovl-moodboard__guide {
+  position: absolute;
+  background-color: var(--accent-cyan);
+  opacity: 0.9;
+  z-index: 5;
+  pointer-events: none;
+}
+.ovl-moodboard__groupbox {
+  position: absolute;
+  border: 1.5px dashed var(--accent-iris);
+  border-radius: var(--radius-1);
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Board-settings panel. */
+.ovl-moodboard__panel {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  width: 200px;
+  max-height: calc(100% - var(--space-6));
+  overflow: auto;
+  background-color: var(--gray-1);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+  z-index: 8;
+}
+.ovl-moodboard__panel-heading {
+  font: var(--type-meta);
+  color: var(--text-faint);
+  padding: var(--space-3) var(--space-3) var(--space-1);
+}
+.ovl-moodboard__panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.ovl-moodboard__panel-row .mono-data,
+.ovl-moodboard__panel-value {
+  color: var(--text-body);
+}
+.ovl-moodboard__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+}
+.ovl-moodboard__field label {
+  font: var(--type-meta);
+  color: var(--text-faint);
+}
+.ovl-moodboard__field input,
+.ovl-moodboard__field textarea,
+.ovl-moodboard__field select {
+  width: 100%;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  background-color: var(--gray-0);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-1);
+  padding: var(--space-1) var(--space-2);
+}
+.ovl-moodboard__swatches {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3) var(--space-3);
+}
+.ovl-moodboard__swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+.ovl-moodboard__swatch[data-active='true'] {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 1px;
+}
+.ovl-moodboard__swatch[data-bg='ink'] {
+  background-color: var(--gray-0);
+}
+.ovl-moodboard__swatch[data-bg='paper'] {
+  background-color: var(--gray-4);
+}
+.ovl-moodboard__swatch[data-bg='sepia'] {
+  background-color: var(--surface-photo-overlay-soft);
+}
+.ovl-moodboard__swatch[data-bg='navy'] {
+  background-color: var(--surface-photo-overlay-strong);
+}
+
+/* Floating board toolbar. */
+.ovl-moodboard__toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-4);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--surface-photo-overlay-strong);
+  border: 1px solid var(--border-photo-overlay);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-2);
+  z-index: 9;
+}
+.ovl-moodboard__tool {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  color: var(--text-photo-overlay);
+  cursor: pointer;
+}
+.ovl-moodboard__tool:hover:not(:disabled),
+.ovl-moodboard__tool[aria-pressed='true'] {
+  background-color: var(--surface-photo-overlay-medium);
+}
+.ovl-moodboard__tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ovl-moodboard__tool:focus-visible {
+  outline: 2px solid var(--accent-cyan-bright);
+  outline-offset: 1px;
+}
+.ovl-moodboard__toolbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background-color: var(--border-photo-overlay);
+}
+.ovl-moodboard__zoom-readout {
+  min-width: 44px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-photo-overlay);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Align/distribute popover. */
+.ovl-moodboard__align-menu {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--space-4) + 40px);
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 2px;
+  padding: var(--space-1);
+  background-color: var(--gray-1);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+  z-index: 10;
+}
+.ovl-moodboard__align-menu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-1);
+  background-color: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.ovl-moodboard__align-menu button:hover {
+  background-color: var(--gray-3);
+  color: var(--text-body);
+}
+
+/* Parallel reading-order list — a real list for assistive tech. */
+.ovl-moodboard__reading-order {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Empty state. */
+.ovl-moodboard__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--text-faint);
+}
+.ovl-moodboard__empty-title {
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovl-moodboard__scene,
+  .ovl-moodboard__piece {
+    transition: none !important;
+  }
+}

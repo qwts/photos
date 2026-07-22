@@ -632,6 +632,126 @@
   "menu.window": {
     "defaultMessage": "Window"
   },
+  "moodboard.align.bottom": {
+    "defaultMessage": "Align bottom"
+  },
+  "moodboard.align.center": {
+    "defaultMessage": "Align center"
+  },
+  "moodboard.align.left": {
+    "defaultMessage": "Align left"
+  },
+  "moodboard.align.middle": {
+    "defaultMessage": "Align middle"
+  },
+  "moodboard.align.right": {
+    "defaultMessage": "Align right"
+  },
+  "moodboard.align.top": {
+    "defaultMessage": "Align top"
+  },
+  "moodboard.badge.offloaded": {
+    "defaultMessage": "Offloaded"
+  },
+  "moodboard.bg.ink": {
+    "defaultMessage": "Ink"
+  },
+  "moodboard.bg.navy": {
+    "defaultMessage": "Navy"
+  },
+  "moodboard.bg.paper": {
+    "defaultMessage": "Paper"
+  },
+  "moodboard.bg.select": {
+    "defaultMessage": "Background {name}"
+  },
+  "moodboard.bg.sepia": {
+    "defaultMessage": "Sepia"
+  },
+  "moodboard.canvas.label": {
+    "defaultMessage": "Moodboard canvas — {title}"
+  },
+  "moodboard.crop.hint": {
+    "defaultMessage": "Adjust the visible frame. The original isn't changed."
+  },
+  "moodboard.distribute.horizontal": {
+    "defaultMessage": "Distribute horizontally"
+  },
+  "moodboard.distribute.vertical": {
+    "defaultMessage": "Distribute vertically"
+  },
+  "moodboard.empty.hint": {
+    "defaultMessage": "Add photos from the library or drag them here."
+  },
+  "moodboard.empty.title": {
+    "defaultMessage": "This board is empty"
+  },
+  "moodboard.panel.background": {
+    "defaultMessage": "Background"
+  },
+  "moodboard.panel.board": {
+    "defaultMessage": "Board"
+  },
+  "moodboard.panel.notes": {
+    "defaultMessage": "Notes"
+  },
+  "moodboard.panel.placements": {
+    "defaultMessage": "Placements"
+  },
+  "moodboard.panel.selected": {
+    "defaultMessage": "Selected"
+  },
+  "moodboard.panel.size": {
+    "defaultMessage": "Size"
+  },
+  "moodboard.panel.title": {
+    "defaultMessage": "Title"
+  },
+  "moodboard.placeholder.locked": {
+    "defaultMessage": "Locked — unlock the album to show this photo"
+  },
+  "moodboard.placeholder.unavailable": {
+    "defaultMessage": "Original not available"
+  },
+  "moodboard.readingOrder.label": {
+    "defaultMessage": "Placements in reading order"
+  },
+  "moodboard.tool.add": {
+    "defaultMessage": "Add photos"
+  },
+  "moodboard.tool.align": {
+    "defaultMessage": "Align and distribute"
+  },
+  "moodboard.tool.bringForward": {
+    "defaultMessage": "Bring forward"
+  },
+  "moodboard.tool.crop": {
+    "defaultMessage": "Crop frame"
+  },
+  "moodboard.tool.export": {
+    "defaultMessage": "Export board"
+  },
+  "moodboard.tool.fit": {
+    "defaultMessage": "Fit board"
+  },
+  "moodboard.tool.group": {
+    "defaultMessage": "Group"
+  },
+  "moodboard.tool.sendBack": {
+    "defaultMessage": "Send back"
+  },
+  "moodboard.tool.ungroup": {
+    "defaultMessage": "Ungroup"
+  },
+  "moodboard.tool.zoomIn": {
+    "defaultMessage": "Zoom in"
+  },
+  "moodboard.tool.zoomOut": {
+    "defaultMessage": "Zoom out"
+  },
+  "moodboard.toolbar.label": {
+    "defaultMessage": "Board tools"
+  },
   "originalDelete.action.authenticate": {
     "defaultMessage": "Authenticate"
   },
