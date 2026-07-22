@@ -1,5 +1,11 @@
 # photos
 
+## 0.53.0
+
+### Minor Changes
+
+- 980fd97: Add the production pCloud inbound Move workflow to Transfer & Sync.
+
 ## 0.52.0
 
 ### Minor Changes
