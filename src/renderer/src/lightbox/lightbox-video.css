@@ -184,6 +184,9 @@
   text-align: center;
 }
 
+/* The card is theme-aware (mirrors the spec's dark / light panels): light text
+   on the dark canvas, dark text on the light canvas — never the fixed
+   photo-overlay near-white, which only has contrast over a dark poster. */
 .ovl-video__notice-glyph {
   inline-size: 52px;
   block-size: 52px;
@@ -191,9 +194,9 @@
   place-items: center;
   margin-block-end: 8px;
   border-radius: var(--radius-full);
-  border: 1px solid var(--border-photo-overlay);
-  background: var(--surface-photo-overlay-soft);
-  color: var(--text-photo-overlay);
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-muted);
 }
 
 .ovl-video__notice[data-variant='error'] .ovl-video__notice-glyph {
@@ -206,7 +209,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-photo-overlay);
+  color: var(--text-body);
 }
 
 .ovl-video__notice-body {
