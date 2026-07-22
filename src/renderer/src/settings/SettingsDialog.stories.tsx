@@ -15,7 +15,9 @@ import type { QuickActionCommandId } from '../../../shared/commands/registry.js'
 // decorator installs in-memory window.overlook settings + backup stubs.
 
 interface StoryWindow extends Window {
+  backupCompletedListener: Parameters<OverlookApi['backup']['onCompleted']>[0] | undefined;
   disconnectCalls?: number;
+  providerStorageCalls?: Readonly<Record<string, number>>;
   quickActionPatches?: readonly (readonly QuickActionCommandId[])[];
   releaseInitialProviderStatus?: () => void;
   releaseProviderDisconnect?: () => void;
@@ -110,7 +112,9 @@ function installStub(options?: {
         })
       : Promise.resolve();
   const storyWindow = globalThis as unknown as StoryWindow;
+  storyWindow.backupCompletedListener = undefined;
   storyWindow.disconnectCalls = 0;
+  storyWindow.providerStorageCalls = {};
   storyWindow.quickActionPatches = [];
   let providerStatusRequests = 0;
   const backupApi: OverlookApi['backup'] = {
@@ -122,7 +126,12 @@ function installStub(options?: {
         integrity: { checked: 0, repaired: 0, unrecoverable: 0, recoveryRepaired: false, failed: false },
       }),
     onProgress: () => () => undefined,
-    onCompleted: () => () => undefined,
+    onCompleted: (listener) => {
+      storyWindow.backupCompletedListener = listener;
+      return () => {
+        if (storyWindow.backupCompletedListener === listener) storyWindow.backupCompletedListener = undefined;
+      };
+    },
     offloadPreflight: () => Promise.resolve({ eligible: 0, ineligible: 0, estimatedFreedBytes: 0, items: [] }),
     offload: () => Promise.resolve({ offloaded: 0, skipped: 0, failed: 0, freedBytes: 0, results: [] }),
     rehydrate: () => Promise.resolve({ ok: true }),
@@ -171,6 +180,10 @@ function installStub(options?: {
       };
     },
     providerStorage: ({ providerId }) => {
+      storyWindow.providerStorageCalls = {
+        ...storyWindow.providerStorageCalls,
+        [providerId]: (storyWindow.providerStorageCalls?.[providerId] ?? 0) + 1,
+      };
       return Promise.resolve(
         providerId === iCloudDriveProvider.id
           ? {
@@ -572,6 +585,16 @@ export const GoogleDriveSelection: Story = {
     // Google Drive: account-wide capacity comes from about.storageQuota.
     await waitFor(() => expect(body.getByText('42 GB of 100 GB used')).toBeVisible());
     await expect(body.getByText(/Server checksum · resumable uploads/u)).toBeVisible();
+    const storyWindow = globalThis as unknown as StoryWindow;
+    await expect(storyWindow.providerStorageCalls?.['google-drive']).toBe(1);
+    storyWindow.backupCompletedListener?.({
+      uploaded: 1,
+      failed: 0,
+      manifestUploaded: true,
+      auto: false,
+      integrity: { checked: 1, repaired: 0, unrecoverable: 0, recoveryRepaired: false, failed: false },
+    });
+    await waitFor(() => expect(storyWindow.providerStorageCalls?.['google-drive']).toBe(2));
   },
 };
 
