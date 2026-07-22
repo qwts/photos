@@ -404,6 +404,38 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(opened.length, 1);
   });
 
+  test('iCloud capacity needs neither an availability probe nor a quota request (#721)', async () => {
+    const bridge = new DeterministicICloudDriveBridge();
+    let statusCalls = 0;
+    const bridgeStatus = bridge.status.bind(bridge);
+    bridge.status = () => {
+      statusCalls += 1;
+      return bridgeStatus();
+    };
+    let providerId: string | null = null;
+    const { runtime: r } = runtime({
+      iCloudDriveBridge: bridge,
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+    });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-icloud-capacity'), fault: undefined });
+    assert.deepEqual(await r.connect('icloud-drive'), { ok: true, reason: null });
+    const statusCallsBeforeCapacity = statusCalls;
+    const provider = r.provider('icloud-drive');
+    assert.ok(provider);
+    let quotaCalls = 0;
+    provider.quota = () => {
+      quotaCalls += 1;
+      return Promise.resolve({ usedBytes: 0, totalBytes: null });
+    };
+
+    assert.deepEqual(await r.storage('icloud-drive'), { capacity: null, capacityRoute: 'system-settings' });
+    assert.equal(statusCalls, statusCallsBeforeCapacity);
+    assert.equal(quotaCalls, 0);
+  });
+
   test('iCloud authority custody is sealed, rejects malformed state, and clears on disconnect', async () => {
     const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-icloud-custody-'));
     const credentialDir = join(root, 'provider-auth', 'icloud-drive');

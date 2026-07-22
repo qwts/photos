@@ -233,9 +233,8 @@ export class ProviderRuntime {
     const provider = this.provider(providerId);
     try {
       if (provider === undefined || this.activeId() !== providerId) return emptyCapacity();
-      const descriptor = await raceWithAbort(this.descriptor(provider), controller.signal);
       if (provider.capabilities.quota === 'unknown') {
-        return { ...emptyCapacity(), capacityRoute: descriptor.id === 'icloud-drive' ? 'system-settings' : 'none' };
+        return { ...emptyCapacity(), capacityRoute: providerId === 'icloud-drive' ? 'system-settings' : 'none' };
       }
       try {
         const forcedStall = !this.options.isPackaged && this.options.harnessEnv('OVERLOOK_PROVIDER_STORAGE_STALL') === providerId;
