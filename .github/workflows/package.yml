@@ -134,10 +134,15 @@ jobs:
             if [ "$WIN_ARCH" != "x64" ]; then
               sharp_ver=$(node -p "require('./node_modules/sharp/package.json').version")
               pkg="sharp-win32-$WIN_ARCH"
-              npm pack "@img/$pkg@$sharp_ver" --pack-destination "$RUNNER_TEMP" >/dev/null
+              tgz="img-$pkg-$sharp_ver.tgz"
+              # Pack/extract with relative paths only: git-bash tar reads a
+              # Windows $RUNNER_TEMP path (D:\...) as an rsync host:path spec and
+              # fails with "Cannot connect to D:", so keep everything cwd-relative.
+              npm pack "@img/$pkg@$sharp_ver" >/dev/null
               dest="node_modules/@img/$pkg"
               rm -rf "$dest" && mkdir -p "$dest"
-              tar -xzf "$RUNNER_TEMP/img-$pkg-$sharp_ver.tgz" -C "$dest" --strip-components=1
+              tar -xzf "$tgz" -C "$dest" --strip-components=1
+              rm -f "$tgz"
               # Drop the host-arch sharp binaries so only the target payload ships.
               find node_modules/@img -maxdepth 1 -type d -name 'sharp-win32-*' ! -name "$pkg" -exec rm -rf {} +
             fi
