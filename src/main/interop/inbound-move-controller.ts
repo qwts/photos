@@ -1,6 +1,12 @@
 import type { InteropReviewCategory } from '../../shared/interop/contract.js';
 import type { InteropError } from '../../shared/interop/messages.js';
-import { interopInboundStatusSchema, type IncomingMoveBatchStatus, type InteropInboundStatus } from '../../shared/interop/inbound-ui.js';
+import {
+  interopInboundStatusSchema,
+  type InboundMoveProgress,
+  type IncomingMoveBatchStatus,
+  type IncomingMoveItemStatus,
+  type InteropInboundStatus,
+} from '../../shared/interop/inbound-ui.js';
 import type { InteropPairingState, InteropProviderState } from '../../shared/interop/runtime-state.js';
 import type { PCloudConnectResult } from '../backup/pcloud/connect.js';
 import type { InboundAcceptance } from './inbound-photo-importer.js';
@@ -87,23 +93,27 @@ function batchStatus(batch: IncomingMoveBatch): IncomingMoveBatchStatus {
   return {
     transferId: batch.transferId,
     counts,
-    items: batch.items.map((item) => ({
-      interopId: item.request.payload.record.identity.interopId,
-      label: (
-        item.request.payload.record.title?.trim() || `Image Trail capture ${item.request.payload.record.identity.interopId.slice(0, 8)}`
-      ).slice(0, 160),
-      reviewCategory: item.reviewCategory,
-      original: item.request.payload.record.original.state,
-      outcome: 'pending',
-      reason: null,
-    })),
+    items: batch.items.map(itemStatus),
+  };
+}
+
+function itemStatus(item: IncomingMoveItem): IncomingMoveItemStatus {
+  return {
+    interopId: item.request.payload.record.identity.interopId,
+    label: (
+      item.request.payload.record.title?.trim() || `Image Trail capture ${item.request.payload.record.identity.interopId.slice(0, 8)}`
+    ).slice(0, 160),
+    reviewCategory: item.reviewCategory,
+    original: item.request.payload.record.original.state,
+    outcome: 'pending',
+    reason: null,
   };
 }
 
 export class InboundMoveController {
   #batches: IncomingMoveBatchStatus[] = [];
   #selectedTransferId: string | null = null;
-  #progress: InteropInboundStatus['progress'] = {
+  #progress: InboundMoveProgress = {
     transferId: null,
     phase: 'queued',
     processed: 0,
