@@ -49,8 +49,14 @@ test('native menu routes the focused window and revalidates checked, modal, targ
     // Activity is reachable only from the Help menu (#690) — never a sidebar row.
     await expect(page.locator('.ovl-sidebar').getByRole('button', { name: 'Activity' })).toHaveCount(0);
     await expect.poll(() => menuState(app, 'help.activity')).toMatchObject({ enabled: true });
+    // Opening Activity clears any overlay already mounted — including non-reducer
+    // modals like the shortcut sheet — so it never stacks a second focus trap.
+    await invokeMenu(app, 'help.shortcuts');
+    await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
     await invokeMenu(app, 'help.activity');
     await expect(page.getByRole('dialog', { name: 'Activity' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Activity' })).toBeHidden();
 

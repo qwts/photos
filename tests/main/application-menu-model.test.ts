@@ -56,13 +56,10 @@ test('menu enablement fails closed for lock, modal, target, and active-work stat
 test('Activity is a Help-menu command, not a sidebar/library surface (#690)', () => {
   const invoked: CommandId[] = [];
   const template = buildApplicationMenuTemplate('darwin', 'Overlook', grid, (id) => invoked.push(id));
-  const help = template.find((item) => item.role === 'help');
-  assert.ok(help !== undefined && Array.isArray(help.submenu));
-  // Sits with the other Help commands, directly after Keyboard Shortcuts (DS order).
-  const helpIds = (help.submenu as MenuItemConstructorOptions[]).map((item) => item.id);
+  // Sits in the Help menu, directly after Keyboard Shortcuts (DS order).
   assert.deepEqual(
-    helpIds.filter((id) => id === 'help.shortcuts' || id === 'help.activity'),
-    ['help.shortcuts', 'help.activity'],
+    ids(template).filter((id) => id === 'help.shortcuts' || id === 'help.activity' || id === 'help.open'),
+    ['help.shortcuts', 'help.activity', 'help.open'],
   );
   const activity = find(template, 'help.activity');
   assert.ok(activity !== undefined);
