@@ -67,6 +67,20 @@ export function MoodboardRoute({ photos, onExport }: MoodboardRouteProps): React
     };
   }, [save]);
 
+  // Undo/redo rewrites the board in main; reload and remount the canvas so it
+  // reflects the reverted layout instead of overwriting it (#695).
+  useEffect(() => {
+    return window.overlook.boards.onReload(({ boardId }) => {
+      if (boardId !== BOARD_ID) return;
+      void window.overlook.boards.get({ boardId: BOARD_ID }).then((result) => {
+        if (result.board === null) return;
+        dirtyRef.current = false;
+        setBoard(result.board);
+        setGeneration((current) => current + 1);
+      });
+    });
+  }, []);
+
   // Re-seed once real photos arrive after an empty first render (and the user
   // has not touched the board), so the first saved board reflects the library.
   useEffect(() => {

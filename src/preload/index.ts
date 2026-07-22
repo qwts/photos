@@ -184,6 +184,7 @@ const overlook: OverlookApi = {
     get: createInvoker(channels.boardGet, invokeTransport),
     save: createInvoker(channels.boardSave, invokeTransport),
     delete: createInvoker(channels.boardDelete, invokeTransport),
+    onReload: createSubscriber(events.boardsReload, subscribeTransport),
   }),
   protectedAlbums: Object.freeze({
     list: async () => protectedAlbumsList({}),

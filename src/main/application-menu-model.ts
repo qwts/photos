@@ -112,6 +112,7 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
     case 'album.reorder.down':
     case 'album.reorder.top':
     case 'album.reorder.bottom':
+    case 'board.layout':
     case 'photo.open':
     case 'photo.offload':
     case 'photo.restoreOriginal':

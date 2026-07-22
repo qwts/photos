@@ -21,7 +21,7 @@ import { inspectorWindowChannels, windowEvents } from '../inspector-window-contr
 import { interopChannels, interopEvents } from './interop-channels.js';
 import * as originalPolicy from './original-policy-channels.js';
 import { albumChannels } from './album-channels.js';
-import { boardChannels } from './board-channels.js';
+import { boardChannels, boardEvents } from './board-channels.js';
 
 // Central IPC contract registry: every renderer↔main channel and main→renderer
 // event is declared here with request/response (or payload) schemas. Main
@@ -790,6 +790,7 @@ export const events = {
   appLockStateChanged: defineEvent('app-lock:state-changed', appLockStatusSchema),
   appLockTouchIdChanged: defineEvent('app-lock:touch-id-changed', touchIdStatusSchema),
   ...interopEvents,
+  ...boardEvents,
   // Targeted library pushes (#71) — never refetch-the-world signals.
   libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
   ...originalPolicy.originalPolicyEvents,

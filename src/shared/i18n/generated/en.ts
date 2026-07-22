@@ -47,6 +47,7 @@ export const en: Readonly<Record<string, string>> = {
   "commands.app.settings.open.privacy": "Privacy & Diagnostics",
   "commands.app.settings.open.storage": "Storage & Backup",
   "commands.app.settings.open.transfer": "Transfer & Sync",
+  "commands.board.layout": "Edit board",
   "commands.grid.focus.down": "Move focus down",
   "commands.grid.focus.end": "Move to row end",
   "commands.grid.focus.home": "Move to row start",

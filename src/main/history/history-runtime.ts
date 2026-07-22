@@ -10,11 +10,13 @@ export function createHistoryService(
   parts: { db: BetterSqlite3.Database; blobStore: BlobStore; keyStore: { resolver(): KeyResolver } },
   library: LibraryService,
   onManifestChanged: () => void,
+  onBoardsChanged?: (boardId: string) => void,
 ): HistoryService {
   return new HistoryService(
     parts.db,
     library,
     createMoveCompensationRuntime(parts.blobStore, parts.keyStore.resolver()),
     onManifestChanged,
+    onBoardsChanged,
   );
 }

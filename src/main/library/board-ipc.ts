@@ -2,13 +2,22 @@ import { ipcMain } from 'electron';
 
 import { channels } from '../../shared/ipc/channels.js';
 import type { wrapHandler as createValidatedHandler } from '../../shared/ipc/registry.js';
+import { mutateWithActivity } from '../activity/activity-publication.js';
+import type { ActivityFacade } from '../activity/activity-publication.js';
+import { boardLayoutCommand } from '../history/command-drafts.js';
+import { serializeBoard } from '../../shared/moodboard/board.js';
 import type { LibraryService } from './library-service.js';
 
-// Moodboard persistence IPC (#515 / #694). Thin wiring over the board
+// Moodboard persistence IPC (#515 / #694, undo #695). Thin wiring over the board
 // repository via LibraryService; `wrapHandler` gates every call on content
-// access, so boards are unreachable while the app is locked. Board edits do not
-// go through the activity history yet (undo lands in a later slice).
-export function registerBoardIpcHandlers(getService: () => LibraryService, wrapHandler: typeof createValidatedHandler): void {
+// access, so boards are unreachable while the app is locked. A save records one
+// undoable layout command per gesture (the renderer coalesces a gesture into a
+// single debounced save) through the shared activity history (ADR-0025).
+export function registerBoardIpcHandlers(
+  getService: () => LibraryService,
+  wrapHandler: typeof createValidatedHandler,
+  getActivity?: () => ActivityFacade,
+): void {
   ipcMain.handle(channels.boardList.name, (_event, request: unknown) =>
     wrapHandler(channels.boardList, () => ({ boards: getService().listBoards() }))(request),
   );
@@ -17,7 +26,18 @@ export function registerBoardIpcHandlers(getService: () => LibraryService, wrapH
   );
   ipcMain.handle(channels.boardSave.name, (_event, request: unknown) =>
     wrapHandler(channels.boardSave, ({ board }) => {
-      getService().saveBoard(board);
+      const service = getService();
+      const before = service.getBoard(board.id);
+      const command = boardLayoutCommand(board.id, before === null ? null : serializeBoard(before), serializeBoard(board));
+      mutateWithActivity(
+        getActivity,
+        () => service.saveBoard(board),
+        () =>
+          command === undefined
+            ? undefined
+            : { eventType: 'board.layout-changed', entityIds: [board.id], outcome: 'succeeded', payload: {} },
+        () => command,
+      );
       return {};
     })(request),
   );

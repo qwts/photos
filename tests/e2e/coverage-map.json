@@ -1676,7 +1676,8 @@
             "tests/main/application-menu-model.test.ts",
             "tests/db/board-repository.test.ts",
             "tests/db/library-db.test.ts",
-            "tests/library/library-service.test.ts"
+            "tests/library/library-service.test.ts",
+            "tests/history/history-service.test.ts"
           ]
         },
         {

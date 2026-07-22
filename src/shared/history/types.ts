@@ -41,6 +41,15 @@ export type InverseParameters =
       readonly after: readonly string[];
     }
   | {
+      // Moodboard layout edit (#515 / #695). before/after are canonical
+      // serialized boards; one command per gesture (the renderer coalesces a
+      // gesture into a single debounced save). Undo restores `before`.
+      readonly kind: 'board-layout';
+      readonly boardId: string;
+      readonly before: string;
+      readonly after: string;
+    }
+  | {
       readonly kind: 'move-compensation';
       readonly photoId: string;
       readonly contentHash: string;

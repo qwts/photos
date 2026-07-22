@@ -128,6 +128,9 @@
   "commands.app.settings.open.transfer": {
     "defaultMessage": "Transfer & Sync"
   },
+  "commands.board.layout": {
+    "defaultMessage": "Edit board"
+  },
   "commands.grid.focus.down": {
     "defaultMessage": "Move focus down"
   },

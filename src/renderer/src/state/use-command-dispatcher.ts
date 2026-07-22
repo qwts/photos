@@ -44,6 +44,7 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'view.mode.grid':
         case 'view.mode.list':
         case 'view.mode.moodboard':
+        case 'board.layout':
         case 'help.open':
         case 'help.activity':
         case 'album.membership.add':
