@@ -8,8 +8,7 @@ import type { AlbumSummary, LibraryStats, SourceCounts } from '../../../shared/l
 import { Icon } from '../components/Icon';
 import { TitleBar } from '../components/TitleBar';
 import { ToastHost, type ToastItem } from '../components/Toast';
-import { LibraryGridView } from '../grid/LibraryGridView';
-import { MoodboardRoute } from '../moodboard/MoodboardRoute';
+import { PrimaryLibraryView } from './PrimaryLibraryView';
 import { fullUrl } from '../../../shared/library/full-url.js';
 import { ExportDialog } from '../export/ExportDialog';
 import { SettingsDialog, type SettingsSection } from '../settings/SettingsDialog';
@@ -822,10 +821,8 @@ export function Shell({
               {viewTitle}
             </h1>
           ) : null}
-          {state.protectedAlbum === null && state.view === 'moodboard' ? (
-            <MoodboardRoute photos={state.photos} onExport={openExport} />
-          ) : state.protectedAlbum === null ? (
-            <LibraryGridView
+          {state.protectedAlbum === null ? (
+            <PrimaryLibraryView
               platform={commandPlatform(platform)}
               knownTotal={counts === null ? null : counts[state.source]}
               activeAlbum={albums.find((album) => album.id === state.album) ?? null}
