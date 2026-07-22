@@ -247,6 +247,15 @@ export class InboundMoveController {
     await this.#run;
   }
 
+  async shutdown(): Promise<void> {
+    if (this.#run !== null) {
+      await this.cancel();
+      await this.drain();
+    }
+    this.clearPreview();
+    this.#error = null;
+  }
+
   private async runTransfer(transferId: string): Promise<void> {
     try {
       await this.options.runtime().start(transferId, {

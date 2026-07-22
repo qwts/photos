@@ -46,6 +46,8 @@ import type { ThumbService } from './thumbs/thumb-service.js';
 import { getDiagnosticsService } from './diagnostics/diagnostics-runtime.js';
 import { OriginalDeletionService } from './library/original-deletion-service.js';
 import type { AppLockState, AppAuthorizationResult } from './crypto/app-lock-controller.js';
+import { registerInboundMoveHandlers } from './interop/inbound-move-ipc.js';
+import { getProductionInboundMoveController } from './interop/inbound-move-production.js';
 
 export interface AppServicesOptions {
   readonly dataDir: () => string;
@@ -154,4 +156,5 @@ export function registerAppServices(options: AppServicesOptions): void {
   const emitSettingsChanged = createEmitter(events.settingsChanged, options.broadcast);
   getSettingsStore().subscribe((settings) => emitSettingsChanged({ settings }));
   registerBackupHandlers(() => createBackupFacade(options.backup));
+  registerInboundMoveHandlers(getProductionInboundMoveController, options.requireContentAccess);
 }

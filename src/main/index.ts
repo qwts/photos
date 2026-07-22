@@ -67,7 +67,9 @@ import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
 import { installApplicationMenu, refreshApplicationMenu } from './application-menu.js';
 import { configureInteropRuntime, interopRuntimeBusy, lockInteropRuntime } from './interop/runtime.js';
+import { closeProductionInboundMoveLibrary, configureProductionInboundMove } from './interop/inbound-move-production.js';
 import { WorkTracker } from './work-tracker.js';
+import type { LibraryParts } from './library/library-parts.js';
 
 // Test/dev steering hooks (#72/#129) are unpackaged-only; runtime tuning stays outside this gate.
 function harnessEnv(name: string): string | undefined {
@@ -98,14 +100,6 @@ let releaseLibraryLock: (() => void) | undefined;
 
 const emitExportProgress = createEmitter(events.exportProgress, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
 const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
-
-interface LibraryParts {
-  readonly db: ReturnType<typeof openLibraryDatabase>;
-  readonly blobStore: BlobStore;
-  readonly blobStoreReady: Promise<void>;
-  readonly keyStore: KeyStore;
-  readonly protected: ProtectedRuntime;
-}
 
 let libraryParts: LibraryParts | undefined, releasedMaster: Buffer | undefined;
 
@@ -668,6 +662,7 @@ async function closeLibrary(mode: 'restore' | 'lock' | 'switch'): Promise<void> 
   rawRepairService?.close();
   for (const controller of activeBackupControllers) controller.abort();
   await drainWithCancellationFence(cancelScheduledLibraryWork, [
+    closeProductionInboundMoveLibrary(),
     importRuntime?.service.drain() ?? Promise.resolve(),
     exportFacade?.drain() ?? Promise.resolve(),
     libraryParts?.protected.drain() ?? Promise.resolve(),
@@ -790,6 +785,12 @@ function getRestoreRuntime(): RestoreRuntime {
 void externalOpen.whenReady().then(async () => {
   if (await exitForReleaseSmokeIfRequested(app)) return;
   configureInteropRuntime(app.getPath('userData'), pickSafeStorage(), (url) => shell.openExternal(url));
+  configureProductionInboundMove(
+    () => requireParts('inbound Move'),
+    () => getImportService() && importRuntime,
+    () => harnessEnv('OVERLOOK_INTEROP_PAIRING_BUNDLE'),
+    scheduleAutoBackup,
+  );
   // Settle relocation journals FIRST (ADR-0022 §2): recovery may re-point the
   // registry (roll a commit forward), so it must run before resolveActive()
   // caches an entry and before anything opens or classifies libraries. A
