@@ -329,6 +329,30 @@ export const AlbumKeyboardReorder: Story = {
   },
 };
 
+export const AlbumPointerReorder: Story = {
+  loaders: [
+    () => {
+      window.localStorage.removeItem(COLLAPSE_KEY);
+      reorderAlbum.mockClear();
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const handle = canvas.getByRole('button', { name: 'Reorder Iceland, position 1 of 2' });
+    const studioRow = canvas.getByText('Studio scans').closest('.ovl-sidebar__albumrow');
+    await expect(studioRow).not.toBeNull();
+    if (studioRow === null) return;
+    const transfer = dataTransfer();
+    await fireEvent.dragStart(handle, { dataTransfer: transfer });
+    await fireEvent.dragOver(studioRow, { dataTransfer: transfer, clientY: 10_000 });
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Reorder Iceland, position 2 of 2' })).toBeVisible());
+    await fireEvent.drop(studioRow, { dataTransfer: transfer, clientY: 10_000 });
+    await fireEvent.dragEnd(handle, { dataTransfer: transfer });
+    await waitFor(() => expect(reorderAlbum).toHaveBeenCalledWith({ albumId: 'a1', position: 1, commandId: 'album.reorder.bottom' }));
+  },
+};
+
 export const CollapsedAlbumKeyboardActions: Story = {
   loaders: [
     () => {
@@ -341,8 +365,11 @@ export const CollapsedAlbumKeyboardActions: Story = {
     const albumRow = canvas.getByRole('button', { name: 'Iceland · 214 · album 1 of 2' });
     albumRow.focus();
     await fireEvent.keyDown(albumRow, { key: 'F10', shiftKey: true });
-    await expect(canvas.getByRole('menu', { name: 'Actions for Iceland' })).toBeVisible();
-    await expect(canvas.getByRole('menuitem', { name: 'Rename album…' })).toHaveFocus();
+    const menu = canvas.getByRole('menu', { name: 'Actions for Iceland' });
+    const moveUp = within(menu).getByRole('menuitem', { name: 'Move up ⌥↑' });
+    await expect(menu).toBeVisible();
+    await expect(moveUp).toHaveFocus();
+    await expect(moveUp).toHaveAttribute('aria-disabled', 'true');
   },
 };
 

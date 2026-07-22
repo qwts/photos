@@ -35,7 +35,8 @@ change.
 ## Automated evidence
 
 - `tests/e2e/album-reorder.spec.ts`: keyboard commit, live announcement,
-  collapsed-menu command, undo, and reload persistence.
+  collapsed-menu command, undo, and reload persistence through the serialized
+  polite live region.
 - `src/renderer/src/shell/Sidebar.stories.tsx`: handle semantics, keyboard grab,
   collapsed rail, RTL, protected-row separation, and photo-drop coexistence.
 - `tests/db/album-order.test.ts`: exact-set validation, atomic replacement, and
