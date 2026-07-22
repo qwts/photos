@@ -94,8 +94,8 @@ export async function runICloudLiveContractIfRequested(app: LiveContractApp, opt
     checks.push('restore-provider');
     assert.deepEqual(await exerciseDisasterRecoveryContract(provider, scratchLibraries[3]), { generation: 1, photos: 2 });
     checks.push('fresh-profile-disaster-recovery');
-    const remainingLibraries = await provider.listLibraries();
-    cleanup = scratchLibraries.every((libraryId) => !remainingLibraries.includes(libraryId));
+    const scratchContents = await Promise.all(scratchLibraries.map((libraryId) => provider.forLibrary(libraryId).list('.')));
+    cleanup = scratchContents.every((entries) => entries.length === 0);
     assert.equal(cleanup, true, 'scratch recovery homes are fully cleaned');
     emit({ schema: 1, result: 'pass', scratchLibraries, checks, cleanup });
     exitCode = 0;
