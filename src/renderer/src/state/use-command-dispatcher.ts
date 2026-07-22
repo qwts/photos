@@ -32,7 +32,12 @@ export function useCommandDispatcher(platform: string, onHelp: (surface: Command
         case 'app.settings.open.privacy':
         case 'app.lock.now':
         case 'library.switch':
+        case 'library.move':
+        case 'library.new':
         case 'library.import':
+        case 'view.sidebar.toggle':
+        case 'view.mode.feed':
+        case 'view.mode.moodboard':
         case 'library.source.all':
         case 'library.source.favorites':
         case 'library.source.recent':

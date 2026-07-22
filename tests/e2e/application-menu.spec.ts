@@ -116,6 +116,50 @@ test('lock-safe Settings commands wait without exposing content, then open after
   }
 });
 
+async function topLevelMenuLabels(app: ElectronApplication): Promise<(string | null)[]> {
+  return app.evaluate(({ Menu }) => (Menu.getApplicationMenu()?.items ?? []).map((item) => item.label || item.role || null));
+}
+
+async function submenuItemIds(app: ElectronApplication, menuLabel: string): Promise<(string | null)[]> {
+  return app.evaluate(({ Menu }, label) => {
+    const menu = (Menu.getApplicationMenu()?.items ?? []).find((item) => (item.label || item.role) === label);
+    return (menu?.submenu?.items ?? []).map((item) => (item.type === 'separator' ? '—' : (item.id ?? item.role ?? null)));
+  }, menuLabel);
+}
+
+test('macOS application menu is the six-menu design-system spec projected from the registry (#689)', async () => {
+  test.skip(process.platform !== 'darwin', 'the six-menu spec is the macOS bar (#689)');
+  const app = await launch(mkE2eTmpDir('overlook-e2e-application-menu-spec-'));
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+
+    // Six menus, exact order, no Window menu.
+    expect(await topLevelMenuLabels(app)).toEqual(['Overlook', 'File', 'Edit', 'View', 'Photo', 'Help']);
+
+    // File carries Import + Export Selection + the library trio, in order.
+    expect(await submenuItemIds(app, 'File')).toEqual([
+      'library.import',
+      'photo.export',
+      '—',
+      'library.switch',
+      'library.move',
+      'library.new',
+    ]);
+
+    // Newly-projected items exist and dispatch registry command ids; their
+    // cross-surface handlers land in the follow-up PR, so they are disabled.
+    for (const id of ['library.move', 'library.new', 'view.sidebar.toggle', 'view.mode.feed', 'view.mode.moodboard', 'selection.clear']) {
+      await expect.poll(() => menuState(app, id)).toMatchObject({ enabled: false });
+    }
+    // Grid/List reflect the current view; source radios reflect the route.
+    await expect.poll(() => menuState(app, 'view.mode.grid')).toMatchObject({ enabled: true, checked: true });
+    await expect.poll(() => menuState(app, 'library.source.all')).toMatchObject({ checked: true });
+  } finally {
+    await app.close();
+  }
+});
+
 test('macOS menu recreates one primary window and delivers the queued route (#531)', async () => {
   test.skip(process.platform !== 'darwin', 'macOS keeps the app alive with no windows');
   const app = await launch(mkE2eTmpDir('overlook-e2e-application-menu-window-'));

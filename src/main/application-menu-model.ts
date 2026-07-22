@@ -71,8 +71,21 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
     case 'photo.original.unmark':
     case 'photo.trash':
       return context.surface === 'lightbox' && context.dialog === 'none' && context.targetTrashable;
+    // #689: these items now project into the macOS menu structure, but their
+    // cross-surface handler wiring + target-aware enablement lands in the
+    // follow-up PR. They stay disabled until then so the menu never shows an
+    // enabled item that does nothing. (Feed stays disabled until that view
+    // lands; Moodboard shipped with #515 and is enabled with Grid/List above.)
+    case 'library.move':
+    case 'library.new':
+    case 'view.sidebar.toggle':
+    case 'view.mode.feed':
+    case 'photo.export':
+    case 'photo.restore':
     case 'album.membership.add':
     case 'album.membership.remove':
+    case 'selection.clear':
+      return false;
     case 'album.rename':
     case 'album.delete':
     case 'album.transfer':
@@ -81,16 +94,13 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
     case 'album.reorder.top':
     case 'album.reorder.bottom':
     case 'photo.open':
-    case 'photo.export':
     case 'photo.offload':
     case 'photo.restoreOriginal':
     case 'photo.transfer':
-    case 'photo.restore':
     case 'photo.purge':
     case 'trash.empty':
       return false;
     case 'app.search.focus':
-    case 'selection.clear':
     case 'view.lightbox.previous':
     case 'view.lightbox.next':
     case 'view.lightbox.zoomIn':
@@ -157,45 +167,67 @@ function settingsItems(context: CommandMenuContext, dispatch: CommandDispatch, t
   ];
 }
 
-export function buildApplicationMenuTemplate(
-  platform: CommandPlatform,
+const separator: MenuItemConstructorOptions = { type: 'separator' };
+
+/** Re-project a command into a second menu slot: distinct item id, no accelerator, same command dispatch. */
+function alias(item: MenuItemConstructorOptions, id: string): MenuItemConstructorOptions {
+  const { accelerator: _accelerator, ...rest } = item;
+  return { ...rest, id };
+}
+
+/**
+ * macOS application menu (#689) — projects the design-system `MenuBar` spec:
+ * Overlook · File · Edit · View · Photo · Help, in this exact order, every
+ * item dispatching a shared-registry command id (ADR-0024 parity). Cut/Copy/
+ * Paste and About/Quit are OS roles the design mock cannot render but ADR-0024
+ * §1 mandates and text editing requires. The Help → Activity item is owned by
+ * #690 (`help.activity`) and is inserted there.
+ */
+function macApplicationMenuTemplate(
   appName: string,
   context: CommandMenuContext,
   dispatch: CommandDispatch,
-  translate: MenuTranslate = sourceText,
+  translate: MenuTranslate,
 ): MenuItemConstructorOptions[] {
-  const appMenu: MenuItemConstructorOptions[] =
-    platform === 'darwin'
-      ? [
-          {
-            label: appName,
-            submenu: [
-              { role: 'about' },
-              { type: 'separator' },
-              ...settingsItems(context, dispatch, translate),
-              { type: 'separator' },
-              { role: 'services' },
-              { type: 'separator' },
-              { role: 'hide' },
-              { role: 'hideOthers' },
-              { role: 'unhide' },
-              { type: 'separator' },
-              { role: 'quit' },
-            ],
-          },
-        ]
-      : [];
-  const fileSettings = platform === 'darwin' ? [] : [...settingsItems(context, dispatch, translate), { type: 'separator' as const }];
+  const inTrash = context.source === 'deleted';
+  const photoItems: MenuItemConstructorOptions[] = inTrash
+    ? [commandItem('photo.restore', context, dispatch, translate)]
+    : [
+        commandItem('photo.favorite.toggle', context, dispatch, translate),
+        commandItem('album.membership.add', context, dispatch, translate),
+        ...(context.inAlbum ? [commandItem('album.membership.remove', context, dispatch, translate)] : []),
+        // Same `photo.export` command as File → Export Selection…; distinct
+        // menu-item id + no accelerator (the ⇧⌘E shortcut lives on the File item).
+        alias(commandItem('photo.export', context, dispatch, translate), 'photo.export.photo'),
+        separator,
+        commandItem('photo.trash', context, dispatch, translate),
+      ];
 
   return [
-    ...appMenu,
+    {
+      label: appName,
+      submenu: [
+        { role: 'about' },
+        separator,
+        commandItem('app.settings.open', context, dispatch, translate),
+        commandItem('app.settings.open.storage', context, dispatch, translate),
+        commandItem('app.settings.open.transfer', context, dispatch, translate),
+        commandItem('app.settings.open.privacy', context, dispatch, translate),
+        separator,
+        commandItem('app.lock.now', context, dispatch, translate),
+        separator,
+        { role: 'quit' },
+      ],
+    },
     {
       label: translate(menuMessages.file),
       submenu: [
-        ...fileSettings,
         commandItem('library.import', context, dispatch, translate),
+        commandItem('photo.export', context, dispatch, translate),
+        separator,
         commandItem('library.switch', context, dispatch, translate),
-        ...(platform === 'darwin' ? [] : [{ type: 'separator' as const }, { role: 'quit' as const }]),
+        commandItem('library.move', context, dispatch, translate),
+        commandItem('library.new', context, dispatch, translate),
       ],
     },
     {
@@ -203,11 +235,83 @@ export function buildApplicationMenuTemplate(
       submenu: [
         commandItem('history.undo', context, dispatch, translate),
         commandItem('history.redo', context, dispatch, translate),
-        { type: 'separator' },
+        separator,
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
-        { type: 'separator' },
+        separator,
+        context.editable ? { role: 'selectAll' } : commandItem('selection.selectAll', context, dispatch, translate),
+        commandItem('selection.clear', context, dispatch, translate),
+      ],
+    },
+    {
+      label: translate(menuMessages.view),
+      submenu: [
+        commandItem('library.source.all', context, dispatch, translate, { type: 'radio', checked: context.source === 'all' }),
+        commandItem('library.source.favorites', context, dispatch, translate, { type: 'radio', checked: context.source === 'favorites' }),
+        commandItem('library.source.recent', context, dispatch, translate, { type: 'radio', checked: context.source === 'recent' }),
+        commandItem('library.source.trash', context, dispatch, translate, { type: 'radio', checked: context.source === 'deleted' }),
+        separator,
+        commandItem('view.mode.grid', context, dispatch, translate, { type: 'radio', checked: context.view === 'grid' }),
+        commandItem('view.mode.list', context, dispatch, translate, { type: 'radio', checked: context.view === 'list' }),
+        commandItem('view.mode.feed', context, dispatch, translate, { type: 'radio', checked: false }),
+        commandItem('view.mode.moodboard', context, dispatch, translate, { type: 'radio', checked: context.view === 'moodboard' }),
+        separator,
+        commandItem('view.inspector.toggle', context, dispatch, translate, { type: 'checkbox', checked: context.inspectorOpen }),
+        commandItem('view.inspector.detach', context, dispatch, translate),
+        commandItem('view.sidebar.toggle', context, dispatch, translate),
+      ],
+    },
+    {
+      label: translate(menuMessages.photo),
+      submenu: photoItems,
+    },
+    {
+      role: 'help',
+      submenu: [
+        commandItem('help.shortcuts', context, dispatch, translate),
+        commandItem('help.activity', context, dispatch, translate),
+        separator,
+        { ...commandItem('app.settings.open.privacy', context, dispatch, translate), id: 'help.privacy' },
+        commandItem('help.open', context, dispatch, translate),
+      ],
+    },
+  ];
+}
+
+/**
+ * Windows/Linux menu — unchanged from the #531 baseline (ADR-0024 §5). The
+ * design system only specs the macOS bar; removing the non-mac menu is tracked
+ * separately (needs an ADR-0024 amendment) and is out of scope for #689.
+ */
+function otherApplicationMenuTemplate(
+  platform: CommandPlatform,
+  context: CommandMenuContext,
+  dispatch: CommandDispatch,
+  translate: MenuTranslate,
+): MenuItemConstructorOptions[] {
+  return [
+    {
+      label: translate(menuMessages.file),
+      submenu: [
+        ...settingsItems(context, dispatch, translate),
+        separator,
+        commandItem('library.import', context, dispatch, translate),
+        commandItem('library.switch', context, dispatch, translate),
+        separator,
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: translate(menuMessages.edit),
+      submenu: [
+        commandItem('history.undo', context, dispatch, translate),
+        commandItem('history.redo', context, dispatch, translate),
+        separator,
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        separator,
         context.editable ? { role: 'selectAll' } : commandItem('selection.selectAll', context, dispatch, translate),
       ],
     },
@@ -218,13 +322,13 @@ export function buildApplicationMenuTemplate(
         commandItem('library.source.favorites', context, dispatch, translate, { type: 'radio', checked: context.source === 'favorites' }),
         commandItem('library.source.recent', context, dispatch, translate, { type: 'radio', checked: context.source === 'recent' }),
         commandItem('library.source.trash', context, dispatch, translate, { type: 'radio', checked: context.source === 'deleted' }),
-        { type: 'separator' },
+        separator,
         commandItem('view.inspector.toggle', context, dispatch, translate, { type: 'checkbox', checked: context.inspectorOpen }),
         commandItem('view.inspector.detach', context, dispatch, translate),
         commandItem('view.mode.grid', context, dispatch, translate, { type: 'radio', checked: context.view === 'grid' }),
         commandItem('view.mode.list', context, dispatch, translate, { type: 'radio', checked: context.view === 'list' }),
         commandItem('view.mode.moodboard', context, dispatch, translate, { type: 'radio', checked: context.view === 'moodboard' }),
-        { type: 'separator' },
+        separator,
         commandItem('view.lightbox.close', context, dispatch, translate),
       ],
     },
@@ -253,4 +357,15 @@ export function buildApplicationMenuTemplate(
       ],
     },
   ];
+}
+
+export function buildApplicationMenuTemplate(
+  platform: CommandPlatform,
+  appName: string,
+  context: CommandMenuContext,
+  dispatch: CommandDispatch,
+  translate: MenuTranslate = sourceText,
+): MenuItemConstructorOptions[] {
+  if (platform === 'darwin') return macApplicationMenuTemplate(appName, context, dispatch, translate);
+  return otherApplicationMenuTemplate(platform, context, dispatch, translate);
 }
