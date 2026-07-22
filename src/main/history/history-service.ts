@@ -8,6 +8,7 @@ import type {
   HistoryStatus,
 } from '../../shared/history/types.js';
 import type { LibraryService } from '../library/library-service.js';
+import { parseBoard, serializeBoard } from '../../shared/moodboard/board.js';
 import { ActivityRepository } from '../activity/activity-repository.js';
 import { ulid } from '../import/ulid.js';
 import { CommandRepository } from './command-repository.js';
@@ -35,6 +36,7 @@ export class HistoryService {
     private readonly library: LibraryService,
     private readonly move?: MoveCompensationRuntime,
     private readonly onManifestChanged?: () => void,
+    private readonly onBoardsChanged?: (boardId: string) => void,
   ) {
     this.commands = new CommandRepository(db);
     this.activity = new ActivityRepository(db);
@@ -96,6 +98,14 @@ export class HistoryService {
           ? capability
           : unavailable(capability, 'state-changed');
       }
+      case 'board-layout': {
+        const current = this.library.getBoard(record.inverse.boardId);
+        if (current === null) return unavailable(capability, 'resource-missing');
+        const serialized = serializeBoard(current);
+        return serialized === record.inverse.before || serialized === record.inverse.after
+          ? capability
+          : unavailable(capability, 'state-changed');
+      }
     }
   }
 
@@ -135,6 +145,7 @@ export class HistoryService {
       if (target === 'trashed') this.onManifestChanged?.();
     }
     if (record.inverse.kind === 'album-order') this.onManifestChanged?.();
+    if (record.inverse.kind === 'board-layout') this.onBoardsChanged?.(record.inverse.boardId);
     return result;
   }
 
@@ -189,6 +200,11 @@ export class HistoryService {
         this.library.setAlbumOrder(target);
         break;
       }
+      case 'board-layout': {
+        const target = direction === 'undo' ? record.inverse.before : record.inverse.after;
+        this.library.saveBoard(parseBoard(target));
+        break;
+      }
       case 'move-compensation':
         throw new Error('Move compensation is asynchronous');
     }
@@ -205,6 +221,8 @@ export class HistoryService {
         return record.inverse.photoIds;
       case 'album-order':
         return [record.inverse.albumId];
+      case 'board-layout':
+        return [record.inverse.boardId];
     }
   }
 }

@@ -1,6 +1,16 @@
 import type { CommandDraft } from '../activity/activity-publication.js';
 import type { CommandId } from '../../shared/commands/registry.js';
 
+export function boardLayoutCommand(boardId: string, before: string | null, after: string): CommandDraft | undefined {
+  // No command for the first save (nothing to undo to) or a no-op save.
+  if (before === null || before === after) return undefined;
+  return {
+    commandId: 'board.layout',
+    classification: 'immediately-reversible',
+    inverse: { kind: 'board-layout', boardId, before, after },
+  };
+}
+
 export function favoriteCommand(photoId: string, favorite: boolean): CommandDraft {
   return {
     commandId: 'photo.favorite.toggle',

@@ -100,6 +100,7 @@ let releaseLibraryLock: (() => void) | undefined;
 
 const emitExportProgress = createEmitter(events.exportProgress, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
 const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
+const emitBoardsReload = createEmitter(events.boardsReload, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
 
 let libraryParts: LibraryParts | undefined, releasedMaster: Buffer | undefined;
 
@@ -833,7 +834,8 @@ void externalOpen.whenReady().then(async () => {
     allowKeyImport: () => lock.snapshot().state === 'unconfigured-unlocked',
     getLibrary: getLibraryService,
     getActivity: () => createActivityFacade(requireParts('activity').db, () => manifestSyncTrigger?.()),
-    getHistory: () => createHistoryService(requireParts('history'), getLibraryService(), markManifestDebt),
+    getHistory: () =>
+      createHistoryService(requireParts('history'), getLibraryService(), markManifestDebt, (boardId) => emitBoardsReload({ boardId })),
     libraries: {
       ...registryRuntime.facade({
         openLibraryId: () => (libraryService === undefined ? null : registryRuntime.resolveActive().id),

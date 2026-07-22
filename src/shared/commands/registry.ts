@@ -78,6 +78,7 @@ export type CommandId =
   | 'view.mode.list'
   | 'view.mode.feed'
   | 'view.mode.moodboard'
+  | 'board.layout'
   | 'view.lightbox.close'
   | 'view.lightbox.previous'
   | 'view.lightbox.next'
@@ -159,6 +160,7 @@ const commandLabels: Record<CommandId, CommandDescriptor['label']> = defineMessa
   'view.mode.list': { id: 'commands.view.mode.list', defaultMessage: 'List' },
   'view.mode.feed': { id: 'commands.view.mode.feed', defaultMessage: 'Feed' },
   'view.mode.moodboard': { id: 'commands.view.mode.moodboard', defaultMessage: 'Moodboard' },
+  'board.layout': { id: 'commands.board.layout', defaultMessage: 'Edit board' },
   'view.lightbox.close': { id: 'commands.view.lightbox.close', defaultMessage: 'Exit lightbox' },
   'view.lightbox.previous': { id: 'commands.view.lightbox.previous', defaultMessage: 'Previous photo' },
   'view.lightbox.next': { id: 'commands.view.lightbox.next', defaultMessage: 'Next photo' },
@@ -424,6 +426,15 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     surfaces: [],
     target: 'window',
     native: { menu: 'view', lockSafe: false, queueable: true },
+  },
+  {
+    // The undoable moodboard layout edit (#695). Not exposed in a menu — it is
+    // the identity under which per-gesture board changes record undo history
+    // (ADR-0024/0025); the gestures themselves are keyboard-operable in-view.
+    id: 'board.layout',
+    label: label('board.layout', 'Edit board'),
+    surfaces: [],
+    target: 'focused-item',
   },
   {
     id: 'view.lightbox.close',

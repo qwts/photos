@@ -7,6 +7,7 @@ export const activityEventTypes = [
   'album.membership-added',
   'album.membership-removed',
   'album.membership-moved',
+  'board.layout-changed',
   'photo.favorite-changed',
   'photo.trashed',
   'photo.restored',

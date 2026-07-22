@@ -10,7 +10,9 @@ import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { run } from '../../src/main/db/sql.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { HistoryService } from '../../src/main/history/history-service.js';
+import { boardLayoutCommand } from '../../src/main/history/command-drafts.js';
 import { LibraryService } from '../../src/main/library/library-service.js';
+import { serializeBoard, type Board } from '../../src/shared/moodboard/board.js';
 
 function world(onTrash?: () => void) {
   const db = openLibraryDatabase({
@@ -207,5 +209,62 @@ describe('HistoryService (#615, ADR-0025)', () => {
     await state.history.redo('retrash-photo');
     assert.equal(manifestDebts, 1);
     state.db.close();
+  });
+});
+
+describe('HistoryService board layout (#695)', () => {
+  const placement = (x: number) => ({
+    id: 'p1',
+    photoId: 'photo-one',
+    x,
+    y: 10,
+    w: 200,
+    h: 150,
+    rotation: 0,
+    crop: { x: 0, y: 0, w: 1, h: 1 },
+    z: 1,
+    groupId: null,
+  });
+  const boardAt = (x: number): Board => ({
+    id: 'b1',
+    title: 'A',
+    notes: '',
+    size: { width: 1600, height: 1200 },
+    background: 'ink',
+    placements: [placement(x)],
+  });
+
+  test('undoes and redoes a board layout edit through the shared history', async () => {
+    let reloaded: string | null = null;
+    const state = world();
+    const history = new HistoryService(state.db, state.service, undefined, undefined, (boardId) => {
+      reloaded = boardId;
+    });
+    state.service.saveBoard(boardAt(10)); // create — no command
+    const loaded = state.service.getBoard('b1');
+    assert.ok(loaded !== null);
+    const before = serializeBoard(loaded);
+
+    mutateWithActivity(
+      () => state.activity,
+      () => state.service.saveBoard(boardAt(99)),
+      () => ({ eventType: 'board.layout-changed', entityIds: ['b1'], outcome: 'succeeded', payload: {} }),
+      () => boardLayoutCommand('b1', before, serializeBoard(boardAt(99))),
+    );
+    assert.equal(state.service.getBoard('b1')?.placements[0]?.x, 99);
+
+    const undone = await history.undo('u1');
+    assert.equal(undone.applied, true);
+    assert.equal(state.service.getBoard('b1')?.placements[0]?.x, 10, 'undo restores the previous layout');
+    assert.equal(reloaded, 'b1', 'undo notifies the renderer to reload');
+
+    const redone = await history.redo('r1');
+    assert.equal(redone.applied, true);
+    assert.equal(state.service.getBoard('b1')?.placements[0]?.x, 99, 'redo re-applies the layout');
+  });
+
+  test('a first save or no-op records no undoable command', () => {
+    assert.equal(boardLayoutCommand('b1', null, 'after'), undefined);
+    assert.equal(boardLayoutCommand('b1', 'same', 'same'), undefined);
   });
 });

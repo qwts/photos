@@ -120,6 +120,7 @@ export interface OverlookApi {
     readonly get: (request: Req<typeof channels.boardGet>) => Promise<Res<typeof channels.boardGet>>;
     readonly save: (request: Req<typeof channels.boardSave>) => Promise<Res<typeof channels.boardSave>>;
     readonly delete: (request: Req<typeof channels.boardDelete>) => Promise<Res<typeof channels.boardDelete>>;
+    readonly onReload: (listener: (payload: z.output<typeof events.boardsReload.payload>) => void) => () => void;
   };
   readonly protectedAlbums: {
     readonly list: () => Promise<Res<typeof channels.protectedAlbumsList>>;
