@@ -78,7 +78,9 @@ const PLACEHOLDER_BOARD: Board = {
 const EMPTY_BOARD: Board = { ...FULL_BOARD, placements: [] };
 
 function Frame({ children }: { readonly children: ReactElement }): ReactElement {
-  return <div style={{ height: 540, display: 'flex' }}>{children}</div>;
+  // position:relative so the canvas (position:absolute; inset:0) fills it, as
+  // it does inside the shell's relative content area.
+  return <div style={{ position: 'relative', height: 540 }}>{children}</div>;
 }
 
 const meta: Meta<typeof Moodboard> = {
