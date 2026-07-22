@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { AlbumSummary } from '../../../shared/library/types.js';
-import { commandById } from '../../../shared/commands/registry.js';
+import { commandById, formatShortcut, type CommandPlatform } from '../../../shared/commands/registry.js';
 import { ContextMenu } from '../components/ContextMenu';
 import type { AlbumReorderCommand } from './use-album-reorder';
 
@@ -15,6 +15,7 @@ export interface AlbumActionMenuProps {
   readonly onTransfer: () => void;
   readonly position: number;
   readonly total: number;
+  readonly platform: CommandPlatform;
   readonly onReorder: (command: AlbumReorderCommand) => void;
   readonly onClose: () => void;
 }
@@ -28,6 +29,7 @@ export function AlbumActionMenu({
   onTransfer,
   position,
   total,
+  platform,
   onReorder,
   onClose,
 }: AlbumActionMenuProps): ReactElement {
@@ -47,7 +49,7 @@ export function AlbumActionMenu({
           label: intl.formatMessage(commandById('album.reorder.up').label),
           icon: 'arrow-up',
           action: () => onReorder('album.reorder.up'),
-          detail: '⌥↑',
+          detail: formatShortcut(commandById('album.reorder.up'), platform),
           disabledReason: position === 0 ? alreadyFirst : undefined,
         },
         {
@@ -55,7 +57,7 @@ export function AlbumActionMenu({
           label: intl.formatMessage(commandById('album.reorder.down').label),
           icon: 'arrow-down',
           action: () => onReorder('album.reorder.down'),
-          detail: '⌥↓',
+          detail: formatShortcut(commandById('album.reorder.down'), platform),
           disabledReason: position === total - 1 ? alreadyLast : undefined,
         },
         {

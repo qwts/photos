@@ -779,6 +779,7 @@ export function Shell({
       })()}
       <div className="ovl-shell__body">
         <Sidebar
+          platform={commandPlatform(platform)}
           counts={counts}
           stats={stats}
           albums={albums}

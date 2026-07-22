@@ -63,7 +63,7 @@ const albums: readonly AlbumSummary[] = [
 const meta: Meta<typeof Sidebar> = {
   title: 'App/Sidebar',
   component: Sidebar,
-  args: { counts, stats, albums },
+  args: { platform: 'darwin', counts, stats, albums },
   decorators: [
     (Story) => {
       installStub();
@@ -370,6 +370,24 @@ export const CollapsedAlbumKeyboardActions: Story = {
     await expect(menu).toBeVisible();
     await expect(moveUp).toHaveFocus();
     await expect(moveUp).toHaveAttribute('aria-disabled', 'true');
+  },
+};
+
+export const CollapsedAlbumKeyboardActionsWindows: Story = {
+  args: { platform: 'win32' },
+  loaders: [
+    () => {
+      window.localStorage.setItem(COLLAPSE_KEY, '1');
+      return Promise.resolve({});
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const albumRow = canvas.getByRole('button', { name: 'Iceland · 214 · album 1 of 2' });
+    albumRow.focus();
+    await fireEvent.keyDown(albumRow, { key: 'F10', shiftKey: true });
+    const menu = canvas.getByRole('menu', { name: 'Actions for Iceland' });
+    await expect(within(menu).getByRole('menuitem', { name: 'Move up Alt+↑' })).toHaveFocus();
   },
 };
 
