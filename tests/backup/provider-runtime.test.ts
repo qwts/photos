@@ -266,6 +266,21 @@ describe('provider runtime policy (#256)', () => {
     assert.equal((await r.status('icloud-drive')).connected, true, 'a library rebind accepts the current account without stale authority');
   });
 
+  test('capacity route opens System Settings for iCloud only (#684)', async () => {
+    const opened: string[] = [];
+    const { runtime: r } = runtime({
+      openExternal: (url: string) => {
+        opened.push(url);
+        return Promise.resolve();
+      },
+    });
+    assert.deepEqual(await r.openCapacitySettings('icloud-drive'), { ok: true });
+    assert.equal(opened.length, 1);
+    assert.match(opened[0] ?? '', /systempreferences/u);
+    assert.deepEqual(await r.openCapacitySettings('pcloud'), { ok: false }, 'a provider with in-app capacity does not route out');
+    assert.equal(opened.length, 1);
+  });
+
   test('iCloud authority custody is sealed, rejects malformed state, and clears on disconnect', async () => {
     const root = mkdtempSync(join(tmpdir(), 'overlook-runtime-icloud-custody-'));
     const credentialDir = join(root, 'provider-auth', 'icloud-drive');
