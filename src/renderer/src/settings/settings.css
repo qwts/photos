@@ -215,8 +215,9 @@
 
 .ovl-settings__providerHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
 }
 
 .ovl-settings__providerName {
@@ -231,12 +232,15 @@
 }
 
 /* Provider storage figures (#684). "Used by Overlook" and account capacity are
-   two distinct rows; the value never wraps mid-number. */
+   two distinct rows; the value never wraps mid-number but the whole value stacks
+   under the label at narrow widths / 200% zoom rather than forcing overflow. */
 .ovl-settings__providerFigure {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
 }
 
 .ovl-settings__providerFigureLabel {
@@ -260,15 +264,18 @@
 
 .ovl-settings__providerRoute {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
   /* WCAG 2.2 SC 2.5.8: keep the hit target ≥ 24px even though it reads as a link. */
   min-height: var(--interactive-target-min);
+  max-width: 100%;
   padding: 0;
   border: 0;
   background: none;
   font: var(--type-meta);
   color: var(--accent-cyan);
+  text-align: start;
   cursor: pointer;
   border-radius: var(--radius-1);
 }
