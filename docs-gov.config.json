@@ -1,10 +1,11 @@
 {
-  "include": ["docs/**/*.md", "README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"],
+  "include": ["docs/**/*.md", "README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", ".github/copilot-instructions.md"],
   "indexes": [
     "README.md",
     "AGENTS.md",
     "CLAUDE.md",
     "CONTRIBUTING.md",
+    ".github/copilot-instructions.md",
     "docs/README.md",
     "docs/Repo-Documentation-Pointer-Map.md",
     "docs/adr/Architecture-Decision-Records.md",

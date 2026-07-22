@@ -148,14 +148,26 @@ this file in the same PR as the change — never after the fact.
   whoever starts the first of them at the next free number, indexed, and
   linked from every clustered issue. Semantic changes after acceptance go
   through an ADR amendment first, code second.
-- Before claiming done: run `npm run ci` (lint chain → format:check → test:cov →
-  build — the same non-browser gates CI enforces, including the `.c8rc.json`
-  coverage floor and the happy-dom renderer lane in `tests/dom`). Use
-  `npm run test:dom` for a focused renderer DOM check. For E2E-relevant changes
-  also run `npm run test:e2e`; for
-  renderer/story-relevant changes also run `npm run test:stories:ci` (Storybook
-  interaction tests — CI runs them in the core job). Do not report a build you
-  did not run.
+- Before claiming done: run `npm run ci` (lint chain → format:check →
+  `docs:gov` → test:cov → build — the same non-browser gates CI enforces,
+  including the `.c8rc.json` coverage floor and the happy-dom renderer lane in
+  `tests/dom`). Use `npm run test:dom` for a focused renderer DOM check. For
+  E2E-relevant changes also run `npm run test:e2e`; for renderer/story-relevant
+  changes also run `npm run test:stories:ci` (Storybook interaction tests — CI
+  runs them in the core job). Do not report a build you did not run.
+- **Documentation-governance gate** (`docs:gov`, part of the `npm run ci` chain;
+  [ENG-0009](https://github.com/qwts/playbook-engineering/blob/master/docs/decisions/ENG-0009-documentation-governance-gate.md)):
+  the deterministic docs-gov check gates `docs/` and the root agent files against
+  link/orphan/stale-path/heading/token-budget/anti-pattern rules per
+  `docs-gov.config.json`. Its check implementation is **not** vendored — it lives
+  once in `qwts/playbook-engineering` and both halves run it at the `v1` tag: CI
+  via the reusable workflow `qwts/playbook-engineering/.github/workflows/docs-governance.yml@v1`
+  (the required `Docs governance / docs-gov` status context), and locally via
+  `scripts/check-docs-gov.mjs`, which needs `DOCS_GOV_TOOLING_ROOT` pointing at a
+  `qwts/playbook-engineering` checkout with `tools/docs-gov` at the `v1` tag (the
+  same env-gated external-checkout shape as `check:interop-acceptance` /
+  `INTEROP_IMAGE_TRAIL_ROOT`). A governance finding fails `npm run ci` before it
+  can fail CI. Raising a token budget always records a `reason` in the config.
 - **Never push a fix for a red check without running that same check locally
   first.** CI is a verifier, not a test runner. A deterministic gate (lint,
   format, unit, coverage, build) that fails in CI means the push skipped local

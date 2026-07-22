@@ -34,12 +34,16 @@ elevation, and motion always reference a token (`var(--…)`). Machine data
 ## Before "done"
 
 ```sh
-npm run ci              # lint chain, format:check, test:cov (coverage floor), build
+npm run ci              # lint chain, format:check, docs:gov, test:cov (coverage floor), build
 npm run test:e2e        # additionally, for E2E-relevant changes
 npm run test:stories:ci # additionally, for renderer/story-relevant changes
 ```
 
-The `/check` command wraps this and reports each gate explicitly. Floors
+`npm run ci` includes the `docs:gov` documentation-governance gate, which needs
+`DOCS_GOV_TOOLING_ROOT` set to a `qwts/playbook-engineering` checkout at the
+`v1` tag (see `AGENTS.md` → Documentation And Validation); CI runs the same
+check via the reusable workflow, reported as the required `Docs governance /
+docs-gov` context. The `/check` command wraps this and reports each gate explicitly. Floors
 (c8 lines 90 / branches 80, type-coverage 99.8, 800-line file budget) are
 ratchets — only ever raise them. The a11y violation budget
 (`tests/a11y/violation-budget.json`, #398) is the same policy inverted: its
