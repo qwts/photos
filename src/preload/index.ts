@@ -66,6 +66,13 @@ const appLockPickRecovery = createInvoker(channels.appLockPickRecovery, invokeTr
 const appLockTouchIdStatus = createInvoker(channels.appLockTouchIdStatus, invokeTransport);
 const appLockTouchIdDisable = createInvoker(channels.appLockTouchIdDisable, invokeTransport);
 const appLockTouchIdUnlock = createInvoker(channels.appLockTouchIdUnlock, invokeTransport);
+const interopStatus = createInvoker(channels.interopStatus, invokeTransport);
+const interopPairingSelect = createInvoker(channels.interopPairingSelect, invokeTransport);
+const interopRefresh = createInvoker(channels.interopRefresh, invokeTransport);
+const interopPause = createInvoker(channels.interopPause, invokeTransport);
+const interopResume = createInvoker(channels.interopResume, invokeTransport);
+const interopCancel = createInvoker(channels.interopCancel, invokeTransport);
+const interopRetry = createInvoker(channels.interopRetry, invokeTransport);
 
 const overlook: OverlookApi = {
   ping: createInvoker(channels.ping, invokeTransport),
@@ -113,6 +120,20 @@ const overlook: OverlookApi = {
     touchIdUnlock: async () => appLockTouchIdUnlock({}),
     onChanged: createSubscriber(events.appLockStateChanged, subscribeTransport),
     onTouchIdChanged: createSubscriber(events.appLockTouchIdChanged, subscribeTransport),
+  }),
+  interop: Object.freeze({
+    status: async () => interopStatus({}),
+    connectProvider: createInvoker(channels.interopProviderConnect, invokeTransport),
+    disconnectProvider: createInvoker(channels.interopProviderDisconnect, invokeTransport),
+    selectPairing: async () => interopPairingSelect({}),
+    unlockPairing: createInvoker(channels.interopPairingUnlock, invokeTransport),
+    refresh: async () => interopRefresh({}),
+    start: createInvoker(channels.interopStart, invokeTransport),
+    pause: async () => interopPause({}),
+    resume: async () => interopResume({}),
+    cancel: async () => interopCancel({}),
+    retry: async () => interopRetry({}),
+    onChanged: createSubscriber(events.interopStatusChanged, subscribeTransport),
   }),
   library: Object.freeze({
     page: createInvoker(channels.libraryPage, invokeTransport),

@@ -47,6 +47,24 @@ export interface OverlookApi {
     readonly onChanged: (listener: (payload: z.output<typeof events.appLockStateChanged.payload>) => void) => () => void;
     readonly onTouchIdChanged: (listener: (payload: z.output<typeof events.appLockTouchIdChanged.payload>) => void) => () => void;
   };
+  readonly interop: {
+    readonly status: () => Promise<Res<typeof channels.interopStatus>>;
+    readonly connectProvider: (
+      request: Req<typeof channels.interopProviderConnect>,
+    ) => Promise<Res<typeof channels.interopProviderConnect>>;
+    readonly disconnectProvider: (
+      request: Req<typeof channels.interopProviderDisconnect>,
+    ) => Promise<Res<typeof channels.interopProviderDisconnect>>;
+    readonly selectPairing: () => Promise<Res<typeof channels.interopPairingSelect>>;
+    readonly unlockPairing: (request: Req<typeof channels.interopPairingUnlock>) => Promise<Res<typeof channels.interopPairingUnlock>>;
+    readonly refresh: () => Promise<Res<typeof channels.interopRefresh>>;
+    readonly start: (request: Req<typeof channels.interopStart>) => Promise<Res<typeof channels.interopStart>>;
+    readonly pause: () => Promise<Res<typeof channels.interopPause>>;
+    readonly resume: () => Promise<Res<typeof channels.interopResume>>;
+    readonly cancel: () => Promise<Res<typeof channels.interopCancel>>;
+    readonly retry: () => Promise<Res<typeof channels.interopRetry>>;
+    readonly onChanged: (listener: (payload: z.output<typeof events.interopStatusChanged.payload>) => void) => () => void;
+  };
   readonly library: {
     readonly page: (request: Req<typeof channels.libraryPage>) => Promise<Res<typeof channels.libraryPage>>;
     readonly get: (request: Req<typeof channels.libraryGet>) => Promise<Res<typeof channels.libraryGet>>;
