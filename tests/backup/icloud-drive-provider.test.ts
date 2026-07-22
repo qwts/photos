@@ -16,6 +16,7 @@ import { exerciseObjectProviderContract } from './object-provider-contract.js';
 import { exerciseRestoreProviderContract } from './restore-provider-contract.js';
 
 const LIBRARY_ID = '01KXICLOUDDRIVELIBRARY001';
+const UNRELATED_LIBRARY_ID = '01KXICLOUDDRIVEUNRELATED1';
 const PAYLOAD = Buffer.from('OVLK-encrypted-iCloud-envelope');
 
 function world(pageSize = 1) {
@@ -46,6 +47,19 @@ describe('iCloud Drive StorageProvider adapter (#657)', () => {
       await exerciseDisasterRecoveryContract(state.provider, ulid());
       assert.deepEqual(await state.provider.listLibraries(), []);
     } finally {
+      rmSync(state.temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('shared object contract preserves an unrelated discovered library', async () => {
+    const state = world();
+    const unrelated = state.provider.forLibrary(UNRELATED_LIBRARY_ID);
+    try {
+      await unrelated.put('recovery/bootstrap.ovrb', Readable.from([PAYLOAD]));
+      await exerciseObjectProviderContract(state.provider, LIBRARY_ID);
+      assert.deepEqual(await state.provider.listLibraries(), [UNRELATED_LIBRARY_ID]);
+    } finally {
+      await unrelated.delete('recovery/bootstrap.ovrb');
       rmSync(state.temporaryRoot, { recursive: true, force: true });
     }
   });

@@ -13,6 +13,8 @@ export async function exerciseObjectProviderContract(browser: StorageProvider, l
   const provider = browser.forLibrary(libraryId);
   const path = 'blobs/ab/abcdef';
   const bootstrap = 'recovery/bootstrap.ovrb';
+  const librariesBefore = [...(await browser.listLibraries())].sort();
+  assert.equal(librariesBefore.includes(libraryId), false, 'scratch library id must be unique');
   assert.equal(
     providerDescriptorSchema.safeParse({
       id: provider.id,
@@ -25,7 +27,7 @@ export async function exerciseObjectProviderContract(browser: StorageProvider, l
   );
   try {
     assert.deepEqual(await provider.put(path, Readable.from([PAYLOAD])), { bytes: PAYLOAD.length });
-    assert.deepEqual(await browser.listLibraries(), []);
+    assert.deepEqual([...(await browser.listLibraries())].sort(), librariesBefore, 'blob-only upload preserves discovery baseline');
     await provider.put(bootstrap, Readable.from([PAYLOAD]));
     assert.ok((await browser.listLibraries()).includes(libraryId));
     assert.deepEqual(await provider.list('blobs'), [{ path, bytes: PAYLOAD.length }]);
