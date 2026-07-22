@@ -1,14 +1,13 @@
-# Dev releases (#172): v* tag → unsigned builds → GitHub pre-release.
+# Dev releases (#172): v* tag → packaged builds → GitHub prerelease.
 #
 # Normally dispatched by version-cut.yml from main with the tag as an input —
 # GITHUB_TOKEN tag pushes fire no workflows, and dispatching by tag ref only
 # works when the tag already contains this file (PR #181 review), which a
 # stranded tag by definition does not. The on:push:tags trigger still covers
 # tags pushed by humans. Builds check out the TAG's tree regardless of the
-# dispatching ref, and reuse the Package matrix via workflow_call. Pre-release
-# (not release) while builds are unsigned; once the signing secrets exist
-# (#128) the mac build is signed + notarized and the tag publishes as a full
-# release instead.
+# dispatching ref, and reuse the Package matrix via workflow_call. Signing is
+# reported on each downloadable installer; it never pollutes the release/tag
+# title. Every build remains explicitly prerelease software (#735).
 name: Release
 
 on:
@@ -39,7 +38,7 @@ jobs:
     secrets: inherit
 
   publish:
-    name: Publish pre-release
+    name: Publish prerelease
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -84,37 +83,43 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          # Mirrors the gates in package.yml: a full release requires every
-          # shipped platform to be signed — the mac build could sign AND
-          # notarize (cert-only would leave Gatekeeper rejecting the app;
-          # package.yml's spctl gate fails that build anyway) AND the Windows
-          # legs are Authenticode-signed (WIN_CSC_LINK; package.yml's signtool
-          # gate fails an unverifiable signature). Otherwise the historical
-          # unsigned pre-release (#128, #683).
-          SIGNED: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY != '' && secrets.WIN_CSC_LINK != '' }}
+          # Mirror package.yml's platform gates so each clickable installer
+          # states its own signing status. A mac cert without notarization
+          # credentials cannot produce a signed release artifact; Windows uses
+          # its separate Authenticode secret (#128, #683, #735).
+          MAC_SIGNED: ${{ secrets.CSC_LINK != '' && secrets.APPLE_API_KEY != '' }}
+          WINDOWS_SIGNED: ${{ secrets.WIN_CSC_LINK != '' }}
         run: |
-          if [ "$SIGNED" = "true" ]; then
-            prerelease=false
-            title="Overlook $TAG"
-          else
-            prerelease=true
-            title="Overlook $TAG (unsigned dev build)"
-          fi
-          mapfile -d '' -t assets < <(find dist -type f -print0 | sort -z)
-          if [ "${#assets[@]}" -eq 0 ]; then
+          title="Overlook $TAG"
+          asset_specs=()
+          while IFS= read -r -d '' asset; do
+            name="${asset##*/}"
+            case "$name" in
+              *.dmg|*-mac.zip)
+                if [ "$MAC_SIGNED" = "true" ]; then status=signed; else status=unsigned; fi
+                asset_specs+=("$asset#$name ($status)")
+                ;;
+              *.exe)
+                if [ "$WINDOWS_SIGNED" = "true" ]; then status=signed; else status=unsigned; fi
+                asset_specs+=("$asset#$name ($status)")
+                ;;
+              *) asset_specs+=("$asset") ;;
+            esac
+          done < <(find dist -type f -print0 | sort -z)
+          if [ "${#asset_specs[@]}" -eq 0 ]; then
             echo "::error::No release assets were downloaded."
             exit 1
           fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            # Re-runs must also promote/demote, not just swap assets — e.g. a
-            # tag first published unsigned and rebuilt after secrets landed.
-            echo "Release $TAG exists — updating flags and replacing assets."
-            gh release edit "$TAG" --prerelease="$prerelease" --title "$title" \
+            # Re-runs correct historical prerelease/title metadata and replace
+            # installer labels if signing availability changed.
+            echo "Release $TAG exists — updating metadata and replacing assets."
+            gh release edit "$TAG" --prerelease --title "$title" \
               --repo "$GITHUB_REPOSITORY"
-            gh release upload "$TAG" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" "${asset_specs[@]}" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" "${assets[@]}" \
-              --prerelease="$prerelease" \
+            gh release create "$TAG" "${asset_specs[@]}" \
+              --prerelease \
               --title "$title" \
               --notes-file notes.md \
               --repo "$GITHUB_REPOSITORY"

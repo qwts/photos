@@ -3,13 +3,33 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
-describe('release workflow assets', () => {
+describe('release workflow publication', () => {
   test('uploads files recursively instead of passing artifact directories to gh', () => {
     const workflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
 
     assert.match(workflow, /find dist -type f -print0/u);
-    assert.match(workflow, /gh release upload "\$TAG" "\$\{assets\[@\]\}"/u);
-    assert.match(workflow, /gh release create "\$TAG" "\$\{assets\[@\]\}"/u);
+    assert.match(workflow, /gh release upload "\$TAG" "\$\{asset_specs\[@\]\}"/u);
+    assert.match(workflow, /gh release create "\$TAG" "\$\{asset_specs\[@\]\}"/u);
     assert.doesNotMatch(workflow, /gh release (?:create|upload)[^\n]*dist\/\*/u);
+  });
+
+  test('publishes a clean prerelease regardless of signing availability', () => {
+    const workflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
+
+    assert.match(workflow, /title="Overlook \$TAG"/u);
+    assert.match(workflow, /gh release edit "\$TAG" --prerelease --title "\$title"/u);
+    assert.match(workflow, /gh release create "\$TAG" "\$\{asset_specs\[@\]\}"\s+--prerelease/u);
+    assert.doesNotMatch(workflow, /unsigned dev build/u);
+    assert.doesNotMatch(workflow, /--latest/u);
+  });
+
+  test('labels each clickable installer with its platform signing state', () => {
+    const workflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
+
+    assert.match(workflow, /MAC_SIGNED: \$\{\{ secrets\.CSC_LINK != '' && secrets\.APPLE_API_KEY != '' \}\}/u);
+    assert.match(workflow, /WINDOWS_SIGNED: \$\{\{ secrets\.WIN_CSC_LINK != '' \}\}/u);
+    assert.match(workflow, /\*\.dmg\|\*-mac\.zip\)/u);
+    assert.match(workflow, /\*\.exe\)/u);
+    assert.match(workflow, /asset_specs\+=\("\$asset#\$name \(\$status\)"\)/u);
   });
 });
