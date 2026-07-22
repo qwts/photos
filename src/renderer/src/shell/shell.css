@@ -625,3 +625,14 @@
 .ovl-skip-link:focus {
   transform: translateY(0);
 }
+
+/* Menu → Photo → Add to Album… picker (#689): a centered modal on the
+   above-lightbox layer (lightbox is z-index 150; modal dialogs sit at 200),
+   so it never mounts behind an open lightbox. */
+.ovl-menu-album-picker {
+  position: fixed;
+  z-index: 200;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
