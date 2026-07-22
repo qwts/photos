@@ -237,14 +237,20 @@ this file in the same PR as the change — never after the fact.
 - Releases are cut by merging the bot-maintained **Version packages** PR (the
   version-cut workflow keeps it current while changesets are pending). That
   merge is tagged `v0.x.y` automatically and the Release workflow publishes
-  mac + win builds, CHANGELOG notes, and the design-package zip. Signing is
-  env-gated on repo secrets (#128): with `CSC_LINK` present the mac build is
-  signed + notarized and the tag becomes a full release; restricted Touch ID
-  identity entitlements are included only when `MAC_PROVISIONING_PROFILE` is
-  also present and validated. Without `CSC_LINK`, the tag is an unsigned
-  pre-release. The macOS release gate extracts the generated ZIP and launches
-  it in an isolated smoke mode. Never hand-tag releases or invoke Changesets
-  versioning directly.
+  mac + win builds, CHANGELOG notes, and the design-package zip. Windows ships
+  two architecture-qualified NSIS installers — `overlook-windows-x64` and
+  `overlook-windows-arm64` (arm64 cross-compiled on the x64 runner) — each
+  gated post-build by `verify-windows-arch.mjs`, which fails the leg if any
+  payload (`Overlook.exe` or a shipped `*.node`) is not the target PE machine
+  type (#683). Signing is env-gated on repo secrets (#128, #683): `CSC_LINK`
+  signs + notarizes the mac build; `WIN_CSC_LINK` Authenticode-signs the
+  Windows installers (verified with `signtool`); restricted Touch ID identity
+  entitlements are included only when `MAC_PROVISIONING_PROFILE` is also present
+  and validated. The tag becomes a **full release only when every platform is
+  signed** (`CSC_LINK` + `APPLE_API_KEY` + `WIN_CSC_LINK`); missing any leaves
+  an unsigned pre-release. The macOS release gate extracts the generated ZIP and
+  launches it in an isolated smoke mode. Never hand-tag releases or invoke
+  Changesets versioning directly.
 
 ## Process-Tree Guard
 

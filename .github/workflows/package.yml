@@ -3,10 +3,15 @@
 # changes (Electron bumps, native modules, builder config). The Release
 # workflow reuses this matrix via workflow_call so it lives in one place.
 #
-# Signing is env-gated (#128): when the CSC_LINK secret exists, the mac leg
+# Signing is env-gated (#128, #683): when the CSC_LINK secret exists, the mac leg
 # signs (Developer ID + hardened runtime) and notarizes (notarytool via the
-# APPLE_API_* secrets). Without secrets the build is unsigned, as before.
-# Windows signing waits on a certificate (#128).
+# APPLE_API_* secrets); when WIN_CSC_LINK exists, the Windows legs sign with
+# Authenticode. Without secrets the builds are unsigned, as before.
+#
+# Windows ships two architectures (#683): the matrix runs the x64 and arm64
+# legs on windows-latest (arm64 cross-compiled from the x64 runner), each
+# producing an architecture-qualified NSIS installer whose payload architecture
+# is verified post-build.
 name: Package
 
 on:
@@ -26,10 +31,18 @@ permissions:
 jobs:
   package:
     strategy:
-      # The OS legs are independent — let one finish even if the other fails.
+      # The legs are independent — let one finish even if another fails.
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        # One macOS leg plus one Windows leg per architecture (#683). arm64 is
+        # cross-compiled on the x64 windows-latest runner; verify-windows-arch
+        # proves the payloads are genuinely arm64.
+        include:
+          - os: macos-latest
+          - os: windows-latest
+            win-arch: x64
+          - os: windows-latest
+            win-arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -61,6 +74,11 @@ jobs:
           APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # Windows Authenticode material (#683), kept separate from the mac
+          # CSC_* secrets so a mac-only .p12 never reaches the Windows signer.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_ARCH: ${{ matrix.win-arch }}
         run: |
           if [ "$RUNNER_OS" = "macOS" ] && [ -n "$CSC_LINK" ]; then
             # electron-builder's notarytool integration wants APPLE_API_KEY as
@@ -93,8 +111,32 @@ jobs:
             spctl --assess --type execute --verbose=2 "$app"
             archive=$(find release -maxdepth 1 -name '*-mac.zip' | head -1)
             node scripts/verify-macos-app-launch.mjs "$archive"
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            # The mac CSC_* secrets must never reach the Windows signer (a
+            # mac-only .p12 would fail Authenticode). Windows signing draws from
+            # its own WIN_CSC_* secrets, mapped onto the CSC_* names that
+            # electron-builder reads. Absent WIN_CSC_LINK, the build is unsigned.
+            unset CSC_LINK CSC_KEY_PASSWORD
+            if [ -n "$WIN_CSC_LINK" ]; then
+              export CSC_LINK="$WIN_CSC_LINK"
+              export CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD"
+            fi
+            npm run "package:win:$WIN_ARCH"
+            # Prove the cross-compiled payloads are genuinely the target arch:
+            # the installed executable and every native .node, not the i386 NSIS
+            # stub. Auto-locates the arch's unpacked dir (win-unpacked for x64,
+            # win-arm64-unpacked for arm64). Fails on any host-arch leak (#683).
+            node scripts/verify-windows-arch.mjs "$WIN_ARCH"
+            if [ -n "$WIN_CSC_LINK" ]; then
+              # electron-builder only *warns* when signing is misconfigured, so
+              # verify the Authenticode signature and timestamp explicitly — a
+              # signed release must never ship unsigned installers (#683).
+              for installer in release/Overlook-*-"$WIN_ARCH".exe; do
+                signtool verify //pa //v "$installer"
+              done
+            fi
           else
-            # The mac cert must not leak into the unsigned path: with these
+            # Unsigned mac path. The mac cert must not leak into it: with these
             # set, electron-builder would try to use CSC_LINK for Windows
             # signing too (and fail on a mac-only .p12).
             unset CSC_LINK CSC_KEY_PASSWORD
@@ -108,7 +150,9 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: overlook-${{ matrix.os }}
+          # Architecture-qualified name on Windows so the x64 and arm64 legs
+          # upload to distinct artifacts (#683); macOS keeps its os-named one.
+          name: overlook-${{ matrix.win-arch != '' && format('windows-{0}', matrix.win-arch) || matrix.os }}
           path: |
             release/*.dmg
             release/*.zip

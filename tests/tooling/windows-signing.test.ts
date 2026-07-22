@@ -1,0 +1,71 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, test } from 'node:test';
+
+const root = process.cwd();
+
+function source(path: string): string {
+  return readFileSync(join(root, path), 'utf8');
+}
+
+describe('Windows ARM64 packaging + signing (#683)', () => {
+  test('the package matrix builds macOS plus a Windows leg per architecture', () => {
+    const workflow = source('.github/workflows/package.yml');
+    assert.match(workflow, /include:/u);
+    assert.match(workflow, /os: macos-latest/u);
+    assert.match(workflow, /os: windows-latest\s+win-arch: x64/u);
+    assert.match(workflow, /os: windows-latest\s+win-arch: arm64/u);
+    // No lingering single-axis matrix that would build only one Windows arch.
+    assert.doesNotMatch(workflow, /os: \[macos-latest, windows-latest\]/u);
+  });
+
+  test('artifacts are architecture-qualified so the two Windows legs never collide', () => {
+    const workflow = source('.github/workflows/package.yml');
+    const builder = source('electron-builder.yml');
+    assert.match(
+      workflow,
+      /name: overlook-\$\{\{ matrix\.win-arch != '' && format\('windows-\{0\}', matrix\.win-arch\) \|\| matrix\.os \}\}/u,
+    );
+    assert.match(builder, /artifactName: \$\{productName\}-\$\{version\}-\$\{arch\}\.\$\{ext\}/u);
+  });
+
+  test('each Windows leg drives the arch through a dedicated package script', () => {
+    const packageJson = JSON.parse(source('package.json')) as { readonly scripts?: Record<string, string> };
+    const workflow = source('.github/workflows/package.yml');
+    assert.match(packageJson.scripts?.['package:win:x64'] ?? '', /electron-builder --publish never --win --x64/u);
+    assert.match(packageJson.scripts?.['package:win:arm64'] ?? '', /electron-builder --publish never --win --arm64/u);
+    assert.match(workflow, /npm run "package:win:\$WIN_ARCH"/u);
+    assert.match(workflow, /WIN_ARCH: \$\{\{ matrix\.win-arch \}\}/u);
+  });
+
+  test('every Windows leg verifies the payload architecture post-build', () => {
+    const workflow = source('.github/workflows/package.yml');
+    assert.match(workflow, /node scripts\/verify-windows-arch\.mjs "\$WIN_ARCH"/u);
+  });
+
+  test('Windows signing is env-gated and isolated from the mac certificate', () => {
+    const workflow = source('.github/workflows/package.yml');
+    const builder = source('electron-builder.yml');
+    // Separate secrets, mapped onto electron-builder's CSC_* only on Windows.
+    assert.match(workflow, /WIN_CSC_LINK: \$\{\{ secrets\.WIN_CSC_LINK \}\}/u);
+    assert.match(workflow, /WIN_CSC_KEY_PASSWORD: \$\{\{ secrets\.WIN_CSC_KEY_PASSWORD \}\}/u);
+    assert.match(workflow, /export CSC_LINK="\$WIN_CSC_LINK"/u);
+    // The Windows branch is its own arm, and scrubs the mac cert unconditionally
+    // before deciding whether the Windows cert is present.
+    assert.match(workflow, /elif \[ "\$RUNNER_OS" = "Windows" \]; then/u);
+    assert.match(workflow, /export CSC_KEY_PASSWORD="\$WIN_CSC_KEY_PASSWORD"/u);
+    // Signature verification is guarded by cert presence and targets the
+    // arch-qualified installer(s) with signtool.
+    assert.match(workflow, /for installer in release\/Overlook-\*-"\$WIN_ARCH"\.exe; do/u);
+    assert.match(workflow, /signtool verify \/\/pa \/\/v "\$installer"/u);
+    // SHA-256 Authenticode + RFC 3161 timestamp configured for the signed path.
+    assert.match(builder, /signingHashAlgorithms:\s+- sha256/u);
+    assert.match(builder, /rfc3161TimeStampServer: http/u);
+  });
+
+  test('a full release requires every platform signed, Windows included', () => {
+    const release = source('.github/workflows/release.yml');
+    assert.match(release, /SIGNED: \$\{\{ secrets\.CSC_LINK != '' && secrets\.APPLE_API_KEY != '' && secrets\.WIN_CSC_LINK != '' \}\}/u);
+  });
+});

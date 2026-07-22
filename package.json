@@ -32,6 +32,8 @@
     "dev": "electron-vite dev",
     "build": "npm run clean && electron-vite build",
     "package": "npm run build && electron-builder --publish never -c.mac.identity=null && npm run licenses:sbom",
+    "package:win:x64": "npm run build && electron-builder --publish never --win --x64 && npm run licenses:sbom",
+    "package:win:arm64": "npm run build && electron-builder --publish never --win --arm64 && npm run licenses:sbom",
     "package:signed": "npm run build && electron-builder --publish never && npm run licenses:sbom",
     "package:signed:provisioned": "npm run build && node scripts/package-signed-provisioned.mjs && npm run licenses:sbom",
     "ci": "npm run check:interop-acceptance && npm run lint && npm run format:check && npm run check:changesets && npm run check:acceptance-coverage && npm run check:a11y-budget && npm run test:cov && npm run build",
