@@ -58,9 +58,57 @@
   scrollbar-gutter: stable;
 }
 
-.ovl-settings__transferAction {
-  max-width: 100%;
-  white-space: normal;
+.ovl-settings__transfer {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ovl-settings__transfer > h3,
+.ovl-settings__transfer > p {
+  margin: 0;
+}
+
+.ovl-settings__transferCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+  background: var(--gray-2);
+}
+
+.ovl-settings__transferCard p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-faint);
+}
+
+.ovl-settings__pairingUnlock {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-2);
+}
+
+.ovl-settings__pairingUnlock input {
+  width: 100%;
+}
+
+.ovl-settings__transferActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ovl-settings__transferError {
+  color: var(--accent-amber);
+}
+
+.ovl-settings__transferUnavailable {
+  color: var(--text-faint);
+  font: var(--type-meta);
 }
 
 .ovl-settings__fields {

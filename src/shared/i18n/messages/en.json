@@ -323,6 +323,9 @@
   "inspector.window.label": {
     "defaultMessage": "Inspector window"
   },
+  "interop.conflict.retained": {
+    "defaultMessage": "This item will remain at the source for review."
+  },
   "libmove.badge.active": {
     "defaultMessage": "Moving…"
   },
@@ -903,7 +906,25 @@
     "defaultMessage": "Settings"
   },
   "settings.transfer.body": {
-    "defaultMessage": "Pair Overlook with Image Trail through an isolated encrypted provider namespace. Backup credentials and files are never reused."
+    "defaultMessage": "Receive encrypted Image Trail moves through a pCloud authorization used only for interoperability."
+  },
+  "settings.transfer.checking": {
+    "defaultMessage": "Checking…"
+  },
+  "settings.transfer.connect": {
+    "defaultMessage": "Connect pCloud"
+  },
+  "settings.transfer.connected": {
+    "defaultMessage": "connected"
+  },
+  "settings.transfer.disconnect": {
+    "defaultMessage": "Disconnect"
+  },
+  "settings.transfer.disconnected": {
+    "defaultMessage": "not connected"
+  },
+  "settings.transfer.expired": {
+    "defaultMessage": "reconnect required"
   },
   "settings.transfer.heading": {
     "defaultMessage": "Transfer & Sync"
@@ -911,11 +932,41 @@
   "settings.transfer.label": {
     "defaultMessage": "Transfer and Sync settings"
   },
-  "settings.transfer.open": {
-    "defaultMessage": "Open Transfer & Sync"
+  "settings.transfer.locked": {
+    "defaultMessage": "locked"
   },
-  "settings.transfer.status": {
-    "defaultMessage": "Not paired · provider not connected"
+  "settings.transfer.notConfigured": {
+    "defaultMessage": "not configured"
+  },
+  "settings.transfer.pairing": {
+    "defaultMessage": "Image Trail pairing"
+  },
+  "settings.transfer.password": {
+    "defaultMessage": "Pairing bundle password"
+  },
+  "settings.transfer.provider": {
+    "defaultMessage": "pCloud for interoperability"
+  },
+  "settings.transfer.refresh": {
+    "defaultMessage": "Check for incoming transfers"
+  },
+  "settings.transfer.replace": {
+    "defaultMessage": "Replace bundle…"
+  },
+  "settings.transfer.review": {
+    "defaultMessage": "{count, plural, one {Review # incoming item} other {Review # incoming items}}"
+  },
+  "settings.transfer.select": {
+    "defaultMessage": "Select bundle…"
+  },
+  "settings.transfer.unavailable": {
+    "defaultMessage": "Outbound Move and Sync are not available yet."
+  },
+  "settings.transfer.unlock": {
+    "defaultMessage": "Unlock for this session"
+  },
+  "settings.transfer.unlocked": {
+    "defaultMessage": "unlocked"
   },
   "shell.results.count": {
     "defaultMessage": "{count, plural, one {# result} other {# results}}"

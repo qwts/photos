@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { FormattedMessage } from 'react-intl';
 import type { InteropConflictAction, InteropOperation } from '../../../shared/interop/contract.js';
 import { Button } from '../components/Button';
 import { Dialog } from '../components/Dialog';
@@ -15,6 +16,7 @@ export interface InteropWorkflowDialogProps {
   readonly onResume?: (() => void) | undefined;
   readonly onCancel?: (() => void) | undefined;
   readonly onReconnect?: (() => void) | undefined;
+  readonly onRetry?: (() => void) | undefined;
   readonly onDisconnect?: (() => void) | undefined;
   readonly onConflict?: ((interopId: string, action: InteropConflictAction, applyToAll: boolean) => void) | undefined;
 }
@@ -30,6 +32,7 @@ export function InteropWorkflowDialog({
   onResume,
   onCancel,
   onReconnect,
+  onRetry,
   onDisconnect,
   onConflict,
 }: InteropWorkflowDialogProps): ReactElement {
@@ -64,7 +67,9 @@ export function InteropWorkflowDialog({
           </Button>
           <Button
             variant="primary"
-            disabled={state.provider.state !== 'connected' || state.pairing !== 'paired' || !['queued', 'reviewing'].includes(state.phase)}
+            disabled={
+              state.provider.state !== 'connected' || state.pairing !== 'unlocked' || !['queued', 'reviewing'].includes(state.phase)
+            }
             onClick={onStart}
           >
             {state.operation === 'move' ? 'Start move' : 'Start sync'}
@@ -122,7 +127,13 @@ export function InteropWorkflowDialog({
             <Button
               variant="secondary"
               disabled={!state.error.retryable}
-              onClick={interopRecoveryLabel(state.error.code) === 'Resume' ? onResume : onReconnect}
+              onClick={
+                interopRecoveryLabel(state.error.code) === 'Resume'
+                  ? onResume
+                  : interopRecoveryLabel(state.error.code) === 'Reconnect'
+                    ? onReconnect
+                    : onRetry
+              }
             >
               {interopRecoveryLabel(state.error.code)}
             </Button>
@@ -149,21 +160,32 @@ function ConflictRow({
       <legend>
         {conflict.label} · {conflict.fields.join(', ')}
       </legend>
-      {(['keep-overlook', 'keep-image-trail', 'keep-both'] as const).map((action) => (
-        <Button
-          key={action}
-          variant="secondary"
-          onClick={(event) => {
-            const fieldset = event.currentTarget.closest('fieldset');
-            const applyToAll = fieldset?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked === true;
-            onConflict?.(conflict.interopId, action, applyToAll);
-          }}
-        >
-          {action === 'keep-overlook' ? 'Keep Overlook' : action === 'keep-image-trail' ? 'Keep Image Trail' : 'Keep both'}
-        </Button>
-      ))}
-      <input id={checkboxId} type="checkbox" />
-      <label htmlFor={checkboxId}>Apply to all conflicts</label>
+      {onConflict === undefined ? (
+        <p>
+          <FormattedMessage id="interop.conflict.retained" defaultMessage="This item will remain at the source for review." />
+        </p>
+      ) : null}
+      {onConflict === undefined
+        ? null
+        : (['keep-overlook', 'keep-image-trail', 'keep-both'] as const).map((action) => (
+            <Button
+              key={action}
+              variant="secondary"
+              onClick={(event) => {
+                const fieldset = event.currentTarget.closest('fieldset');
+                const applyToAll = fieldset?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked === true;
+                onConflict?.(conflict.interopId, action, applyToAll);
+              }}
+            >
+              {action === 'keep-overlook' ? 'Keep Overlook' : action === 'keep-image-trail' ? 'Keep Image Trail' : 'Keep both'}
+            </Button>
+          ))}
+      {onConflict === undefined ? null : (
+        <>
+          <input id={checkboxId} type="checkbox" />
+          <label htmlFor={checkboxId}>Apply to all conflicts</label>
+        </>
+      )}
     </fieldset>
   );
 }

@@ -88,7 +88,7 @@ function reviewState(): InteropVisibleWorkflow {
   return {
     ...blockedInteropWorkflow('selection', 12),
     provider: { id: 'google-drive', label: 'Google Drive', state: 'connected', detail: 'Encrypted interop namespace · quota verified' },
-    pairing: 'paired',
+    pairing: 'unlocked',
     phase: 'reviewing',
     counts: {
       total: 12,
