@@ -65,7 +65,6 @@ describe('macOS release signing safety (#357)', () => {
       assert.match(provisioned, new RegExp(identity, 'u'));
     }
     for (const entitlement of [
-      'com.apple.developer.icloud-container-identifiers',
       'com.apple.developer.icloud-services',
       'com.apple.developer.ubiquity-container-identifiers',
       OVERLOOK_ICLOUD_CONTAINER_ID,
@@ -74,6 +73,7 @@ describe('macOS release signing safety (#357)', () => {
     ]) {
       assert.match(provisioned, new RegExp(entitlement.replaceAll('.', '\\.'), 'u'));
     }
+    assert.doesNotMatch(provisioned, /com\.apple\.developer\.icloud-container-identifiers/u);
     assert.match(packager, /iCloud\.com\.zts1\.overlook/u);
     assert.match(packager, /Z5DM34QS5U/u);
     assert.match(packager, /com\.zts1\.overlook/u);
@@ -97,7 +97,6 @@ describe('macOS release signing safety (#357)', () => {
       'NSFaceIDUsageDescription',
       'com.apple.application-identifier',
       'com.apple.developer.team-identifier',
-      'com.apple.developer.icloud-container-identifiers',
       'com.apple.developer.icloud-services',
       'com.apple.developer.ubiquity-container-identifiers',
       'Overlook Helper (Renderer)',
@@ -173,7 +172,6 @@ describe('provisioning profile validation (#360)', () => {
     const entitlements = {
       'com.apple.application-identifier': OVERLOOK_MAC_APPLICATION_ID,
       'com.apple.developer.team-identifier': OVERLOOK_TEAM_ID,
-      'com.apple.developer.icloud-container-identifiers': [OVERLOOK_ICLOUD_CONTAINER_ID],
       'com.apple.developer.ubiquity-container-identifiers': [OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID],
       'com.apple.developer.icloud-services': ['CloudDocuments'],
     };
@@ -185,25 +183,25 @@ describe('provisioning profile validation (#360)', () => {
     const expected = {
       applicationId: OVERLOOK_MAC_APPLICATION_ID,
       teamId: OVERLOOK_TEAM_ID,
-      iCloudContainerId: OVERLOOK_ICLOUD_CONTAINER_ID,
       ubiquityContainerId: OVERLOOK_ICLOUD_UBIQUITY_CONTAINER_ID,
     };
     validateProvisioningProfile(metadata, expected, 0);
-    const { ubiquityContainerId: omittedUbiquity, ...withoutUbiquity } = expected;
-    const { iCloudContainerId: omittedICloud, ...withoutICloud } = expected;
-    assert.equal(typeof omittedUbiquity, 'string');
-    assert.equal(typeof omittedICloud, 'string');
-    assert.throws(() => validateProvisioningProfile(metadata, withoutUbiquity, 0), /must be provided together/u);
-    assert.throws(() => validateProvisioningProfile(metadata, withoutICloud, 0), /must be provided together/u);
-    for (const key of [
-      'com.apple.developer.icloud-container-identifiers',
-      'com.apple.developer.ubiquity-container-identifiers',
-      'com.apple.developer.icloud-services',
-    ]) {
+    for (const key of ['com.apple.developer.ubiquity-container-identifiers', 'com.apple.developer.icloud-services']) {
       assert.throws(
         () => validateProvisioningProfile({ ...metadata, entitlements: { ...entitlements, [key]: [] } }, expected, 0),
         /does not authorize/u,
       );
     }
+    validateProvisioningProfile(
+      {
+        ...metadata,
+        entitlements: {
+          ...entitlements,
+          'com.apple.developer.icloud-container-identifiers': [],
+        },
+      },
+      expected,
+      0,
+    );
   });
 });

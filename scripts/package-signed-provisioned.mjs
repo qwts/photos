@@ -6,8 +6,7 @@ import { readProvisioningProfile, validateProvisioningProfile } from './provisio
 
 const TEAM_ID = 'Z5DM34QS5U';
 const APPLICATION_ID = `${TEAM_ID}.com.zts1.overlook`;
-const ICLOUD_CONTAINER_ID = 'iCloud.com.zts1.overlook';
-const UBIQUITY_CONTAINER_ID = `${TEAM_ID}.${ICLOUD_CONTAINER_ID}`;
+const UBIQUITY_CONTAINER_ID = `${TEAM_ID}.iCloud.com.zts1.overlook`;
 const profile = process.env['OVERLOOK_MAC_PROVISIONING_PROFILE'];
 
 function fail(message) {
@@ -32,7 +31,6 @@ try {
   validateProvisioningProfile(metadata, {
     applicationId: APPLICATION_ID,
     teamId: TEAM_ID,
-    iCloudContainerId: ICLOUD_CONTAINER_ID,
     ubiquityContainerId: UBIQUITY_CONTAINER_ID,
   });
 } catch (error) {
