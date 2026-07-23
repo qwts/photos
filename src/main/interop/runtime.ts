@@ -7,6 +7,7 @@ export interface InteropRuntimeOptions {
   readonly profileDirectory: string;
   readonly safeStorage: SafeStorageLike;
   readonly openExternal: (url: string) => Promise<void>;
+  readonly pcloudClientId: string;
   readonly pcloudFixtureRoot?: string | undefined;
 }
 
@@ -21,6 +22,7 @@ export class InteropRuntime {
     this.pairing = new InteropPairingCustodian(new InteropPairingBundleStore(options.profileDirectory));
     this.pcloud = new InteropPCloudRuntime({
       ...options,
+      clientId: options.pcloudClientId,
       pairing: this.pairing,
       isWorkActive: () => this.#workCount > 0,
       ...(options.pcloudFixtureRoot === undefined || options.pcloudFixtureRoot === ''
@@ -50,9 +52,10 @@ export function configureInteropRuntime(
   profileDirectory: string,
   safeStorage: SafeStorageLike,
   openExternal: (url: string) => Promise<void>,
+  pcloudClientId: string,
   pcloudFixtureRoot?: string,
 ): InteropRuntime {
-  profileRuntime ??= new InteropRuntime({ profileDirectory, safeStorage, openExternal, pcloudFixtureRoot });
+  profileRuntime ??= new InteropRuntime({ profileDirectory, safeStorage, openExternal, pcloudClientId, pcloudFixtureRoot });
   return profileRuntime;
 }
 

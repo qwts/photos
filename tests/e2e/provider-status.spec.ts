@@ -19,6 +19,8 @@ function launch(userData: string, providerId: ProviderId, stall: boolean): Promi
       OVERLOOK_INSECURE_KEYSTORE: '1',
       OVERLOOK_ICLOUD_FAKE: '1',
       OVERLOOK_GOOGLE_DRIVE_CLIENT_ID: GOOGLE_CLIENT_ID,
+      OVERLOOK_PCLOUD_ENABLED: '1',
+      OVERLOOK_PCLOUD_CLIENT_ID: 'public-e2e-client',
       ...(stall
         ? {
             OVERLOOK_PROVIDER_STORAGE_STALL: providerId,

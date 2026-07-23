@@ -67,7 +67,7 @@ export interface LightboxVideoProps {
   readonly chromeVisible: boolean;
   readonly onActivity: () => void;
   readonly onExport: () => void;
-  readonly onTransfer: () => void;
+  readonly onTransfer?: (() => void) | undefined;
   /** Injectable for stories/tests; production derives from the live device. */
   readonly capabilities?: DeviceMediaCapabilities | undefined;
 }
@@ -210,9 +210,11 @@ export function LightboxVideo({
             <Button size="sm" icon="share" onClick={onExport}>
               {intl.formatMessage(messages.exportOriginal)}
             </Button>
-            <Button size="sm" variant="ghost" icon="refresh-cw" onClick={onTransfer}>
-              {intl.formatMessage(messages.moveToTrail)}
-            </Button>
+            {onTransfer === undefined ? null : (
+              <Button size="sm" variant="ghost" icon="refresh-cw" onClick={onTransfer}>
+                {intl.formatMessage(messages.moveToTrail)}
+              </Button>
+            )}
           </div>
         </div>
       </div>

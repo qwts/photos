@@ -12,6 +12,8 @@ async function launchSeeded(): Promise<{ app: ElectronApplication; page: Page }>
       OVERLOOK_USER_DATA: userData,
       OVERLOOK_SEED: '4',
       OVERLOOK_INSECURE_KEYSTORE: '1',
+      OVERLOOK_PCLOUD_ENABLED: '1',
+      OVERLOOK_PCLOUD_CLIENT_ID: 'public-e2e-client',
     },
   });
   const page = await app.firstWindow();

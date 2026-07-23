@@ -29,6 +29,7 @@ export interface NativeCommandRouterDeps {
   readonly resetUnlockAlbum: () => void;
   readonly resetDropped: () => void;
   readonly closeOffload: () => void;
+  readonly pcloudEnabled: boolean;
 }
 
 export function useNativeCommandRouter(deps: NativeCommandRouterDeps): (command: CommandId) => void {
@@ -45,6 +46,7 @@ export function useNativeCommandRouter(deps: NativeCommandRouterDeps): (command:
     resetUnlockAlbum,
     resetDropped,
     closeOffload,
+    pcloudEnabled,
   } = deps;
   const handledSequenceRef = useRef(0);
 
@@ -79,6 +81,7 @@ export function useNativeCommandRouter(deps: NativeCommandRouterDeps): (command:
           openSettings('storage');
           return;
         case 'app.settings.open.transfer':
+          if (!pcloudEnabled) return;
           openSettings('transfer');
           return;
         case 'app.settings.open.privacy':
@@ -278,6 +281,7 @@ export function useNativeCommandRouter(deps: NativeCommandRouterDeps): (command:
       resetUnlockAlbum,
       resetDropped,
       closeOffload,
+      pcloudEnabled,
     ],
   );
 

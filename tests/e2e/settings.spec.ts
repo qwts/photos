@@ -42,7 +42,7 @@ test('settings round-trip: set() persists in main and the changed event reaches 
       }[];
     }>(`window.overlook.backup.providers()`);
     expect(providerCatalog.defaultProviderId).toBe('mock');
-    expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['pcloud', 'google-drive', 'icloud-drive', 'mock']);
+    expect(providerCatalog.providers.map(({ id }) => id)).toEqual(['google-drive', 'icloud-drive', 'mock']);
     expect(providerCatalog.providers.find(({ id }) => id === 'google-drive')).toMatchObject({
       label: 'Google Drive',
       available: false,
@@ -79,6 +79,8 @@ test('settings round-trip: set() persists in main and the changed event reaches 
     const dialog = page.getByTestId('settings-dialog');
     await expect(dialog).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Storage & Backup' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Transfer & Sync' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Transfer & Sync' })).toHaveCount(0);
 
     // #113: sort change re-orders the grid LIVE. Seed rows share one byte
     // size, so 'size' falls to its id-DESC tiebreak — the first tile flips

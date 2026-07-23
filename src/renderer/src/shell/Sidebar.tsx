@@ -492,10 +492,14 @@ export function Sidebar({
             setAlbumMenu(null);
             setDeletingAlbum(albumMenu.album);
           }}
-          onTransfer={() => {
-            setAlbumMenu(null);
-            onTransferAlbum?.(albumMenu.album);
-          }}
+          onTransfer={
+            onTransferAlbum === undefined
+              ? undefined
+              : () => {
+                  setAlbumMenu(null);
+                  onTransferAlbum(albumMenu.album);
+                }
+          }
           position={albumReorder.albums.findIndex(({ id }) => id === albumMenu.album.id)}
           total={albumReorder.albums.length}
           platform={platform}

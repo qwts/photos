@@ -42,6 +42,8 @@ export interface ProviderRuntimeOptions {
   readonly harnessEnv: (name: string) => string | undefined;
   readonly googleDriveClientId?: (() => string | null) | undefined;
   readonly googleDriveClientSecret?: (() => string | null) | undefined;
+  readonly pcloudEnabled: boolean;
+  readonly pcloudClientId: () => string | null;
   readonly fetchImpl?: typeof fetch | undefined;
   readonly iCloudDriveBridge: ICloudDriveNativeBridge;
   /** Fail-closed activation check (#741): before settings.providerId moves
@@ -144,10 +146,15 @@ export class ProviderRuntime {
   }
 
   private async connectPCloud(): Promise<PCloudConnectResult> {
+    const clientId = this.pcloudClientId();
+    if (!this.pcloudAvailable() || clientId === null) {
+      return { ok: false, reason: 'pCloud is not enabled in this build.' };
+    }
     // Activation (guarded, #741) runs after the token seals: a refused
     // switch keeps the fresh credential without moving the selection.
     this.connectFlow ??= createPCloudConnect({
       tokenStore: this.tokenStore(),
+      clientId,
       openExternal: this.options.openExternal,
       onConnected: () => undefined,
     });
@@ -419,13 +426,16 @@ export class ProviderRuntime {
     const override = this.options.harnessEnv('OVERLOOK_PROVIDER');
     if (
       (override === 'mock' && this.mockEnabled()) ||
-      override === 'pcloud' ||
+      (override === 'pcloud' && this.pcloudAvailable()) ||
       override === 'icloud-drive' ||
       (override === 'google-drive' && this.googleClientId() !== null)
     ) {
       return override;
     }
-    return this.mockEnabled() ? 'mock' : 'pcloud';
+    if (this.mockEnabled()) return 'mock';
+    if (this.pcloudAvailable()) return 'pcloud';
+    if (this.googleClientId() !== null) return 'google-drive';
+    return 'icloud-drive';
   }
 
   /** settings.providerId with the runtime correction: 'mock' is not a real
@@ -440,6 +450,9 @@ export class ProviderRuntime {
     if (raw === 'mock' && !this.mockEnabled()) {
       return null;
     }
+    if (raw === 'pcloud' && !this.pcloudAvailable()) {
+      return null;
+    }
     if (raw === 'google-drive' && this.googleClientId() === null) {
       return null;
     }
@@ -452,12 +465,14 @@ export class ProviderRuntime {
     return raw;
   }
 
-  /** The engine-facing provider: pCloud always registered; the mock only in
-   * E2E, optionally fault-armed via the #110 harness hook. */
+  /** The engine-facing provider registry. pCloud is present only in an
+   * explicitly enabled build; the mock exists only in E2E. */
   buildProvider(build: { mockRootDir: string; fault: string | undefined; libraryId?: string | undefined }): StorageProvider {
     const registry = new ProviderRegistry();
     const libraryId = build.libraryId ?? this.libraryId();
-    registry.register(new PCloudProvider({ auth: () => this.tokenStore().load(), libraryId }));
+    if (this.pcloudAvailable()) {
+      registry.register(new PCloudProvider({ auth: () => this.tokenStore().load(), libraryId }));
+    }
     const googleProvider = new GoogleDriveProvider({
       auth: this.googleAuth(),
       paths: this.googlePathStore(),
@@ -488,6 +503,15 @@ export class ProviderRuntime {
 
   private mockEnabled(): boolean {
     return !this.options.isPackaged && this.options.harnessEnv('OVERLOOK_E2E') !== undefined;
+  }
+
+  private pcloudClientId(): string | null {
+    const value = this.options.pcloudClientId()?.trim() ?? '';
+    return value === '' ? null : value;
+  }
+
+  private pcloudAvailable(): boolean {
+    return this.options.pcloudEnabled && this.pcloudClientId() !== null;
   }
 
   private resetGoogleDriveAccountCache(): void {

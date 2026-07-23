@@ -29,7 +29,9 @@ test('LIVE pCloud provider and fresh-profile disaster-recovery contracts (#291)'
   const capture = startLoopbackCapture({ state, timeoutMs: 5 * 60_000 });
   await capture.listening;
   console.log('\n  ➜ Open this URL in your browser and approve pCloud access:\n');
-  console.log(`    ${buildAuthorizeUrl(state)}\n`);
+  const clientId = process.env['OVERLOOK_PCLOUD_CLIENT_ID']?.trim() ?? '';
+  assert.notEqual(clientId, '', 'set OVERLOOK_PCLOUD_CLIENT_ID to the public pCloud app identifier');
+  console.log(`    ${buildAuthorizeUrl(state, clientId)}\n`);
   const auth = await capture.result;
   console.log(`  ✓ token captured (region host: ${auth.apiHost})\n`);
 

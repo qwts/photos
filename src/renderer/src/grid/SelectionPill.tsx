@@ -93,9 +93,11 @@ export function SelectionPill({
               Offload
             </Button>
             <div className="ovl-pill__wide-actions">
-              <Button size="sm" variant="secondary" icon="refresh-cw" onClick={onTransfer}>
-                Transfer &amp; Sync
-              </Button>
+              {onTransfer === undefined ? null : (
+                <Button size="sm" variant="secondary" icon="refresh-cw" onClick={onTransfer}>
+                  Transfer &amp; Sync
+                </Button>
+              )}
               <Button size="sm" variant="secondary" icon="share" onClick={onExport}>
                 Export
               </Button>
@@ -160,9 +162,11 @@ export function SelectionPill({
                     }
                   }}
                 >
-                  <button type="button" role="menuitem" onClick={onTransfer}>
-                    Transfer &amp; Sync
-                  </button>
+                  {onTransfer === undefined ? null : (
+                    <button type="button" role="menuitem" onClick={onTransfer}>
+                      Transfer &amp; Sync
+                    </button>
+                  )}
                   <button type="button" role="menuitem" onClick={onExport}>
                     Export
                   </button>

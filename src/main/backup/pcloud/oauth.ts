@@ -5,8 +5,6 @@
 // token-redacting error messages. Electron-free so node:test covers every
 // branch without a browser.
 
-export const PCLOUD_CLIENT_ID = '83ag1CIbJd7';
-
 // Registered verbatim in the owner's pCloud app console — exact-match, so
 // 127.0.0.1 (not localhost), this port, this path.
 export const PCLOUD_LOOPBACK_PORT = 41573;
@@ -27,9 +25,9 @@ export function redactTokens(message: string): string {
   return message.replace(/access_token=[^&#\s]+/giu, 'access_token=redacted');
 }
 
-export function buildAuthorizeUrl(state: string): string {
+export function buildAuthorizeUrl(state: string, clientId: string): string {
   const url = new URL(PCLOUD_AUTHORIZE_URL);
-  url.searchParams.set('client_id', PCLOUD_CLIENT_ID);
+  url.searchParams.set('client_id', clientId);
   url.searchParams.set('response_type', 'token');
   url.searchParams.set('redirect_uri', PCLOUD_REDIRECT_URI);
   url.searchParams.set('state', state);

@@ -185,7 +185,23 @@ export function Shell({
       .catch(() => setLibraryName(null));
   }, []);
   const [interopEntry, setInteropEntry] = useState<{ readonly context: InteropEntryContext; readonly total: number } | null>(null);
+  const [pcloudEnabled, setPcloudEnabled] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void window.overlook.backup
+      .providers()
+      .then(({ providers }) => {
+        if (active) setPcloudEnabled(providers.some(({ id }) => id === 'pcloud'));
+      })
+      .catch(() => {
+        if (active) setPcloudEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const openInterop = (context: InteropEntryContext, records: readonly string[] | number): void => {
+    if (!pcloudEnabled) return;
     setInteropEntry({ context, total: typeof records === 'number' ? records : records.length });
   };
   const [protectedAlbums, setProtectedAlbums] = useState<
@@ -213,6 +229,7 @@ export function Shell({
     resetUnlockAlbum: () => setUnlockAlbumId(null),
     resetDropped: () => setDropped(null),
     closeOffload: offload.close,
+    pcloudEnabled,
   });
 
   const inspectorSelectionPosition = useDetachedInspector(state, dispatch);
@@ -236,12 +253,13 @@ export function Shell({
       selectionCount: state.selection.size,
       appLockConfigured: lockConfigured,
       providerBusy: false,
+      pcloudEnabled,
       inspectorOpen: state.inspectorOpen,
       view: state.view,
       source: state.source,
     };
     void window.overlook.commands.updateContext(context);
-  }, [editableFocus, interopEntry, lockConfigured, offload.activePhotoIds, shortcutSurface, state, unlockAlbumId]);
+  }, [editableFocus, interopEntry, lockConfigured, offload.activePhotoIds, pcloudEnabled, shortcutSurface, state, unlockAlbumId]);
 
   const refreshProtected = useCallback((): void => {
     void window.overlook.protectedAlbums.list().then(async ({ albums: opaque }) => {
@@ -489,7 +507,9 @@ export function Shell({
           setDropped(null);
           dispatch({ type: 'dialog/set', dialog: 'import', open: true });
         }}
-        onTransfer={() => openInterop(state.selection.size > 0 ? 'selection' : 'settings', [...state.selection])}
+        onTransfer={
+          pcloudEnabled ? () => openInterop(state.selection.size > 0 ? 'selection' : 'settings', [...state.selection]) : undefined
+        }
       />
       {state.importOpen ? (
         <ImportDialog
@@ -556,7 +576,8 @@ export function Shell({
           open
           requestedSection={settingsSection}
           selectedPhotoIds={[...state.selection]}
-          onTransfer={() => openInterop('settings', [...state.selection])}
+          transferEnabled={pcloudEnabled}
+          onTransfer={pcloudEnabled ? () => openInterop('settings', [...state.selection]) : undefined}
           onClose={() => {
             setSettingsSection(undefined);
             dispatch({ type: 'dialog/set', dialog: 'settings', open: false });
@@ -640,7 +661,7 @@ export function Shell({
             }}
             // Lightbox entry point (#100): count=1, the focused photo.
             onExport={() => openExport([current.id])}
-            onTransfer={() => openInterop('lightbox', [current.id])}
+            onTransfer={pcloudEnabled ? () => openInterop('lightbox', [current.id]) : undefined}
             onOffload={() => {
               offload.open([current.id], false, () => dispatch({ type: 'lightbox/closed' }));
             }}
@@ -671,7 +692,7 @@ export function Shell({
             counts={counts}
             stats={stats}
             albums={albums}
-            onTransferAlbum={(album) => openInterop('album', album.count)}
+            onTransferAlbum={pcloudEnabled ? (album) => openInterop('album', album.count) : undefined}
             onEmptyTrash={emptyTrash.open}
             protectedAlbums={protectedAlbums}
             onProtectedOpen={(albumId, origin) => {
@@ -704,7 +725,7 @@ export function Shell({
               activeAlbum={albums.find((album) => album.id === state.album) ?? null}
               onExport={openExport}
               onOffload={offload.open}
-              onTransfer={openInterop}
+              onTransfer={pcloudEnabled ? openInterop : undefined}
             />
           ) : (
             <ProtectedAlbumView

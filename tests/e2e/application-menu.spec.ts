@@ -33,6 +33,8 @@ function launch(userData: string): Promise<ElectronApplication> {
       OVERLOOK_SEED: '3',
       OVERLOOK_INSECURE_KEYSTORE: '1',
       OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
+      OVERLOOK_PCLOUD_ENABLED: '1',
+      OVERLOOK_PCLOUD_CLIENT_ID: 'e2e-pcloud-client',
     },
   });
 }

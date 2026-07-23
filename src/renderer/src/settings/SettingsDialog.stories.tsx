@@ -670,7 +670,7 @@ export const ContentOwnsScrolling: Story = {
 };
 
 export const TransferAndSyncAction: Story = {
-  args: { onTransfer: fn() },
+  args: { onTransfer: fn(), transferEnabled: true },
   decorators: [
     (Story) => {
       installStub({ deferInteropUnlock: true });

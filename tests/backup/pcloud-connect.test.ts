@@ -27,6 +27,7 @@ function world(browser: (authorizeUrl: string, port: number) => Promise<void>) {
   let connectedCalls = 0;
   const connect = createPCloudConnect({
     tokenStore,
+    clientId: 'public-test-client',
     openExternal: (url) => browser(url, port),
     onConnected: () => {
       connectedCalls += 1;

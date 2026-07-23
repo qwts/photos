@@ -10,6 +10,7 @@ import type { PCloudTokenStore } from './token-store.js';
 
 export interface PCloudConnectOptions {
   readonly tokenStore: PCloudTokenStore;
+  readonly clientId: string;
   /** Production: shell.openExternal. */
   readonly openExternal: (url: string) => Promise<void>;
   /** Called only after the token is sealed. Selection no longer flips here:
@@ -41,7 +42,7 @@ export function createPCloudConnect(options: PCloudConnectOptions): () => Promis
     });
     try {
       await capture.listening;
-      await options.openExternal(buildAuthorizeUrl(state));
+      await options.openExternal(buildAuthorizeUrl(state, options.clientId));
       const result = await capture.result;
       options.tokenStore.save({ ...result, connectedAt: new Date().toISOString() });
       options.onConnected();

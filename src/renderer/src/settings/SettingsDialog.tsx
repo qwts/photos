@@ -27,6 +27,7 @@ export interface SettingsDialogProps {
   readonly onClose: () => void;
   readonly selectedPhotoIds?: readonly string[] | undefined;
   readonly onTransfer?: (() => void) | undefined;
+  readonly transferEnabled?: boolean | undefined;
   readonly requestedSection?: SettingsSection | undefined;
 }
 
@@ -52,10 +53,13 @@ export function SettingsDialog({
   onClose,
   selectedPhotoIds = [],
   onTransfer,
+  transferEnabled = false,
   requestedSection,
 }: SettingsDialogProps): ReactElement | null {
   const intl = useIntl();
-  const [section, setSection] = useState<SettingsSection>(requestedSection ?? 'storage');
+  const [section, setSection] = useState<SettingsSection>(
+    requestedSection === 'transfer' && !transferEnabled ? 'storage' : (requestedSection ?? 'storage'),
+  );
   const paneRef = useRef<HTMLDivElement>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   // Recovery-key dialog (#240): layered over Settings, per the mock.
@@ -68,12 +72,13 @@ export function SettingsDialog({
 
   useEffect(() => {
     if (!open || requestedSection === undefined) return;
+    const availableSection = requestedSection === 'transfer' && !transferEnabled ? 'storage' : requestedSection;
     setSection((current) => {
-      if (current === requestedSection) return current;
+      if (current === availableSection) return current;
       if (paneRef.current !== null) paneRef.current.scrollTop = 0;
-      return requestedSection;
+      return availableSection;
     });
-  }, [open, requestedSection]);
+  }, [open, requestedSection, transferEnabled]);
 
   useEffect(() => {
     if (!open) {
@@ -121,10 +126,11 @@ export function SettingsDialog({
   };
 
   const selectSection = (nextSection: SettingsSection): void => {
-    if (nextSection === section) return;
+    if (nextSection === activeSection) return;
     if (paneRef.current !== null) paneRef.current.scrollTop = 0;
     setSection(nextSection);
   };
+  const activeSection = section === 'transfer' && !transferEnabled ? 'storage' : section;
 
   return (
     <Dialog
@@ -161,8 +167,8 @@ export function SettingsDialog({
             tab.click();
           }}
         >
-          {SECTIONS.map(({ key, icon, label }) => {
-            const current = key === section;
+          {SECTIONS.filter(({ key }) => key !== 'transfer' || transferEnabled).map(({ key, icon, label }) => {
+            const current = key === activeSection;
             return (
               <button
                 key={key}
@@ -188,15 +194,15 @@ export function SettingsDialog({
           id="settings-panel"
           className="ovl-settings__pane"
           role="tabpanel"
-          aria-labelledby={`settings-tab-${section}`}
+          aria-labelledby={`settings-tab-${activeSection}`}
           data-testid="settings-pane"
-          data-section={section}
+          data-section={activeSection}
         >
-          {settings === null ? null : section === 'general' ? (
+          {settings === null ? null : activeSection === 'general' ? (
             <GeneralPane settings={settings} onPatch={patch} />
-          ) : section === 'storage' ? (
+          ) : activeSection === 'storage' ? (
             <StoragePane settings={settings} selectedPhotoIds={selectedPhotoIds} onPatch={patch} onRestore={() => setRestoreOpen(true)} />
-          ) : section === 'transfer' ? (
+          ) : activeSection === 'transfer' && transferEnabled ? (
             <TransferPane onOpen={onTransfer} />
           ) : (
             <PrivacyPane

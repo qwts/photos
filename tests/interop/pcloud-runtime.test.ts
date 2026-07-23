@@ -37,6 +37,7 @@ test('interop pCloud authorization cannot read, replace, or disconnect backup cu
   const runtime = new InteropPCloudRuntime({
     profileDirectory: directory,
     safeStorage,
+    clientId: 'public-test-client',
     openExternal: () => Promise.resolve(),
     pairing,
     connectFlow: (store) => {
@@ -62,6 +63,7 @@ test('active work blocks provider mutation without disrupting unlocked custody',
   const runtime = new InteropPCloudRuntime({
     profileDirectory: directory,
     safeStorage,
+    clientId: 'public-test-client',
     openExternal: () => Promise.resolve(),
     pairing,
     isWorkActive: () => true,
@@ -78,6 +80,7 @@ test('an in-flight sign-in blocks disconnect and reports busy custody', async ()
   const runtime = new InteropPCloudRuntime({
     profileDirectory: directory,
     safeStorage,
+    clientId: 'public-test-client',
     openExternal: () => Promise.resolve(),
     pairing,
     connectFlow: () =>
