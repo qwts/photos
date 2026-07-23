@@ -131,6 +131,90 @@ test('a failed discovery error clears when the provider changes (#748)', async (
   }
 });
 
+test('a discovery that resolves AFTER the provider changes is ignored (#748 stale-response)', async () => {
+  let resolveA: ((value: unknown) => void) | undefined;
+  const previous = (window as unknown as { overlook?: unknown }).overlook;
+  const providers = [
+    { id: 'prov-a', label: 'Provider A', available: true, unavailableReason: null },
+    { id: 'prov-b', label: 'Provider B', available: true, unavailableReason: null },
+  ];
+  (window as unknown as { overlook: unknown }).overlook = {
+    getLocale: () => Promise.resolve('en-US'),
+    settings: { get: () => Promise.resolve({ settings: { providerId: 'prov-a' } }), onChanged: () => () => undefined },
+    backup: {
+      providers: () => Promise.resolve({ providers, defaultProviderId: 'prov-a' }),
+      providerStatus: () => Promise.resolve({ connected: true, provider: providers[0], account: null }),
+      connect: () => Promise.resolve({ ok: true, reason: null }),
+    },
+    restore: {
+      onProgress: () => () => undefined,
+      pickKey: () => Promise.resolve({ path: null }),
+      // Provider A's discovery stays pending until we resolve it by hand, after
+      // the user has already moved on to provider B.
+      discover: (request: DiscoverRequest) =>
+        request.providerId === 'prov-a'
+          ? new Promise((resolve) => {
+              resolveA = resolve;
+            })
+          : Promise.resolve({ sessionId: 'session-b', libraries: [], error: null }),
+    },
+  };
+  try {
+    container = document.createElement('div');
+    document.body.append(container);
+    await act(async () => {
+      root = createRoot(container as HTMLElement);
+      root.render(
+        <IntlHost>
+          <RestoreWorkflow context="settings" />
+        </IntlHost>,
+      );
+      await Promise.resolve();
+    });
+    await flush();
+
+    // Start discovery against provider A — its discover() promise stays pending,
+    // so the dialog sits on the "Validating cloud libraries…" choose step.
+    const localKeyButton = [...(container.querySelectorAll('button') ?? [])].find((button) =>
+      (button.textContent ?? '').includes("Restore with this Mac's key"),
+    );
+    assert.ok(localKeyButton);
+    act(() => {
+      localKeyButton.click();
+    });
+    await flush();
+    assert.match(container.textContent ?? '', /Validating cloud libraries/u, 'provider A discovery is pending');
+
+    // Press Back before A resolves — this resets discovery (bumps the generation).
+    const back = [...(container.querySelectorAll('button') ?? [])].find((button) => (button.textContent ?? '').trim() === 'Back');
+    assert.ok(back);
+    act(() => {
+      back.click();
+    });
+    await flush();
+
+    // Provider A's discovery finally resolves — with an error that must NOT paint
+    // now that Back has superseded it.
+    assert.ok(resolveA, 'provider A discovery was started');
+    await act(async () => {
+      resolveA?.({
+        sessionId: null,
+        libraries: [],
+        error: { reason: 'corrupt', message: 'manifest references missing blobs/a3/deadbeef' },
+      });
+      await Promise.resolve();
+    });
+    await flush();
+    assert.doesNotMatch(
+      container.textContent ?? '',
+      /manifest references missing/u,
+      'a stale provider-A discovery must not repaint after Back superseded it',
+    );
+  } finally {
+    (window as unknown as { overlook?: unknown }).overlook = previous;
+  }
+});
+
 test('Back from the library list clears the previous discovery (#748)', async () => {
   const mocked = mockOverlook();
   try {

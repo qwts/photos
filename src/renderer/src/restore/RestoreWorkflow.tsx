@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 
 import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
@@ -173,7 +173,15 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
   // provider change or a return to setup invalidates the previous attempt's
   // session, library list, selection, error, and fallback notice — a stale
   // error from provider A must never render over provider B's screens.
+  // Monotonic discovery generation (#748): each reset/new attempt bumps it, so a
+  // still-in-flight discover() from a superseded attempt resolves into a no-op
+  // instead of repainting provider A's session/libraries/error over provider B
+  // (or back over the setup step). Clearing state alone can't fix this — the old
+  // promise is already scheduled.
+  const discoveryGenerationRef = useRef(0);
+
   const resetDiscovery = (): void => {
+    discoveryGenerationRef.current += 1;
     setError(null);
     setSessionId(null);
     setLibraries([]);
@@ -183,8 +191,11 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
 
   const runDiscovery = (request: Parameters<typeof window.overlook.restore.discover>[0], noMatch: string): void => {
     resetDiscovery();
+    const generation = discoveryGenerationRef.current;
     setStep('choose');
     void window.overlook.restore.discover(request).then((response) => {
+      // A newer reset/attempt superseded this one — drop the stale response.
+      if (discoveryGenerationRef.current !== generation) return;
       if (response.error !== null) {
         setError(response.error);
         setStep('setup');
