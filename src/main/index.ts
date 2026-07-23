@@ -370,7 +370,9 @@ function getProviderRuntime(): ProviderRuntime {
  * used for backup writes; discovered homes are re-scoped before restore. */
 function ensureRestoreProviderRegistry(): ProviderRuntime {
   const runtime = getProviderRuntime();
-  if (runtime.provider('pcloud') === undefined) {
+  // iCloud Drive is present in every registry; optional providers cannot be
+  // initialization sentinels because a disabled feature stays absent.
+  if (runtime.provider('icloud-drive') === undefined) {
     runtime.buildProvider({
       mockRootDir: path.join(app.getPath('userData'), 'mock-remote'),
       fault: harnessEnv('OVERLOOK_BACKUP_FAULT'),
