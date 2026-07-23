@@ -4,11 +4,11 @@ import { defineMessages, useIntl } from 'react-intl';
 import type { ProviderDescriptor } from '../../../shared/backup/provider-descriptor.js';
 import type { RestoreLibrarySummary, RestoreProgressContract } from '../../../shared/backup/restore-contract.js';
 import { useFormats } from '../i18n/use-formats.js';
-import { Badge } from '../components/Badge';
-import { Button } from '../components/Button';
-import { Checkbox } from '../components/Checkbox';
-import { Icon } from '../components/Icon';
-import { ProgressBar } from '../components/ProgressBar';
+import { Badge } from '../components/Badge.js';
+import { Button } from '../components/Button.js';
+import { Checkbox } from '../components/Checkbox.js';
+import { Icon } from '../components/Icon.js';
+import { ProgressBar } from '../components/ProgressBar.js';
 
 import './restore.css';
 
@@ -169,8 +169,20 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
 
   useEffect(() => window.overlook.restore.onProgress(setProgress), []);
 
-  const runDiscovery = (request: Parameters<typeof window.overlook.restore.discover>[0], noMatch: string): void => {
+  // Every result on screen belongs to exactly one discovery (#748): a
+  // provider change or a return to setup invalidates the previous attempt's
+  // session, library list, selection, error, and fallback notice — a stale
+  // error from provider A must never render over provider B's screens.
+  const resetDiscovery = (): void => {
     setError(null);
+    setSessionId(null);
+    setLibraries([]);
+    setSelectedId(null);
+    setFallbackNotice(null);
+  };
+
+  const runDiscovery = (request: Parameters<typeof window.overlook.restore.discover>[0], noMatch: string): void => {
+    resetDiscovery();
     setStep('choose');
     void window.overlook.restore.discover(request).then((response) => {
       if (response.error !== null) {
@@ -285,6 +297,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
               onChange={(event) => {
                 setProviderId(event.target.value);
                 setConnected(false);
+                resetDiscovery();
               }}
             >
               {providers.map((provider) => (
@@ -376,7 +389,13 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
             ))}
           </div>
           <div className="ovl-restore__actions">
-            <Button variant="ghost" onClick={() => setStep('setup')}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                resetDiscovery();
+                setStep('setup');
+              }}
+            >
               Back
             </Button>
             <Button variant="primary" disabled={selectedId === null} onClick={() => setStep('confirm')}>

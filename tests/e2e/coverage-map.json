@@ -1751,7 +1751,7 @@
         },
         {
           "type": "manual",
-          "reason": "The offscreen-renderer poster decode (§6: capture.html/capture-frame.ts loaded in a hidden BrowserWindow, mpegts.js TS→fMP4 remux over MediaSource, capturePage of the first decodable frame) and encrypted-TS full-viewer playback run only inside the signed macOS/Windows package — MSE and the offscreen window are absent under headless unit/story runs. Validate against owner-supplied .ts/.mts/.m2ts originals per docs/acceptance/acceptance-test-mpeg-ts-video-media.md: deterministic poster on the tile, duration pill, no autoplay, keyboard-accessible playback, and byte-identical Original export."
+          "reason": "The offscreen-renderer poster decode (\u00a76: capture.html/capture-frame.ts loaded in a hidden BrowserWindow, mpegts.js TS\u2192fMP4 remux over MediaSource, capturePage of the first decodable frame) and encrypted-TS full-viewer playback run only inside the signed macOS/Windows package \u2014 MSE and the offscreen window are absent under headless unit/story runs. Validate against owner-supplied .ts/.mts/.m2ts originals per docs/acceptance/acceptance-test-mpeg-ts-video-media.md: deterministic poster on the tile, duration pill, no autoplay, keyboard-accessible playback, and byte-identical Original export."
         }
       ]
     },
@@ -1810,6 +1810,16 @@
         {
           "type": "manual",
           "reason": "Full replace-run with the local key against a real provider is owner-verified on the packaged build; the engine path is identical to the recovery-key flow covered by restore-cloud.spec.ts."
+        }
+      ]
+    },
+    {
+      "id": "748-restore-dialog-discovery-state-reset",
+      "wiki": "User-Story-M18-Recovery-key",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "path": "tests/dom/restore-workflow-state.test.tsx"
         }
       ]
     }
