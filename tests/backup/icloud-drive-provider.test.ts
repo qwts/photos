@@ -148,6 +148,20 @@ describe('iCloud Drive deterministic failure contracts (#657)', () => {
     }
   });
 
+  test('scopes a conflicted listed entry to its library namespace (#751 review)', async () => {
+    const state = world();
+    try {
+      await state.provider.put('manifest/gen-1.ovlk', Readable.from([PAYLOAD]));
+      state.bridge.setConflicted(`Overlook/${LIBRARY_ID}/manifest/gen-1.ovlk`, true);
+      await assert.rejects(
+        state.provider.list('manifest'),
+        (error: unknown) => error instanceof ProviderError && error.kind === 'transient' && error.scope === 'object',
+      );
+    } finally {
+      rmSync(state.temporaryRoot, { recursive: true, force: true });
+    }
+  });
+
   test('rejects a replacement that leaves a conflicted iCloud version', async () => {
     const state = world();
     try {

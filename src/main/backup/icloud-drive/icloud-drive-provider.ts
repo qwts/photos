@@ -167,7 +167,7 @@ export class ICloudDriveProvider implements StorageProvider {
     const nativePrefix = normalized === '' ? base : `${base}/${normalized}`;
     const entries = await this.listNative(nativePrefix, signal);
     return entries.map((entry) => {
-      if (entry.conflicted) throw new ProviderError('iCloud Drive entry has unresolved versions', 'transient');
+      if (entry.conflicted) throw new ProviderError('iCloud Drive entry has unresolved versions', 'transient', 'object');
       const relative = entry.path.startsWith(`${base}/`) ? entry.path.slice(base.length + 1) : '';
       if (relative === '') throw new ProviderError('iCloud Drive returned an entry outside the library', 'corrupt');
       assertSafeRemotePath(relative);
