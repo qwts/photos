@@ -377,9 +377,14 @@ export function LibraryGridView({
           }
         : undefined;
     const tileMedia = videoTileProps(photo);
+    // Cache-bust the thumb/poster URL once a derivative is (re)generated in
+    // place, so the tile reloads without a navigation (thumbEpoch, #548 §6).
+    const epoch = state.thumbEpoch[photo.id];
+    const tileSrc = epoch === undefined ? thumbUrl(photo.id) : `${thumbUrl(photo.id)}&v=${String(epoch)}`;
     return state.view === 'list' ? (
       <ListRow
         photo={photo}
+        src={tileSrc}
         accessibleName={accessibleName}
         selected={state.selection.has(photo.id)}
         onOpen={() => {
@@ -400,7 +405,7 @@ export function LibraryGridView({
       />
     ) : (
       <PhotoTile
-        src={thumbUrl(photo.id)}
+        src={tileSrc}
         alt={photo.fileName}
         accessibleName={accessibleName}
         favorite={photo.favorite}

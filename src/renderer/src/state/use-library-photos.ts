@@ -110,10 +110,15 @@ export function useLibraryPhotos(): { readonly loadMore: () => void; readonly ex
   // leave stale cells or permanent loading placeholders. Replace semantics
   // reset the cursor; the selection intersects safely in the reducer.
   useEffect(() => {
-    return window.overlook.library.onChanged(() => {
+    return window.overlook.library.onChanged(({ photoIds }) => {
+      // A derivative can change in place (video poster captured post-import, a
+      // repaired RAW preview) without altering the record or its stable thumb
+      // URL — so bump those ids' cache-bust epoch to force the tiles to reload,
+      // then refetch the page for any membership/metadata change.
+      dispatch({ type: 'thumbs/invalidated', photoIds });
       fetchFirstPage();
     });
-  }, [fetchFirstPage]);
+  }, [dispatch, fetchFirstPage]);
 
   // Backup changes only syncState, so patch loaded records instead of
   // replacing the first page (which used to flicker, trim deep selection,

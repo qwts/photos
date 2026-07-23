@@ -79,6 +79,44 @@ describe('PosterCaptureService (ADR-0026 §6)', () => {
     assert.deepEqual(summary, { scanned: 2, captured: 0, failed: 2, skipped: 0 });
   });
 
+  test('coalesces concurrent callers — one pass at a time, with a trailing pass for a mid-pass import', async () => {
+    let capturing = 0;
+    let maxConcurrent = 0;
+    const captured: string[] = [];
+    // First pass snapshots [a]; a second candidate lands mid-pass.
+    let pool = [videoPhoto('a')];
+    let resolveAllDone = (): void => undefined;
+    const allDone = new Promise<void>((resolve) => {
+      resolveAllDone = resolve;
+    });
+    const service = new PosterCaptureService({
+      candidates: () => pool,
+      hasPoster: (photo) => Promise.resolve(captured.includes(photo.id)),
+      captureFrame: async (photo) => {
+        capturing += 1;
+        maxConcurrent = Math.max(maxConcurrent, capturing);
+        await Promise.resolve();
+        capturing -= 1;
+        captured.push(photo.id);
+        if (captured.includes('a') && captured.includes('b')) resolveAllDone();
+        return Buffer.from([0x89]);
+      },
+      storePoster: () => Promise.resolve({ generated: true, width: 1, height: 1 }),
+      changed: () => undefined,
+      ...noYield,
+    });
+
+    const first = service.capture();
+    pool = [videoPhoto('a'), videoPhoto('b')];
+    const coalesced = service.capture(); // arrives mid-pass → no second concurrent pass
+    assert.equal(coalesced, first, 'a mid-pass call returns the in-flight pass, not a new one');
+    await first;
+    await allDone; // the trailing pass captures the late import
+
+    assert.equal(maxConcurrent, 1, 'never two offscreen decodes at once');
+    assert.deepEqual([...captured].sort(), ['a', 'b']);
+  });
+
   test('close() cancels the pass between items', async () => {
     let seen = 0;
     const service = new PosterCaptureService({
