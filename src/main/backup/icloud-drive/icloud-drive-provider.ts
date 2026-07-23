@@ -167,6 +167,11 @@ export class ICloudDriveProvider implements StorageProvider {
   }
 
   async delete(path: string): Promise<void> {
+    // Recoverability contract (#750): the native bridge removes the item from
+    // the ubiquity container via NSFileCoordinator, and iCloud Drive keeps
+    // server-side deletions in "Recently Deleted" for 30 days — this is the
+    // container's recoverable variant. A bridge change that purges without
+    // that server-side retention would violate the product rule.
     try {
       await this.options.bridge.delete(this.remotePath(path), await this.accountToken());
     } catch (error) {
