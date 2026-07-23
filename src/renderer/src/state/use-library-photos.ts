@@ -110,13 +110,15 @@ export function useLibraryPhotos(): { readonly loadMore: () => void; readonly ex
   // leave stale cells or permanent loading placeholders. Replace semantics
   // reset the cursor; the selection intersects safely in the reducer.
   useEffect(() => {
-    return window.overlook.library.onChanged(({ photoIds }) => {
+    return window.overlook.library.onChanged(({ photoIds, derivativeOnly }) => {
       // A derivative can change in place (video poster captured post-import, a
       // repaired RAW preview) without altering the record or its stable thumb
-      // URL — so bump those ids' cache-bust epoch to force the tiles to reload,
-      // then refetch the page for any membership/metadata change.
+      // URL — so bump those ids' cache-bust epoch to force the tiles to reload.
       dispatch({ type: 'thumbs/invalidated', photoIds });
-      fetchFirstPage();
+      // A derivative-only change must NOT refetch the page: replacing the
+      // loaded window would reset scroll and drop the lightbox/selection for
+      // items beyond page 1 (#744 review). Only membership/metadata changes do.
+      if (derivativeOnly !== true) fetchFirstPage();
     });
   }, [dispatch, fetchFirstPage]);
 

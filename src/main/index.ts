@@ -279,6 +279,7 @@ function ensureMaintenanceServices(): void {
     invalidateThumb: (id) => thumbService?.invalidate(id),
     invalidateFull: (id) => fullService?.invalidate(id),
     emitChanged: (photoIds) => emitLibraryChanged({ photoIds: [...photoIds] }),
+    emitThumbsChanged: (photoIds) => emitLibraryChanged({ photoIds: [...photoIds], derivativeOnly: true }),
     emitPending: (count) => emitPending({ count }),
     scheduleAutoBackup,
   });

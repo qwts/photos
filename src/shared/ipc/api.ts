@@ -95,7 +95,7 @@ export interface OverlookApi {
       request: Req<typeof channels.libraryOriginalDeleteCommit>,
     ) => Promise<Res<typeof channels.libraryOriginalDeleteCommit>>;
     readonly originalDeleteCancel: (request: Req<typeof channels.libraryOriginalDeleteCancel>) => Promise<void>;
-    readonly onChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
+    readonly onChanged: (listener: (payload: z.output<typeof events.libraryChanged.payload>) => void) => () => void;
     readonly onOriginalClassificationChanged: (listener: (payload: { photoIds: string[] }) => void) => () => void;
     readonly onSyncStateChanged: (
       listener: (payload: { updates: { id: string; syncState: 'local' | 'syncing' | 'synced' | 'offloaded' | 'error' }[] }) => void,

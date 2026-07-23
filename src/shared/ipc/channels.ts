@@ -804,7 +804,12 @@ export const events = {
   ...interopEvents,
   ...boardEvents,
   // Targeted library pushes (#71) — never refetch-the-world signals.
-  libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()) })),
+  // `derivativeOnly` marks a change that only regenerated a thumb/poster
+  // derivative (a captured video poster, a repaired preview) with no membership
+  // or metadata change — the renderer refreshes just those tiles' images and
+  // must NOT refetch/replace the page (which would reset scroll and drop the
+  // lightbox/selection for items beyond page 1). #744 review.
+  libraryChanged: defineEvent('library:changed', z.object({ photoIds: z.array(z.string()), derivativeOnly: z.boolean().optional() })),
   ...originalPolicy.originalPolicyEvents,
   photoSyncStateChanged: defineEvent(
     'library:sync-state-changed',
