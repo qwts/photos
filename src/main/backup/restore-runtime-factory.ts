@@ -53,6 +53,11 @@ export function createRestoreRuntime(options: RestoreRuntimeFactoryOptions): Res
           ? new TestFileCredentialAnchorStore(path.join(app.getPath('userData'), 'app-lock-test-anchor.json'))
           : new OsCredentialAnchorStore({ dataDir: options.targetDir });
       store.clear();
+      // clear() discards the credential-tool exit status (PR #756 review):
+      // verify the anchor is actually gone so a refused delete surfaces as a
+      // loud logged failure instead of a silent relaunch into Recovery
+      // required. Mirrors AppLockCredentialStore.clearAnchorOrThrow.
+      if (store.read() !== null) throw new Error('OS credential store refused to clear the app-lock anchor');
     },
     workStarted: () => options.workChanged(1),
     workFinished: () => options.workChanged(-1),
