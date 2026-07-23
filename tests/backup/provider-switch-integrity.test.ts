@@ -343,3 +343,60 @@ describe('provider-switch guard (#741)', () => {
     assert.deepEqual(calls.owed, []);
   });
 });
+
+test('protected objects preflight and re-queue under the same publication contract (#741)', async () => {
+  const w = await world(1);
+  await w.engine.run();
+  const blobRef = 'ab'.repeat(32);
+  const path = `protected/${blobRef.slice(0, 2)}/${blobRef}.original`;
+  const sealed = Buffer.from('sealed').toString('base64');
+  let reconciled: readonly string[] = [];
+  let protectedRuns = 0;
+  (w.deps as { protectedBackup: BackupEngineDeps['protectedBackup'] }).protectedBackup = {
+    run: async () => {
+      protectedRuns += 1;
+      if (reconciled.length === 0) return { uploaded: 0, failed: 0 };
+      // The re-queued object flows back through the verified upload path.
+      await w.providerA.put(path, Readable.from([Buffer.from('protected-ciphertext')]));
+      return { uploaded: 1, failed: 0 };
+    },
+    scrub: () => Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: true }),
+    hasManifestDebt: () => false,
+    reconcileMissing: (paths) => {
+      reconciled = paths;
+      return { requeued: paths.length, blocked: 0 };
+    },
+    snapshot: () => ({
+      protectedAlbums: [
+        {
+          id: 'A0',
+          credentialGeneration: 1,
+          metadataGeneration: 1,
+          credentialRecord: sealed,
+          sealedMetadata: sealed,
+          createdAt: '2026-07-23T00:00:00.000Z',
+          updatedAt: '2026-07-23T00:00:00.000Z',
+        },
+      ],
+      protectedPhotos: [
+        {
+          id: 'PP0',
+          albumId: 'A0',
+          blobRef,
+          sealedMetadata: sealed,
+          createdAt: '2026-07-23T00:00:00.000Z',
+          updatedAt: '2026-07-23T00:00:00.000Z',
+          objects: [{ kind: 'original', path, sha256: 'cd'.repeat(32), bytes: 20, status: 'synced' }],
+        },
+      ],
+    }),
+    settleManifest: () => undefined,
+  };
+  w.engine.oweManifest();
+  const result = await w.engine.run();
+  assert.equal(result.manifestUploaded, true, 'publication succeeded only after the protected object existed');
+  assert.deepEqual(reconciled, [path]);
+  assert.equal(protectedRuns, 2, 'the re-queued protected object uploaded within the same run');
+  assert.equal((await w.providerA.list('manifest')).length, 2);
+  assert.ok(w.audits.some((line) => line.startsWith('MANIFEST-INCOMPLETE count=1')));
+});

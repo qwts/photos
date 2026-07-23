@@ -80,9 +80,17 @@ test('the bound guard re-queues local claims the target is missing, records mani
     'the locally available claim re-queued for the target',
   );
   assert.equal(createManifestDebtStore(parts.db).load(), true, 'the switch owes the target a generation');
+  // The audit trail is a best-effort async append (create, then write) —
+  // poll for the CONTENT, not the file's existence.
   const auditPath = join(dataDir, 'backup-audit.log');
-  assert.ok(existsSync(auditPath));
-  assert.match(readFileSync(auditPath, 'utf8'), /PROVIDER-SWITCH-VERIFIED provider=mock/u);
+  const deadline = Date.now() + 5_000;
+  let audit = '';
+  while (Date.now() < deadline) {
+    audit = existsSync(auditPath) ? readFileSync(auditPath, 'utf8') : '';
+    if (audit.includes('PROVIDER-SWITCH-VERIFIED')) break;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.match(audit, /PROVIDER-SWITCH-VERIFIED provider=mock/u);
 });
 
 test('the bound guard fails closed on remote-only claims the target cannot prove (#741)', async () => {
