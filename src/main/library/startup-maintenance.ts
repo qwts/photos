@@ -18,6 +18,12 @@ export interface StartupMaintenanceOptions {
     | (() =>
         Promise<{ readonly scanned: number; readonly repaired: number; readonly failed: number; readonly skipped: number }> | undefined)
     | undefined;
+  /** Deterministic video poster capture (ADR-0026 §6) — post-import background
+   * work; a miss leaves the placeholder, never a failed import. */
+  readonly posterCapture?:
+    | (() =>
+        Promise<{ readonly scanned: number; readonly captured: number; readonly failed: number; readonly skipped: number }> | undefined)
+    | undefined;
   /** FTS5 integrity-check → rebuild-on-failure (#390). Optional — undefined
    * skips it, same convention as `repair` before the library is open. */
   readonly verifySearchIndex?: () => Promise<SearchIndexVerification> | undefined;
@@ -76,6 +82,19 @@ export class StartupMaintenance {
           })
           .catch((error: unknown) => {
             console.error('[overlook] media preview maintenance failed', error);
+          }),
+      );
+    }
+
+    const posterCapture = this.options.posterCapture?.();
+    if (posterCapture !== undefined) {
+      void this.work.track(
+        posterCapture
+          .then((summary) => {
+            if (summary.captured > 0 || summary.failed > 0) console.info('[overlook] video poster capture:', JSON.stringify(summary));
+          })
+          .catch((error: unknown) => {
+            console.error('[overlook] video poster capture failed', error);
           }),
       );
     }

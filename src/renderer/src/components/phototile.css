@@ -240,6 +240,18 @@
   transition: transform var(--duration-fast) var(--ease-out);
 }
 
+/* Poster fallback: the film glyph stands in until the deterministic poster
+   is captured (§6). Shown only while the poster img is unavailable. */
+.ovl-tile__placeholder--fallback {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+.ovl-tile__img[data-unavailable='true'] ~ .ovl-tile__placeholder--fallback {
+  display: grid;
+}
+
 .ovl-tile__placeholder--probing > svg {
   animation: ovl-spin 1.2s linear infinite;
 }

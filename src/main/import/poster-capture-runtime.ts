@@ -1,0 +1,44 @@
+import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
+
+import type { BlobStore } from '../blobs/blob-store.js';
+import type { EnvelopeKey, KeyResolver } from '../crypto/envelope.js';
+import { posterCaptureCandidates } from '../db/poster-candidates.js';
+import type { PhotoRecord } from '../../shared/library/types.js';
+import { captureVideoPosterFrame } from './offscreen-frame-capturer.js';
+import { PosterCaptureService } from './poster-capture-service.js';
+import type { ThumbnailService } from './thumbnail-service.js';
+
+export interface PosterCaptureRuntimeOptions {
+  readonly db: BetterSqlite3.Database;
+  readonly blobs: BlobStore;
+  readonly blobsReady: Promise<void>;
+  readonly thumbnails: ThumbnailService;
+  readonly currentKey: () => EnvelopeKey;
+  readonly resolveKey: KeyResolver;
+  readonly changed: (photoIds: readonly string[]) => void;
+  /** Injectable so the service is testable without an Electron renderer. */
+  readonly captureFrame?: ((photo: PhotoRecord, signal: AbortSignal) => Promise<Buffer | null>) | undefined;
+}
+
+export function createPosterCaptureRuntime(options: PosterCaptureRuntimeOptions): PosterCaptureService {
+  return new PosterCaptureService({
+    candidates: () => posterCaptureCandidates(options.db),
+    hasPoster: async (photo) => options.blobs.verifyThumbs(photo.contentHash, options.resolveKey, photo.id),
+    captureFrame: async (photo, signal) => {
+      await options.blobsReady;
+      return (options.captureFrame ?? captureVideoPosterFrame)(photo, signal);
+    },
+    // The captured frame is a PNG — feed it to the sharp chain as an image; the
+    // stored poster lands at the same derivative path the grid already loads.
+    storePoster: async (photo, frame, signal) =>
+      options.thumbnails.regenerateFor({
+        photoId: photo.id,
+        bytes: frame,
+        contentHash: photo.contentHash,
+        key: options.currentKey(),
+        fileKind: 'png',
+        signal,
+      }),
+    changed: options.changed,
+  });
+}

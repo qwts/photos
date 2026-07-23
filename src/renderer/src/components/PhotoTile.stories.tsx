@@ -57,7 +57,14 @@ function VideoTiles(): ReactElement {
         <PhotoTile src={realPhoto} alt="Video, 2 minutes 8 seconds" duration={128} onToggleFavorite={fn()} />
       </div>
       <div style={{ aspectRatio: '1' }}>
-        <PhotoTile alt="ProRes clip, preserved on this device" placeholder="video" preserved onToggleFavorite={fn()} />
+        {/* No decodable poster → the film fallback stands in (src 404s). */}
+        <PhotoTile
+          src="data:image/gif;base64,invalid"
+          alt="ProRes clip, preserved on this device"
+          placeholder="video"
+          preserved
+          onToggleFavorite={fn()}
+        />
       </div>
       <div style={{ aspectRatio: '1' }}>
         <PhotoTile alt="voice-note.mp2, audio" placeholder="audio" onToggleFavorite={fn()} />

@@ -145,12 +145,15 @@ export function PhotoTile({
         onFocus={onFocus}
         onKeyDown={onKeyDown}
       />
-      {placeholder ? (
+      {placeholder && placeholder !== 'video' ? (
         <div className={`ovl-tile__placeholder${placeholder === 'probing' ? ' ovl-tile__placeholder--probing' : ''}`}>
           <Icon name={PLACEHOLDER_ICON[placeholder]} size={28} strokeWidth={1.75} />
         </div>
       ) : (
-        <Fragment key={`${src}:${previewFailure ?? ''}`}>
+        // A `video` placeholder shows the deterministic poster once captured
+        // (§6); until then the img is unavailable and the film-icon fallback
+        // stands in — a success state, never the "PREVIEW UNAVAILABLE" text.
+        <Fragment key={`${src}:${previewFailure ?? ''}:${placeholder ?? ''}`}>
           <img
             src={src}
             alt=""
@@ -165,7 +168,13 @@ export function PhotoTile({
               setPreviewUnavailable(event.currentTarget, true, unavailableLabel);
             }}
           />
-          <div className="ovl-tile__unavailable mono-data" />
+          {placeholder === 'video' ? (
+            <div className="ovl-tile__placeholder ovl-tile__placeholder--fallback">
+              <Icon name="film" size={28} strokeWidth={1.75} />
+            </div>
+          ) : (
+            <div className="ovl-tile__unavailable mono-data" />
+          )}
         </Fragment>
       )}
       <div className="ovl-tile__hover-overlay" />
