@@ -44,6 +44,11 @@ export interface ProviderRuntimeOptions {
   readonly googleDriveClientSecret?: (() => string | null) | undefined;
   readonly fetchImpl?: typeof fetch | undefined;
   readonly iCloudDriveBridge: ICloudDriveNativeBridge;
+  /** Fail-closed activation check (#741): before settings.providerId moves
+   * to a DIFFERENT provider, the target must prove it holds every
+   * remote-only object the library claims (see provider-switch-guard.ts).
+   * Absent in tests that exercise pure selection mechanics. */
+  readonly switchGuard?: ((target: { providerId: string; provider: StorageProvider }) => Promise<PCloudConnectResult>) | undefined;
   /** Test seams; production probes connection for at most 5s and capacity for 30s. */
   readonly statusTimeoutMs?: number | undefined;
   readonly storageTimeoutMs?: number | undefined;
@@ -138,18 +143,20 @@ export class ProviderRuntime {
     return value === '' ? null : value;
   }
 
-  private connectPCloud(): Promise<PCloudConnectResult> {
+  private async connectPCloud(): Promise<PCloudConnectResult> {
+    // Activation (guarded, #741) runs after the token seals: a refused
+    // switch keeps the fresh credential without moving the selection.
     this.connectFlow ??= createPCloudConnect({
       tokenStore: this.tokenStore(),
       openExternal: this.options.openExternal,
-      onConnected: () => {
-        this.options.setProviderId('pcloud');
-      },
+      onConnected: () => undefined,
     });
-    return this.connectFlow();
+    const result = await this.connectFlow();
+    if (!result.ok) return result;
+    return this.activate('pcloud');
   }
 
-  private connectGoogleDrive(): Promise<PCloudConnectResult> {
+  private async connectGoogleDrive(): Promise<PCloudConnectResult> {
     this.googleConnectFlow ??= createGoogleDriveConnect({
       clientId: () => this.googleClientId(),
       clientSecret: () => this.googleClientSecret(),
@@ -158,11 +165,29 @@ export class ProviderRuntime {
       openExternal: this.options.openExternal,
       onConnected: () => {
         this.resetGoogleDriveAccountCache();
-        this.options.setProviderId('google-drive');
       },
       ...(this.options.fetchImpl === undefined ? {} : { fetchImpl: this.options.fetchImpl }),
     });
-    return this.googleConnectFlow();
+    const result = await this.googleConnectFlow();
+    if (!result.ok) return result;
+    return this.activate('google-drive');
+  }
+
+  /** Moves settings.providerId, fail-closed (#741): switching to a
+   * different provider first proves the target holds every remote-only
+   * object the library claims. Re-activating the current provider skips the
+   * proof — nothing about the claims changes. */
+  private async activate(providerId: string): Promise<PCloudConnectResult> {
+    if (this.options.switchGuard !== undefined && this.activeId() !== providerId) {
+      const provider = this.provider(providerId);
+      if (provider === undefined) {
+        return { ok: false, reason: 'This provider is not available on this device.' };
+      }
+      const verdict = await this.options.switchGuard({ providerId, provider });
+      if (!verdict.ok) return verdict;
+    }
+    this.options.setProviderId(providerId);
+    return { ok: true, reason: null };
   }
 
   async descriptors(): Promise<readonly ProviderDescriptor[]> {
@@ -274,8 +299,7 @@ export class ProviderRuntime {
     // Selecting a provider with existing sealed authority is activation, not a
     // new OAuth grant.
     if ((await provider.authState()) === 'connected') {
-      this.options.setProviderId(providerId);
-      return { ok: true, reason: null };
+      return this.activate(providerId);
     }
     if (providerId === 'pcloud') {
       return this.connectPCloud();
@@ -298,8 +322,7 @@ export class ProviderRuntime {
     if (provider instanceof FaultInjectingProvider) {
       provider.disarm('auth-expired');
     }
-    this.options.setProviderId(providerId);
-    return { ok: true, reason: null };
+    return this.activate(providerId);
   }
 
   disconnect(providerId: string): Promise<PCloudConnectResult> {

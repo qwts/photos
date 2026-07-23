@@ -82,6 +82,35 @@ export class ProtectedRecoveryRepository {
     ).map(remote);
   }
 
+  /** Every protected remote-copy claim plus stuck 'error' rows a wrong
+   * provider's integrity pass may have produced — the provider-switch
+   * guard's and manifest preflight's worklist (#741). */
+  remoteClaims(): readonly ProtectedRemoteObject[] {
+    return this.remoteRows(`WHERE object.status IN ('synced', 'offloaded', 'error') ORDER BY object.photo_id, object.kind`).map(remote);
+  }
+
+  /** Re-queues an object the selected provider is missing while its
+   * ciphertext is still local (#741): dirty flows it back through the
+   * normal verified upload path for the selected provider. */
+  requeue(item: ProtectedRemoteObject): void {
+    runNamed(this.db, `UPDATE protected_remote_objects SET dirty = 1 WHERE photo_id = @photoId AND kind = @kind`, {
+      photoId: item.photoId,
+      kind: item.kind,
+    });
+  }
+
+  /** Heals a remote-only object a wrong provider's scrub marked 'error'
+   * (#741) once the switch guard proves the connecting provider holds its
+   * ciphertext: back to a clean offloaded claim. */
+  healRemote(item: ProtectedRemoteObject): void {
+    runNamed(
+      this.db,
+      `UPDATE protected_remote_objects SET status = 'offloaded', dirty = 0
+        WHERE photo_id = @photoId AND kind = @kind`,
+      { photoId: item.photoId, kind: item.kind },
+    );
+  }
+
   hasManifestDebt(): boolean {
     return (
       queryGet<{ one: number }>(

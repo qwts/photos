@@ -681,6 +681,25 @@ const SCHEMA_V18: Migration = {
   },
 };
 
+const SCHEMA_V19: Migration = {
+  version: 19,
+  name: 'durable-manifest-debt',
+  // #741: a manifest generation owed to the remote survives restart instead
+  // of living in engine memory — a run interrupted between "library changed"
+  // and "generation published" must not forget the remote holds a stale
+  // manifest. Provider custody provenance is deliberately NOT added here:
+  // that schema belongs to ADR-0028 §1/§7 (#729, custody_authorities).
+  up(db) {
+    db.exec(`
+      CREATE TABLE backup_manifest_debt (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        owed INTEGER NOT NULL CHECK (owed IN (0, 1)),
+        updated_at TEXT NOT NULL
+      );
+    `);
+  },
+};
+
 export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V1,
   SCHEMA_V2,
@@ -700,6 +719,7 @@ export const MIGRATIONS: readonly Migration[] = [
   SCHEMA_V16,
   SCHEMA_V17,
   SCHEMA_V18,
+  SCHEMA_V19,
 ];
 
 /** Applies pending migrations in order; each in its own transaction. */

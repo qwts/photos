@@ -12,8 +12,9 @@ export interface PCloudConnectOptions {
   readonly tokenStore: PCloudTokenStore;
   /** Production: shell.openExternal. */
   readonly openExternal: (url: string) => Promise<void>;
-  /** Flips settings.providerId — called only after the token is sealed, so
-   * a connected setting always has custody behind it. */
+  /** Called only after the token is sealed. Selection no longer flips here:
+   * the runtime activates (guarded, #741) after the flow returns, so a
+   * refused switch keeps the credential without moving settings.providerId. */
   readonly onConnected: () => void;
   /** Test seams; production uses the registered port and a 5-min timeout. */
   readonly port?: number;

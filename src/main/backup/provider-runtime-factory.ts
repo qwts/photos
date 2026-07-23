@@ -3,6 +3,8 @@ import path from 'node:path';
 import { app, shell } from 'electron';
 
 import { ProviderRuntime } from './provider-runtime.js';
+import { createProviderSwitchGuard } from './provider-switch-binding.js';
+import type { LibraryParts } from '../library/library-parts.js';
 import { pickSafeStorage } from '../crypto/safe-storage-runtime.js';
 import { getSettingsStore } from '../settings/settings-runtime.js';
 import { createNativeICloudDriveBridge } from './icloud-drive/native-bridge.js';
@@ -17,6 +19,9 @@ export interface ProviderRuntimeFactoryDeps {
   readonly dataDir: () => string;
   readonly isWorkActive: () => boolean;
   readonly harnessEnv: (name: string) => string | undefined;
+  /** Open-library parts for the fail-closed switch guard (#741); resolved
+   * lazily so runtime construction never bootstraps a library. */
+  readonly guardParts?: (() => LibraryParts) | undefined;
 }
 
 export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): ProviderRuntime {
@@ -37,6 +42,8 @@ export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): Provide
     googleDriveClientId: () => deps.harnessEnv('OVERLOOK_GOOGLE_DRIVE_CLIENT_ID') ?? null,
     storageTimeoutMs: storageTimeout(deps.harnessEnv('OVERLOOK_PROVIDER_STORAGE_TIMEOUT_MS')),
     iCloudDriveBridge,
+    switchGuard:
+      deps.guardParts === undefined ? undefined : createProviderSwitchGuard({ parts: deps.guardParts, libraryDataDir: deps.dataDir }),
   });
 }
 

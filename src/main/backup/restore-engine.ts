@@ -16,6 +16,7 @@ import { ProtectedRecoveryRepository } from '../db/protected-recovery-repository
 import { ActivityRepository } from '../activity/activity-repository.js';
 import type { ThumbnailService } from '../import/thumbnail-service.js';
 import type { BackupManifestPhotoV2 } from './backup-manifest.js';
+import { createManifestDebtStore } from './manifest-debt.js';
 import { discoverRestore, type RestoreCandidate, type RestoreDiscovery } from './restore-discovery.js';
 import {
   activateStagedLibrary,
@@ -372,6 +373,12 @@ export class RestoreEngine {
     try {
       const repo = new PhotosRepository(db);
       repo.restoreManifest(candidate.manifest, discovery.bootstrap.keys);
+      // The restored library starts owing a manifest generation (#741): the
+      // provider selected after relaunch may not be the restore source, and
+      // the first run's publication preflight reconciles the difference —
+      // without the debt, a mismatched selection would sit silently on
+      // stale claims until the next library edit.
+      createManifestDebtStore(db, () => new Date()).save(true);
       if ('boards' in candidate.manifest) restoreBoards(db, candidate.manifest.boards);
       if (candidate.manifest.schema !== 2) new ProtectedRecoveryRepository(db).restore(candidate.manifest);
       if (candidate.manifest.schema === 4 || candidate.manifest.schema === 5) {

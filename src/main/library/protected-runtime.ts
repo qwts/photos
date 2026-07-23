@@ -3,6 +3,7 @@ import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 import { ProtectedBlobStore } from '../blobs/protected-blob-store.js';
 import type { BlobStore } from '../blobs/blob-store.js';
 import { ProtectedBackupService } from '../backup/protected-backup-service.js';
+import { protectedObjectPath } from '../backup/protected-object-path.js';
 import type { BackupEngineDeps } from '../backup/backup-engine.js';
 import type { StorageProvider } from '../backup/provider.js';
 import type { EnvelopeKey, KeyResolver } from '../crypto/envelope.js';
@@ -11,7 +12,7 @@ import { ProtectedAlbumService } from '../crypto/protected-album-service.js';
 import { ProtectedPhotoMigrationService } from '../crypto/protected-photo-migration-service.js';
 import { ProtectedAlbumRepository } from '../db/protected-album-repository.js';
 import { ProtectedPhotoMigrationRepository } from '../db/protected-photo-migration-repository.js';
-import { ProtectedRecoveryRepository } from '../db/protected-recovery-repository.js';
+import { ProtectedRecoveryRepository, type ProtectedRemoteObject } from '../db/protected-recovery-repository.js';
 import { PhotosRepository } from '../db/photos-repository.js';
 import { createProtectedExportRuntime, type DrainableProtectedExportFacade } from '../export/protected-export-runtime.js';
 import { ProtectedLibraryService } from './protected-library-service.js';
@@ -108,9 +109,46 @@ export class ProtectedRuntime {
       run: (signal) => service.run(signal),
       scrub: () => service.scrub(),
       hasManifestDebt: () => this.recovery.hasManifestDebt(),
+      reconcileMissing: (paths) => this.reconcileMissingProtected(paths),
       snapshot: () => this.recovery.snapshot(),
       settleManifest: (snapshot) => this.recovery.settleManifest(snapshot),
     };
+  }
+
+  /** The provider-switch guard's protected half (#741): claims worklist,
+   * local-ciphertext presence, re-queue, and the error→offloaded heal. */
+  switchGuardBinding(): {
+    readonly claims: () => readonly ProtectedRemoteObject[];
+    readonly hasLocal: (albumId: string, blobRef: string, kind: ProtectedRemoteObject['kind']) => boolean;
+    readonly requeue: (object: ProtectedRemoteObject) => void;
+    readonly heal: (object: ProtectedRemoteObject) => void;
+  } {
+    return {
+      claims: () => this.recovery.remoteClaims(),
+      hasLocal: (albumId, blobRef, kind) => this.blobs.has(albumId, blobRef, kind),
+      requeue: (object) => this.recovery.requeue(object),
+      heal: (object) => this.recovery.healRemote(object),
+    };
+  }
+
+  /** Manifest-preflight reconciliation (#741): a protected object the
+   * selected provider is missing re-queues through the verified upload path
+   * when its ciphertext is still local; a remote-only object blocks the
+   * publication closed. */
+  private reconcileMissingProtected(paths: readonly string[]): { requeued: number; blocked: number } {
+    const wanted = new Set(paths);
+    let requeued = 0;
+    let blocked = 0;
+    for (const object of this.recovery.remoteClaims()) {
+      if (object.status === 'error' || !wanted.has(protectedObjectPath(object.blobRef, object.kind))) continue;
+      if (object.status === 'synced' && this.blobs.has(object.albumId, object.blobRef, object.kind)) {
+        this.recovery.requeue(object);
+        requeued += 1;
+      } else {
+        blocked += 1;
+      }
+    }
+    return { requeued, blocked };
   }
 
   media(): ProtectedMediaService {
