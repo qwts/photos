@@ -18,6 +18,7 @@ interface RestoreSession {
   readonly id: string;
   readonly providerId: string;
   readonly masterKey: Buffer;
+  readonly custodyPassword: string | null;
   readonly sources: ReadonlyMap<string, DiscoveredSource>;
 }
 
@@ -31,7 +32,11 @@ export interface RestoreRunner {
  * under, and demanding the exported file there makes the backup unrestorable
  * for no security gain (the key is ALREADY resident). */
 export type RestoreKeySource =
-  { readonly kind: 'recovery-key'; readonly path: string; readonly password: string } | { readonly kind: 'local-master' };
+  | { readonly kind: 'recovery-key'; readonly path: string; readonly password: string }
+  /** custodyPassword (#754): the app password the facade just verified as
+   * fresh authority. It rides the session so activation can re-establish
+   * password-derived custody for the restored library. */
+  | { readonly kind: 'local-master'; readonly custodyPassword?: string | undefined };
 
 export interface RestoreCoordinatorDeps {
   readonly readRecoveryKey: (path: string) => Promise<Buffer>;
@@ -89,6 +94,15 @@ export class RestoreCoordinator {
 
   discover(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse> {
     return this.discoverFrom(providerId, { kind: 'recovery-key', path: keyPath, password });
+  }
+
+  /** Drops the discovered session (#757 review): a refused local-key
+   * authorization must not leave a prior session's master key runnable.
+   * An active run owns the session key, so it is left untouched — the same
+   * rule discovery itself follows. */
+  expireSession(): void {
+    if (this.controller !== null) return;
+    this.clearSession();
   }
 
   discoverFrom(providerId: string, source: RestoreKeySource): Promise<RestoreDiscoverResponse> {
@@ -152,7 +166,8 @@ export class RestoreCoordinator {
         }
       }
       const id = this.deps.sessionId();
-      this.session = { id, providerId, masterKey, sources: valid };
+      const custodyPassword = source.kind === 'local-master' ? (source.custodyPassword ?? null) : null;
+      this.session = { id, providerId, masterKey, custodyPassword, sources: valid };
       return { sessionId: id, libraries, error: null };
     } catch (error) {
       masterKey.fill(0);
@@ -179,7 +194,12 @@ export class RestoreCoordinator {
     try {
       const expectedGeneration = source.discovery.newestGeneration;
       const runner = this.deps.createRunner(source.provider, this.deps.progress);
-      const result = await runner.run({ masterKey: session.masterKey, allowReplace, signal: controller.signal });
+      const result = await runner.run({
+        masterKey: session.masterKey,
+        allowReplace,
+        signal: controller.signal,
+        ...(session.custodyPassword === null ? {} : { custodyPassword: session.custodyPassword }),
+      });
       this.deps.activated?.(result);
       this.clearSession();
       return {

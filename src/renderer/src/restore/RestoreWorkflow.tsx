@@ -59,6 +59,11 @@ const messages = defineMessages({
     defaultMessage: "This library's stored key restores its own backups — no key file needed.",
   },
   localKeyNoMatch: { id: 'restore.localKey.noMatch', defaultMessage: "No cloud library matches this Mac's stored key." },
+  localKeyPasswordLabel: { id: 'restore.localKey.passwordLabel', defaultMessage: 'App password' },
+  localKeyPasswordHelp: {
+    id: 'restore.localKey.passwordHelp',
+    defaultMessage: "Your app lock protects this Mac's stored key. Enter the password you unlock Overlook with.",
+  },
 });
 
 function fileName(path: string): string {
@@ -138,6 +143,11 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
   const [openingLocal, setOpeningLocal] = useState(false);
   const [keyPath, setKeyPath] = useState<string | null>(null);
   const [password, setPassword] = useState('');
+  // #754: when an app lock is configured, the main process refuses local-key
+  // discovery until the app password proves fresh authority. The field only
+  // appears after that refusal — an unconfigured lock never sees it.
+  const [appPassword, setAppPassword] = useState('');
+  const [appPasswordNeeded, setAppPasswordNeeded] = useState(false);
   const [step, setStep] = useState<Step>('setup');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [libraries, setLibraries] = useState<readonly RestoreLibrarySummary[]>([]);
@@ -197,6 +207,7 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
       // A newer reset/attempt superseded this one — drop the stale response.
       if (discoveryGenerationRef.current !== generation) return;
       if (response.error !== null) {
+        if ('localKey' in request && response.error.reason === 'destructive-authorization') setAppPasswordNeeded(true);
         setError(response.error);
         setStep('setup');
         return;
@@ -218,7 +229,10 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
   // sealed under — restore must not demand the exported file here (#741).
   const discoverWithLocalKey = (): void => {
     if (providerId === null) return;
-    runDiscovery({ providerId, localKey: true }, intl.formatMessage(messages.localKeyNoMatch));
+    runDiscovery(
+      { providerId, localKey: true, ...(appPassword === '' ? {} : { password: appPassword }) },
+      intl.formatMessage(messages.localKeyNoMatch),
+    );
   };
 
   const run = (): void => {
@@ -341,12 +355,31 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
             {descriptor?.available === false && descriptor.unavailableReason !== null ? <span>{descriptor.unavailableReason}</span> : null}
           </div>
           {context === 'settings' ? (
-            <div className="ovl-restore__keyrow">
-              <Button variant="primary" icon="key-round" disabled={!connected} onClick={discoverWithLocalKey}>
-                {intl.formatMessage(messages.useLocalKey)}
-              </Button>
-              <span>{intl.formatMessage(messages.localKeyHint)}</span>
-            </div>
+            <>
+              <div className="ovl-restore__keyrow">
+                <Button
+                  variant="primary"
+                  icon="key-round"
+                  disabled={!connected || (appPasswordNeeded && appPassword === '')}
+                  onClick={discoverWithLocalKey}
+                >
+                  {intl.formatMessage(messages.useLocalKey)}
+                </Button>
+                <span>{intl.formatMessage(messages.localKeyHint)}</span>
+              </div>
+              {appPasswordNeeded ? (
+                <label className="ovl-restore__field">
+                  <span>{intl.formatMessage(messages.localKeyPasswordLabel)}</span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={appPassword}
+                    maxLength={1024}
+                    onChange={(event) => setAppPassword(event.target.value)}
+                  />
+                </label>
+              ) : null}
+            </>
           ) : null}
           <div className="ovl-restore__keyrow">
             <Button
@@ -476,7 +509,9 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
                 ? intl.formatMessage(messages.alreadyRegisteredHelp)
                 : error.reason === 'local-open'
                   ? intl.formatMessage(messages.openFailedHelp)
-                  : (ERROR_HELP[error.reason] ?? ERROR_HELP['io'])}
+                  : error.reason === 'destructive-authorization' && appPasswordNeeded && step === 'setup'
+                    ? intl.formatMessage(messages.localKeyPasswordHelp)
+                    : (ERROR_HELP[error.reason] ?? ERROR_HELP['io'])}
           </span>
         </div>
       )}

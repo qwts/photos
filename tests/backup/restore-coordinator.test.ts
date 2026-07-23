@@ -219,6 +219,87 @@ test('an unavailable local master key fails with recovery-key guidance, never a 
   assert.match(discovery.error?.message ?? '', /recovery key/u);
 });
 
+test('expireSession makes a discovered session unrunnable but never disturbs an active run (#757 review)', async () => {
+  const world = await remoteWorld();
+  let attempt = 0;
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.resolve(world.recoveryFile),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({
+      run: async ({ signal }) => {
+        attempt += 1;
+        if (attempt > 1) return { libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false };
+        await new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+        });
+        throw new Error('unreachable');
+      },
+    }),
+    sessionId: () => 'session-expire',
+    progress: () => undefined,
+  });
+  await coordinator.discover('mock', '/recovery.key', PASSWORD);
+  const running = coordinator.run('session-expire', LIBRARY_ID, false);
+  coordinator.expireSession();
+  coordinator.cancel();
+  assert.equal((await running).error?.reason, 'cancelled', 'the active run kept its session key');
+  assert.equal(
+    (await coordinator.run('session-expire', LIBRARY_ID, false)).result?.resumed,
+    false,
+    'the mid-run expire was a no-op: the cancelled session stayed retryable',
+  );
+
+  await coordinator.discover('mock', '/recovery.key', PASSWORD);
+  coordinator.expireSession();
+  assert.equal(
+    (await coordinator.run('session-expire', LIBRARY_ID, false)).error?.message.includes('expired'),
+    true,
+    'an idle expire drops the session',
+  );
+});
+
+test('the verified custody password rides the session into the runner request (#754)', async () => {
+  const world = await remoteWorld();
+  const requests: { custodyPassword?: string | undefined }[] = [];
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.reject(new Error('the key file must not be read')),
+    localMasterKey: () => Buffer.from(world.masterKey),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({
+      run: (request) => {
+        requests.push(request);
+        return Promise.resolve({ libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false });
+      },
+    }),
+    sessionId: () => 'session-custody',
+    progress: () => undefined,
+  });
+  const discovery = await coordinator.discoverFrom('mock', { kind: 'local-master', custodyPassword: 'app pw' });
+  assert.equal(discovery.error, null);
+  await coordinator.run('session-custody', LIBRARY_ID, false);
+  assert.equal(requests[0]?.custodyPassword, 'app pw');
+});
+
+test('recovery-key sessions never carry a custody password (#754)', async () => {
+  const world = await remoteWorld();
+  const requests: { custodyPassword?: string | undefined }[] = [];
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.resolve(world.recoveryFile),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({
+      run: (request) => {
+        requests.push(request);
+        return Promise.resolve({ libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false });
+      },
+    }),
+    sessionId: () => 'session-rk',
+    progress: () => undefined,
+  });
+  await coordinator.discover('mock', '/recovery.key', PASSWORD);
+  await coordinator.run('session-rk', LIBRARY_ID, false);
+  assert.equal('custodyPassword' in (requests[0] ?? {}), false);
+});
+
 test("a foreign library's local key surfaces per-library wrong-key validation, never a valid session (#741)", async () => {
   const world = await remoteWorld();
   const coordinator = new RestoreCoordinator({

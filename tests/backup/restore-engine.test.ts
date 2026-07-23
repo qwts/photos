@@ -482,3 +482,52 @@ test('restore engine: an anchor-reset failure never undoes a completed activatio
   }).run({ masterKey: world.masterKey, allowReplace: false });
   assert.equal(result.photos, 1, 'the restore result stands');
 });
+
+test('restore engine: fresh custody authority re-establishes the app-lock record only after activation (#754)', async () => {
+  const world = await restoreWorld();
+  const calls: { libraryId: string; password: string; master: Buffer; activated: boolean }[] = [];
+  const engine = new RestoreEngine({
+    ...world.deps,
+    reestablishLock: ({ libraryId, password, masterKey }) => {
+      calls.push({
+        libraryId,
+        password,
+        master: Buffer.from(masterKey),
+        activated: existsSync(join(world.targetDir, 'library.db')) && !existsSync(`${world.targetDir}.restore-staging`),
+      });
+      return Promise.resolve();
+    },
+  });
+  const result = await engine.run({ masterKey: world.masterKey, allowReplace: false, custodyPassword: 'fresh app pw' });
+  assert.equal(result.libraryId, LIBRARY_ID);
+  assert.equal(calls.length, 1, 'exactly one custody record is written per restore');
+  assert.equal(calls[0]?.libraryId, LIBRARY_ID);
+  assert.equal(calls[0]?.password, 'fresh app pw');
+  assert.deepEqual(calls[0]?.master, world.masterKey);
+  assert.equal(calls[0]?.activated, true, 'custody is written for the activated library, never the staging copy');
+});
+
+test('restore engine: without fresh authority no app-lock record is written (#754)', async () => {
+  const world = await restoreWorld();
+  let calls = 0;
+  const engine = new RestoreEngine({
+    ...world.deps,
+    reestablishLock: () => {
+      calls += 1;
+      return Promise.resolve();
+    },
+  });
+  await engine.run({ masterKey: world.masterKey, allowReplace: false });
+  assert.equal(calls, 0, 'an unconfigured lock must not gain a password-derived record');
+});
+
+test('restore engine: a custody write failure never undoes a committed activation (#754)', async () => {
+  const world = await restoreWorld();
+  const engine = new RestoreEngine({
+    ...world.deps,
+    reestablishLock: () => Promise.reject(new Error('keychain unavailable')),
+  });
+  const result = await engine.run({ masterKey: world.masterKey, allowReplace: false, custodyPassword: 'pw' });
+  assert.equal(result.libraryId, LIBRARY_ID);
+  assert.equal(existsSync(join(world.targetDir, 'library.db')), true, 'the restored library stays activated');
+});

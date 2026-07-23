@@ -19,6 +19,7 @@ export interface RestoreRuntimeOptions {
   readonly beforeActivate: () => Promise<void>;
   readonly activationOperations?: ActivationOperations | undefined;
   readonly resetLockAnchor?: (() => void) | undefined;
+  readonly reestablishLock?: ConstructorParameters<typeof RestoreEngine>[0]['reestablishLock'];
   readonly workStarted: () => void;
   readonly workFinished: () => void;
   readonly activated: (result: RestoreRunResult) => void;
@@ -42,6 +43,7 @@ export class RestoreRuntime {
           beforeActivate: options.beforeActivate,
           activationOperations: options.activationOperations,
           resetLockAnchor: options.resetLockAnchor,
+          reestablishLock: options.reestablishLock,
           events: { progress },
         });
         return {

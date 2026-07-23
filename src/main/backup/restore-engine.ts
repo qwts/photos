@@ -46,6 +46,10 @@ export interface RestoreEngineDeps {
    * anchor from the replaced library reads as a rollback attack and
    * fail-closes the relaunch into 'Recovery required'. */
   readonly resetLockAnchor?: (() => void) | undefined;
+  /** Writes a password-derived app-lock record + matching ADR-0013 anchor for
+   * the activated library (#754). Runs only with a custodyPassword, i.e. only
+   * after the facade verified that password as fresh app-lock authority. */
+  readonly reestablishLock?: ((input: { libraryId: string; password: string; masterKey: Buffer }) => Promise<void>) | undefined;
   readonly beforeActivate?: (() => Promise<void>) | undefined;
   readonly events: { progress(progress: RestoreProgress): void };
 }
@@ -54,6 +58,10 @@ export interface RestoreRequest {
   readonly masterKey: Buffer;
   readonly allowReplace: boolean;
   readonly signal?: AbortSignal | undefined;
+  /** Fresh app-password authority captured at discovery (#754). When present,
+   * activation re-establishes the password-derived app-lock record instead of
+   * leaving the restored library on downgraded keychain-form custody. */
+  readonly custodyPassword?: string | undefined;
 }
 
 export interface RestoreRunResult {
@@ -168,6 +176,22 @@ export class RestoreEngine {
       console.error(`[overlook] app-lock anchor reset failed after restore: ${error instanceof Error ? error.message : String(error)}`);
     }
     await rm(join(paths.targetDir, 'restore-checkpoint.json'), { force: true });
+    if (request.custodyPassword !== undefined && this.deps.reestablishLock !== undefined) {
+      try {
+        await this.deps.reestablishLock({
+          libraryId: candidate.manifest.libraryId,
+          password: request.custodyPassword,
+          masterKey: request.masterKey,
+        });
+      } catch (error) {
+        // Activation is committed; a custody write failure must not undo a
+        // restore that already succeeded. The lock reads unconfigured until
+        // the user re-enables it in Settings.
+        console.error(
+          `[overlook] app-lock custody re-establishment failed after restore: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
     this.emit('complete', 1, 1, null);
     return {
       libraryId: candidate.manifest.libraryId,
