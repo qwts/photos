@@ -46,6 +46,7 @@ import { createPurgeRepository, PurgeService } from './library/purge-service.js'
 import { createPurgeRuntime, type DrainablePurgeFacade } from './library/purge-runtime.js';
 import { StartupMaintenance } from './library/startup-maintenance.js';
 import { SyncLedger } from './backup/sync-ledger.js';
+import { createBackupClaimDeps } from './db/backup-claims.js';
 import type { DrainableExportFacade } from './export/export-runtime.js';
 import { createExportFacade } from './export/export-facade-factory.js';
 import { pickRecoveryKeyPath } from './crypto/recovery-key-picker.js';
@@ -351,6 +352,8 @@ function getProviderRuntime(): ProviderRuntime {
     dataDir: () => libraryDataDir(),
     isWorkActive: () => providerWork.busy(),
     harnessEnv,
+    // Fail-closed switch activation (#741): see provider-switch-guard.ts.
+    guardParts: () => requireParts('provider switch'),
   });
   return providerRuntime;
 }
@@ -432,11 +435,8 @@ function getBackupEngine(): BackupEngine {
     const emitCompleted = createEmitter(events.backupCompleted, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
-    const emitLibraryChanged = createEmitter(events.libraryChanged, (name, payload) => {
-      broadcast((win) => win.webContents.send(name, payload));
-    });
-    const auditPath = path.join(libraryDataDir(), 'backup-audit.log');
-    const audit = createBackupAuditLogger(auditPath);
+    // libraryChanged reuses the module-level emitter — one truth, no shadow.
+    const audit = createBackupAuditLogger(path.join(libraryDataDir(), 'backup-audit.log'));
     const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
       broadcast((win) => win.webContents.send(name, payload));
     });
@@ -492,6 +492,7 @@ function getBackupEngine(): BackupEngine {
       audit,
       integrityScrub: () => integrityScrubber.scrub(),
       recoveryGenerationHealthy: createRecoveryHealthCheck(provider, () => getProviderRuntime().libraryId(), parts.keyStore),
+      ...createBackupClaimDeps(parts.db, parts.blobStore),
       protectedBackup: parts.protected.backupBinding(provider, audit),
     });
     const emitEphemeralState = createEmitter(events.ephemeralOriginalState, (name, payload) => {

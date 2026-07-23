@@ -23,6 +23,8 @@ import type { ActivityEvent } from '../../shared/activity/types.js';
 // each batch seals and uploads a manifest generation. Per-item transient
 // failures retry with exponential backoff; auth/quota failures stop the run
 // (retrying cannot help). Verification tightens the synced bit in #106.
+// Publication is preflight-gated (#741): a generation never seals a
+// reference to an object the selected provider does not hold.
 
 export interface BackupSettings {
   /** 10–100, or null = unlimited (M09's slider). */
@@ -41,6 +43,11 @@ export interface BackupItemPhoto {
   readonly keyId: number;
 }
 
+export interface OrdinaryRemoteClaim extends BackupItemPhoto {
+  readonly status: 'synced' | 'offloaded';
+  readonly deleted: boolean;
+}
+
 export interface BackupRunResult {
   readonly uploaded: number;
   readonly failed: number;
@@ -50,6 +57,11 @@ export interface BackupRunResult {
   /** 'wifi' when the gate skipped the run entirely. */
   readonly skipped: 'wifi' | null;
   readonly integrity: BackupRunIntegrity;
+  /** Manifest-referenced remote-only objects the selected provider does not
+   * hold and no local original can supply (#741) — claims whose verified
+   * copy lives on a different provider. The run fails closed: nothing
+   * publishes until the objects exist here or the selection changes back. */
+  readonly blockedRemoteOnly: number;
 }
 
 export interface BackupRunIntegrity {
@@ -89,10 +101,20 @@ export interface BackupEngineDeps {
   readonly audit: (line: string) => void;
   readonly integrityScrub: () => Promise<BackupIntegritySummary>;
   readonly recoveryGenerationHealthy: () => Promise<boolean>;
+  /** Maps a preflight's missing blob hashes back to the rows that promise
+   * them (#741) so locally available originals re-queue and upload. */
+  readonly claimsForContentHashes?: ((hashes: readonly string[]) => readonly OrdinaryRemoteClaim[]) | undefined;
+  readonly hasLocalOriginal?: ((contentHash: string) => boolean) | undefined;
+  /** Durable manifest debt (#741): survives restart so an owed generation is
+   * never forgotten between runs. */
+  readonly manifestDebt?: { readonly load: () => boolean; readonly save: (owed: boolean) => void } | undefined;
   readonly protectedBackup?: {
     readonly run: (signal?: AbortSignal) => Promise<{ readonly uploaded: number; readonly failed: number }>;
     readonly scrub: () => Promise<BackupIntegritySummary>;
     readonly hasManifestDebt: () => boolean;
+    /** Preflight reconciliation for missing protected paths (#741): local
+     * ciphertext re-queues; remote-only objects are blocked. */
+    readonly reconcileMissing?: ((paths: readonly string[]) => { readonly requeued: number; readonly blocked: number }) | undefined;
     readonly snapshot: () => {
       readonly protectedAlbums: readonly ProtectedBackupAlbumV3[];
       readonly protectedPhotos: readonly ProtectedBackupPhotoV3[];
@@ -102,6 +124,17 @@ export interface BackupEngineDeps {
       readonly protectedPhotos: readonly ProtectedBackupPhotoV3[];
     }) => void;
   };
+}
+
+/** Publication preflight failed (#741): the manifest references objects the
+ * selected provider does not hold. Never a transport error — the generation
+ * simply must not exist. */
+export class ManifestIncompleteError extends Error {
+  override readonly name = 'ManifestIncompleteError';
+
+  constructor(readonly missing: readonly string[]) {
+    super(`manifest references ${String(missing.length)} objects missing from the selected provider`);
+  }
 }
 
 const MAX_ATTEMPTS = 3;
@@ -120,10 +153,28 @@ function blobPath(contentHash: string): string {
   return `blobs/${contentHash.slice(0, 2)}/${contentHash}`;
 }
 
+/** Remote presence knowledge for the publication preflight (#741): one
+ * listing per provider per prefix per engine lifetime, extended by this
+ * process's own verified uploads. Continuous remote-loss detection stays the
+ * integrity scrub's job (ADR-0012) — this cache answers only "did the
+ * SELECTED provider ever hold this object", which a provider switch resets. */
+interface RemotePresence {
+  providerId: string;
+  readonly listed: Map<string, Set<string>>;
+  readonly verified: Set<string>;
+}
+
+interface ReconcileOutcome {
+  readonly uploadNow: readonly BackupItemPhoto[];
+  readonly protectedRequeued: number;
+  readonly blocked: number;
+}
+
 export class BackupEngine {
   private current: Promise<BackupRunResult> | null = null;
   /** A failed manifest upload owes the remote a generation. */
   private manifestOwed = false;
+  private presence: RemotePresence | null = null;
 
   constructor(private readonly deps: BackupEngineDeps) {}
 
@@ -149,7 +200,12 @@ export class BackupEngine {
    * manifestSnapshot() without touching pendingCount, and a restore-from-backup
    * against the stale manifest would resurrect the deleted photo. */
   oweManifest(): void {
-    this.manifestOwed = true;
+    this.setManifestOwed(true);
+  }
+
+  private setManifestOwed(owed: boolean): void {
+    this.manifestOwed = owed;
+    this.deps.manifestDebt?.save(owed);
   }
 
   private async execute(signal?: AbortSignal): Promise<BackupRunResult> {
@@ -157,7 +213,10 @@ export class BackupEngine {
     if (settings.wifiOnly && this.deps.network() === 'other') {
       // The Wi-Fi gate. 'unknown' (platform can't tell) deliberately does
       // NOT block — the unmetered heuristic recorded by ADR-0007/#105.
-      return { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi', integrity: EMPTY_INTEGRITY };
+      return { uploaded: 0, failed: 0, manifestUploaded: true, skipped: 'wifi', integrity: EMPTY_INTEGRITY, blockedRemoteOnly: 0 };
+    }
+    if (this.deps.manifestDebt?.load() === true) {
+      this.manifestOwed = true;
     }
 
     // OFFLOADED rows can dirty too (album/favorite edits in the Offloaded
@@ -168,7 +227,7 @@ export class BackupEngine {
     const dirty = this.deps.dirtyPhotos();
     const manifestOnly = dirty.filter((item) => this.deps.ledger.status(item.id) === 'offloaded');
     if (manifestOnly.length > 0) {
-      this.manifestOwed = true;
+      this.setManifestOwed(true);
     }
     const items = dirty.filter((item) => this.deps.ledger.status(item.id) !== 'offloaded');
     const total = items.length;
@@ -176,83 +235,108 @@ export class BackupEngine {
     let failed = 0;
     this.deps.events.progress(0, total, null);
 
+    let done = 0;
     for (const item of items) {
       if (signal?.aborted === true) {
         break; // dirty rows remain dirty — the next run resumes
       }
-      const started = this.deps.now();
-      let syncState: SyncStatus = 'synced';
-      try {
-        // A row killed mid-upload resumes: it is already 'syncing' and the
-        // machine (rightly) rejects syncing → syncing (PR #203 review).
-        if (this.deps.ledger.status(item.id) !== 'syncing') {
-          this.deps.ledger.setStatus(item.id, 'syncing');
-        }
-        const remotePath = blobPath(item.contentHash);
-        await this.uploadWithRetry(remotePath, () => this.deps.encryptedStream(item.contentHash), signal);
-        // Verify-after-upload (#106, ADR-0007): "backed up" is never a lie.
-        // The LOCAL ciphertext hash is the truth the remote must match
-        // before the row may go synced.
-        const local = await this.hashLocalCiphertext(item.contentHash);
-        const remote = await this.deps.provider.verify(remotePath);
-        if (remote.sha256 !== local.sha256 || remote.bytes !== local.bytes) {
-          this.deps.audit(
-            `VERIFY-MISMATCH photo=${item.id} local=${local.sha256}/${String(local.bytes)} remote=${remote.sha256}/${String(remote.bytes)}`,
-          );
-          throw new ProviderError(`verify mismatch for ${item.fileName}`, 'corrupt');
-        }
-        this.deps.audit(`VERIFY-OK photo=${item.id} sha256=${local.sha256} bytes=${String(local.bytes)}`);
-        this.deps.ledger.markBackedUp(item.id, new Date(this.deps.now()).toISOString());
-        uploaded += 1;
-      } catch (error) {
-        failed += 1;
-        this.deps.ledger.markError(item.id);
-        syncState = 'error';
-        console.error(`[overlook] backup failed for ${item.fileName}: ${error instanceof Error ? error.message : String(error)}`);
-        if (error instanceof ProviderError && (error.kind === 'auth' || error.kind === 'quota')) {
-          this.deps.syncStateChanged([{ id: item.id, syncState }]);
-          break; // retrying the rest cannot help — surface and stop
-        }
-      }
-      this.deps.events.progress(uploaded + failed, total, item.id);
-      this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
-      this.deps.syncStateChanged([{ id: item.id, syncState }]);
-      await this.throttle(settings, this.deps.now() - started);
+      const outcome = await this.uploadItem(item, settings, signal, () => {
+        done += 1;
+        this.deps.events.progress(done, total, item.id);
+      });
+      if (outcome === 'uploaded') uploaded += 1;
+      else failed += 1;
+      if (outcome === 'stop') break;
     }
 
     if (signal?.aborted !== true && this.deps.protectedBackup !== undefined) {
-      if (this.deps.protectedBackup.hasManifestDebt()) this.manifestOwed = true;
+      if (this.deps.protectedBackup.hasManifestDebt()) this.setManifestOwed(true);
       const protectedResult = await this.deps.protectedBackup.run(signal);
       uploaded += protectedResult.uploaded;
       failed += protectedResult.failed;
-      if (protectedResult.uploaded > 0) this.manifestOwed = true;
+      if (protectedResult.uploaded > 0) {
+        // Protected uploads bypass this engine's verified-path notes, so a
+        // cached protected listing from an earlier publish is stale now.
+        this.invalidateListing('protected');
+        this.setManifestOwed(true);
+      }
     }
 
+    // The fresh generation carries the offloaded rows' edits — their dirt
+    // settles now, with no status change and no backup stamp.
+    const settleManifestOnly = (): void => {
+      if (manifestOnly.length === 0) return;
+      for (const item of manifestOnly) {
+        this.deps.ledger.settleManifestOnly(item.id);
+      }
+      this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
+    };
+
     let manifestUploaded = true;
+    let publishBlocked = false;
+    let blockedRemoteOnly = 0;
     if (uploaded > 0 || this.manifestOwed) {
-      try {
-        await this.uploadManifest();
-        this.manifestOwed = false;
-        // The fresh generation carries the offloaded rows' edits — their
-        // dirt settles now, with no status change and no backup stamp.
-        if (manifestOnly.length > 0) {
-          for (const item of manifestOnly) {
-            this.deps.ledger.settleManifestOnly(item.id);
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await this.uploadManifest();
+          this.setManifestOwed(false);
+          manifestUploaded = true;
+          publishBlocked = false;
+          settleManifestOnly();
+          break;
+        } catch (error) {
+          // Blobs landed and their rows are TRUTHFULLY synced — but the
+          // remote is owed a manifest generation. The debt survives durably
+          // and the result says so; the next run (manual or auto) retries
+          // even with nothing dirty (PR #203 review).
+          this.setManifestOwed(true);
+          manifestUploaded = false;
+          if (!(error instanceof ManifestIncompleteError)) {
+            console.error(`[overlook] manifest upload failed: ${error instanceof Error ? error.message : String(error)}`);
+            break;
           }
-          this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
+          publishBlocked = true;
+          this.deps.audit(`MANIFEST-INCOMPLETE count=${String(error.missing.length)} first=${error.missing[0] ?? ''}`);
+          // Signal state changes across awaits; a closure keeps each check live.
+          const aborted = (): boolean => signal?.aborted === true;
+          if (attempt > 0 || aborted()) break;
+          // Reconcile once (#741): a claim the selected provider is missing
+          // re-uploads from the local original right now; remote-only
+          // claims (their verified copy lives on another provider) fail
+          // the publication closed.
+          const reconciled = this.reconcileMissing(error.missing);
+          blockedRemoteOnly = reconciled.blocked;
+          if (reconciled.blocked > 0) {
+            this.deps.audit(`BACKUP-BLOCKED-REMOTE-ONLY provider=${this.deps.provider.id} count=${String(reconciled.blocked)}`);
+          }
+          let requeueFailed = 0;
+          for (const item of reconciled.uploadNow) {
+            if (aborted()) break;
+            const outcome = await this.uploadItem(item, settings, signal, () => undefined);
+            if (outcome === 'uploaded') uploaded += 1;
+            else {
+              failed += 1;
+              requeueFailed += 1;
+            }
+            if (outcome === 'stop') break;
+          }
+          if (reconciled.protectedRequeued > 0 && !aborted() && this.deps.protectedBackup !== undefined) {
+            const again = await this.deps.protectedBackup.run(signal);
+            uploaded += again.uploaded;
+            failed += again.failed;
+            requeueFailed += again.failed;
+            this.invalidateListing('protected');
+          }
+          const nothingRecovered = reconciled.uploadNow.length === 0 && reconciled.protectedRequeued === 0;
+          if (reconciled.blocked > 0 || nothingRecovered || requeueFailed > 0 || aborted()) break;
         }
-      } catch (error) {
-        // Blobs landed and their rows are TRUTHFULLY synced — but the
-        // remote is owed a manifest generation. The debt survives in this
-        // engine and the result says so; the next run (manual or auto)
-        // retries even with nothing dirty (PR #203 review).
-        this.manifestOwed = true;
-        manifestUploaded = false;
-        console.error(`[overlook] manifest upload failed: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     let integrity = EMPTY_INTEGRITY;
-    if (failed === 0 && manifestUploaded) {
+    // publishBlocked is an integrity condition, not a transport failure —
+    // the scrub still runs so remaining local-backed claims heal (bounded
+    // pages, ADR-0012) instead of deadlocking behind the failed publish.
+    if (failed === 0 && (manifestUploaded || publishBlocked)) {
       try {
         const ordinary = await this.deps.integrityScrub();
         const protectedSummary =
@@ -265,23 +349,39 @@ export class BackupEngine {
           unrecoverable: ordinary.unrecoverable + protectedSummary.unrecoverable,
         };
         const recoveryRepaired = !(await this.deps.recoveryGenerationHealthy());
-        if (summary.unrecoverable > 0 || recoveryRepaired) {
-          // A remote-only loss can change which deleted rows are honestly
-          // recoverable. Publish that state now; if it fails, preserve the
-          // manifest debt for the next clean run.
-          this.manifestOwed = true;
+        if (summary.repaired > 0) {
+          // Scrub repairs put blobs behind the presence cache's back.
+          this.invalidateListing('blobs');
+          this.invalidateListing('protected');
+        }
+        if (summary.unrecoverable > 0) {
+          // Confirmed remote-only loss (#741): fail truthfully. The last
+          // valid retained generations stay untouched — publishing here
+          // would seal a manifest promising blobs the provider just proved
+          // it does not hold. The durable debt keeps the retry alive.
+          this.setManifestOwed(true);
+          manifestUploaded = false;
+          this.deps.audit(`INTEGRITY-PUBLISH-BLOCKED unrecoverable=${String(summary.unrecoverable)}`);
+        } else if (blockedRemoteOnly === 0 && (recoveryRepaired || (publishBlocked && summary.repaired > 0))) {
+          // A repaired recovery index rides a fresh generation, and a scrub
+          // that just re-uploaded missing blobs may satisfy the preflight
+          // that blocked earlier in this run.
+          this.setManifestOwed(true);
           try {
             await this.uploadManifest();
-            this.manifestOwed = false;
-            if (summary.unrecoverable > 0) {
-              this.deps.audit('INTEGRITY-MANIFEST-REFRESHED');
-            }
+            this.setManifestOwed(false);
+            manifestUploaded = true;
+            settleManifestOnly();
             if (recoveryRepaired) {
               this.deps.audit('INTEGRITY-RECOVERY-REPAIRED');
             }
           } catch (error) {
             manifestUploaded = false;
-            throw error;
+            if (error instanceof ManifestIncompleteError) {
+              this.deps.audit(`MANIFEST-INCOMPLETE count=${String(error.missing.length)} first=${error.missing[0] ?? ''}`);
+            } else {
+              throw error;
+            }
           }
         }
         integrity = {
@@ -298,7 +398,97 @@ export class BackupEngine {
         console.error(`[overlook] integrity check failed: ${reason}`);
       }
     }
-    return { uploaded, failed, manifestUploaded, skipped: null, integrity };
+    return { uploaded, failed, manifestUploaded, skipped: null, integrity, blockedRemoteOnly };
+  }
+
+  /** One verified item upload (#105/#106 semantics, extracted for the
+   * preflight reconciliation path): syncing → put+retry → verify → synced.
+   * 'stop' = auth/quota failure that ends the whole run. */
+  private async uploadItem(
+    item: BackupItemPhoto,
+    settings: BackupSettings,
+    signal: AbortSignal | undefined,
+    progressed: () => void,
+  ): Promise<'uploaded' | 'failed' | 'stop'> {
+    const started = this.deps.now();
+    let syncState: SyncStatus = 'synced';
+    let outcome: 'uploaded' | 'failed' | 'stop' = 'uploaded';
+    try {
+      // A row killed mid-upload resumes: it is already 'syncing' and the
+      // machine (rightly) rejects syncing → syncing (PR #203 review).
+      if (this.deps.ledger.status(item.id) !== 'syncing') {
+        this.deps.ledger.setStatus(item.id, 'syncing');
+      }
+      const remotePath = blobPath(item.contentHash);
+      await this.uploadWithRetry(remotePath, () => this.deps.encryptedStream(item.contentHash), signal);
+      // Verify-after-upload (#106, ADR-0007): "backed up" is never a lie.
+      // The LOCAL ciphertext hash is the truth the remote must match
+      // before the row may go synced.
+      const local = await this.hashLocalCiphertext(item.contentHash);
+      const remote = await this.deps.provider.verify(remotePath);
+      if (remote.sha256 !== local.sha256 || remote.bytes !== local.bytes) {
+        this.deps.audit(
+          `VERIFY-MISMATCH photo=${item.id} local=${local.sha256}/${String(local.bytes)} remote=${remote.sha256}/${String(remote.bytes)}`,
+        );
+        throw new ProviderError(`verify mismatch for ${item.fileName}`, 'corrupt');
+      }
+      this.deps.audit(`VERIFY-OK photo=${item.id} sha256=${local.sha256} bytes=${String(local.bytes)}`);
+      this.deps.ledger.markBackedUp(item.id, new Date(this.deps.now()).toISOString());
+      this.notePresent(remotePath);
+    } catch (error) {
+      outcome = 'failed';
+      this.deps.ledger.markError(item.id);
+      syncState = 'error';
+      console.error(`[overlook] backup failed for ${item.fileName}: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof ProviderError && (error.kind === 'auth' || error.kind === 'quota')) {
+        this.deps.syncStateChanged([{ id: item.id, syncState }]);
+        return 'stop'; // retrying the rest cannot help — surface and stop
+      }
+    }
+    progressed();
+    this.deps.pendingCountChanged(this.deps.dirtyPhotos().length);
+    this.deps.syncStateChanged([{ id: item.id, syncState }]);
+    await this.throttle(settings, this.deps.now() - started);
+    return outcome;
+  }
+
+  /** Maps preflight-missing paths back to their claims (#741). Locally
+   * available synced originals re-queue (live rows dirty for crash-resume
+   * truth, deleted-but-retained rows upload directly this run); everything
+   * else is a remote-only claim that fails the publication closed. */
+  private reconcileMissing(missing: readonly string[]): ReconcileOutcome {
+    const blobHashes = missing
+      .filter((path) => path.startsWith('blobs/'))
+      .map((path) => path.split('/')[2])
+      .filter((hash): hash is string => hash !== undefined);
+    const claims = this.deps.claimsForContentHashes?.(blobHashes) ?? [];
+    const claimedHashes = new Set(claims.map((claim) => claim.contentHash));
+    const uploadNow: BackupItemPhoto[] = [];
+    let blocked = 0;
+    for (const claim of claims) {
+      if (claim.status === 'synced' && this.deps.hasLocalOriginal?.(claim.contentHash) === true) {
+        if (!claim.deleted && !this.deps.ledger.isDirty(claim.id)) this.deps.ledger.markDirty(claim.id);
+        uploadNow.push({ id: claim.id, contentHash: claim.contentHash, bytes: claim.bytes, fileName: claim.fileName, keyId: claim.keyId });
+      } else {
+        blocked += 1;
+      }
+    }
+    // Missing blobs with no synced/offloaded claim belong to rows still in
+    // the dirty queue (local/error) — the ordinary retry loop owns them, so
+    // they neither re-upload here nor count as blocked.
+    for (const hash of blobHashes) {
+      if (!claimedHashes.has(hash) && this.deps.hasLocalOriginal?.(hash) !== true && this.deps.claimsForContentHashes !== undefined) {
+        blocked += 1;
+      }
+    }
+    const protectedMissing = missing.filter((path) => path.startsWith('protected/'));
+    let protectedRequeued = 0;
+    if (protectedMissing.length > 0) {
+      const outcome = this.deps.protectedBackup?.reconcileMissing?.(protectedMissing) ?? { requeued: 0, blocked: protectedMissing.length };
+      protectedRequeued = outcome.requeued;
+      blocked += outcome.blocked;
+    }
+    return { uploadNow, protectedRequeued, blocked };
   }
 
   /** Politeness (#105): at p percent, rest (100-p)/p of each item's upload
@@ -337,6 +527,56 @@ export class BackupEngine {
     return { sha256: hasher.digest('hex'), bytes };
   }
 
+  private presenceFor(): RemotePresence {
+    const providerId = this.deps.provider.id;
+    if (this.presence?.providerId !== providerId) {
+      this.presence = { providerId, listed: new Map(), verified: new Set() };
+    }
+    return this.presence;
+  }
+
+  private notePresent(path: string): void {
+    this.presenceFor().verified.add(path);
+  }
+
+  private invalidateListing(prefix: string): void {
+    this.presenceFor().listed.delete(prefix);
+  }
+
+  private async listedPaths(prefix: string): Promise<ReadonlySet<string>> {
+    const presence = this.presenceFor();
+    let paths = presence.listed.get(prefix);
+    if (paths === undefined) {
+      paths = new Set((await this.deps.provider.list(prefix)).map((entry) => entry.path));
+      presence.listed.set(prefix, paths);
+    }
+    return paths;
+  }
+
+  /** Publication preflight (#741): every ordinary and protected object the
+   * manifest references must exist on the SELECTED provider. A switch, a
+   * restore under a different selection, or a partial run can otherwise
+   * seal a generation that promises blobs this remote never held. */
+  private async assertManifestComplete(photos: readonly { readonly blobPath: string }[], protectedPaths: readonly string[]): Promise<void> {
+    const missing: string[] = [];
+    const verified = this.presenceFor().verified;
+    if (photos.length > 0) {
+      const present = await this.listedPaths('blobs');
+      for (const photo of photos) {
+        if (!present.has(photo.blobPath) && !verified.has(photo.blobPath)) missing.push(photo.blobPath);
+      }
+    }
+    if (protectedPaths.length > 0) {
+      const present = await this.listedPaths('protected');
+      for (const path of protectedPaths) {
+        if (!present.has(path) && !verified.has(path)) missing.push(path);
+      }
+    }
+    if (missing.length > 0) {
+      throw new ManifestIncompleteError(missing);
+    }
+  }
+
   /** Seals and uploads the next manifest generation; prunes past N=2. */
   private async uploadManifest(): Promise<void> {
     const generatedAt = new Date(this.deps.now()).toISOString();
@@ -352,6 +592,12 @@ export class BackupEngine {
         boards: this.deps.boardsSnapshot?.() ?? [],
       } satisfies BackupManifestSnapshotV5,
     });
+    // Preflight before ANY remote write of this publication — a blocked
+    // generation must not upload, prune, or even refresh the bootstrap.
+    await this.assertManifestComplete(
+      manifest.photos,
+      manifest.protectedPhotos.flatMap((photo) => photo.objects.map((object) => object.path)),
+    );
     const json = JSON.stringify(manifest);
     const sealed = await this.deps.sealManifest(json);
     // The bootstrap is a superset across rotations and lands first: a crash
