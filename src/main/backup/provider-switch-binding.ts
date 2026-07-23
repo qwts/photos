@@ -21,13 +21,22 @@ export interface ProviderSwitchGuardParts {
 }
 
 export interface ProviderSwitchBindingDeps {
-  readonly parts: () => ProviderSwitchGuardParts;
+  /** The ALREADY-OPEN library's parts, or null when none is open. The guard
+   * must never bootstrap a library: materializing one during a fresh-profile
+   * onboarding connect would make the restore target non-empty and fail the
+   * later destructive-authorization check (PR #743 review). */
+  readonly parts: () => ProviderSwitchGuardParts | null;
   readonly libraryDataDir: () => string;
 }
 
 export function createProviderSwitchGuard(deps: ProviderSwitchBindingDeps): NonNullable<ProviderRuntimeOptions['switchGuard']> {
   return async (target) => {
     const parts = deps.parts();
+    if (parts === null) {
+      // No open library → no claims to protect; restore/onboarding flows
+      // connect providers freely and validate through their own engines.
+      return { ok: true, reason: null };
+    }
     const ledger = new SyncLedger(parts.db);
     const protectedGuard = parts.protected.switchGuardBinding();
     const audit = createBackupAuditLogger(path.join(deps.libraryDataDir(), 'backup-audit.log'));

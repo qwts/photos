@@ -353,7 +353,9 @@ function getProviderRuntime(): ProviderRuntime {
     isWorkActive: () => providerWork.busy(),
     harnessEnv,
     // Fail-closed switch activation (#741): see provider-switch-guard.ts.
-    guardParts: () => requireParts('provider switch'),
+    // Only an ALREADY-OPEN library's parts — never requireParts, which would
+    // bootstrap an empty library into a fresh onboarding-restore profile.
+    guardParts: () => libraryParts ?? null,
   });
   return providerRuntime;
 }

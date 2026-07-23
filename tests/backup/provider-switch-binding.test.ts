@@ -126,3 +126,22 @@ test('createBackupClaimDeps bundles claim lookup, local presence, and durable de
   deps.manifestDebt?.save(false);
   assert.equal(deps.manifestDebt?.load(), false);
 });
+
+test('no open library: the guard allows activation and never bootstraps one (PR #743 review)', async () => {
+  let resolved = 0;
+  const guard = createProviderSwitchGuard({
+    parts: () => {
+      resolved += 1;
+      return null;
+    },
+    libraryDataDir: () => {
+      throw new Error('the audit path must not be touched without a library');
+    },
+  });
+  const failing: StorageProvider = {
+    ...targetProvider(),
+    list: () => Promise.reject(new Error('no provider round-trip without a library')),
+  };
+  assert.deepEqual(await guard({ providerId: 'mock', provider: failing }), { ok: true, reason: null });
+  assert.equal(resolved, 1);
+});

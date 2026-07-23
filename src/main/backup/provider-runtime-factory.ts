@@ -19,9 +19,10 @@ export interface ProviderRuntimeFactoryDeps {
   readonly dataDir: () => string;
   readonly isWorkActive: () => boolean;
   readonly harnessEnv: (name: string) => string | undefined;
-  /** Open-library parts for the fail-closed switch guard (#741); resolved
-   * lazily so runtime construction never bootstraps a library. */
-  readonly guardParts?: (() => LibraryParts) | undefined;
+  /** The ALREADY-OPEN library's parts for the fail-closed switch guard
+   * (#741), or null when none is open. Must never bootstrap a library —
+   * a fresh onboarding-restore profile stays empty (PR #743 review). */
+  readonly guardParts?: (() => LibraryParts | null) | undefined;
 }
 
 export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): ProviderRuntime {
