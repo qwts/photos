@@ -41,10 +41,9 @@ on:
   # Manual lever for recovery (e.g. after a conflict was resolved elsewhere).
   workflow_dispatch:
 
-# All mutations run under RELEASE_TOKEN (a PAT), so GITHUB_TOKEN needs no write
-# scopes here.
-permissions:
-  contents: read
+# Every call in this job authenticates with RELEASE_TOKEN (a PAT), so the
+# auto-provisioned GITHUB_TOKEN is unused — grant it nothing.
+permissions: {}
 
 # One updater at a time, and GitHub keeps at most one queued run per group — a burst
 # of merges coalesces into the run that sees the final main tip.
