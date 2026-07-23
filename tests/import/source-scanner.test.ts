@@ -180,6 +180,22 @@ describe('dropped-file scan (#237)', () => {
     );
   });
 
+  test('#548: container kinds are signature-gated — an unimportable .ts is never counted or attempted', async () => {
+    const videoFixtures = join(import.meta.dirname, '../../../tests/fixtures/video');
+    const { summary, files } = await scanFiles(
+      [
+        join(videoFixtures, 'supported-h264-aac.ts'), // real H.264/AAC transport stream → importable video
+        join(videoFixtures, 'malformed-no-cadence.ts'), // no 0x47 cadence, not an image → will be rejected at import
+        join(videoFixtures, 'spoofed-jpeg.ts'), // JPEG bytes behind a .ts suffix → imports as the still it truly is
+      ],
+      { hasContentHash: () => false },
+    );
+    // The malformed .ts is dropped at scan time, so the ready count never
+    // promises an import that the engine would then reject.
+    assert.deepEqual(files.map((file) => file.fileName).sort(), ['spoofed-jpeg.ts', 'supported-h264-aac.ts']);
+    assert.equal(summary.newCount, 2);
+  });
+
   test('#489: symlinks and package directories are never expanded into Move candidates', async () => {
     const root = mkdtempSync(join(tmpdir(), 'overlook-drop-boundaries-'));
     const outside = join(mkdtempSync(join(tmpdir(), 'overlook-drop-target-')), 'outside.jpg');

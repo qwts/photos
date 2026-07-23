@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { lstat, readdir, stat } from 'node:fs/promises';
+import { lstat, open, readdir, stat } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 
 import { classifyMediaFile } from '../../shared/library/media-files.js';
+import { sniffImageKind, sniffVideoKind } from '../../shared/library/media-signatures.js';
 import type { FileKind } from '../../shared/library/types.js';
 
 // Import source discovery + scan (#84): the numbers behind the design's
@@ -71,6 +72,30 @@ async function hashFile(path: string): Promise<string> {
     hasher.update(chunk as Buffer);
   }
   return hasher.digest('hex');
+}
+
+// A container header large enough for every signature the import engine checks:
+// image magic bytes and the MPEG-TS 188/192 sync cadence (a handful of packets).
+const SNIFF_HEADER_BYTES = 64 * 1024;
+
+async function readHeader(path: string, length: number): Promise<Buffer> {
+  const handle = await open(path, 'r');
+  try {
+    const buffer = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(buffer, 0, length, 0);
+    return buffer.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+}
+
+// Container kinds (video/audio) are only real if their bytes say so. This is the
+// SAME decision import-engine makes before it will insert a row (#548): a still
+// signature wins first, then a container signature; neither → the file will be
+// rejected at import, so the scan must not promise it as importable.
+async function isImportableContainer(path: string): Promise<boolean> {
+  const header = await readHeader(path, SNIFF_HEADER_BYTES);
+  return (sniffImageKind(header) ?? sniffVideoKind(header)) !== null;
 }
 
 async function listMediaFiles(dir: string, signal?: AbortSignal): Promise<ImportCandidate[]> {
@@ -189,6 +214,13 @@ export async function scanCandidates(
     let contentHash: string;
     try {
       size = (await stat(candidate.path)).size;
+      // Signature-gate container kinds before hashing so the ready count never
+      // promises an import the engine will reject (#548): a `.ts`/audio file
+      // whose bytes are not a recognized media signature is dropped here, and —
+      // because import re-scans through this same path — never even attempted.
+      if ((candidate.kind === 'video' || candidate.kind === 'audio') && !(await isImportableContainer(candidate.path))) {
+        continue;
+      }
       contentHash = await hashFile(candidate.path);
     } catch {
       continue;
