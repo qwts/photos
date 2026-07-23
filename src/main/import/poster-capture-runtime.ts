@@ -4,7 +4,6 @@ import type { BlobStore } from '../blobs/blob-store.js';
 import type { EnvelopeKey, KeyResolver } from '../crypto/envelope.js';
 import { posterCaptureCandidates } from '../db/poster-candidates.js';
 import type { PhotoRecord } from '../../shared/library/types.js';
-import { captureVideoPosterFrame } from './offscreen-frame-capturer.js';
 import { PosterCaptureService } from './poster-capture-service.js';
 import type { ThumbnailService } from './thumbnail-service.js';
 
@@ -16,8 +15,10 @@ export interface PosterCaptureRuntimeOptions {
   readonly currentKey: () => EnvelopeKey;
   readonly resolveKey: KeyResolver;
   readonly changed: (photoIds: readonly string[]) => void;
-  /** Injectable so the service is testable without an Electron renderer. */
-  readonly captureFrame?: ((photo: PhotoRecord, signal: AbortSignal) => Promise<Buffer | null>) | undefined;
+  /** The offscreen decoder, injected by the wiring layer. Kept out of this
+   * module (no static Electron import) so the runtime is unit-testable and
+   * coverage-enforced; only the composition root pulls in the real capturer. */
+  readonly captureFrame: (photo: PhotoRecord, signal: AbortSignal) => Promise<Buffer | null>;
 }
 
 export function createPosterCaptureRuntime(options: PosterCaptureRuntimeOptions): PosterCaptureService {
@@ -26,7 +27,7 @@ export function createPosterCaptureRuntime(options: PosterCaptureRuntimeOptions)
     hasPoster: async (photo) => options.blobs.verifyThumbs(photo.contentHash, options.resolveKey, photo.id),
     captureFrame: async (photo, signal) => {
       await options.blobsReady;
-      return (options.captureFrame ?? captureVideoPosterFrame)(photo, signal);
+      return options.captureFrame(photo, signal);
     },
     // The captured frame is a PNG — feed it to the sharp chain as an image; the
     // stored poster lands at the same derivative path the grid already loads.

@@ -87,7 +87,7 @@ export const VideoAndAudioTiles: Story = {
     // No <video>/<audio> element renders in the grid — posters never play inline.
     await expect(canvasElement.querySelector('video')).toBeNull();
     await expect(canvasElement.querySelector('audio')).toBeNull();
-    // Regression (#548 §6): the preserved clip's poster src 404s — its is the
+    // Regression (#548 §6): the preserved clip's poster src 404s — it's the
     // one img that fails. A `video` tile must fall back to the film glyph (a
     // success state) and NEVER show the still-image "PREVIEW UNAVAILABLE" text;
     // the shipped bug wrote that label into the fallback div, wiping the icon.

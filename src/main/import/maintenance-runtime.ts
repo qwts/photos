@@ -1,6 +1,7 @@
 import { PhotosRepository } from '../db/photos-repository.js';
 import type { ImportRuntime } from './import-runtime.js';
 import type { LibraryParts } from '../library/library-parts.js';
+import { captureVideoPosterFrame } from './offscreen-frame-capturer.js';
 import { createPosterCaptureRuntime } from './poster-capture-runtime.js';
 import type { PosterCaptureService } from './poster-capture-service.js';
 import { createRawRepairRuntime } from './raw-repair-runtime.js';
@@ -46,6 +47,7 @@ export function buildMaintenanceServices(ctx: MaintenanceContext): { rawRepair: 
   const posterCapture = createPosterCaptureRuntime({
     ...shared,
     db: parts.db,
+    captureFrame: captureVideoPosterFrame,
     changed: (ids) => {
       for (const id of ids) ctx.invalidateThumb(id);
       ctx.emitChanged(ids);
