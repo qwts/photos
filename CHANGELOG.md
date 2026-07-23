@@ -1,5 +1,11 @@
 # photos
 
+## 0.61.2
+
+### Patch Changes
+
+- a4b5a9a: Hide pCloud backup and Transfer & Sync features unless an opt-in build includes a public pCloud client ID.
+
 ## 0.61.1
 
 ### Patch Changes
