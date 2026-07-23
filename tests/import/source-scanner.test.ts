@@ -191,9 +191,21 @@ describe('dropped-file scan (#237)', () => {
       { hasContentHash: () => false },
     );
     // The malformed .ts is dropped at scan time, so the ready count never
-    // promises an import that the engine would then reject.
+    // promises an import that the engine would then reject — and `total`
+    // counts survivors only, so it never keeps a rejected drop "ready".
     assert.deepEqual(files.map((file) => file.fileName).sort(), ['spoofed-jpeg.ts', 'supported-h264-aac.ts']);
     assert.equal(summary.newCount, 2);
+    assert.equal(summary.total, 2);
+  });
+
+  test('#548: a drop of only unimportable containers reports total 0 — the no-supported-files path (#745 review)', async () => {
+    const videoFixtures = join(import.meta.dirname, '../../../tests/fixtures/video');
+    const { summary, files } = await scanFiles([join(videoFixtures, 'malformed-no-cadence.ts')], { hasContentHash: () => false });
+    // total === 0 is the signal the renderer + Google Drive use to take the
+    // "no supported files were dropped" path instead of opening an empty dialog.
+    assert.equal(summary.total, 0);
+    assert.equal(summary.newCount, 0);
+    assert.equal(files.length, 0);
   });
 
   test('#489: symlinks and package directories are never expanded into Move candidates', async () => {

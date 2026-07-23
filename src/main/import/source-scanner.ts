@@ -35,7 +35,9 @@ export interface ImportCandidate {
 }
 
 export interface SourceScanSummary {
-  /** Media files on the source (allowlist only). */
+  /** Importable media on the source: allowlisted AND signature-valid. Excludes
+   * containers that fail the signature gate and vanished/unreadable files, so
+   * `total === 0` means "nothing here can be imported" (#745 review). */
   readonly total: number;
   readonly newCount: number;
   readonly newBytes: number;
@@ -193,7 +195,11 @@ export async function scanCandidates(
   let newOther = 0;
 
   const snapshot = (scanned: number, done: boolean): SourceScanProgress => ({
-    total: candidates.length,
+    // Survivors only, not candidates.length: a container that fails the
+    // signature gate (or a vanished/unreadable file) is not importable, so it
+    // must not keep `total` nonzero — callers use `total === 0` as the
+    // no-supported-files signal (#745 review).
+    total: files.length,
     newCount,
     newBytes,
     newRaw,
