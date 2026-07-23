@@ -1751,7 +1751,7 @@
         },
         {
           "type": "manual",
-          "reason": "The offscreen-renderer poster decode (§6: capture.html/capture-frame.ts loaded in a hidden BrowserWindow, mpegts.js TS→fMP4 remux over MediaSource, capturePage of the first decodable frame) and encrypted-TS full-viewer playback run only inside the signed macOS/Windows package — MSE and the offscreen window are absent under headless unit/story runs. Validate against owner-supplied .ts/.mts/.m2ts originals per docs/acceptance/Acceptance-Test-Video-Media.md: deterministic poster on the tile, duration pill, no autoplay, keyboard-accessible playback, and byte-identical Original export. See docs/acceptance/acceptance-test-mpeg-ts-video-media.md."
+          "reason": "The offscreen-renderer poster decode (§6: capture.html/capture-frame.ts loaded in a hidden BrowserWindow, mpegts.js TS→fMP4 remux over MediaSource, capturePage of the first decodable frame) and encrypted-TS full-viewer playback run only inside the signed macOS/Windows package — MSE and the offscreen window are absent under headless unit/story runs. Validate against owner-supplied .ts/.mts/.m2ts originals per docs/acceptance/acceptance-test-mpeg-ts-video-media.md: deterministic poster on the tile, duration pill, no autoplay, keyboard-accessible playback, and byte-identical Original export."
         }
       ]
     },
