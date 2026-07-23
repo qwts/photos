@@ -477,9 +477,11 @@ export class BackupEngine {
         blocked += 1;
       }
     }
-    // Missing blobs with no synced/offloaded claim belong to rows still in
-    // the dirty queue (local/error) — the ordinary retry loop owns them, so
-    // they neither re-upload here nor count as blocked.
+    // Missing blobs with no synced/offloaded claim: with a local original
+    // they belong to rows still in the dirty queue (local/error) — the
+    // ordinary retry loop owns them, not this reconciliation. Without one,
+    // NOTHING can produce the referenced blob, so the publication must
+    // count them as blocked rather than retry forever.
     for (const hash of blobHashes) {
       if (!claimedHashes.has(hash) && this.deps.hasLocalOriginal?.(hash) !== true && this.deps.claimsForContentHashes !== undefined) {
         blocked += 1;
