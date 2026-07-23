@@ -345,6 +345,13 @@ export function Shell({
           type: 'toast/shown',
           toast: { title: `Backup: ${formatCount(failed)} failed — will retry`, tone: 'red', action: 'retry-backup' },
         });
+      } else if (integrity.unrecoverable > 0) {
+        // Confirmed loss blocks the manifest generation too (#741), so this
+        // truth must outrank the generic index-pending message.
+        dispatch({
+          type: 'toast/shown',
+          toast: { title: `Backup damaged: ${formatCount(integrity.unrecoverable)} originals missing`, tone: 'red' },
+        });
       } else if (!manifestUploaded) {
         // Blobs verified but the remote is owed its manifest generation —
         // without it the backup is not restorable (PR #204 review).
@@ -356,11 +363,6 @@ export function Shell({
         dispatch({
           type: 'toast/shown',
           toast: { title: 'Backup check incomplete — will retry', tone: 'red', action: 'retry-backup' },
-        });
-      } else if (integrity.unrecoverable > 0) {
-        dispatch({
-          type: 'toast/shown',
-          toast: { title: `Backup damaged: ${formatCount(integrity.unrecoverable)} originals missing`, tone: 'red' },
         });
       } else if (uploaded > 0 && !auto) {
         const detail = integrity.recoveryRepaired
