@@ -107,8 +107,16 @@ class DriveWorld {
     const file = this.files.get(id);
     if (file === undefined || file.trashed) return this.error(404, 'notFound');
     if (init?.method === 'DELETE') {
-      this.files.delete(id);
-      return new Response(null, { status: 204 });
+      // #750: `DELETE /files/{id}` bypasses Drive's trash. The product rule
+      // forbids permanent remote destruction, so the fake refuses it too —
+      // any adapter regression back to hard deletes fails here.
+      return this.error(403, 'permanentDeleteForbidden');
+    }
+    if (init?.method === 'PATCH') {
+      const patch = JSON.parse(bodyText(init.body)) as { trashed?: boolean };
+      if (patch.trashed !== true) return this.error(400, 'unsupportedPatch');
+      this.files.set(id, { ...file, trashed: true });
+      return Response.json(this.metadata({ ...file, trashed: true }));
     }
     if (url.searchParams.get('alt') === 'media') return new Response(file.bytes, { status: 200 });
     return Response.json(this.metadata(file));
@@ -341,6 +349,32 @@ describe('Google Drive provider adapter (#277)', () => {
       () => provider.forLibrary('../bad'),
       (error: unknown) => error instanceof ProviderError && error.kind === 'corrupt',
     );
+  });
+
+  test('delete trashes the Drive file: recoverable in place, absent to every read path (#750)', async () => {
+    const { world, provider } = setup();
+    await provider.put('blobs/aa/kept.ovlk', Readable.from([PAYLOAD]));
+    await provider.delete('blobs/aa/kept.ovlk');
+
+    const stored = [...world.files.values()].find((file) => file.name === 'kept.ovlk');
+    assert.equal(stored?.trashed, true, 'the object survives in Drive trash — never permanently destroyed');
+    assert.deepEqual(await provider.list('blobs'), [], 'a trashed object is absent to listing');
+    await assert.rejects(
+      provider.getStream('blobs/aa/kept.ovlk'),
+      (error: unknown) => error instanceof ProviderError && error.kind === 'not-found',
+    );
+    await assert.rejects(
+      provider.verify('blobs/aa/kept.ovlk'),
+      (error: unknown) => error instanceof ProviderError && error.kind === 'not-found',
+    );
+    await provider.delete('blobs/aa/kept.ovlk');
+
+    const replacement = Buffer.from('OVLK-replacement-after-trash');
+    await provider.put('blobs/aa/kept.ovlk', Readable.from([replacement]));
+    assert.deepEqual(await buffer(await provider.getStream('blobs/aa/kept.ovlk')), replacement);
+    const survivors = [...world.files.values()].filter((file) => file.name === 'kept.ovlk');
+    assert.equal(survivors.filter((file) => file.trashed).length, 1, 'the trashed generation still exists after re-upload');
+    assert.equal(survivors.filter((file) => !file.trashed).length, 1);
   });
 
   test('lost final response resumes, missing SHA-256 re-downloads, unlimited quota stays honest, stale IDs rebuild', async () => {

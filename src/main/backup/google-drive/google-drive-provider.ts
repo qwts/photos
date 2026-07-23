@@ -224,7 +224,15 @@ export class GoogleDriveProvider implements StorageProvider {
     assertSafeRemotePath(path);
     const file = await this.resolveFile(path);
     if (file === null) return;
-    const response = await this.authorizedFetch(`${API}/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' });
+    // Trash, never `DELETE /files/{id}` (#750): a permanent delete bypasses
+    // Drive's 30-day trash and made the #741 blob wipe unrecoverable. Every
+    // read path filters `trashed = false`, so a trashed object is already
+    // absent to list/verify/restore while staying user-recoverable.
+    const response = await this.authorizedFetch(`${API}/files/${encodeURIComponent(file.id)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ trashed: true }),
+    });
     if (!response.ok && response.status !== 404) throw await this.responseError(response, 'delete');
     this.options.paths.setFileId(this.pathLibraryId(), path, null);
     this.validatedIds.delete(file.id);

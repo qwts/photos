@@ -273,6 +273,11 @@ export class PCloudProvider implements StorageProvider {
   }
 
   async delete(path: string): Promise<void> {
+    // Relied-upon recoverability contract (#750): pCloud's `deletefile` is
+    // trash-backed server-side (60-day Trash) — it is the recoverable
+    // deletion this product requires, and it is what made the #741 wipe
+    // recoverable on pCloud. Any migration off `deletefile` must land on an
+    // equally recoverable call, never a permanent purge.
     try {
       await this.api('deletefile', { path: this.remotePath(path) });
     } catch (error) {
