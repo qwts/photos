@@ -6,14 +6,22 @@ import { guardProviderSwitch } from './provider-switch-guard.js';
 import type { ProviderRuntimeOptions } from './provider-runtime.js';
 import { SyncLedger } from './sync-ledger.js';
 import { remoteClaims } from '../db/backup-claims.js';
-import type { LibraryParts } from '../library/library-parts.js';
+import type { ProtectedRuntime } from '../library/protected-runtime.js';
+import type BetterSqlite3 from 'better-sqlite3-multiple-ciphers';
 
 // Composition seam for the #741 provider-switch guard, kept out of index.ts
 // (file-size budget). The guard resolves the open library's parts lazily so
-// runtime construction never bootstraps a library.
+// runtime construction never bootstraps a library. Structurally typed so
+// LibraryParts satisfies it while tests supply narrow fakes.
+
+export interface ProviderSwitchGuardParts {
+  readonly db: BetterSqlite3.Database;
+  readonly blobStore: { hasOriginal(contentHash: string): boolean };
+  readonly protected: Pick<ProtectedRuntime, 'switchGuardBinding'>;
+}
 
 export interface ProviderSwitchBindingDeps {
-  readonly parts: () => LibraryParts;
+  readonly parts: () => ProviderSwitchGuardParts;
   readonly libraryDataDir: () => string;
 }
 
