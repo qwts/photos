@@ -1,5 +1,21 @@
 # photos
 
+## 0.61.0
+
+### Minor Changes
+
+- eec1176: Restoring with this Mac's stored key now demands fresh app-password authority whenever an app lock is configured — enforced in the main process, sharing the lock's unlock throttle — and a restore granted that authority re-establishes the password-derived app-lock record with a matching credential anchor for the activated library, instead of leaving it on downgraded keychain-form custody (#754).
+
+### Patch Changes
+
+- 7b763fc: Restoring a library no longer strands the next launch on the app-lock
+  "Recovery required" screen: activation reconciles the ADR-0013 freshness
+  anchor so the restored library reads as its true lock state instead of a
+  rollback attack. A restore that never activates leaves the anchor untouched.
+- 4c0b066: The Restore-from-cloud dialog no longer carries a failed attempt's error,
+  session, or library list across provider changes or Back — every screen
+  reflects only the current provider's discovery.
+
 ## 0.60.4
 
 ### Patch Changes
