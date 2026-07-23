@@ -45,6 +45,7 @@ existing links resolve — never add content there.
 - [Full-display image acceptance](./acceptance/acceptance-test-full-display-image.md) — image-first chrome, transform persistence, and reset boundaries
 - [Inspector follow and detached-window acceptance](./acceptance/acceptance-test-inspector-window.md) — #503 focus, paging, reattachment, and lock-boundary evidence
 - [GIF/WebP animated media acceptance](./acceptance/acceptance-test-gif-webp-animated-media.md) — #547 classification, poster/animation, reduced motion, and custody evidence
+- [MPEG-TS video media acceptance](./acceptance/acceptance-test-mpeg-ts-video-media.md) — #548 signature classification, deterministic poster/duration, playback, and byte-faithful custody evidence
 - [Context menu acceptance](./acceptance/Acceptance-Test-Context-Menus.md) — #504 selection, command parity, focus, viewport, and destructive-action evidence
 - [Album reorder acceptance](./acceptance/Acceptance-Test-Album-Reorder.md) — #225 sidebar drag reordering, persistence, and alternative access
 - [Manual Test — Windows ARM64 signed release](./acceptance/Manual-Test-Windows-ARM64-Signed-Release.md) — owner-run native Windows-on-ARM installer, architecture purity, and Authenticode (#683)

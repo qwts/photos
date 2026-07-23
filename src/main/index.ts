@@ -23,8 +23,9 @@ import type { FullService } from './fullres/full-service.js';
 import { createFullRuntime } from './fullres/full-runtime.js';
 import { createExternalOpenRuntime } from './import/external-open-runtime.js';
 import { createDriveImport, createImportRuntime, type ImportRuntime, type ImportService } from './import/import-runtime.js';
-import { createRawRepairRuntime } from './import/raw-repair-runtime.js';
 import type { RawRepairService } from './import/raw-repair-service.js';
+import type { PosterCaptureService } from './import/poster-capture-service.js';
+import { buildMaintenanceServices } from './import/maintenance-runtime.js';
 import { ulid } from './import/ulid.js';
 import { createAutoBackupScheduler } from './backup/auto-backup.js';
 import { BackupEngine, type BackupRunResult } from './backup/backup-engine.js';
@@ -205,6 +206,7 @@ function requireParts(what: string): LibraryParts {
 
 let importRuntime: ImportRuntime | undefined;
 let rawRepairService: RawRepairService | undefined;
+let posterCaptureService: PosterCaptureService | undefined;
 function getImportService(): ImportService {
   if (importRuntime === undefined) {
     const parts = requireParts('import service');
@@ -256,34 +258,27 @@ function getImportService(): ImportService {
   return importRuntime.service;
 }
 
-function getRawRepairService(): RawRepairService {
-  if (rawRepairService !== undefined) return rawRepairService;
+// RAW/HEIC preview repair and video poster capture (ADR-0026 §6) are both
+// post-import background passes over the same library parts; they share one
+// bootstrap so the runtime factories stay thin.
+function ensureMaintenanceServices(): void {
+  if (rawRepairService !== undefined && posterCaptureService !== undefined) return;
   getImportService();
   const parts = libraryParts;
   const runtime = importRuntime;
-  if (parts === undefined || runtime === undefined) throw new Error('library bootstrap failed; preview repair unavailable');
-  const repo = new PhotosRepository(parts.db);
-  const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => {
-    broadcast((win) => win.webContents.send(name, payload));
+  if (parts === undefined || runtime === undefined) throw new Error('library bootstrap failed; background maintenance unavailable');
+  const emitPending = createEmitter(events.pendingCountChanged, (name, payload) => broadcast((win) => win.webContents.send(name, payload)));
+  const services = buildMaintenanceServices({
+    parts,
+    runtime,
+    invalidateThumb: (id) => thumbService?.invalidate(id),
+    invalidateFull: (id) => fullService?.invalidate(id),
+    emitChanged: (photoIds) => emitLibraryChanged({ photoIds: [...photoIds] }),
+    emitPending: (count) => emitPending({ count }),
+    scheduleAutoBackup,
   });
-  rawRepairService = createRawRepairRuntime({
-    repo,
-    blobs: parts.blobStore,
-    blobsReady: parts.blobStoreReady,
-    thumbnails: runtime.thumbnails,
-    currentKey: () => parts.keyStore.currentKey(),
-    resolveKey: parts.keyStore.resolver(),
-    changed: (photoIds) => {
-      for (const photoId of photoIds) {
-        thumbService?.invalidate(photoId);
-        fullService?.invalidate(photoId);
-      }
-      emitLibraryChanged({ photoIds: [...photoIds] });
-      emitPending({ count: repo.stats().pending });
-      scheduleAutoBackup();
-    },
-  });
-  return rawRepairService;
+  rawRepairService = services.rawRepair;
+  posterCaptureService = services.posterCapture;
 }
 
 let thumbService: ThumbService | undefined;
@@ -394,7 +389,8 @@ let consistencyChecker: ConsistencyChecker | undefined;
 const startupMaintenance = new StartupMaintenance({
   purge: () => getPurgeService().purgeExpired(),
   repair: () => consistencyChecker?.repair(),
-  rawRepair: () => getRawRepairService().repair(),
+  rawRepair: () => (ensureMaintenanceServices(), rawRepairService)?.repair(),
+  posterCapture: () => (ensureMaintenanceServices(), posterCaptureService)?.capture(),
   verifySearchIndex: () => libraryParts && verifySearchIndexAsync(libraryParts.db),
 });
 
@@ -666,6 +662,7 @@ async function closeLibrary(mode: 'restore' | 'lock' | 'switch'): Promise<void> 
   libraryParts?.protected.cancel();
   purgeRuntime?.close();
   rawRepairService?.close();
+  posterCaptureService?.close();
   for (const controller of activeBackupControllers) controller.abort();
   await drainWithCancellationFence(cancelScheduledLibraryWork, [
     closeProductionInboundMoveLibrary(),
@@ -699,6 +696,7 @@ async function closeLibrary(mode: 'restore' | 'lock' | 'switch'): Promise<void> 
   libraryParts = undefined;
   importRuntime = undefined;
   rawRepairService = undefined;
+  posterCaptureService = undefined;
   thumbService = undefined;
   fullService = undefined;
   backupEngine = undefined;

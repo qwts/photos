@@ -26,7 +26,7 @@ import type {
 // Typed repository over the photos + sync_ledger tables (#69). No raw SQL
 // leaves this module; the IPC service (#71) speaks records only.
 
-interface PhotoRow {
+export interface PhotoRow {
   id: string;
   file_name: string;
   file_kind: string;
@@ -62,7 +62,7 @@ function mediaInfoJson(mediaInfo: MediaInfo | null | undefined): string | null {
   return mediaInfo === null || mediaInfo === undefined ? null : JSON.stringify(mediaInfo);
 }
 
-function toRecord(row: PhotoRow): PhotoRecord {
+export function toRecord(row: PhotoRow): PhotoRecord {
   return {
     id: row.id,
     fileName: row.file_name,
@@ -129,7 +129,7 @@ function selectRanked(): string {
 `;
 }
 
-const SELECT = select('date');
+export const SELECT = select('date');
 
 /** Tokenizes `raw` into a safe FTS5 MATCH expression: each token becomes a
  * quoted phrase-prefix match (`"foo"*`), joined with AND. Quoting sidesteps

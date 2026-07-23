@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'electron-vite';
 import type { Plugin } from 'vite';
@@ -78,7 +80,17 @@ export default defineConfig({
     },
   },
   renderer: {
-    build: HARDENED_BUILD,
+    build: {
+      ...HARDENED_BUILD,
+      rollupOptions: {
+        input: {
+          // The app shell and the hidden poster-capture page (#548, §6) are
+          // separate HTML entries; the capturer loads capture.html offscreen.
+          index: resolve('src/renderer/index.html'),
+          capture: resolve('src/renderer/capture.html'),
+        },
+      },
+    },
     plugins: [react(), relaxCspForDev()],
   },
 });

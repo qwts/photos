@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; media-src overlook-full: blob:; connect-src overlook-full:"
+    />
+    <title>overlook-poster:pending</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+      }
+      video {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        object-fit: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <video id="capture" muted playsinline preload="auto"></video>
+    <script type="module" src="./src/capture-frame.ts"></script>
+  </body>
+</html>
