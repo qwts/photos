@@ -49,8 +49,11 @@ Use a new expendable library with at least two photos and one album.
    signed/entitled/account state and backup completes.
 2. Verify the backup, then offload one original. Open it at full resolution and
    confirm File Provider materialization restores the exact bytes.
-3. Quit and relaunch. Confirm iCloud remains selected only for the same Apple
-   Account authority and the verified backup remains usable.
+3. Start another backup, then quit immediately after its generation publishes
+   while an iCloud operation can still complete or fail. Confirm Overlook exits
+   normally with no SIGABRT crash report. Relaunch and confirm iCloud remains
+   selected only for the same Apple Account authority, the published generation
+   remains usable, and retry reaches a verified state.
 4. Go offline during an upload or materialization. Confirm the operation fails
    closed without claiming success; reconnect and confirm retry/resume reaches
    a verified state without duplicate discovery entries.
@@ -76,8 +79,9 @@ Record:
 - executable SHA-256 and signing authority/identifier/Team ID;
 - fixed application and iCloud container identifiers;
 - start/end time, duration, pass/fail, check names, and cleanup result; and
-- product-checklist results, including restart, offline, account-change,
-  cancellation, restore, wrong-key, and corruption outcomes.
+- product-checklist results, including quit-during-publication, restart,
+  offline, account-change, cancellation, restore, wrong-key, and corruption
+  outcomes.
 
 Never record Apple Account identity/token, local username, home/container path,
 OAuth material, recovery key, encryption key, photo content, or absolute
