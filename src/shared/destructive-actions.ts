@@ -32,7 +32,7 @@ export const destructiveActions = {
     title: 'Delete photos permanently?',
     authorization: 'photos.delete-permanently.v1',
     sideEffects:
-      'Deletes local originals, previews, metadata, and connected-provider copies. Cloud deletion failures are recorded and retried; encrypted records that name a photo may remain in up to two older recovery snapshots.',
+      'Deletes local originals, previews, and metadata, and removes the encrypted copies from your cloud backup. The provider keeps its deleted objects in its own trash for a limited time (still encrypted, recoverable only through the provider). Cloud deletion failures are recorded and retried; encrypted records that name a photo may remain in up to two older recovery snapshots.',
   },
   deleteProtectedOriginals: {
     id: 'photos.delete-protected-originals',
