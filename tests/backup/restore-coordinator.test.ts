@@ -219,7 +219,7 @@ test('an unavailable local master key fails with recovery-key guidance, never a 
   assert.match(discovery.error?.message ?? '', /recovery key/u);
 });
 
-test("a foreign library's local key is rejected as wrong-key, not corrupt data (#741)", async () => {
+test("a foreign library's local key surfaces per-library wrong-key validation, never a valid session (#741)", async () => {
   const world = await remoteWorld();
   const coordinator = new RestoreCoordinator({
     readRecoveryKey: () => Promise.reject(new Error('unused')),
@@ -230,7 +230,7 @@ test("a foreign library's local key is rejected as wrong-key, not corrupt data (
     progress: () => undefined,
   });
   const discovery = await coordinator.discoverFrom('mock', { kind: 'local-master' });
-  assert.equal(discovery.sessionId, null);
-  assert.notEqual(discovery.error, null);
-  void world;
+  assert.notEqual(discovery.libraries[0]?.validation, 'valid');
+  const run = await coordinator.run('session-wrong-local', LIBRARY_ID, false);
+  assert.notEqual(run.error, null, 'an unvalidated library can never run');
 });
