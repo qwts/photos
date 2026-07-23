@@ -17,6 +17,10 @@ export interface MaintenanceContext {
   readonly invalidateThumb: (id: string) => void;
   readonly invalidateFull: (id: string) => void;
   readonly emitChanged: (photoIds: readonly string[]) => void;
+  /** Derivative-only refresh (a captured poster): refresh just those tiles'
+   * images without a page refetch, so a background poster completing never
+   * resets scroll or drops the lightbox/selection (#744 review). */
+  readonly emitThumbsChanged: (photoIds: readonly string[]) => void;
   readonly emitPending: (count: number) => void;
   readonly scheduleAutoBackup: () => void;
 }
@@ -50,7 +54,9 @@ export function buildMaintenanceServices(ctx: MaintenanceContext): { rawRepair: 
     captureFrame: captureVideoPosterFrame,
     changed: (ids) => {
       for (const id of ids) ctx.invalidateThumb(id);
-      ctx.emitChanged(ids);
+      // Poster capture only regenerates a derivative — refresh the tiles, never
+      // refetch the page (#744 review).
+      ctx.emitThumbsChanged(ids);
     },
   });
   return { rawRepair, posterCapture };
