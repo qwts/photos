@@ -319,8 +319,10 @@ test("a configured app lock demands fresh password authority before this Mac's k
     await setDialog.getByLabel('New password').fill(appPassword);
     await setDialog.getByLabel('Confirm password').fill(appPassword);
     await setDialog.getByRole('button', { name: 'Set app password' }).click();
-    await page.getByLabel('App password').fill(appPassword);
-    await page.getByRole('button', { name: 'Unlock' }).click();
+    const lockScreen = page.getByTestId('lock-screen');
+    await lockScreen.waitFor();
+    await lockScreen.getByLabel('App password').fill(appPassword);
+    await lockScreen.getByRole('button', { name: 'Unlock' }).click();
     await page.getByTestId('virtual-grid').waitFor();
 
     // Main enforces the ceremony: the renderer's dialog is convenience only.
