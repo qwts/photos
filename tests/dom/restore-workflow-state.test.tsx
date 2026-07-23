@@ -259,3 +259,64 @@ test('Back from the library list clears the previous discovery (#748)', async ()
     mocked.restore();
   }
 });
+
+test('an unreadable namespace is reported as corrupt, not as a connection failure (#751)', async () => {
+  const mocked = mockOverlook();
+  const api = (
+    window as unknown as {
+      overlook: {
+        restore: {
+          discover: () => Promise<unknown>;
+        };
+      };
+    }
+  ).overlook;
+  api.restore.discover = () =>
+    Promise.resolve({
+      sessionId: 'unreadable-session',
+      libraries: [
+        {
+          libraryId: '01JUNREADABLENAMESPACE00001',
+          generation: null,
+          generatedAt: null,
+          photos: null,
+          totalBytes: null,
+          albums: null,
+          compatibility: 'unknown',
+          validation: 'corrupt',
+          fallbackGenerations: 0,
+          resumable: false,
+        },
+      ],
+      error: null,
+    });
+  try {
+    container = document.createElement('div');
+    document.body.append(container);
+    await act(async () => {
+      root = createRoot(container as HTMLElement);
+      root.render(
+        <IntlHost>
+          <RestoreWorkflow context="settings" />
+        </IntlHost>,
+      );
+      await Promise.resolve();
+    });
+    await flush();
+
+    const localKeyButton = [...container.querySelectorAll('button')].find((button) =>
+      (button.textContent ?? '').includes("Restore with this Mac's key"),
+    );
+    assert.ok(localKeyButton);
+    act(() => {
+      localKeyButton.click();
+    });
+    await flush();
+
+    assert.match(container.textContent ?? '', /No readable cloud library was found for this key/u);
+    assert.match(container.textContent ?? '', /The cloud copy failed validation/u);
+    assert.doesNotMatch(container.textContent ?? '', /Check your connection/u);
+  } finally {
+    mocked.restore();
+  }
+});
