@@ -12,6 +12,13 @@ export const ZOOM_DEFAULT = 160;
 
 export interface AppState {
   readonly photos: readonly PhotoRecord[];
+  /** Per-photo cache-bust counter for the thumb/poster URL. A derivative can be
+   * regenerated in place (a video poster captured after import, a RAW preview
+   * repaired) without the record — and hence its stable thumb URL — changing,
+   * so an already-loaded <img> would never refetch. Bumping this on the
+   * library:changed ids appends a fresh query token, forcing exactly those
+   * tiles to reload without a navigation. */
+  readonly thumbEpoch: Readonly<Record<string, number>>;
   readonly query: string;
   readonly zoom: number;
   readonly view: ViewMode;
@@ -57,6 +64,7 @@ export interface AppState {
 
 export const initialAppState: AppState = {
   photos: [],
+  thumbEpoch: {},
   query: '',
   zoom: ZOOM_DEFAULT,
   view: 'grid',
@@ -90,6 +98,7 @@ export type AppAction =
       type: 'photos/sync-state-patched';
       updates: readonly { readonly id: string; readonly syncState: PhotoRecord['syncState'] }[];
     }
+  | { type: 'thumbs/invalidated'; photoIds: readonly string[] }
   | { type: 'query/set'; query: string }
   | { type: 'zoom/set'; zoom: number }
   | { type: 'view/set'; view: ViewMode }
@@ -157,6 +166,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           return syncState === undefined || syncState === photo.syncState ? photo : { ...photo, syncState };
         }),
       };
+    }
+    case 'thumbs/invalidated': {
+      // Bump only the changed ids so exactly their tiles refetch; untouched
+      // tiles keep their cached image. A no-op list leaves state identical.
+      if (action.photoIds.length === 0) return state;
+      const thumbEpoch = { ...state.thumbEpoch };
+      for (const id of action.photoIds) thumbEpoch[id] = (thumbEpoch[id] ?? 0) + 1;
+      return { ...state, thumbEpoch };
     }
     case 'query/set':
       return { ...state, query: action.query };

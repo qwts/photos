@@ -38,6 +38,8 @@ const defaultYield = async (): Promise<void> => new Promise((resolve) => setImme
  * keeps peak memory to one offscreen frame plus the thumbnail pool's outputs. */
 export class PosterCaptureService {
   private readonly controller = new AbortController();
+  private active: Promise<PosterCaptureSummary> | null = null;
+  private queued = false;
 
   constructor(private readonly options: PosterCaptureServiceOptions) {}
 
@@ -45,7 +47,28 @@ export class PosterCaptureService {
     this.controller.abort();
   }
 
-  async capture(): Promise<PosterCaptureSummary> {
+  /** Run a capture pass, coalescing concurrent callers. The startup maintenance
+   * pass and every post-import trigger funnel through here; a call that arrives
+   * while a pass is running queues exactly one follow-up pass (never a second
+   * concurrent offscreen decode), so a video imported mid-pass still gets its
+   * poster on the trailing pass. */
+  capture(): Promise<PosterCaptureSummary> {
+    if (this.active !== null) {
+      this.queued = true;
+      return this.active;
+    }
+    const pass = this.runPass().finally(() => {
+      this.active = null;
+      if (this.queued && !this.controller.signal.aborted) {
+        this.queued = false;
+        void this.capture();
+      }
+    });
+    this.active = pass;
+    return pass;
+  }
+
+  private async runPass(): Promise<PosterCaptureSummary> {
     let scanned = 0;
     let captured = 0;
     let failed = 0;

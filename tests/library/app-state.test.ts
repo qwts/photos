@@ -23,6 +23,17 @@ describe('app state reducer', () => {
     assert.equal(apply(initialAppState, { type: 'zoom/set', zoom: 200 }).zoom, 200);
   });
 
+  test('thumbs/invalidated bumps only the named ids, so exactly their tiles refetch (#548 §6)', () => {
+    assert.deepEqual(initialAppState.thumbEpoch, {});
+    const first = apply(initialAppState, { type: 'thumbs/invalidated', photoIds: ['a', 'b'] });
+    assert.deepEqual(first.thumbEpoch, { a: 1, b: 1 });
+    // A second change to `a` alone advances only `a`; `b` keeps its cached image.
+    const second = apply(first, { type: 'thumbs/invalidated', photoIds: ['a'] });
+    assert.deepEqual(second.thumbEpoch, { a: 2, b: 1 });
+    // An empty list is a no-op and preserves referential identity.
+    assert.equal(apply(second, { type: 'thumbs/invalidated', photoIds: [] }), second);
+  });
+
   test('view switches across grid, list, and moodboard (#515)', () => {
     assert.equal(initialAppState.view, 'grid');
     assert.equal(apply(initialAppState, { type: 'view/set', view: 'moodboard' }).view, 'moodboard');

@@ -68,9 +68,13 @@ const PLACEHOLDER_ICON: Readonly<Record<'video' | 'audio' | 'probing', IconName>
 };
 
 function setPreviewUnavailable(image: HTMLImageElement, unavailable: boolean, label: string): void {
+  // Toggling data-unavailable drives the CSS: the text overlay OR, for a
+  // `video` placeholder, the film-glyph fallback. Only the text overlay carries
+  // the label — writing textContent onto the film fallback would clobber its
+  // icon and surface "PREVIEW UNAVAILABLE" on a perfectly good video tile.
   image.dataset['unavailable'] = unavailable ? 'true' : 'false';
   const fallback = image.nextElementSibling;
-  if (!(fallback instanceof HTMLElement)) return;
+  if (!(fallback instanceof HTMLElement) || !fallback.classList.contains('ovl-tile__unavailable')) return;
   fallback.textContent = unavailable ? label : '';
   if (unavailable) fallback.setAttribute('role', 'status');
   else fallback.removeAttribute('role');

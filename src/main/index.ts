@@ -245,6 +245,11 @@ function getImportService(): ImportService {
         imported: (photoIds) => {
           emitChanged({ photoIds: [...photoIds] });
           emitPending({ count: repo.stats().pending });
+          // Poster capture is a post-import background pass (§6): kick it after
+          // each batch so a freshly imported video gains its tile poster now,
+          // not only on the next launch. The service coalesces concurrent calls.
+          ensureMaintenanceServices();
+          void posterCaptureService?.capture().catch(() => undefined);
         },
       },
       fixtureSource: () => harnessEnv('OVERLOOK_IMPORT_SOURCE'),
