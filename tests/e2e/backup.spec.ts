@@ -290,3 +290,72 @@ test("restore discovery accepts this Mac's stored key without a recovery-key fil
     await app.close();
   }
 });
+
+test("a configured app lock demands fresh password authority before this Mac's key restores (#754)", async () => {
+  test.setTimeout(60_000);
+  const appPassword = 'Correct Horse Battery Staple 42!';
+  const userData = mkE2eTmpDir('overlook-e2e-local-key-authority-');
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '1',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+      OVERLOOK_APP_LOCK_TEST_ANCHOR: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+    await page.getByRole('button', { name: 'Back up' }).click();
+    await expect(page.getByTestId('screen-reader-announcer-polite')).toContainText('Backup complete', { timeout: 20_000 });
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('tab', { name: 'Privacy' }).click();
+    await page.getByRole('button', { name: 'Set password…' }).click();
+    const setDialog = page.getByRole('dialog', { name: 'Set app password' });
+    await setDialog.getByLabel('New password').fill(appPassword);
+    await setDialog.getByLabel('Confirm password').fill(appPassword);
+    await setDialog.getByRole('button', { name: 'Set app password' }).click();
+    await page.getByLabel('App password').fill(appPassword);
+    await page.getByRole('button', { name: 'Unlock' }).click();
+    await page.getByTestId('virtual-grid').waitFor();
+
+    // Main enforces the ceremony: the renderer's dialog is convenience only.
+    const refused = await page.evaluate<{ sessionId: string | null; reason: string | null }>(
+      `window.overlook.restore.discover({ providerId: 'mock', localKey: true }).then((r) => ({
+         sessionId: r.sessionId,
+         reason: r.error === null ? null : r.error.reason,
+       }))`,
+    );
+    expect(refused.sessionId).toBeNull();
+    expect(refused.reason).toBe('destructive-authorization');
+
+    const wrong = await page.evaluate<{ sessionId: string | null; reason: string | null; message: string }>(
+      `window.overlook.restore.discover({ providerId: 'mock', localKey: true, password: 'not the app password' }).then((r) => ({
+         sessionId: r.sessionId,
+         reason: r.error === null ? null : r.error.reason,
+         message: r.error === null ? '' : r.error.message,
+       }))`,
+    );
+    expect(wrong.sessionId).toBeNull();
+    expect(wrong.reason).toBe('destructive-authorization');
+    expect(wrong.message).toContain('incorrect');
+
+    // The failed attempt armed the unlock throttle (1s at one failure) —
+    // authority shares the lock's throttle rather than its own counter.
+    await page.waitForTimeout(1200);
+    const granted = await page.evaluate<{ sessionId: string | null; validations: string[] }>(
+      `window.overlook.restore.discover({ providerId: 'mock', localKey: true, password: ${JSON.stringify(appPassword)} }).then((r) => ({
+         sessionId: r.sessionId,
+         validations: r.libraries.map((library) => library.validation),
+       }))`,
+    );
+    expect(granted.sessionId).not.toBeNull();
+    expect(granted.validations).toEqual(['valid']);
+  } finally {
+    await app.close();
+  }
+});
