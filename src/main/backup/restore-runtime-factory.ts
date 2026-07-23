@@ -1,6 +1,10 @@
 import { app } from 'electron';
 
+import path from 'node:path';
+
 import { RestoreRuntime } from './restore-runtime.js';
+import { OsCredentialAnchorStore } from '../crypto/credential-anchor.js';
+import { TestFileCredentialAnchorStore } from '../crypto/test-credential-anchor.js';
 import { activationOperationsForHarness } from './restore-fault.js';
 import type { SafeStorageLike } from '../crypto/keystore.js';
 
@@ -41,6 +45,15 @@ export function createRestoreRuntime(options: RestoreRuntimeFactoryOptions): Res
     progress: options.progress,
     beforeActivate: options.beforeActivate,
     activationOperations: activationOperationsForHarness(options.harnessEnv('OVERLOOK_RESTORE_FAULT')),
+    // Mirrors buildAppLockController's store selection (#753): the anchor the
+    // lock will consult on relaunch is the one activation must reconcile.
+    resetLockAnchor: () => {
+      const store =
+        options.harnessEnv('OVERLOOK_APP_LOCK_TEST_ANCHOR') === '1'
+          ? new TestFileCredentialAnchorStore(path.join(app.getPath('userData'), 'app-lock-test-anchor.json'))
+          : new OsCredentialAnchorStore({ dataDir: options.targetDir });
+      store.clear();
+    },
     workStarted: () => options.workChanged(1),
     workFinished: () => options.workChanged(-1),
     activated: () => {

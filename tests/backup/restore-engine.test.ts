@@ -447,3 +447,73 @@ test('restore engine: provider authentication and offline failures retain typed 
   const offlineDeps: RestoreEngineDeps = { ...offlineWorld.deps, provider: faulty };
   await assert.rejects(new RestoreEngine(offlineDeps).run({ masterKey: offlineWorld.masterKey, allowReplace: false }), isReason('offline'));
 });
+
+test('restore engine: activation reconciles the app-lock anchor exactly once; failures never touch it (#753)', async () => {
+  const world = await restoreWorld();
+  let resets = 0;
+  const result = await new RestoreEngine({ ...world.deps, resetLockAnchor: () => (resets += 1) }).run({
+    masterKey: world.masterKey,
+    allowReplace: false,
+  });
+  assert.equal(result.photos, 1);
+  assert.equal(resets, 1, 'the stale anchor cleared as part of activation');
+
+  const broken = await restoreWorld();
+  const lost = broken.photos[0];
+  assert.ok(lost !== undefined);
+  await broken.provider.delete(lost.blobPath);
+  let brokenResets = 0;
+  await assert.rejects(
+    new RestoreEngine({ ...broken.deps, resetLockAnchor: () => (brokenResets += 1) }).run({
+      masterKey: broken.masterKey,
+      allowReplace: false,
+    }),
+  );
+  assert.equal(brokenResets, 0, 'a restore that never activated must not touch the anchor');
+});
+
+test('restore engine: an anchor-reset failure never undoes a completed activation (#753)', async () => {
+  const world = await restoreWorld();
+  const result = await new RestoreEngine({
+    ...world.deps,
+    resetLockAnchor: () => {
+      throw new Error('keychain unavailable');
+    },
+  }).run({ masterKey: world.masterKey, allowReplace: false });
+  assert.equal(result.photos, 1, 'the restore result stands');
+});
+
+test('restore engine: activation reconciles the app-lock anchor exactly once; failures never touch it (#753)', async () => {
+  const world = await restoreWorld();
+  let resets = 0;
+  const result = await new RestoreEngine({ ...world.deps, resetLockAnchor: () => (resets += 1) }).run({
+    masterKey: world.masterKey,
+    allowReplace: false,
+  });
+  assert.equal(result.photos, 1);
+  assert.equal(resets, 1, 'the stale anchor cleared as part of activation');
+
+  const broken = await restoreWorld();
+  const lost = broken.photos[0];
+  assert.ok(lost !== undefined);
+  await broken.provider.delete(lost.blobPath);
+  let brokenResets = 0;
+  await assert.rejects(
+    new RestoreEngine({ ...broken.deps, resetLockAnchor: () => (brokenResets += 1) }).run({
+      masterKey: broken.masterKey,
+      allowReplace: false,
+    }),
+  );
+  assert.equal(brokenResets, 0, 'a restore that never activated must not touch the anchor');
+});
+
+test('restore engine: an anchor-reset failure never undoes a completed activation (#753)', async () => {
+  const world = await restoreWorld();
+  const result = await new RestoreEngine({
+    ...world.deps,
+    resetLockAnchor: () => {
+      throw new Error('keychain unavailable');
+    },
+  }).run({ masterKey: world.masterKey, allowReplace: false });
+  assert.equal(result.photos, 1, 'the restore result stands');
+});

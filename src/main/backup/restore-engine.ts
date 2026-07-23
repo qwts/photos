@@ -41,6 +41,11 @@ export interface RestoreEngineDeps {
   readonly thumbnails: (store: BlobStore) => Pick<ThumbnailService, 'generateFor'>;
   readonly availableBytes?: ((path: string) => Promise<number>) | undefined;
   readonly activationOperations?: ActivationOperations | undefined;
+  /** Reconciles the ADR-0013 app-lock freshness anchor after activation
+   * (#753): the restored library carries no app-lock record, so the stale
+   * anchor from the replaced library reads as a rollback attack and
+   * fail-closes the relaunch into 'Recovery required'. */
+  readonly resetLockAnchor?: (() => void) | undefined;
   readonly beforeActivate?: (() => Promise<void>) | undefined;
   readonly events: { progress(progress: RestoreProgress): void };
 }
@@ -153,6 +158,15 @@ export class RestoreEngine {
     this.emit('activating', 0, 1, null);
     await this.deps.beforeActivate?.();
     await activateStagedLibrary(paths, this.deps.activationOperations);
+    try {
+      // Immediately after the rename: the activated library must not relaunch
+      // against the replaced library's anchor. A crash before this line keeps
+      // today's recoverable-with-key behavior; a clear failure must not undo
+      // an activation that already succeeded.
+      this.deps.resetLockAnchor?.();
+    } catch (error) {
+      console.error(`[overlook] app-lock anchor reset failed after restore: ${error instanceof Error ? error.message : String(error)}`);
+    }
     await rm(join(paths.targetDir, 'restore-checkpoint.json'), { force: true });
     this.emit('complete', 1, 1, null);
     return {
