@@ -384,7 +384,10 @@ migration 18 (#515) adds a `boards` table — album-class moodboard organization
 metadata (board fields in columns; the ordered placement list as canonical JSON
 in a `placements` column). Placements are references, so `boards` has **no
 foreign key to `photos`**: deleting a photo leaves an "unavailable" placement
-rather than cascading the layout away.
+rather than cascading the layout away. Migration 19 (#741) adds
+`backup_manifest_debt` — a single-row flag recording that the remote is owed a
+manifest generation, durable across restart so an interrupted or fail-closed
+backup run never forgets the stale remote manifest.
 
 **10 migrations**, forward-only with no down path, each applied in its own
 transaction and tracked in `schema_migrations(version, applied_at)` — _not_
