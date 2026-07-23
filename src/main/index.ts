@@ -774,6 +774,9 @@ function getRestoreRuntime(): RestoreRuntime {
   restoreRuntime ??= createRestoreRuntime({
     targetDir: libraryDataDir(),
     safeStorage: pickSafeStorage,
+    // "Use this Mac's saved key" (#741 follow-up): an open library's own
+    // keystore restores its cloud backups without the exported key file.
+    localMasterKey: () => requireParts('restore key').keyStore.masterKeyBytes(),
     sources: (providerId) => ensureRestoreProviderRegistry().restoreSources(providerId),
     sessionId: ulid,
     progress: createEmitter(events.restoreProgress, (name, payload) => {

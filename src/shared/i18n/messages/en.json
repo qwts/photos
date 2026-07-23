@@ -923,6 +923,18 @@
   "restore.local.openingExisting": {
     "defaultMessage": "Opening local library…"
   },
+  "restore.localKey.action": {
+    "defaultMessage": "Restore with this Mac's key"
+  },
+  "restore.localKey.hero": {
+    "defaultMessage": "Restore with this Mac's saved key, or use your separately saved recovery key. The key is never stored in the cloud."
+  },
+  "restore.localKey.hint": {
+    "defaultMessage": "This library's stored key restores its own backups — no key file needed."
+  },
+  "restore.localKey.noMatch": {
+    "defaultMessage": "No cloud library matches this Mac's stored key."
+  },
   "settings.diagnostics.alreadyGone": {
     "defaultMessage": "That report was already gone."
   },

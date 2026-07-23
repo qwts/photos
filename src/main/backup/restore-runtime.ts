@@ -12,6 +12,7 @@ export interface RestoreRuntimeOptions {
   readonly targetDir: string;
   readonly workerUrl: URL;
   readonly safeStorage: () => SafeStorageLike;
+  readonly localMasterKey?: (() => Buffer | null) | undefined;
   readonly sources: (providerId: string) => Promise<readonly RestoreSource[]>;
   readonly sessionId: () => string;
   readonly progress: (value: RestoreProgress) => void;
@@ -28,6 +29,7 @@ export class RestoreRuntime {
   constructor(options: RestoreRuntimeOptions) {
     this.coordinator = new RestoreCoordinator({
       readRecoveryKey: readRecoveryKeyFile,
+      localMasterKey: options.localMasterKey,
       sources: options.sources,
       createRunner: (provider: StorageProvider, progress) => {
         const pool = new ThumbnailPool({ workerUrl: options.workerUrl });
