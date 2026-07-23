@@ -15,30 +15,35 @@ type DiscoverKey = { keyPath: string; password: string } | { localKey: true; pas
 
 type GateError = { reason: RestoreError['reason']; message: string };
 
+type LocalKeyGate = { readonly refused: GateError } | { readonly custodyPassword?: string };
+
 /** #754: releasing the keystore-resident master key to restore discovery is
  * destructive-class authority (it can replace the active library). When an
  * app lock is configured, demand the app password at use time — the same
  * fresh-authority ceremony as protected-Original deletion (ADR-0023). The
- * renderer's password field is convenience; this gate is the contract. */
-async function authorizeLocalKey(options: RestoreFacadeOptions, password: string | undefined): Promise<GateError | null> {
+ * renderer's password field is convenience; this gate is the contract.
+ * The custody decision is made HERE, atomically with authorization (PR #757
+ * review): re-reading lock state later could drop a verified password if the
+ * app locks in between. */
+async function authorizeLocalKey(options: RestoreFacadeOptions, password: string | undefined): Promise<LocalKeyGate> {
   const state = options.lockState();
-  if (state === 'unconfigured-unlocked') return null;
+  if (state === 'unconfigured-unlocked') return {};
   if (state !== 'unlocked') {
-    return { reason: 'destructive-authorization', message: "Unlock the app before restoring with this Mac's key." };
+    return { refused: { reason: 'destructive-authorization', message: "Unlock the app before restoring with this Mac's key." } };
   }
   if (password === undefined || password === '') {
-    return { reason: 'destructive-authorization', message: "Enter your app password to restore with this Mac's key." };
+    return { refused: { reason: 'destructive-authorization', message: "Enter your app password to restore with this Mac's key." } };
   }
   const result = await options.authorizePassword(password);
-  if (result.ok) return null;
+  if (result.ok) return { custodyPassword: password };
   if (result.reason === 'throttled') {
     const seconds = Math.max(1, Math.ceil((result.retryAfterMs ?? 0) / 1000));
-    return { reason: 'destructive-authorization', message: `Too many password attempts. Try again in ${String(seconds)}s.` };
+    return { refused: { reason: 'destructive-authorization', message: `Too many password attempts. Try again in ${String(seconds)}s.` } };
   }
   if (result.reason === 'wrong-password') {
-    return { reason: 'destructive-authorization', message: 'That app password is incorrect.' };
+    return { refused: { reason: 'destructive-authorization', message: 'That app password is incorrect.' } };
   }
-  return { reason: 'destructive-authorization', message: 'App lock recovery is required before this key can be used.' };
+  return { refused: { reason: 'destructive-authorization', message: 'App lock recovery is required before this key can be used.' } };
 }
 
 export function createRestoreFacade(options: RestoreFacadeOptions) {
@@ -49,13 +54,21 @@ export function createRestoreFacade(options: RestoreFacadeOptions) {
       if ('keyPath' in key) {
         return options.coordinator().discoverFrom(providerId, { kind: 'recovery-key', path: key.keyPath, password: key.password });
       }
-      const refused = await authorizeLocalKey(options, key.password);
-      if (refused !== null) return { sessionId: null, libraries: [], error: refused };
+      const gate = await authorizeLocalKey(options, key.password);
+      if ('refused' in gate) {
+        // A refusal must not leave an earlier discovery's master key
+        // runnable (PR #757 review) — discovery normally expires the prior
+        // session, so the refused path has to as well.
+        options.coordinator().expireSession();
+        return { sessionId: null, libraries: [], error: gate.refused };
+      }
       // The password reaches the coordinator only after authorizePassword
       // verified it; the engine reuses it to re-establish password-derived
       // custody for the restored library (#754's second half).
-      const custody = options.lockState() === 'unlocked' && key.password !== undefined ? { custodyPassword: key.password } : {};
-      return options.coordinator().discoverFrom(providerId, { kind: 'local-master', ...custody });
+      return options.coordinator().discoverFrom(providerId, {
+        kind: 'local-master',
+        ...(gate.custodyPassword === undefined ? {} : { custodyPassword: gate.custodyPassword }),
+      });
     },
     run: (sessionId: string, libraryId: string, allowReplace: boolean) => {
       if (options.busy()) {

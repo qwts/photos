@@ -12,11 +12,16 @@ import type { AppAuthorizationResult, AppLockState } from '../../src/main/crypto
 // With a lock configured, discovery demands the app password at use time and
 // refuses in the main process regardless of what the renderer sent.
 
-function harness(options?: { busy?: boolean; lockState?: AppLockState; authorize?: (password: string) => AppAuthorizationResult }) {
-  const calls: { discovered: [string, RestoreKeySource][]; ran: string[]; authorized: string[] } = {
+function harness(options?: {
+  busy?: boolean;
+  lockState?: AppLockState | (() => AppLockState);
+  authorize?: (password: string) => AppAuthorizationResult;
+}) {
+  const calls: { discovered: [string, RestoreKeySource][]; ran: string[]; authorized: string[]; expired: number } = {
     discovered: [],
     ran: [],
     authorized: [],
+    expired: 0,
   };
   const coordinator = {
     discoverFrom: (providerId: string, source: RestoreKeySource) => {
@@ -27,6 +32,9 @@ function harness(options?: { busy?: boolean; lockState?: AppLockState; authorize
       calls.ran.push(sessionId);
       return Promise.resolve({ result: null, error: null });
     },
+    expireSession: () => {
+      calls.expired += 1;
+    },
     cancel: () => undefined,
   } as unknown as RestoreCoordinator;
   const facade = createRestoreFacade({
@@ -34,7 +42,10 @@ function harness(options?: { busy?: boolean; lockState?: AppLockState; authorize
     fresh: () => true,
     pickKey: () => Promise.resolve('/tmp/key.ovrk'),
     busy: () => options?.busy ?? false,
-    lockState: () => options?.lockState ?? 'unconfigured-unlocked',
+    lockState: () => {
+      const state = options?.lockState ?? 'unconfigured-unlocked';
+      return typeof state === 'function' ? state() : state;
+    },
     authorizePassword: (password) => {
       calls.authorized.push(password);
       return Promise.resolve(options?.authorize?.(password) ?? { ok: true });
@@ -100,6 +111,32 @@ test('a locked or recovery-required app refuses local-key discovery outright (#7
     assert.deepEqual(calls.discovered, []);
     assert.deepEqual(calls.authorized, [], 'authorize is for open sessions; locked states fail closed first');
   }
+});
+
+test('every local-key refusal expires the prior discovery session (#757 review)', async () => {
+  const missing = harness({ lockState: 'unlocked' });
+  await missing.facade.discover('pcloud', { localKey: true });
+  assert.equal(missing.calls.expired, 1, 'a missing password refusal expires the session');
+
+  const wrong = harness({ lockState: 'unlocked', authorize: () => ({ ok: false, reason: 'wrong-password' }) });
+  await wrong.facade.discover('pcloud', { localKey: true, password: 'nope' });
+  assert.equal(wrong.calls.expired, 1, 'a wrong password refusal expires the session');
+
+  const locked = harness({ lockState: 'locked' });
+  await locked.facade.discover('pcloud', { localKey: true, password: 'pw' });
+  assert.equal(locked.calls.expired, 1, 'a locked-state refusal expires the session');
+
+  const granted = harness({ lockState: 'unlocked' });
+  await granted.facade.discover('pcloud', { localKey: true, password: 'pw' });
+  assert.equal(granted.calls.expired, 0, 'a granted discovery expires the old session itself');
+});
+
+test('a verified password survives a lock transition between authorization and forwarding (#757 review)', async () => {
+  const states: AppLockState[] = ['unlocked', 'locked'];
+  const { facade, calls } = harness({ lockState: () => states.shift() ?? 'locked' });
+  const response = await facade.discover('pcloud', { localKey: true, password: 'still counts' });
+  assert.equal(response.error, null);
+  assert.deepEqual(calls.discovered, [['pcloud', { kind: 'local-master', custodyPassword: 'still counts' }]]);
 });
 
 test('runs are refused while provider work is active; idle runs delegate', async () => {

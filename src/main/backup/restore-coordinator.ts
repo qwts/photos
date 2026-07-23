@@ -96,6 +96,15 @@ export class RestoreCoordinator {
     return this.discoverFrom(providerId, { kind: 'recovery-key', path: keyPath, password });
   }
 
+  /** Drops the discovered session (#757 review): a refused local-key
+   * authorization must not leave a prior session's master key runnable.
+   * An active run owns the session key, so it is left untouched — the same
+   * rule discovery itself follows. */
+  expireSession(): void {
+    if (this.controller !== null) return;
+    this.clearSession();
+  }
+
   discoverFrom(providerId: string, source: RestoreKeySource): Promise<RestoreDiscoverResponse> {
     return this.track(() => this.discoverOperation(providerId, source));
   }
