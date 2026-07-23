@@ -18,6 +18,7 @@ export interface RestoreRuntimeOptions {
   readonly progress: (value: RestoreProgress) => void;
   readonly beforeActivate: () => Promise<void>;
   readonly activationOperations?: ActivationOperations | undefined;
+  readonly resetLockAnchor?: (() => void) | undefined;
   readonly workStarted: () => void;
   readonly workFinished: () => void;
   readonly activated: (result: RestoreRunResult) => void;
@@ -40,6 +41,7 @@ export class RestoreRuntime {
           thumbnails: (store) => new ThumbnailService(pool, store),
           beforeActivate: options.beforeActivate,
           activationOperations: options.activationOperations,
+          resetLockAnchor: options.resetLockAnchor,
           events: { progress },
         });
         return {
