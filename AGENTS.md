@@ -178,6 +178,9 @@ this file in the same PR as the change — never after the fact.
   Iterating in CI burns a full runner cycle per guess and notifies the owner
   on every failure. (E2E under Xvfb is the one lane that can legitimately
   disagree with a local pass; say so on the PR when claiming that.)
+- **Never bypass the Husky pre-push hook with `--no-verify`.** It runs the exact
+  `npm run lint` entrypoint used by the hosted lint job, including both 800-line
+  file-size tripwires. Fix the local failure before pushing.
 - The macOS package job also loads the native HEIC decoder from the packaged
   app and decodes the checked-in iPhone fixture. Keep
   `scripts/verify-macos-heic-preview.mjs` and its readiness marker current when
