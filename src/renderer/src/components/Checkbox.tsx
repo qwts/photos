@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 
 import './inputs.css';
-import { Icon } from './Icon';
+import { Icon } from './Icon.js';
 
 export interface CheckboxProps {
   readonly checked: boolean;

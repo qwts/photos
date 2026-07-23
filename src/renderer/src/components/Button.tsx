@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactElement } from 'react';
 
 import './controls.css';
-import { Icon, type IconName } from './Icon';
+import { Icon, type IconName } from './Icon.js';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ControlSize = 'sm' | 'md' | 'lg';

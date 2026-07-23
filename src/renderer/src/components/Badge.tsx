@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactElement } from 'react';
 
 import './controls.css';
-import { Icon, type IconName } from './Icon';
+import { Icon, type IconName } from './Icon.js';
 
 export type BadgeTone = 'neutral' | 'cyan' | 'amber' | 'green' | 'red';
 
