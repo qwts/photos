@@ -935,6 +935,12 @@
   "restore.localKey.noMatch": {
     "defaultMessage": "No cloud library matches this Mac's stored key."
   },
+  "restore.localKey.passwordHelp": {
+    "defaultMessage": "Your app lock protects this Mac's stored key. Enter the password you unlock Overlook with."
+  },
+  "restore.localKey.passwordLabel": {
+    "defaultMessage": "App password"
+  },
   "settings.diagnostics.alreadyGone": {
     "defaultMessage": "That report was already gone."
   },

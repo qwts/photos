@@ -316,6 +316,8 @@ export const en: Readonly<Record<string, string>> = {
   "restore.localKey.hero": "Restore with this Mac's saved key, or use your separately saved recovery key. The key is never stored in the cloud.",
   "restore.localKey.hint": "This library's stored key restores its own backups — no key file needed.",
   "restore.localKey.noMatch": "No cloud library matches this Mac's stored key.",
+  "restore.localKey.passwordHelp": "Your app lock protects this Mac's stored key. Enter the password you unlock Overlook with.",
+  "restore.localKey.passwordLabel": "App password",
   "settings.diagnostics.alreadyGone": "That report was already gone.",
   "settings.diagnostics.cancel": "Cancel",
   "settings.diagnostics.cannotUndo": "This cannot be undone.",
