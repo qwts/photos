@@ -67,20 +67,22 @@ this file in the same PR as the change — never after the fact.
   work; push regularly so CI and the draft PR stay current. No end-of-session
   mega-commits.
 - **Queue the merge yourself.** Right after `gh pr ready`, run
-  `gh pr merge <n> --auto --rebase`. GitHub's real merge queue is
+  `gh pr merge <n> --auto --merge`. GitHub's real merge queue is
   organizations-only, so this repo runs the hand-rolled equivalent
   (`.github/workflows/auto-update-prs.yml`): after every merge to `main` the
-  workflow rebases each open ready PR onto the new tip and re-dispatches CI,
-  the ruleset's strict up-to-date requirement stops auto-merge from landing a
-  stale-green combination, and auto-merge lands the PR once its rebased head
-  is green and review threads are resolved. **Never manually rebase or
-  "update" a branch that is merely behind `main`** — that chore is the
-  automation's job. Rebase only to resolve a real conflict (the workflow skips
+  workflow updates each open ready PR by **merging `main` into it** (GitHub's
+  update-branch API — no rebase, no force-push), which fires that PR's CI on
+  the true merged state; the ruleset's strict up-to-date requirement stops
+  auto-merge from landing a stale-green combination, and auto-merge lands the
+  PR as a merge commit once its updated head is green and review threads are
+  resolved. **Never manually rebase, merge `main` in, or "update" a branch
+  that is merely behind `main`** — that chore is the automation's job. Touch
+  history yourself only to resolve a real conflict (the workflow skips
   conflicting branches; the PR shows CONFLICTING — see Branch And GitHub
-  Hygiene). Because automation may rebase your branch between your pushes,
-  run `git pull --rebase` before pushing. Dependabot branches are excluded —
-  comment `@dependabot rebase` on those instead. After any rebase that
-  changes `package-lock.json`, run `npm ci` before trusting local gates: a
+  Hygiene). The automation no longer rewrites your branch, so a plain
+  `git pull` before pushing fast-forwards cleanly. Dependabot branches are
+  excluded — comment `@dependabot rebase` on those instead. After any update
+  that changes `package-lock.json`, run `npm ci` before trusting local gates: a
   stale install fails E2E in ways that look like flakes (an Electron bump
   landing mid-session produced two identical timeout failures this way).
 - **Draft CI is the fast lane only.** On draft PRs CI runs the deterministic
@@ -126,7 +128,8 @@ this file in the same PR as the change — never after the fact.
   it. Never resolve threads silently.
 - If a push seems to not trigger CI, or a PR shows a stale failing check: check
   `gh pr view <n> --json mergeable` FIRST — GitHub creates no workflow runs for
-  a CONFLICTING PR. Rebase onto `main`, then push.
+  a CONFLICTING PR. Merge `main` into the branch (`git merge origin/main`),
+  resolve, then push.
 
 ## Documentation And Validation
 
