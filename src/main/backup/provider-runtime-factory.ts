@@ -9,6 +9,7 @@ import { pickSafeStorage } from '../crypto/safe-storage-runtime.js';
 import { getSettingsStore } from '../settings/settings-runtime.js';
 import { createNativeICloudDriveBridge } from './icloud-drive/native-bridge.js';
 import { DeterministicICloudDriveBridge } from './icloud-drive/deterministic-bridge.js';
+import { pcloudFeatureConfig } from '../build-config.js';
 
 // ProviderRuntime wiring (#256), extracted from the composition root.
 // Provider credentials are profile-level (they survive library replacement
@@ -26,6 +27,7 @@ export interface ProviderRuntimeFactoryDeps {
 }
 
 export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): ProviderRuntime {
+  const pcloud = pcloudFeatureConfig(deps.harnessEnv);
   const iCloudDriveBridge =
     deps.harnessEnv('OVERLOOK_ICLOUD_FAKE') === '1'
       ? new DeterministicICloudDriveBridge()
@@ -41,6 +43,8 @@ export function createProviderRuntime(deps: ProviderRuntimeFactoryDeps): Provide
     isPackaged: app.isPackaged,
     harnessEnv: deps.harnessEnv,
     googleDriveClientId: () => deps.harnessEnv('OVERLOOK_GOOGLE_DRIVE_CLIENT_ID') ?? null,
+    pcloudEnabled: pcloud.enabled,
+    pcloudClientId: () => pcloud.clientId,
     storageTimeoutMs: storageTimeout(deps.harnessEnv('OVERLOOK_PROVIDER_STORAGE_TIMEOUT_MS')),
     iCloudDriveBridge,
     switchGuard:

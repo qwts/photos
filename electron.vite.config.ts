@@ -53,6 +53,8 @@ export default defineConfig({
     define: {
       __OVERLOOK_GOOGLE_DRIVE_CLIENT_ID__: JSON.stringify(process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_ID'] ?? ''),
       __OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET__: JSON.stringify(process.env['OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET'] ?? ''),
+      __OVERLOOK_PCLOUD_ENABLED__: JSON.stringify(process.env['OVERLOOK_PCLOUD_ENABLED'] ?? ''),
+      __OVERLOOK_PCLOUD_CLIENT_ID__: JSON.stringify(process.env['OVERLOOK_PCLOUD_CLIENT_ID'] ?? ''),
     },
     build: {
       ...HARDENED_BUILD,

@@ -1227,7 +1227,11 @@
       "coverage": [
         {
           "type": "playwright-e2e",
-          "path": "tests/e2e/settings.spec.ts"
+          "paths": ["tests/e2e/settings.spec.ts", "tests/e2e/albums.spec.ts"]
+        },
+        {
+          "type": "unit-dom",
+          "paths": ["tests/backup/provider-runtime.test.ts", "tests/main/application-menu-model.test.ts", "tests/main/build-config.test.ts"]
         },
         {
           "type": "storybook",

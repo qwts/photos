@@ -69,15 +69,19 @@ import { ThumbService } from './thumbs/thumb-service.js';
 import { exitForReleaseSmokeIfRequested } from './release-smoke.js';
 import { registerEarlyRuntime } from './early-runtime.js';
 import { installApplicationMenu, refreshApplicationMenu } from './application-menu.js';
-import { configureInteropRuntime as configureInterop, interopRuntimeBusy, lockInteropRuntime } from './interop/runtime.js';
-import { closeProductionInboundMoveLibrary, configureProductionInboundMove } from './interop/inbound-move-production.js';
+import { interopRuntimeBusy, lockInteropRuntime } from './interop/runtime.js';
+import { closeProductionInboundMoveLibrary } from './interop/inbound-move-production.js';
+import { configurePCloudInteropFeature } from './interop/feature-runtime.js';
 import { WorkTracker } from './work-tracker.js';
 import type { LibraryParts } from './library/library-parts.js';
+import { pcloudFeatureConfig } from './build-config.js';
 
 // Test/dev steering hooks (#72/#129) are unpackaged-only; runtime tuning stays outside this gate.
 function harnessEnv(name: string): string | undefined {
   return app.isPackaged ? undefined : process.env[name];
 }
+
+const pcloud = pcloudFeatureConfig(harnessEnv);
 
 // Configure the stable profile identity before the first userData lookup.
 const userDataOverride = configureAppProfile(app, process.env['OVERLOOK_USER_DATA']);
@@ -797,18 +801,17 @@ function getRestoreRuntime(): RestoreRuntime {
 
 void externalOpen.whenReady().then(async () => {
   if (await exitForReleaseSmokeIfRequested(app)) return;
-  configureInterop(
-    app.getPath('userData'),
-    pickSafeStorage(),
-    (url) => shell.openExternal(url),
-    harnessEnv('OVERLOOK_INTEROP_PCLOUD_ROOT'),
-  );
-  configureProductionInboundMove(
-    () => requireParts('inbound Move'),
-    () => getImportService() && importRuntime,
-    () => harnessEnv('OVERLOOK_INTEROP_PAIRING_BUNDLE'),
-    scheduleAutoBackup,
-  );
+  configurePCloudInteropFeature({
+    config: pcloud,
+    profileDirectory: app.getPath('userData'),
+    safeStorage: pickSafeStorage(),
+    openExternal: (url) => shell.openExternal(url),
+    pcloudFixtureRoot: harnessEnv('OVERLOOK_INTEROP_PCLOUD_ROOT'),
+    library: () => requireParts('inbound Move'),
+    imports: () => getImportService() && importRuntime,
+    pairingFixture: () => harnessEnv('OVERLOOK_INTEROP_PAIRING_BUNDLE'),
+    imported: scheduleAutoBackup,
+  });
   // Settle relocation journals FIRST (ADR-0022 §2): recovery may re-point the
   // registry (roll a commit forward), so it must run before resolveActive()
   // caches an entry and before anything opens or classifies libraries. A
@@ -872,6 +875,7 @@ void externalOpen.whenReady().then(async () => {
     authorizePassword: (password) => lock.authorize(password),
     safeStorage: pickSafeStorage,
     providerBusy: custodyWorkActive,
+    pcloudEnabled: pcloud.enabled,
     onManifestChanged: markManifestDebt,
     onImported: () => {
       getBackupEngine();

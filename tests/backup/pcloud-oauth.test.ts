@@ -2,7 +2,6 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  PCLOUD_CLIENT_ID,
   PCLOUD_REDIRECT_URI,
   PCloudOAuthError,
   buildAuthorizeUrl,
@@ -17,10 +16,10 @@ import {
 
 describe('pCloud OAuth helpers (#254)', () => {
   test('buildAuthorizeUrl carries the implicit-flow contract', () => {
-    const url = new URL(buildAuthorizeUrl('nonce-1'));
+    const url = new URL(buildAuthorizeUrl('nonce-1', 'public-test-client'));
     assert.equal(url.origin, 'https://my.pcloud.com');
     assert.equal(url.pathname, '/oauth2/authorize');
-    assert.equal(url.searchParams.get('client_id'), PCLOUD_CLIENT_ID);
+    assert.equal(url.searchParams.get('client_id'), 'public-test-client');
     assert.equal(url.searchParams.get('response_type'), 'token');
     assert.equal(url.searchParams.get('redirect_uri'), PCLOUD_REDIRECT_URI);
     assert.equal(url.searchParams.get('state'), 'nonce-1');

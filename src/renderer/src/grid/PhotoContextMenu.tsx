@@ -21,7 +21,7 @@ export interface PhotoContextMenuProps {
   readonly onRemoveFromAlbum: () => void;
   readonly onOffload: () => void;
   readonly onRestoreOriginal: () => void;
-  readonly onTransfer: () => void;
+  readonly onTransfer?: (() => void) | undefined;
   readonly onTrash: () => void;
   readonly onRestore: () => void;
   readonly onPurge: () => void;
@@ -92,7 +92,7 @@ export function PhotoContextMenu({
         photo.syncState === 'offloaded'
           ? item('photo.restoreOriginal', 'cloud-download', onRestoreOriginal)
           : item('photo.offload', 'cloud-upload', onOffload),
-        item('photo.transfer', 'refresh-cw', onTransfer),
+        ...(onTransfer === undefined ? [] : [item('photo.transfer', 'refresh-cw', onTransfer)]),
         ...(trashQuickActionItem === undefined
           ? [item('photo.trash', 'trash-2', onTrash, { danger: true, separatorBefore: true })]
           : [trashQuickActionItem]),

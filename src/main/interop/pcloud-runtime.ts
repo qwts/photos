@@ -11,6 +11,7 @@ export interface InteropPCloudRuntimeOptions {
   readonly profileDirectory: string;
   readonly safeStorage: SafeStorageLike;
   readonly openExternal: (url: string) => Promise<void>;
+  readonly clientId: string;
   readonly pairing: InteropPairingCustodian;
   readonly isWorkActive?: (() => boolean) | undefined;
   readonly fetchImpl?: typeof fetch | undefined;
@@ -38,7 +39,12 @@ export class InteropPCloudRuntime {
     const connectFlow = options.connectFlow;
     this.#connect =
       connectFlow === undefined
-        ? createPCloudConnect({ tokenStore: this.#tokenStore, openExternal: options.openExternal, onConnected: () => undefined })
+        ? createPCloudConnect({
+            tokenStore: this.#tokenStore,
+            clientId: options.clientId,
+            openExternal: options.openExternal,
+            onConnected: () => undefined,
+          })
         : () => connectFlow(this.#tokenStore);
   }
 

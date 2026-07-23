@@ -11,6 +11,8 @@ test('pCloud inbound Move imports once and restores its durable ACK status after
       OVERLOOK_SEED: '4',
       OVERLOOK_INTEROP_PAIRING_BUNDLE: fixture.pairingBundle,
       OVERLOOK_INTEROP_PCLOUD_ROOT: fixture.providerRoot,
+      OVERLOOK_PCLOUD_ENABLED: '1',
+      OVERLOOK_PCLOUD_CLIENT_ID: 'public-e2e-client',
     },
   });
 
@@ -57,6 +59,8 @@ test('pCloud inbound Move imports once and restores its durable ACK status after
       OVERLOOK_SEED: '4',
       OVERLOOK_INTEROP_PAIRING_BUNDLE: fixture.pairingBundle,
       OVERLOOK_INTEROP_PCLOUD_ROOT: fixture.providerRoot,
+      OVERLOOK_PCLOUD_ENABLED: '1',
+      OVERLOOK_PCLOUD_CLIENT_ID: 'public-e2e-client',
     },
   });
   await resumed.page.getByRole('button', { name: 'Settings' }).click();

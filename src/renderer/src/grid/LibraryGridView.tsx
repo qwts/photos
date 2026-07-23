@@ -76,7 +76,7 @@ export function LibraryGridView({
   readonly platform: CommandPlatform;
   readonly onExport: (photoIds: readonly string[]) => void;
   readonly onOffload: (photoIds: readonly string[], clearSelection?: boolean) => void;
-  readonly onTransfer: (entry: 'selection' | 'lightbox', photoIds: readonly string[]) => void;
+  readonly onTransfer?: ((entry: 'selection' | 'lightbox', photoIds: readonly string[]) => void) | undefined;
 }): ReactElement {
   const intl = useIntl();
   const { formatCalendarDate, formatCount } = useFormats();
@@ -463,7 +463,7 @@ export function LibraryGridView({
             onExport([...state.selection]);
           }}
           onOffload={() => onOffload([...state.selection], true)}
-          onTransfer={() => onTransfer('selection', [...state.selection])}
+          onTransfer={onTransfer === undefined ? undefined : () => onTransfer('selection', [...state.selection])}
           onMarkOriginal={
             state.photos.some((photo) => state.selection.has(photo.id) && !photo.isOriginal)
               ? () => {
@@ -600,7 +600,11 @@ export function LibraryGridView({
               });
             });
           }}
-          onTransfer={() => onTransfer(contextPhoto.targetIds.length === 1 ? 'lightbox' : 'selection', contextPhoto.targetIds)}
+          onTransfer={
+            onTransfer === undefined
+              ? undefined
+              : () => onTransfer(contextPhoto.targetIds.length === 1 ? 'lightbox' : 'selection', contextPhoto.targetIds)
+          }
           onTrash={() => {
             void window.overlook.library
               .delete({ photoIds: [...contextPhoto.targetIds] })

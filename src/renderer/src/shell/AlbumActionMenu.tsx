@@ -12,7 +12,7 @@ export interface AlbumActionMenuProps {
   readonly y: number;
   readonly onRename: () => void;
   readonly onDelete: () => void;
-  readonly onTransfer: () => void;
+  readonly onTransfer?: (() => void) | undefined;
   readonly position: number;
   readonly total: number;
   readonly platform: CommandPlatform;
@@ -76,7 +76,16 @@ export function AlbumActionMenu({
           disabledReason: position === total - 1 ? alreadyLast : undefined,
         },
         { id: 'album.rename', label: intl.formatMessage(commandById('album.rename').label), icon: 'album', action: onRename },
-        { id: 'album.transfer', label: intl.formatMessage(commandById('album.transfer').label), icon: 'refresh-cw', action: onTransfer },
+        ...(onTransfer === undefined
+          ? []
+          : [
+              {
+                id: 'album.transfer',
+                label: intl.formatMessage(commandById('album.transfer').label),
+                icon: 'refresh-cw' as const,
+                action: onTransfer,
+              },
+            ]),
         {
           id: 'album.delete',
           label: intl.formatMessage(commandById('album.delete').label),

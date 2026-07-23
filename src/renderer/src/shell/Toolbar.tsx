@@ -162,9 +162,11 @@ export function Toolbar({ onImport, onLock, onTransfer }: ToolbarProps = {}): Re
             <IconButton icon="lock" label={intl.formatMessage(messages.lockNow)} onClick={onLock} />
           </Tooltip>
         )}
-        <Button variant="secondary" icon="refresh-cw" size="md" onClick={onTransfer}>
-          <FormattedMessage id="toolbar.transfer" defaultMessage="Transfer & Sync" />
-        </Button>
+        {onTransfer === undefined ? null : (
+          <Button variant="secondary" icon="refresh-cw" size="md" onClick={onTransfer}>
+            <FormattedMessage id="toolbar.transfer" defaultMessage="Transfer & Sync" />
+          </Button>
+        )}
         <Button
           variant="primary"
           icon="download"

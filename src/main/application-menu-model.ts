@@ -36,12 +36,13 @@ export function commandEnabled(id: CommandId, context: CommandMenuContext): bool
   switch (id) {
     case 'app.settings.open':
     case 'app.settings.open.storage':
-    case 'app.settings.open.transfer':
     case 'app.settings.open.privacy':
     case 'library.switch':
     case 'help.shortcuts':
     case 'help.open':
       return true;
+    case 'app.settings.open.transfer':
+      return context.pcloudEnabled;
     case 'app.lock.now':
       return context.appLockConfigured && !locked(context);
     case 'library.import':
@@ -234,7 +235,7 @@ function macApplicationMenuTemplate(
         separator,
         commandItem('app.settings.open', context, dispatch, translate),
         commandItem('app.settings.open.storage', context, dispatch, translate),
-        commandItem('app.settings.open.transfer', context, dispatch, translate),
+        ...(context.pcloudEnabled ? [commandItem('app.settings.open.transfer', context, dispatch, translate)] : []),
         commandItem('app.settings.open.privacy', context, dispatch, translate),
         separator,
         commandItem('app.lock.now', context, dispatch, translate),

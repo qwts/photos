@@ -32,6 +32,7 @@ const grid: CommandMenuContext = {
   hasLibrary: true,
   hasPhotos: true,
   appLockConfigured: true,
+  pcloudEnabled: true,
 };
 
 test('macOS menu is the six-menu design-system hierarchy in order (#689)', () => {
@@ -46,6 +47,13 @@ test('macOS menu is the six-menu design-system hierarchy in order (#689)', () =>
     false,
   );
   assert.equal(find(template, 'view.lightbox.close'), undefined);
+});
+
+test('pCloud-disabled menu hides the Transfer & Sync route', () => {
+  const disabled = { ...grid, pcloudEnabled: false };
+  const template = buildApplicationMenuTemplate('darwin', 'Overlook', disabled, () => {});
+  assert.equal(find(template, 'app.settings.open.transfer'), undefined);
+  assert.equal(commandEnabled('app.settings.open.transfer', disabled), false);
 });
 
 test('macOS menu items are the exact per-menu spec order (#689)', () => {

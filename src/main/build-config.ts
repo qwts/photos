@@ -1,5 +1,7 @@
 declare const __OVERLOOK_GOOGLE_DRIVE_CLIENT_ID__: string;
 declare const __OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET__: string;
+declare const __OVERLOOK_PCLOUD_ENABLED__: string;
+declare const __OVERLOOK_PCLOUD_CLIENT_ID__: string;
 
 /** OAuth desktop client IDs are public identifiers, not secrets. The build
  * embeds the owner-supplied ID; an empty build keeps Drive visible but
@@ -15,4 +17,20 @@ export function bundledGoogleDriveClientId(): string | null {
 export function bundledGoogleDriveClientSecret(): string | null {
   const value = typeof __OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET__ === 'string' ? __OVERLOOK_GOOGLE_DRIVE_CLIENT_SECRET__.trim() : '';
   return value === '' ? null : value;
+}
+
+export interface PCloudFeatureConfig {
+  readonly enabled: boolean;
+  readonly clientId: string | null;
+}
+
+/** pCloud is disabled unless both the opt-in flag and a public OAuth client
+ * ID are supplied. Unpackaged harness values override the bundled inputs;
+ * packaged callers pass an env reader that always returns undefined. */
+export function pcloudFeatureConfig(harnessEnv: (name: string) => string | undefined): PCloudFeatureConfig {
+  const bundledEnabled = typeof __OVERLOOK_PCLOUD_ENABLED__ === 'string' ? __OVERLOOK_PCLOUD_ENABLED__.trim() : '';
+  const bundledClientId = typeof __OVERLOOK_PCLOUD_CLIENT_ID__ === 'string' ? __OVERLOOK_PCLOUD_CLIENT_ID__.trim() : '';
+  const requested = (harnessEnv('OVERLOOK_PCLOUD_ENABLED') ?? bundledEnabled) === '1';
+  const clientId = (harnessEnv('OVERLOOK_PCLOUD_CLIENT_ID') ?? bundledClientId).trim();
+  return requested && clientId !== '' ? { enabled: true, clientId } : { enabled: false, clientId: null };
 }

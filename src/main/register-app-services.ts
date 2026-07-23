@@ -76,6 +76,7 @@ export interface AppServicesOptions {
   readonly authorizePassword: (password: string) => Promise<AppAuthorizationResult>;
   readonly backup: BackupFacadeOptions;
   readonly providerBusy: () => boolean;
+  readonly pcloudEnabled: boolean;
   readonly onManifestChanged: () => void;
   readonly onImported: () => void;
   readonly onImportRendererReady: () => void;
@@ -163,5 +164,7 @@ export function registerAppServices(options: AppServicesOptions): void {
   const emitSettingsChanged = createEmitter(events.settingsChanged, options.broadcast);
   getSettingsStore().subscribe((settings) => emitSettingsChanged({ settings }));
   registerBackupHandlers(() => createBackupFacade(options.backup));
-  registerInboundMoveHandlers(getProductionInboundMoveController, options.requireContentAccess);
+  if (options.pcloudEnabled) {
+    registerInboundMoveHandlers(getProductionInboundMoveController, options.requireContentAccess);
+  }
 }

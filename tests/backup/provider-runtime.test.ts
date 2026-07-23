@@ -33,6 +33,8 @@ function runtime(overrides: Partial<ProviderRuntimeOptions> = {}) {
       providerId: () => null,
       isPackaged: false,
       harnessEnv: (name) => (name === 'OVERLOOK_E2E' ? '1' : undefined),
+      pcloudEnabled: true,
+      pcloudClientId: () => 'public-test-client',
       iCloudDriveBridge: new DeterministicICloudDriveBridge(),
       ...overrides,
     }),
@@ -112,6 +114,26 @@ describe('provider runtime policy (#256)', () => {
       (await r.descriptors()).map(({ id }) => id),
       ['pcloud', 'google-drive', 'icloud-drive'],
     );
+  });
+
+  test('disabled pCloud is absent, cannot activate, and does not clear existing custody', async () => {
+    const { runtime: r } = runtime({
+      pcloudEnabled: false,
+      providerId: () => 'pcloud',
+      harnessEnv: () => undefined,
+    });
+    r.tokenStore().save({ accessToken: 'sealed-token', apiHost: 'api.pcloud.com', connectedAt: '2026-07-23T00:00:00.000Z' });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-unused-mock'), fault: undefined });
+
+    assert.equal(r.activeId(), null);
+    assert.equal(r.defaultTarget(), 'icloud-drive');
+    assert.equal(r.provider('pcloud'), undefined);
+    assert.deepEqual(
+      (await r.descriptors()).map(({ id }) => id),
+      ['google-drive', 'icloud-drive'],
+    );
+    assert.equal((await r.connect('pcloud')).ok, false);
+    assert.notEqual(r.tokenStore().load(), null, 'feature disablement preserves credential custody');
   });
 
   test('provider-addressed connect flips selection only after success', async () => {
@@ -657,6 +679,8 @@ function baseOptions(): Omit<ProviderRuntimeOptions, 'dataDir'> {
     providerId: () => null,
     isPackaged: false,
     harnessEnv: () => undefined,
+    pcloudEnabled: true,
+    pcloudClientId: () => 'public-test-client',
     iCloudDriveBridge: new DeterministicICloudDriveBridge(),
   };
 }
