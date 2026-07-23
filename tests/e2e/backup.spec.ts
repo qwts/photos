@@ -255,3 +255,38 @@ test('integrity repair and remote-only loss update in place without clearing sel
     await app.close();
   }
 });
+
+// #741 follow-up: an open library restores its own cloud backups with the
+// keystore-resident master key — no exported recovery-key file. Discovery is
+// the proof (session + validated generation); the replace run itself is the
+// restore-cloud spec's territory.
+test("restore discovery accepts this Mac's stored key without a recovery-key file", async () => {
+  const userData = mkE2eTmpDir('overlook-e2e-local-key-restore-');
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      OVERLOOK_USER_DATA: userData,
+      OVERLOOK_SEED: '1',
+      OVERLOOK_INSECURE_KEYSTORE: '1',
+    },
+  });
+  try {
+    const page = await app.firstWindow();
+    await page.getByTestId('virtual-grid').waitFor();
+    await page.locator('.ovl-tile__img').first().waitFor();
+    await page.getByRole('button', { name: 'Back up' }).click();
+    await expect(page.getByTestId('screen-reader-announcer-polite')).toContainText('Backup complete', { timeout: 20_000 });
+
+    const discovery = await page.evaluate<{ sessionId: string | null; validations: string[] }>(
+      `window.overlook.restore.discover({ providerId: 'mock', localKey: true }).then((r) => ({
+         sessionId: r.sessionId,
+         validations: r.libraries.map((library) => library.validation),
+       }))`,
+    );
+    expect(discovery.sessionId).not.toBeNull();
+    expect(discovery.validations).toEqual(['valid']);
+  } finally {
+    await app.close();
+  }
+});
