@@ -8,7 +8,13 @@ import { ProviderError, type StorageProvider } from './provider.js';
 
 const PAYLOAD = Buffer.from('OVLK-object-provider-contract');
 
-/** Provider-neutral encrypted-object contract shared by deterministic and signed-live adapters. */
+/** Provider-neutral encrypted-object contract shared by deterministic and signed-live adapters.
+ *
+ * Deletion semantics (#750): `delete` means "no longer visible to
+ * list/get/verify" — the contract deliberately does NOT assert the object was
+ * destroyed. Adapters must prefer the provider's recoverable deletion (Drive
+ * trash, pCloud Trash, iCloud Recently Deleted); no code path may permanently
+ * destroy a remote object where a recoverable deletion exists. */
 export async function exerciseObjectProviderContract(browser: StorageProvider, libraryId: string): Promise<void> {
   const provider = browser.forLibrary(libraryId);
   const path = 'blobs/ab/abcdef';

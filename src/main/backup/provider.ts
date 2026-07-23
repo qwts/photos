@@ -98,6 +98,9 @@ export interface StorageProvider {
    * the engine only lists blob fan-out directories and manifest/. */
   list(prefix: string, signal?: AbortSignal): Promise<readonly RemoteEntry[]>;
 
+  /** Makes the object invisible to list/get/verify. Adapters MUST use the
+   * provider's recoverable deletion where one exists (Drive trash, pCloud
+   * Trash, iCloud Recently Deleted) — never a permanent purge (#750). */
   delete(path: string): Promise<void>;
 
   quota(signal?: AbortSignal): Promise<ProviderQuota>;

@@ -23,6 +23,20 @@ honesty, §6–§7 the ceremony contract and the destructive-action registry
 Originals, ADR-0022's relocation cleanup UX, and every future destructive
 surface).
 
+**Amended 2026-07-23 by [#750](https://github.com/qwts/photos/issues/750)
+(PR #758):** Tier D's "remote state destroyed" means destroyed **from
+Overlook's custody** — the row, local bytes, and the app's claim on the
+remote object are gone and unrecoverable through Overlook — but the provider
+adapter MUST use the provider's recoverable deletion where one exists (Drive
+trash 30 days, pCloud Trash 60 days, iCloud Recently Deleted 30 days), never
+a permanent purge. The #741 incident is the reason: a deletion bug at the
+adapter layer must be survivable through the provider's own retention. The
+lingering object is ciphertext sealed under the library's keys, so provider
+retention discloses no content; §5's honest sentence gains a clause saying
+the encrypted copy remains in the provider's trash, recoverable only through
+the provider, until that provider's retention expires. Purge remains Tier D
+and its vocabulary is unchanged.
+
 ## Context
 
 Deletion is the one operation whose _purpose_ is data loss, so it runs the
@@ -136,9 +150,11 @@ library contents" becomes the pattern for the whole tier).
   still _name_ the purged photo (metadata: filename, size, content hash)
   until they rotate; their blob references dangle, which correctly makes them
   ineligible restore fallbacks under ADR-0010's validation. The honest
-  user-facing sentence is therefore: **"Cloud copy deleted now (or flagged
-  and retried if unreachable); encrypted records naming this photo can
-  persist in up to two older backup snapshots until those rotate away."**
+  user-facing sentence is therefore: **"Cloud copy removed from the backup
+  now (or flagged and retried if unreachable); the provider retains the
+  encrypted object in its own trash until its retention expires (#750
+  amendment); encrypted records naming this photo can persist in up to two
+  older backup snapshots until those rotate away."**
   #534's "reports local/cloud outcomes honestly" is implemented with exactly
   this honesty, including surfacing `remoteFailures` in the result — a purge
   with stranded remote copies never reports as fully clean.

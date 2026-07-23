@@ -16,7 +16,7 @@ export const ExactIrreversibleCeremony: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const dialog = canvas.getByRole('dialog', { name: 'Delete 2 photos permanently?' });
-    await expect(dialog).toHaveTextContent('local originals, previews, metadata, and connected-provider copies');
+    await expect(dialog).toHaveTextContent('recoverable only through the provider');
     await expect(dialog).toHaveTextContent('Cloud deletion failures are recorded and retried');
     await expect(dialog).toHaveTextContent('This cannot be undone.');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
