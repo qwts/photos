@@ -56,7 +56,14 @@ function providerError(error: unknown): ProviderError {
     'invalid-path': 'corrupt',
     'io-failure': 'transient',
   };
-  return new ProviderError('iCloud Drive operation failed', kinds[error.code]);
+  const providerScoped = new Set<ICloudDriveNativeError['code']>([
+    'unavailable',
+    'unentitled',
+    'account-unavailable',
+    'account-changed',
+    'offline',
+  ]);
+  return new ProviderError('iCloud Drive operation failed', kinds[error.code], providerScoped.has(error.code) ? 'provider' : 'object');
 }
 
 export class ICloudDriveProvider implements StorageProvider {
@@ -111,18 +118,20 @@ export class ICloudDriveProvider implements StorageProvider {
 
   async listLibraries(signal?: AbortSignal): Promise<readonly string[]> {
     const entries = await this.listNative(ROOT, signal);
-    const candidates = new Map<string, number>();
+    const candidates = new Map<string, { readonly downloaded: boolean; readonly conflicted: boolean }>();
     for (const entry of entries) {
       const match = /^Overlook\/([A-Za-z0-9_-]{1,64})\/recovery\/bootstrap\.ovrb$/u.exec(entry.path);
-      if (match?.[1] !== undefined && !entry.conflicted) candidates.set(match[1], entry.size);
+      if (match?.[1] !== undefined) {
+        candidates.set(match[1], { downloaded: entry.downloaded, conflicted: entry.conflicted });
+      }
     }
-    const libraries: string[] = [];
-    for (const [libraryId, expectedBytes] of [...candidates].sort(([left], [right]) => left.localeCompare(right))) {
-      signal?.throwIfAborted();
-      const verified = await raceWithAbort(this.forLibrary(libraryId).verify('recovery/bootstrap.ovrb'), signal);
-      if (verified.bytes === expectedBytes) libraries.push(libraryId);
-    }
-    return libraries;
+    return [...candidates]
+      .sort(([leftId, left], [rightId, right]) => {
+        if (left.downloaded !== right.downloaded) return left.downloaded ? -1 : 1;
+        if (left.conflicted !== right.conflicted) return left.conflicted ? 1 : -1;
+        return leftId.localeCompare(rightId);
+      })
+      .map(([libraryId]) => libraryId);
   }
 
   async put(path: string, bytes: Readable): Promise<{ bytes: number }> {

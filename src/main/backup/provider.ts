@@ -25,6 +25,9 @@ export class ProviderError extends Error {
     message: string,
     /** Retryable = transient (network, throttle); auth = reconnect needed. */
     readonly kind: 'transient' | 'auth' | 'quota' | 'not-found' | 'corrupt',
+    /** Provider failures affect the whole authority; object failures are
+     * isolated to one remote path or library namespace. */
+    readonly scope: 'provider' | 'object' = 'provider',
   ) {
     super(message);
     this.name = 'ProviderError';

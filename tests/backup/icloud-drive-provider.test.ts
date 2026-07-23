@@ -17,6 +17,8 @@ import { exerciseRestoreProviderContract } from './restore-provider-contract.js'
 
 const LIBRARY_ID = '01KXICLOUDDRIVELIBRARY001';
 const UNRELATED_LIBRARY_ID = '01KXICLOUDDRIVEUNRELATED1';
+const DELAYED_LIBRARY_ID = '01KXICLOUDDRIVEDELAYED001';
+const CONFLICTED_LIBRARY_ID = '01KXICLOUDDRIVECONFLICT01';
 const PAYLOAD = Buffer.from('OVLK-encrypted-iCloud-envelope');
 
 function world(pageSize = 1) {
@@ -91,20 +93,26 @@ describe('iCloud Drive StorageProvider adapter (#657)', () => {
 });
 
 describe('iCloud Drive deterministic failure contracts (#657)', () => {
-  test('discovers only materialized, conflict-free recovery homes with a matching downloaded size', async () => {
+  test('enumerates recovery homes without serial materialization and prioritizes locally readable candidates (#751)', async () => {
     const state = world();
+    const delayed = state.provider.forLibrary(DELAYED_LIBRARY_ID);
+    const conflicted = state.provider.forLibrary(CONFLICTED_LIBRARY_ID);
     try {
       await state.provider.put('blobs/aa/not-a-home', Readable.from([PAYLOAD]));
       assert.deepEqual(await state.provider.listLibraries(), []);
       await state.provider.put('recovery/bootstrap.ovrb', Readable.from([PAYLOAD]));
-      assert.deepEqual(await state.provider.listLibraries(), [LIBRARY_ID]);
+      await delayed.put('recovery/bootstrap.ovrb', Readable.from([PAYLOAD]));
+      await conflicted.put('recovery/bootstrap.ovrb', Readable.from([PAYLOAD]));
+      state.bridge.setDownloaded(`Overlook/${DELAYED_LIBRARY_ID}/recovery/bootstrap.ovrb`, false);
+      state.bridge.setConflicted(`Overlook/${CONFLICTED_LIBRARY_ID}/recovery/bootstrap.ovrb`, true);
+      state.bridge.calls.length = 0;
 
-      const remote = `Overlook/${LIBRARY_ID}/recovery/bootstrap.ovrb`;
-      state.bridge.setDownloaded(remote, false);
-      await assert.rejects(state.provider.listLibraries(), providerError('transient'));
-      state.bridge.setDownloaded(remote, true);
-      state.bridge.setConflicted(remote, true);
-      assert.deepEqual(await state.provider.listLibraries(), []);
+      assert.deepEqual(await state.provider.listLibraries(), [LIBRARY_ID, CONFLICTED_LIBRARY_ID, DELAYED_LIBRARY_ID]);
+      assert.equal(
+        state.bridge.calls.some((call) => call.startsWith('materialize:')),
+        false,
+        'candidate enumeration never waits for every bootstrap to materialize',
+      );
     } finally {
       rmSync(state.temporaryRoot, { recursive: true, force: true });
     }
@@ -116,7 +124,13 @@ describe('iCloud Drive deterministic failure contracts (#657)', () => {
       await state.provider.put('blobs/aa/object', Readable.from([PAYLOAD]));
       for (const fault of ['offline', 'materialization-delayed', 'conflict'] as const) {
         state.bridge.arm(fault);
-        await assert.rejects(state.provider.verify('blobs/aa/object'), providerError('transient'));
+        await assert.rejects(
+          state.provider.verify('blobs/aa/object'),
+          (error: unknown) =>
+            providerError('transient')(error) &&
+            error instanceof ProviderError &&
+            error.scope === (fault === 'offline' ? 'provider' : 'object'),
+        );
         state.bridge.disarm();
       }
 
