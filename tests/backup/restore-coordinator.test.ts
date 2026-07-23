@@ -219,6 +219,48 @@ test('an unavailable local master key fails with recovery-key guidance, never a 
   assert.match(discovery.error?.message ?? '', /recovery key/u);
 });
 
+test('the verified custody password rides the session into the runner request (#754)', async () => {
+  const world = await remoteWorld();
+  const requests: { custodyPassword?: string | undefined }[] = [];
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.reject(new Error('the key file must not be read')),
+    localMasterKey: () => Buffer.from(world.masterKey),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({
+      run: (request) => {
+        requests.push(request);
+        return Promise.resolve({ libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false });
+      },
+    }),
+    sessionId: () => 'session-custody',
+    progress: () => undefined,
+  });
+  const discovery = await coordinator.discoverFrom('mock', { kind: 'local-master', custodyPassword: 'app pw' });
+  assert.equal(discovery.error, null);
+  await coordinator.run('session-custody', LIBRARY_ID, false);
+  assert.equal(requests[0]?.custodyPassword, 'app pw');
+});
+
+test('recovery-key sessions never carry a custody password (#754)', async () => {
+  const world = await remoteWorld();
+  const requests: { custodyPassword?: string | undefined }[] = [];
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.resolve(world.recoveryFile),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({
+      run: (request) => {
+        requests.push(request);
+        return Promise.resolve({ libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false });
+      },
+    }),
+    sessionId: () => 'session-rk',
+    progress: () => undefined,
+  });
+  await coordinator.discover('mock', '/recovery.key', PASSWORD);
+  await coordinator.run('session-rk', LIBRARY_ID, false);
+  assert.equal('custodyPassword' in (requests[0] ?? {}), false);
+});
+
 test("a foreign library's local key surfaces per-library wrong-key validation, never a valid session (#741)", async () => {
   const world = await remoteWorld();
   const coordinator = new RestoreCoordinator({

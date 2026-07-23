@@ -230,3 +230,27 @@ describe('app-lock credential custody (#311, ADR-0013)', () => {
     assert.deepEqual(restored, masterKey);
   });
 });
+
+describe('restore custody re-establishment (#754)', () => {
+  test('recover() over a restored keychain-form key + stale anchor yields a locked, unlockable record', async () => {
+    // The exact post-restore state: installRecoveredMaster left the keychain
+    // form on disk, and the replaced library's anchor is still in the OS
+    // credential store. recover() must land the password-derived record with
+    // a matching anchor in one two-phase commit.
+    const { dataDir, anchors, store, masterKey } = world();
+    anchors.anchor = { libraryId: 'library-a', generation: 7, recordHash: 'stale-hash-from-replaced-library' };
+    const password = 'correct horse battery staple';
+    await store.recover({ libraryId: 'library-a', password, masterKey });
+
+    const restarted = new AppLockCredentialStore({ dataDir, anchorStore: anchors, safeStorage: fakeSafeStorage() });
+    assert.deepEqual(restarted.status(), { state: 'locked', libraryId: 'library-a' });
+    const unlocked = await restarted.unlock(password);
+    assert.equal(unlocked.ok, true);
+    if (unlocked.ok) {
+      assert.deepEqual(unlocked.masterKey, masterKey);
+      unlocked.masterKey.fill(0);
+    }
+    assert.ok((anchors.anchor?.generation ?? 0) > 7, 'the stale anchor generation is superseded, never reused');
+    assert.equal(readFileSync(join(dataDir, 'master.key')).subarray(0, 4).toString('ascii'), 'OVLK');
+  });
+});
