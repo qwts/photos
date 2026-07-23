@@ -646,6 +646,21 @@ describe('provider runtime policy (#256)', () => {
     assert.notEqual(r.libraryId(), firstLibraryId, 'the rebuilt registry targets library B remote paths');
     assert.equal(r.tokenStore(), previousPCloudTokenStore, 'profile credential custody intentionally survives the switch');
   });
+
+  test('library teardown drains the shared iCloud native bridge (#752)', async () => {
+    class DrainObservedBridge extends DeterministicICloudDriveBridge {
+      drainCalls = 0;
+
+      override drain(): Promise<void> {
+        this.drainCalls += 1;
+        return Promise.resolve();
+      }
+    }
+    const bridge = new DrainObservedBridge();
+    const { runtime: r } = runtime({ iCloudDriveBridge: bridge });
+    await r.drainICloudDriveOperations();
+    assert.equal(bridge.drainCalls, 1);
+  });
 });
 
 /** Options for a second instance against the same dataDir (restart shape). */

@@ -217,6 +217,10 @@ export class ProviderRuntime {
     this.iCloudDriveProviderInstance = undefined;
   }
 
+  drainICloudDriveOperations(): Promise<void> {
+    return this.options.iCloudDriveBridge.drain();
+  }
+
   /** Connection authority is intentionally cheap (#721): provider capacity
    * lives behind storage(), so a completed OAuth flow can render
    * Connected without waiting on the provider network. */

@@ -5,9 +5,11 @@
 #include <napi.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -185,10 +187,31 @@ bool SameAccount(const Context& context, const std::string& expected) {
          AccountToken(NSFileManager.defaultManager.ubiquityIdentityToken) == expected;
 }
 
-class ICloudWorker : public Napi::AsyncWorker {
+using EnvironmentAlive = std::shared_ptr<std::atomic_bool>;
+
+class TeardownSafeWorker : public Napi::AsyncWorker {
  public:
-  ICloudWorker(Napi::Env env, std::string expectedBundleId, std::string containerId, std::string accountToken)
-      : Napi::AsyncWorker(env), deferred_(Napi::Promise::Deferred::New(env)),
+  TeardownSafeWorker(Napi::Env env, EnvironmentAlive environmentAlive)
+      : Napi::AsyncWorker(env), environmentAlive_(std::move(environmentAlive)) {}
+
+  void OnWorkComplete(Napi::Env env, napi_status status) override {
+    // node-addon-api's base completion creates a HandleScope and, on error,
+    // constructs a JS Error before dispatching OnError. Once the environment
+    // cleanup hook fires none of that is safe. Intentionally leave this
+    // process-exit worker for the OS instead of invoking more N-API teardown.
+    if (!environmentAlive_->load(std::memory_order_acquire)) return;
+    Napi::AsyncWorker::OnWorkComplete(env, status);
+  }
+
+ private:
+  const EnvironmentAlive environmentAlive_;
+};
+
+class ICloudWorker : public TeardownSafeWorker {
+ public:
+  ICloudWorker(Napi::Env env, EnvironmentAlive environmentAlive, std::string expectedBundleId,
+               std::string containerId, std::string accountToken)
+      : TeardownSafeWorker(env, std::move(environmentAlive)), deferred_(Napi::Promise::Deferred::New(env)),
         expectedBundleId_(std::move(expectedBundleId)), containerId_(std::move(containerId)),
         expectedAccountToken_(std::move(accountToken)) {}
 
@@ -228,10 +251,11 @@ class ICloudWorker : public Napi::AsyncWorker {
   std::string errorCode_;
 };
 
-class StatusWorker final : public Napi::AsyncWorker {
+class StatusWorker final : public TeardownSafeWorker {
  public:
-  StatusWorker(Napi::Env env, std::string expectedBundleId, std::string containerId)
-      : Napi::AsyncWorker(env), deferred_(Napi::Promise::Deferred::New(env)),
+  StatusWorker(Napi::Env env, EnvironmentAlive environmentAlive, std::string expectedBundleId,
+               std::string containerId)
+      : TeardownSafeWorker(env, std::move(environmentAlive)), deferred_(Napi::Promise::Deferred::New(env)),
         expectedBundleId_(std::move(expectedBundleId)), containerId_(std::move(containerId)) {}
 
   Napi::Promise Promise() const { return deferred_.Promise(); }
@@ -295,9 +319,11 @@ bool AtomicCopy(NSFileManager* files, NSURL* source, NSURL* destination, NSError
 
 class ReplaceWorker final : public ICloudWorker {
  public:
-  ReplaceWorker(Napi::Env env, std::string bundleId, std::string containerId, std::string path, std::string source,
-                std::string accountToken)
-      : ICloudWorker(env, std::move(bundleId), std::move(containerId), std::move(accountToken)), path_(std::move(path)),
+  ReplaceWorker(Napi::Env env, EnvironmentAlive environmentAlive, std::string bundleId, std::string containerId,
+                std::string path, std::string source, std::string accountToken)
+      : ICloudWorker(env, std::move(environmentAlive), std::move(bundleId), std::move(containerId),
+                     std::move(accountToken)),
+        path_(std::move(path)),
         source_(std::move(source)) {}
 
   void Execute() override {
@@ -349,9 +375,11 @@ bool Downloaded(NSURL* url, NSError** error) {
 
 class MaterializeWorker final : public ICloudWorker {
  public:
-  MaterializeWorker(Napi::Env env, std::string bundleId, std::string containerId, std::string path,
-                    std::string destination, std::string accountToken)
-      : ICloudWorker(env, std::move(bundleId), std::move(containerId), std::move(accountToken)), path_(std::move(path)),
+  MaterializeWorker(Napi::Env env, EnvironmentAlive environmentAlive, std::string bundleId,
+                    std::string containerId, std::string path, std::string destination, std::string accountToken)
+      : ICloudWorker(env, std::move(environmentAlive), std::move(bundleId), std::move(containerId),
+                     std::move(accountToken)),
+        path_(std::move(path)),
         destination_(std::move(destination)) {}
 
   void Execute() override {
@@ -432,9 +460,11 @@ NSString* IsoDate(NSDate* date) {
 
 class ListWorker final : public ICloudWorker {
  public:
-  ListWorker(Napi::Env env, std::string bundleId, std::string containerId, std::string path, std::size_t offset,
-             std::size_t limit, std::string accountToken)
-      : ICloudWorker(env, std::move(bundleId), std::move(containerId), std::move(accountToken)), path_(std::move(path)),
+  ListWorker(Napi::Env env, EnvironmentAlive environmentAlive, std::string bundleId, std::string containerId,
+             std::string path, std::size_t offset, std::size_t limit, std::string accountToken)
+      : ICloudWorker(env, std::move(environmentAlive), std::move(bundleId), std::move(containerId),
+                     std::move(accountToken)),
+        path_(std::move(path)),
         offset_(offset), limit_(limit) {}
 
   void Execute() override {
@@ -530,8 +560,11 @@ class ListWorker final : public ICloudWorker {
 
 class DeleteWorker final : public ICloudWorker {
  public:
-  DeleteWorker(Napi::Env env, std::string bundleId, std::string containerId, std::string path, std::string accountToken)
-      : ICloudWorker(env, std::move(bundleId), std::move(containerId), std::move(accountToken)), path_(std::move(path)) {}
+  DeleteWorker(Napi::Env env, EnvironmentAlive environmentAlive, std::string bundleId, std::string containerId,
+               std::string path, std::string accountToken)
+      : ICloudWorker(env, std::move(environmentAlive), std::move(bundleId), std::move(containerId),
+                     std::move(accountToken)),
+        path_(std::move(path)) {}
 
   void Execute() override {
     @autoreleasepool {
@@ -584,13 +617,17 @@ bool ReadOperation(const Napi::CallbackInfo& info, std::string& bundleId, std::s
   return true;
 }
 
+EnvironmentAlive EnvironmentState(const Napi::CallbackInfo& info) {
+  return *static_cast<EnvironmentAlive*>(info.Data());
+}
+
 Napi::Value Status(const Napi::CallbackInfo& info) {
   std::string bundleId;
   std::string containerId;
   if (!ReadString(info, 0, "bundleId", bundleId) || !ReadString(info, 1, "containerId", containerId)) {
     return info.Env().Undefined();
   }
-  auto* worker = new StatusWorker(info.Env(), std::move(bundleId), std::move(containerId));
+  auto* worker = new StatusWorker(info.Env(), EnvironmentState(info), std::move(bundleId), std::move(containerId));
   const Napi::Promise promise = worker->Promise();
   worker->Queue();
   return promise;
@@ -606,8 +643,9 @@ Napi::Value ReplaceFile(const Napi::CallbackInfo& info) {
     Napi::RangeError::New(info.Env(), "sourceFile is invalid").ThrowAsJavaScriptException();
     return info.Env().Undefined();
   }
-  auto* worker = new ReplaceWorker(info.Env(), std::move(bundleId), std::move(containerId), std::move(path),
-                                   std::move(source), std::move(accountToken));
+  auto* worker = new ReplaceWorker(info.Env(), EnvironmentState(info), std::move(bundleId),
+                                   std::move(containerId), std::move(path), std::move(source),
+                                   std::move(accountToken));
   const Napi::Promise promise = worker->Promise();
   worker->Queue();
   return promise;
@@ -623,8 +661,9 @@ Napi::Value MaterializeFile(const Napi::CallbackInfo& info) {
     Napi::RangeError::New(info.Env(), "destinationFile is invalid").ThrowAsJavaScriptException();
     return info.Env().Undefined();
   }
-  auto* worker = new MaterializeWorker(info.Env(), std::move(bundleId), std::move(containerId), std::move(path),
-                                       std::move(destination), std::move(accountToken));
+  auto* worker = new MaterializeWorker(info.Env(), EnvironmentState(info), std::move(bundleId),
+                                       std::move(containerId), std::move(path), std::move(destination),
+                                       std::move(accountToken));
   const Napi::Promise promise = worker->Promise();
   worker->Queue();
   return promise;
@@ -657,7 +696,8 @@ Napi::Value List(const Napi::CallbackInfo& info) {
     Napi::RangeError::New(info.Env(), "limit is invalid").ThrowAsJavaScriptException();
     return info.Env().Undefined();
   }
-  auto* worker = new ListWorker(info.Env(), std::move(bundleId), std::move(containerId), std::move(path), offset,
+  auto* worker = new ListWorker(info.Env(), EnvironmentState(info), std::move(bundleId),
+                                std::move(containerId), std::move(path), offset,
                                 static_cast<std::size_t>(rawLimit), std::move(accountToken));
   const Napi::Promise promise = worker->Promise();
   worker->Queue();
@@ -669,19 +709,32 @@ Napi::Value Delete(const Napi::CallbackInfo& info) {
   if (!ReadOperation(info, bundleId, containerId, path) || !ReadString(info, 3, "accountToken", accountToken)) {
     return info.Env().Undefined();
   }
-  auto* worker = new DeleteWorker(info.Env(), std::move(bundleId), std::move(containerId), std::move(path),
-                                  std::move(accountToken));
+  auto* worker = new DeleteWorker(info.Env(), EnvironmentState(info), std::move(bundleId),
+                                  std::move(containerId), std::move(path), std::move(accountToken));
   const Napi::Promise promise = worker->Promise();
   worker->Queue();
   return promise;
 }
 
+void MarkEnvironmentDead(void* data) {
+  auto* environmentAlive = static_cast<EnvironmentAlive*>(data);
+  (*environmentAlive)->store(false, std::memory_order_release);
+  delete environmentAlive;
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-  exports.Set("status", Napi::Function::New(env, Status));
-  exports.Set("replaceFile", Napi::Function::New(env, ReplaceFile));
-  exports.Set("materializeFile", Napi::Function::New(env, MaterializeFile));
-  exports.Set("list", Napi::Function::New(env, List));
-  exports.Set("delete", Napi::Function::New(env, Delete));
+  auto* environmentAlive = new EnvironmentAlive(std::make_shared<std::atomic_bool>(true));
+  if (napi_add_env_cleanup_hook(env, MarkEnvironmentDead, environmentAlive) != napi_ok) {
+    delete environmentAlive;
+    Napi::Error::New(env, "could not register iCloud environment cleanup").ThrowAsJavaScriptException();
+    return exports;
+  }
+  exports.Set("status", Napi::Function::New(env, Status, "status", environmentAlive));
+  exports.Set("replaceFile", Napi::Function::New(env, ReplaceFile, "replaceFile", environmentAlive));
+  exports.Set("materializeFile",
+              Napi::Function::New(env, MaterializeFile, "materializeFile", environmentAlive));
+  exports.Set("list", Napi::Function::New(env, List, "list", environmentAlive));
+  exports.Set("delete", Napi::Function::New(env, Delete, "delete", environmentAlive));
   return exports;
 }
 

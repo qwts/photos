@@ -78,6 +78,19 @@ describe('iCloud Drive native bridge gating (#656)', () => {
     assert.match(loader, /icloud\.node\.napi/u);
   });
 
+  test('every async worker suppresses JavaScript completion after environment teardown (#752)', () => {
+    const source = readFileSync(join(process.cwd(), 'native/touch-id/icloud_drive.mm'), 'utf8');
+    assert.match(source, /napi_add_env_cleanup_hook/u);
+    assert.match(source, /class TeardownSafeWorker/u);
+    assert.match(source, /if \(!environmentAlive_->load\(std::memory_order_acquire\)\) return;/u);
+    assert.match(source, /Napi::AsyncWorker::OnWorkComplete\(env, status\);/u);
+    assert.equal(
+      source.match(/public TeardownSafeWorker/gu)?.length,
+      2,
+      'status and operation workers must both use the guarded completion path',
+    );
+  });
+
   test('unsupported and unpackaged processes never load the native module', async () => {
     let loads = 0;
     const loadBinding = () => {
@@ -194,6 +207,48 @@ describe('iCloud Drive native bridge contract (#656)', () => {
     });
     native.setList({ entries: [{ path: '../escape' }], nextCursor: null, accountToken: ACCOUNT_TOKEN });
     await assert.rejects(bridge.list('Overlook', null, 100, ACCOUNT_TOKEN), errorWithCode('io-failure'));
+  });
+
+  test('drains raw native work, including failures and operations added during the drain (#752)', async () => {
+    const native = nativeBinding();
+    const settlements: Array<{
+      readonly resolve: () => void;
+      readonly reject: (error: Error) => void;
+    }> = [];
+    native.binding.delete = () =>
+      new Promise<void>((resolve, reject) => {
+        settlements.push({ resolve, reject });
+      });
+    const bridge = createNativeICloudDriveBridge({
+      platform: 'darwin',
+      packaged: true,
+      loadBinding: () => native.binding,
+    });
+
+    const firstOutcome = bridge.delete('Overlook/library/first', ACCOUNT_TOKEN).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settlements.length, 1);
+
+    let drained = false;
+    const draining = bridge.drain().then(() => {
+      drained = true;
+    });
+    const second = bridge.delete('Overlook/library/second', ACCOUNT_TOKEN);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settlements.length, 2);
+
+    settlements[0]?.reject(Object.assign(new Error('offline'), { code: 'offline' }));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(drained, false, 'work added during the drain remains inside the barrier');
+
+    settlements[1]?.resolve();
+    await draining;
+    await second;
+    assert.equal(drained, true);
+    assert.equal(errorWithCode('offline')(await firstOutcome), true, 'the caller still receives the mapped native failure');
   });
 });
 

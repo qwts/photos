@@ -30,6 +30,10 @@ export class DeterministicICloudDriveBridge implements ICloudDriveNativeBridge {
   private accountToken = DEFAULT_ACCOUNT;
   private clock = 0;
 
+  drain(): Promise<void> {
+    return Promise.resolve();
+  }
+
   arm(fault: DeterministicICloudFault): void {
     this.fault = fault;
   }
