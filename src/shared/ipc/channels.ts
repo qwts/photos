@@ -539,7 +539,13 @@ export const channels = {
   restorePickKey: defineChannel('restore:pick-key', z.object({}), z.object({ path: z.string().nullable() })),
   restoreDiscover: defineChannel(
     'restore:discover',
-    z.object({ providerId: providerIdSchema, keyPath: z.string().min(1), password: z.string().min(1).max(1024) }),
+    // Either the separately saved recovery key, or this machine's own open
+    // keystore (localKey) — a resident master key restores the backups it
+    // sealed without demanding the exported file (#741 follow-up).
+    z.union([
+      z.object({ providerId: providerIdSchema, keyPath: z.string().min(1), password: z.string().min(1).max(1024) }),
+      z.object({ providerId: providerIdSchema, localKey: z.literal(true) }),
+    ]),
     restoreDiscoverResponseSchema,
   ),
   restoreRun: defineChannel(

@@ -12,3 +12,6 @@ manifest, provider switching is refused unless the target provably holds every
 cloud-only original (switching back to the provider that holds them heals rows
 a wrong-provider integrity pass stranded in 'error'), and restore continues to
 reject incomplete generations while falling back to complete retained ones.
+Restore from cloud backup can now use this Mac's stored master key — an open
+library restores its own backups without the exported recovery-key file, which
+stays required only for fresh-machine recovery.

@@ -11,6 +11,8 @@ import type { SafeStorageLike } from '../crypto/keystore.js';
 export interface RestoreRuntimeFactoryOptions {
   readonly targetDir: string;
   readonly safeStorage: () => SafeStorageLike;
+  /** May throw when no library keystore is open — normalized to null here. */
+  readonly localMasterKey?: (() => Buffer | null) | undefined;
   readonly sources: ConstructorParameters<typeof RestoreRuntime>[0]['sources'];
   readonly sessionId: () => string;
   readonly progress: ConstructorParameters<typeof RestoreRuntime>[0]['progress'];
@@ -24,6 +26,16 @@ export function createRestoreRuntime(options: RestoreRuntimeFactoryOptions): Res
     targetDir: options.targetDir,
     workerUrl: new URL('./thumbnail-worker.js', import.meta.url),
     safeStorage: options.safeStorage,
+    localMasterKey:
+      options.localMasterKey === undefined
+        ? undefined
+        : () => {
+            try {
+              return options.localMasterKey?.() ?? null;
+            } catch {
+              return null;
+            }
+          },
     sources: options.sources,
     sessionId: options.sessionId,
     progress: options.progress,

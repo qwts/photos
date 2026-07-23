@@ -25,8 +25,19 @@ export interface RestoreRunner {
   run(request: RestoreRequest): Promise<RestoreRunResult>;
 }
 
+/** How discovery obtains the master key (#741 follow-up): the separately
+ * saved recovery-key file, or this machine's own keystore — a library whose
+ * keystore is open already holds the very key its cloud backups were sealed
+ * under, and demanding the exported file there makes the backup unrestorable
+ * for no security gain (the key is ALREADY resident). */
+export type RestoreKeySource =
+  { readonly kind: 'recovery-key'; readonly path: string; readonly password: string } | { readonly kind: 'local-master' };
+
 export interface RestoreCoordinatorDeps {
   readonly readRecoveryKey: (path: string) => Promise<Buffer>;
+  /** A COPY of the open library's master key, or null when no keystore is
+   * available (fresh profile, locked library). Callers own the copy. */
+  readonly localMasterKey?: (() => Buffer | null) | undefined;
   readonly sources: (providerId: string) => Promise<readonly RestoreSource[]>;
   readonly createRunner: (provider: StorageProvider, progress: (value: RestoreProgress) => void) => RestoreRunner;
   readonly sessionId: () => string;
@@ -77,17 +88,32 @@ export class RestoreCoordinator {
   }
 
   discover(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse> {
-    return this.track(() => this.discoverOperation(providerId, keyPath, password));
+    return this.discoverFrom(providerId, { kind: 'recovery-key', path: keyPath, password });
   }
 
-  private async discoverOperation(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse> {
+  discoverFrom(providerId: string, source: RestoreKeySource): Promise<RestoreDiscoverResponse> {
+    return this.track(() => this.discoverOperation(providerId, source));
+  }
+
+  private async openMasterKey(source: RestoreKeySource): Promise<Buffer> {
+    if (source.kind === 'recovery-key') {
+      return openRecoveryKey(await this.deps.readRecoveryKey(source.path), source.password);
+    }
+    const local = this.deps.localMasterKey?.() ?? null;
+    if (local === null) {
+      throw new RestoreError('wrong-key', "This Mac's stored key is unavailable. Use the recovery key exported for this library.");
+    }
+    return local;
+  }
+
+  private async discoverOperation(providerId: string, source: RestoreKeySource): Promise<RestoreDiscoverResponse> {
     if (this.controller !== null) {
       return { sessionId: null, libraries: [], error: { reason: 'io', message: 'A restore is already running.' } };
     }
     this.clearSession();
     let masterKey: Buffer;
     try {
-      masterKey = openRecoveryKey(await this.deps.readRecoveryKey(keyPath), password);
+      masterKey = await this.openMasterKey(source);
     } catch (error) {
       return { sessionId: null, libraries: [], error: errorResult(error) };
     }

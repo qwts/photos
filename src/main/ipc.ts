@@ -607,7 +607,7 @@ export function registerKeysHandlers(getFacade: () => KeysFacade): void {
 export interface RestoreFacade {
   profileStatus(): { fresh: boolean };
   pickKey(): Promise<string | null>;
-  discover(providerId: string, keyPath: string, password: string): Promise<RestoreDiscoverResponse>;
+  discover(providerId: string, key: { keyPath: string; password: string } | 'local-master'): Promise<RestoreDiscoverResponse>;
   run(sessionId: string, libraryId: string, allowReplace: boolean): Promise<RestoreRunResponse>;
   cancel(): void;
 }
@@ -620,9 +620,12 @@ export function registerRestoreHandlers(getFacade: () => RestoreFacade): void {
     wrapHandler(channels.restorePickKey, async () => ({ path: await getFacade().pickKey() }))(request),
   );
   ipcMain.handle(channels.restoreDiscover.name, (_event, request: unknown) =>
-    wrapHandler(channels.restoreDiscover, ({ providerId, keyPath, password }) => getFacade().discover(providerId, keyPath, password))(
-      request,
-    ),
+    wrapHandler(channels.restoreDiscover, (parsed) =>
+      getFacade().discover(
+        parsed.providerId,
+        'localKey' in parsed ? 'local-master' : { keyPath: parsed.keyPath, password: parsed.password },
+      ),
+    )(request),
   );
   ipcMain.handle(channels.restoreRun.name, (_event, request: unknown) =>
     wrapHandler(channels.restoreRun, ({ sessionId, libraryId, allowReplace }) => getFacade().run(sessionId, libraryId, allowReplace))(

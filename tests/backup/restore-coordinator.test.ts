@@ -184,3 +184,53 @@ test('close drains an active discovery and destroys its recovered session', asyn
   assert.equal(closed, true);
   assert.equal((await coordinator.run('session-close', LIBRARY_ID, false)).error?.message.includes('expired'), true);
 });
+
+test("this Mac's stored master key discovers and restores without a recovery-key file (#741)", async () => {
+  const world = await remoteWorld();
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.reject(new Error('the key file must not be read')),
+    localMasterKey: () => Buffer.from(world.masterKey),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({ run: () => Promise.resolve({ libraryId: LIBRARY_ID, generation: 2, photos: 0, resumed: false }) }),
+    sessionId: () => 'session-local-key',
+    progress: () => undefined,
+  });
+  const discovery = await coordinator.discoverFrom('mock', { kind: 'local-master' });
+  assert.equal(discovery.error, null);
+  assert.equal(discovery.sessionId, 'session-local-key');
+  assert.equal(discovery.libraries[0]?.validation, 'valid');
+  const run = await coordinator.run('session-local-key', LIBRARY_ID, false);
+  assert.equal(run.error, null);
+  assert.equal(run.result?.generation, 2);
+});
+
+test('an unavailable local master key fails with recovery-key guidance, never a crash (#741)', async () => {
+  const world = await remoteWorld();
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.reject(new Error('unused')),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({ run: () => Promise.reject(new Error('unused')) }),
+    sessionId: () => 'session-no-local',
+    progress: () => undefined,
+  });
+  const discovery = await coordinator.discoverFrom('mock', { kind: 'local-master' });
+  assert.equal(discovery.sessionId, null);
+  assert.equal(discovery.error?.reason, 'wrong-key');
+  assert.match(discovery.error?.message ?? '', /recovery key/u);
+});
+
+test("a foreign library's local key is rejected as wrong-key, not corrupt data (#741)", async () => {
+  const world = await remoteWorld();
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.reject(new Error('unused')),
+    localMasterKey: () => Buffer.from(Array.from({ length: 32 }, (_, index) => index)),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({ run: () => Promise.reject(new Error('unused')) }),
+    sessionId: () => 'session-wrong-local',
+    progress: () => undefined,
+  });
+  const discovery = await coordinator.discoverFrom('mock', { kind: 'local-master' });
+  assert.equal(discovery.sessionId, null);
+  assert.notEqual(discovery.error, null);
+  void world;
+});

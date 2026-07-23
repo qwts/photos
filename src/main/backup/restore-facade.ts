@@ -11,7 +11,13 @@ export function createRestoreFacade(options: RestoreFacadeOptions) {
   return {
     profileStatus: () => ({ fresh: options.fresh() }),
     pickKey: options.pickKey,
-    discover: (providerId: string, keyPath: string, password: string) => options.coordinator().discover(providerId, keyPath, password),
+    discover: (providerId: string, key: { keyPath: string; password: string } | 'local-master') =>
+      options
+        .coordinator()
+        .discoverFrom(
+          providerId,
+          key === 'local-master' ? { kind: 'local-master' } : { kind: 'recovery-key', path: key.keyPath, password: key.password },
+        ),
     run: (sessionId: string, libraryId: string, allowReplace: boolean) => {
       if (options.busy()) {
         return Promise.resolve({

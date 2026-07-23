@@ -49,6 +49,16 @@ const messages = defineMessages({
     id: 'restore.local.error.openFailedHelp',
     defaultMessage: 'The local library was not changed. Choose its folder and try again.',
   },
+  heroWithLocalKey: {
+    id: 'restore.localKey.hero',
+    defaultMessage: "Restore with this Mac's saved key, or use your separately saved recovery key. The key is never stored in the cloud.",
+  },
+  useLocalKey: { id: 'restore.localKey.action', defaultMessage: "Restore with this Mac's key" },
+  localKeyHint: {
+    id: 'restore.localKey.hint',
+    defaultMessage: "This library's stored key restores its own backups — no key file needed.",
+  },
+  localKeyNoMatch: { id: 'restore.localKey.noMatch', defaultMessage: "No cloud library matches this Mac's stored key." },
 });
 
 function fileName(path: string): string {
@@ -159,11 +169,10 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
 
   useEffect(() => window.overlook.restore.onProgress(setProgress), []);
 
-  const discover = (): void => {
-    if (providerId === null || keyPath === null || password === '') return;
+  const runDiscovery = (request: Parameters<typeof window.overlook.restore.discover>[0], noMatch: string): void => {
     setError(null);
     setStep('choose');
-    void window.overlook.restore.discover({ providerId, keyPath, password }).then((response) => {
+    void window.overlook.restore.discover(request).then((response) => {
       if (response.error !== null) {
         setError(response.error);
         setStep('setup');
@@ -173,8 +182,20 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
       setLibraries(response.libraries);
       const firstValid = response.libraries.find((library) => library.validation === 'valid');
       setSelectedId(firstValid?.libraryId ?? null);
-      if (firstValid === undefined) setError({ reason: 'wrong-key', message: 'No cloud library matches this recovery key.' });
+      if (firstValid === undefined) setError({ reason: 'wrong-key', message: noMatch });
     });
+  };
+
+  const discover = (): void => {
+    if (providerId === null || keyPath === null || password === '') return;
+    runDiscovery({ providerId, keyPath, password }, 'No cloud library matches this recovery key.');
+  };
+
+  // The open library's own keystore already holds the key its backups were
+  // sealed under — restore must not demand the exported file here (#741).
+  const discoverWithLocalKey = (): void => {
+    if (providerId === null) return;
+    runDiscovery({ providerId, localKey: true }, intl.formatMessage(messages.localKeyNoMatch));
   };
 
   const run = (): void => {
@@ -247,7 +268,11 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
         <Icon name="cloud-download" size={28} color="var(--accent-cyan)" />
         <div>
           <h2>Restore from cloud backup</h2>
-          <p>Choose a provider and your separately saved recovery key. The key is never stored in the cloud.</p>
+          <p>
+            {context === 'settings'
+              ? intl.formatMessage(messages.heroWithLocalKey)
+              : 'Choose a provider and your separately saved recovery key. The key is never stored in the cloud.'}
+          </p>
         </div>
       </div>
 
@@ -291,6 +316,14 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
             )}
             {descriptor?.available === false && descriptor.unavailableReason !== null ? <span>{descriptor.unavailableReason}</span> : null}
           </div>
+          {context === 'settings' ? (
+            <div className="ovl-restore__keyrow">
+              <Button variant="primary" icon="key-round" disabled={!connected} onClick={discoverWithLocalKey}>
+                {intl.formatMessage(messages.useLocalKey)}
+              </Button>
+              <span>{intl.formatMessage(messages.localKeyHint)}</span>
+            </div>
+          ) : null}
           <div className="ovl-restore__keyrow">
             <Button
               icon="key-round"
