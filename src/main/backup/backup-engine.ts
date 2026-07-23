@@ -336,7 +336,11 @@ export class BackupEngine {
     // publishBlocked is an integrity condition, not a transport failure —
     // the scrub still runs so remaining local-backed claims heal (bounded
     // pages, ADR-0012) instead of deadlocking behind the failed publish.
-    if (failed === 0 && (manifestUploaded || publishBlocked)) {
+    // EXCEPT when remote-only claims belong to another provider
+    // (blockedRemoteOnly): auditing those against the selected provider
+    // would flip healthy offloaded rows to 'error' — the exact trap that
+    // stranded the #741 library. No scrub until the claims are provable here.
+    if (failed === 0 && blockedRemoteOnly === 0 && (manifestUploaded || publishBlocked)) {
       try {
         const ordinary = await this.deps.integrityScrub();
         const protectedSummary =

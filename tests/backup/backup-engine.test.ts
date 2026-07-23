@@ -10,8 +10,10 @@ import { buffer } from 'node:stream/consumers';
 
 import { BlobStore } from '../../src/main/blobs/blob-store.js';
 import { BackupEngine, type BackupEngineDeps, type BackupSettings, type NetworkKind } from '../../src/main/backup/backup-engine.js';
+import { createManifestDebtStore } from '../../src/main/backup/manifest-debt.js';
 import { FaultInjectingProvider, MockProvider } from '../../src/main/backup/mock-provider.js';
 import { SyncLedger } from '../../src/main/backup/sync-ledger.js';
+import { claimsForContentHashes } from '../../src/main/db/backup-claims.js';
 import { openLibraryDatabase } from '../../src/main/db/database.js';
 import { PhotosRepository } from '../../src/main/db/photos-repository.js';
 import { run } from '../../src/main/db/sql.js';
@@ -101,6 +103,11 @@ async function world(count: number, overrides?: { settings?: Partial<BackupSetti
     audit: (line) => audits.push(line),
     integrityScrub: () => Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: false }),
     recoveryGenerationHealthy: () => Promise.resolve(true),
+    // #741 production wiring: preflight claim lookup, local presence, and
+    // durable manifest debt all resolve against the same library DB.
+    claimsForContentHashes: (hashes) => claimsForContentHashes(db, hashes),
+    hasLocalOriginal: (hash) => store.hasOriginal(hash),
+    manifestDebt: createManifestDebtStore(db),
   };
   return { deps, repo, ledger, store, provider, faulty, sleeps, progress, audits, syncUpdates, engine: new BackupEngine(deps) };
 }
@@ -110,7 +117,14 @@ describe('backup engine (#105)', () => {
     const w = await world(3);
     assert.equal(w.ledger.pendingCount(), 3);
     const result = await w.engine.run();
-    assert.deepEqual(result, { uploaded: 3, failed: 0, manifestUploaded: true, skipped: null, integrity: NO_INTEGRITY_FINDINGS });
+    assert.deepEqual(result, {
+      uploaded: 3,
+      failed: 0,
+      manifestUploaded: true,
+      skipped: null,
+      integrity: NO_INTEGRITY_FINDINGS,
+      blockedRemoteOnly: 0,
+    });
     assert.equal(w.ledger.pendingCount(), 0);
     assert.equal(w.ledger.status('P0'), 'synced');
     assert.deepEqual(w.syncUpdates, [
@@ -193,6 +207,7 @@ describe('backup engine (#105)', () => {
       manifestUploaded: true,
       skipped: 'wifi',
       integrity: NO_INTEGRITY_FINDINGS,
+      blockedRemoteOnly: 0,
     });
     assert.equal(gated.ledger.pendingCount(), 1);
 
@@ -309,7 +324,14 @@ describe('backup engine (#105)', () => {
 
     // No blob traveled and nothing failed -- the run did not crash on the
     // offloaded -> syncing transition (the pre-#274 behavior)...
-    assert.deepEqual(result, { uploaded: 0, failed: 0, manifestUploaded: true, skipped: null, integrity: NO_INTEGRITY_FINDINGS });
+    assert.deepEqual(result, {
+      uploaded: 0,
+      failed: 0,
+      manifestUploaded: true,
+      skipped: null,
+      integrity: NO_INTEGRITY_FINDINGS,
+      blockedRemoteOnly: 0,
+    });
     assert.equal((await w.provider.list('blobs')).length, blobsBefore);
     // ...a fresh manifest generation carried the edit...
     const manifests = await w.provider.list('manifest');
@@ -335,7 +357,7 @@ describe('backup engine (#105)', () => {
     assert.equal(w.ledger.status('P0'), 'offloaded');
   });
 
-  test('a clean backup reports integrity repairs and refreshes the manifest after confirmed loss', async () => {
+  test('confirmed remote-only loss fails the backup: no publish, no prune, retained generations intact (#741)', async () => {
     const w = await world(1);
     (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
       Promise.resolve({ checked: 50, repaired: 2, unrecoverable: 1, cycleComplete: false });
@@ -348,8 +370,34 @@ describe('backup engine (#105)', () => {
       recoveryRepaired: false,
       failed: false,
     });
-    assert.equal((await w.provider.list('manifest')).length, 2);
-    assert.ok(w.audits.includes('INTEGRITY-MANIFEST-REFRESHED'));
+    // The batch generation landed BEFORE the loss was confirmed; the loss
+    // must never publish the old "refreshed" generation on top of it.
+    assert.deepEqual(
+      (await w.provider.list('manifest')).map((entry) => entry.path),
+      ['manifest/gen-1.ovlk'],
+      'the retained generation is preserved; no refresh published',
+    );
+    assert.equal(result.manifestUploaded, false, 'the run fails truthfully');
+    assert.ok(!w.audits.includes('INTEGRITY-MANIFEST-REFRESHED'));
+    assert.ok(w.audits.includes('INTEGRITY-PUBLISH-BLOCKED unrecoverable=1'));
+  });
+
+  test('confirmed loss leaves durable debt: a restarted engine still owes the generation and a clean run settles it (#741)', async () => {
+    const w = await world(1);
+    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
+      Promise.resolve({ checked: 1, repaired: 0, unrecoverable: 1, cycleComplete: true });
+    const blocked = await w.engine.run();
+    assert.equal(blocked.manifestUploaded, false);
+    assert.equal((await w.provider.list('manifest')).length, 1);
+
+    // The loss resolves (photo deleted / re-imported); a FRESH engine —
+    // the restart — must still know the remote is owed a generation.
+    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
+      Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: true });
+    const restarted = new BackupEngine(w.deps);
+    const settled = await restarted.run();
+    assert.equal(settled.manifestUploaded, true);
+    assert.equal((await w.provider.list('manifest')).length, 2, 'the owed generation landed after restart');
   });
 
   test('an integrity provider failure is audited without losing completed uploads', async () => {
@@ -369,12 +417,57 @@ describe('backup engine (#105)', () => {
     assert.ok(w.audits.includes('INTEGRITY-CHECK-FAILED reason=provider unavailable'));
   });
 
-  test('a failed integrity manifest refresh remains debt for the next clean run', async () => {
+  test('publication preflight: a restarted engine refuses an incomplete generation, then repairs it from the local original (#741)', async () => {
+    const w = await world(2);
+    await w.engine.run();
+    const [lost] = await w.provider.list('blobs');
+    assert.ok(lost !== undefined);
+    await w.provider.delete(lost.path);
+
+    // A fresh engine (restart: no presence cache, no verified-upload notes)
+    // owes a generation — publication must preflight, refuse, and re-upload
+    // from the local original within the run.
+    const restarted = new BackupEngine(w.deps);
+    restarted.oweManifest();
+    const result = await restarted.run();
+    assert.equal(result.manifestUploaded, true);
+    assert.equal(result.blockedRemoteOnly, 0);
+    assert.equal(result.uploaded, 1, 'the missing blob re-uploaded from local');
+    assert.ok(w.audits.some((line) => line.startsWith('MANIFEST-INCOMPLETE count=1')));
+    assert.equal((await w.provider.list('blobs')).length, 2, 'the provider holds every referenced blob again');
+    assert.equal((await w.provider.list('manifest')).length, 2);
+  });
+
+  test('publication preflight fails closed when a referenced blob is remote-only and absent (#741)', async () => {
     const w = await world(1);
     await w.engine.run();
-    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () => {
+    const [lost] = await w.provider.list('blobs');
+    assert.ok(lost !== undefined);
+    await w.provider.delete(lost.path);
+    const contentHash = lost.path.split('/').at(-1) ?? '';
+    await w.store.deleteOriginal(contentHash);
+
+    const restarted = new BackupEngine(w.deps);
+    restarted.oweManifest();
+    const result = await restarted.run();
+    assert.equal(result.manifestUploaded, false, 'no incomplete generation publishes');
+    assert.equal(result.blockedRemoteOnly, 1);
+    assert.deepEqual(
+      (await w.provider.list('manifest')).map((entry) => entry.path),
+      ['manifest/gen-1.ovlk'],
+      'nothing published, nothing pruned',
+    );
+    assert.equal(w.ledger.status('P0'), 'synced', 'the claim is never flipped by the publication path');
+    assert.ok(w.audits.some((line) => line.startsWith('BACKUP-BLOCKED-REMOTE-ONLY')));
+    assert.deepEqual(result.integrity, NO_INTEGRITY_FINDINGS, 'no scrub runs against unprovable claims');
+  });
+
+  test('a failed recovery-repair refresh remains debt for the next clean run', async () => {
+    const w = await world(1);
+    await w.engine.run();
+    (w.deps as { recoveryGenerationHealthy: BackupEngineDeps['recoveryGenerationHealthy'] }).recoveryGenerationHealthy = () => {
       w.faulty.arm('put');
-      return Promise.resolve({ checked: 1, repaired: 0, unrecoverable: 1, cycleComplete: true });
+      return Promise.resolve(false);
     };
 
     const failed = await w.engine.run();
@@ -383,8 +476,8 @@ describe('backup engine (#105)', () => {
     assert.equal((await w.provider.list('manifest')).length, 1);
 
     w.faulty.disarm('put');
-    (w.deps as { integrityScrub: BackupEngineDeps['integrityScrub'] }).integrityScrub = () =>
-      Promise.resolve({ checked: 0, repaired: 0, unrecoverable: 0, cycleComplete: false });
+    (w.deps as { recoveryGenerationHealthy: BackupEngineDeps['recoveryGenerationHealthy'] }).recoveryGenerationHealthy = () =>
+      Promise.resolve(true);
     const retried = await w.engine.run();
     assert.equal(retried.manifestUploaded, true);
     assert.equal((await w.provider.list('manifest')).length, 2);

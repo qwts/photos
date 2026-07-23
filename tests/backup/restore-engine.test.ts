@@ -356,6 +356,28 @@ test('restore engine: corrupt newest-generation blob falls back without contamin
   assert.equal(restoredStore.hasOriginal(badHash), false);
 });
 
+test('restore engine: a generation referencing a MISSING blob is rejected and falls back to the complete retained generation (#741)', async () => {
+  // The provider-switch incident shape: the newest generation promises a
+  // blob the provider never held. Restore must not "fix" this by ignoring
+  // the missing blob — it rejects the generation and restores the complete
+  // retained one.
+  const world = await restoreWorld();
+  const missingHash = 'a3'.repeat(32);
+  const first = world.photos[0];
+  assert.ok(first !== undefined);
+  const newestPhoto: BackupManifestPhotoV2 = { ...first, id: 'P-new', contentHash: missingHash, blobPath: `blobs/a3/${missingHash}` };
+  await put(world.provider, 'manifest/gen-2.ovlk', await sealManifest(makeManifest([newestPhoto]), world.keyStore));
+
+  const result = await new RestoreEngine(world.deps).run({ masterKey: world.masterKey, allowReplace: false });
+  assert.equal(result.generation, 1, 'restore fell back to the complete retained generation');
+  const restoredKeys = KeyStore.open({ safeStorage: fakeSafeStorage, dataDir: world.targetDir });
+  const restoredStore = new BlobStore({ dataDir: world.targetDir });
+  await restoredStore.init();
+  const original = world.photos[0];
+  assert.ok(original !== undefined);
+  assert.equal(await restoredStore.verifyOriginal(original.contentHash, restoredKeys.resolver(), original.id), true);
+});
+
 test('restore engine: cancellation checkpoints blobs and resumes without redownloading (#288)', async () => {
   const world = await restoreWorld(2);
   const controller = new AbortController();

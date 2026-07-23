@@ -128,6 +128,60 @@ describe('provider runtime policy (#256)', () => {
     assert.equal(flipped, 'mock');
   });
 
+  test('a refused switch guard keeps the previous selection and the fresh credential (#741)', async () => {
+    let providerId: string | null = 'mock';
+    const guarded: string[] = [];
+    const { runtime: r } = runtime({
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+      switchGuard: (target) => {
+        guarded.push(target.providerId);
+        return Promise.resolve({ ok: false, reason: '2 cloud-only originals are not in this provider.' });
+      },
+    });
+    r.tokenStore().save({ accessToken: 'sealed-pcloud-token', apiHost: 'api.pcloud.com', connectedAt: '2026-07-22T00:00:00.000Z' });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-guard-refuse'), fault: undefined });
+
+    const result = await r.connect('pcloud');
+    assert.deepEqual(result, { ok: false, reason: '2 cloud-only originals are not in this provider.' });
+    assert.deepEqual(guarded, ['pcloud'], 'the guard saw the activation target');
+    assert.equal(providerId, 'mock', 'the previous provider stays active');
+    assert.notEqual(r.tokenStore().load(), null, 'the sealed credential survives the refusal');
+  });
+
+  test('an approved switch guard lets sealed authority reactivate without OAuth (#741)', async () => {
+    let providerId: string | null = 'mock';
+    const { runtime: r } = runtime({
+      providerId: () => providerId,
+      setProviderId: (id) => {
+        providerId = id;
+      },
+      switchGuard: () => Promise.resolve({ ok: true, reason: null }),
+    });
+    r.tokenStore().save({ accessToken: 'sealed-pcloud-token', apiHost: 'api.pcloud.com', connectedAt: '2026-07-22T00:00:00.000Z' });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-guard-approve'), fault: undefined });
+
+    assert.deepEqual(await r.connect('pcloud'), { ok: true, reason: null });
+    assert.equal(providerId, 'pcloud');
+  });
+
+  test('re-activating the CURRENT provider never consults the switch guard (#741)', async () => {
+    let guardCalls = 0;
+    const { runtime: r } = runtime({
+      providerId: () => 'mock',
+      switchGuard: () => {
+        guardCalls += 1;
+        return Promise.resolve({ ok: false, reason: 'must not be consulted' });
+      },
+    });
+    r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-guard-same'), fault: undefined });
+
+    assert.deepEqual(await r.connect('mock'), { ok: true, reason: null });
+    assert.equal(guardCalls, 0);
+  });
+
   test('connection status never waits for storage inventory or quota (#721)', async () => {
     const { runtime: r } = runtime({ providerId: () => 'mock' });
     r.buildProvider({ mockRootDir: join(tmpdir(), 'overlook-runtime-status-fast'), fault: undefined });
