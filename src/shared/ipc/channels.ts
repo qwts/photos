@@ -544,7 +544,11 @@ export const channels = {
     // sealed without demanding the exported file (#741 follow-up).
     z.union([
       z.object({ providerId: providerIdSchema, keyPath: z.string().min(1), password: z.string().min(1).max(1024) }),
-      z.object({ providerId: providerIdSchema, localKey: z.literal(true) }),
+      // password (#754): fresh app-password authority for the resident key.
+      // Optional in the schema because unconfigured locks have no password;
+      // the main process refuses local-key discovery without it whenever a
+      // lock is configured.
+      z.object({ providerId: providerIdSchema, localKey: z.literal(true), password: z.string().min(1).max(1024).optional() }),
     ]),
     restoreDiscoverResponseSchema,
   ),

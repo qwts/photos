@@ -150,6 +150,8 @@ export function registerAppServices(options: AppServicesOptions): void {
       fresh: () => !existsSync(path.join(options.dataDir(), 'library.db')),
       pickKey: () => pickRecoveryKeyPath(options.harnessEnv('OVERLOOK_KEY_IMPORT_SOURCE')),
       busy: options.providerBusy,
+      lockState: options.lockState,
+      authorizePassword: options.authorizePassword,
     }),
   );
   registerPurgeHandlers(() => ({ purge: (photoIds) => options.getPurge().purge(photoIds) }), options.getActivity);
