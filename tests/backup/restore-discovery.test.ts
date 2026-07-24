@@ -9,6 +9,7 @@ import { describe, test } from 'node:test';
 
 import { buildBackupManifestV2, type BackupManifestV2 } from '../../src/main/backup/backup-manifest.js';
 import { MockProvider } from '../../src/main/backup/mock-provider.js';
+import { ProviderError } from '../../src/main/backup/provider.js';
 import { sealRecoveryBootstrap } from '../../src/main/backup/recovery-bootstrap.js';
 import { discoverRestore } from '../../src/main/backup/restore-discovery.js';
 import { RestoreError } from '../../src/main/backup/restore-types.js';
@@ -102,6 +103,26 @@ describe('restore discovery (#288)', () => {
       [1],
     );
     assert.equal(found.candidates[0]?.manifest.photos[0]?.id, 'P1');
+  });
+
+  test('a retryable newest manifest never falls back to a stale generation (#751 review)', async () => {
+    const w = await world();
+    await put(w.provider, 'manifest/gen-1.ovlk', await sealManifest(manifest(1), w.keyStore));
+    await put(w.provider, 'manifest/gen-2.ovlk', await sealManifest(manifest(1), w.keyStore));
+    const getStream = w.provider.getStream.bind(w.provider);
+    const opened: string[] = [];
+    w.provider.getStream = (path) => {
+      opened.push(path);
+      return path === 'manifest/gen-2.ovlk'
+        ? Promise.reject(new ProviderError('manifest is still materializing', 'transient', 'object'))
+        : getStream(path);
+    };
+
+    await assert.rejects(
+      discoverRestore(w.provider, w.masterKey),
+      (error: unknown) => error instanceof RestoreError && error.reason === 'io',
+    );
+    assert.deepEqual(opened, ['recovery/bootstrap.ovrb', 'manifest/gen-2.ovlk']);
   });
 
   test('a wrong recovery master fails before any manifest can be trusted', async () => {

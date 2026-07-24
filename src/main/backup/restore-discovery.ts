@@ -5,7 +5,7 @@ import { createDecryptStream, type KeyResolver } from '../crypto/envelope.js';
 import { MIGRATIONS } from '../db/migrations.js';
 import { parseBackupManifest, type RestorableBackupManifest } from './backup-manifest.js';
 import { openRecoveryBootstrap, recoveryBootstrapResolver, type RecoveryBootstrap } from './recovery-bootstrap.js';
-import type { RemoteEntry, StorageProvider } from './provider.js';
+import { ProviderError, type RemoteEntry, type StorageProvider } from './provider.js';
 import { RestoreError, toRestoreError } from './restore-types.js';
 
 const MAX_BOOTSTRAP_BYTES = 1024 * 1024;
@@ -131,7 +131,14 @@ export async function discoverRestore(provider: StorageProvider, masterKey: Buff
         candidates.push(await openCandidate(provider, entry, generation, bootstrap, resolveKey, signal));
       } catch (error) {
         const mapped = toRestoreError(error);
-        if (mapped.reason === 'auth' || mapped.reason === 'offline' || mapped.reason === 'cancelled') throw mapped;
+        if (
+          mapped.reason === 'auth' ||
+          mapped.reason === 'offline' ||
+          (error instanceof ProviderError && error.kind === 'transient' && error.scope === 'object') ||
+          mapped.reason === 'cancelled'
+        ) {
+          throw mapped;
+        }
       }
     }
     if (candidates.length === 0) throw new RestoreError('corrupt', 'no valid restorable manifest generation was found');

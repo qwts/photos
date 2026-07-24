@@ -159,6 +159,10 @@ export class RestoreCoordinator {
             fallbackGenerations: Math.max(0, discovery.candidates.length - 1),
             resumable: (await this.deps.resumeAvailable?.(discoveredLibraryId, candidate)) ?? false,
           });
+          // A recovered master key belongs to one library. Returning as soon
+          // as it authenticates a bootstrap prevents unrelated stale iCloud
+          // homes from delaying or blocking the matching restore (#751).
+          break;
         } catch (error) {
           const mapped = toRestoreError(error);
           if (mapped.reason === 'auth' || mapped.reason === 'offline' || mapped.reason === 'cancelled') throw mapped;

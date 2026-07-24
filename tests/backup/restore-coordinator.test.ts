@@ -8,6 +8,7 @@ import { test } from 'node:test';
 
 import { buildBackupManifestV2 } from '../../src/main/backup/backup-manifest.js';
 import { MockProvider } from '../../src/main/backup/mock-provider.js';
+import { ProviderError } from '../../src/main/backup/provider.js';
 import { sealRecoveryBootstrap } from '../../src/main/backup/recovery-bootstrap.js';
 import { RestoreCoordinator, type RestoreRunner } from '../../src/main/backup/restore-coordinator.js';
 import { createEncryptStream } from '../../src/main/crypto/envelope.js';
@@ -314,4 +315,81 @@ test("a foreign library's local key surfaces per-library wrong-key validation, n
   assert.notEqual(discovery.libraries[0]?.validation, 'valid');
   const run = await coordinator.run('session-wrong-local', LIBRARY_ID, false);
   assert.notEqual(run.error, null, 'an unvalidated library can never run');
+});
+
+test('one unreadable namespace cannot block a later valid restore source (#751)', async () => {
+  const world = await remoteWorld();
+  const unreadable = new MockProvider({
+    rootDir: mkdtempSync(join(tmpdir(), 'restore-coordinator-unreadable-')),
+    libraryId: '01JUNREADABLENAMESPACE00001',
+  });
+  unreadable.getStream = () => Promise.reject(new ProviderError('namespace could not materialize', 'transient', 'object'));
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.resolve(world.recoveryFile),
+    sources: () =>
+      Promise.resolve([
+        { libraryId: '01JUNREADABLENAMESPACE00001', provider: unreadable },
+        { libraryId: LIBRARY_ID, provider: world.provider },
+      ]),
+    createRunner: () => ({ run: () => Promise.reject(new Error('unused')) }),
+    sessionId: () => 'session-after-unreadable',
+    progress: () => undefined,
+  });
+
+  const discovery = await coordinator.discover('icloud-drive', '/recovery.key', PASSWORD);
+  assert.equal(discovery.error, null);
+  assert.equal(discovery.sessionId, 'session-after-unreadable');
+  assert.deepEqual(
+    discovery.libraries.map(({ libraryId, validation }) => ({ libraryId, validation })),
+    [
+      { libraryId: '01JUNREADABLENAMESPACE00001', validation: 'corrupt' },
+      { libraryId: LIBRARY_ID, validation: 'valid' },
+    ],
+  );
+});
+
+test('a matching restore stops before unrelated delayed namespaces (#751)', async () => {
+  const world = await remoteWorld();
+  const delayed = new MockProvider({
+    rootDir: mkdtempSync(join(tmpdir(), 'restore-coordinator-delayed-')),
+    libraryId: '01JDELAYEDNAMESPACE0000001',
+  });
+  let delayedReads = 0;
+  delayed.getStream = () => {
+    delayedReads += 1;
+    return Promise.reject(new ProviderError('namespace could not materialize', 'transient', 'object'));
+  };
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.resolve(world.recoveryFile),
+    sources: () =>
+      Promise.resolve([
+        { libraryId: LIBRARY_ID, provider: world.provider },
+        { libraryId: '01JDELAYEDNAMESPACE0000001', provider: delayed },
+      ]),
+    createRunner: () => ({ run: () => Promise.reject(new Error('unused')) }),
+    sessionId: () => 'session-before-delayed',
+    progress: () => undefined,
+  });
+
+  const discovery = await coordinator.discover('icloud-drive', '/recovery.key', PASSWORD);
+  assert.equal(discovery.error, null);
+  assert.equal(discovery.libraries[0]?.validation, 'valid');
+  assert.equal(delayedReads, 0);
+});
+
+test('provider-wide connectivity failures remain global restore errors (#751)', async () => {
+  const world = await remoteWorld();
+  world.provider.getStream = () => Promise.reject(new ProviderError('provider is offline', 'transient'));
+  const coordinator = new RestoreCoordinator({
+    readRecoveryKey: () => Promise.resolve(world.recoveryFile),
+    sources: () => Promise.resolve([{ libraryId: LIBRARY_ID, provider: world.provider }]),
+    createRunner: () => ({ run: () => Promise.reject(new Error('unused')) }),
+    sessionId: () => 'unused',
+    progress: () => undefined,
+  });
+
+  const discovery = await coordinator.discover('icloud-drive', '/recovery.key', PASSWORD);
+  assert.equal(discovery.sessionId, null);
+  assert.deepEqual(discovery.libraries, []);
+  assert.equal(discovery.error?.reason, 'offline');
 });

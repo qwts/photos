@@ -1828,6 +1828,24 @@
       ]
     },
     {
+      "id": "751-icloud-restore-namespace-isolation",
+      "wiki": "User-Story-M18-Recovery-key",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/backup/icloud-drive-provider.test.ts",
+            "tests/backup/restore-coordinator.test.ts",
+            "tests/dom/restore-workflow-state.test.tsx"
+          ]
+        },
+        {
+          "type": "manual",
+          "reason": "A signed packaged macOS pass verifies disconnect, restart, reconnect, and recovery-key restore against the real iCloud container while stale or partial library homes remain present."
+        }
+      ]
+    },
+    {
       "id": "754-local-key-restore-fresh-password-authority",
       "wiki": "User-Story-M18-Recovery-key",
       "coverage": [

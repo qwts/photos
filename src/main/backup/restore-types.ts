@@ -51,7 +51,7 @@ export function toRestoreError(error: unknown): RestoreError {
       case 'auth':
         return new RestoreError('auth', error.message);
       case 'transient':
-        return new RestoreError('offline', error.message);
+        return new RestoreError(error.scope === 'object' ? 'io' : 'offline', error.message);
       case 'quota':
         return new RestoreError('disk-space', error.message);
       case 'not-found':

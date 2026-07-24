@@ -216,7 +216,14 @@ export function RestoreWorkflow({ context, onStartNew }: RestoreWorkflowProps): 
       setLibraries(response.libraries);
       const firstValid = response.libraries.find((library) => library.validation === 'valid');
       setSelectedId(firstValid?.libraryId ?? null);
-      if (firstValid === undefined) setError({ reason: 'wrong-key', message: noMatch });
+      if (firstValid === undefined) {
+        const onlyWrongKey = response.libraries.length > 0 && response.libraries.every((library) => library.validation === 'wrong-key');
+        setError(
+          onlyWrongKey
+            ? { reason: 'wrong-key', message: noMatch }
+            : { reason: 'corrupt', message: 'No readable cloud library was found for this key.' },
+        );
+      }
     });
   };
 
