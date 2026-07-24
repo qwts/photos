@@ -1,6 +1,6 @@
 name: Feature
 description: Open a feature with problem, requirements, design, and proposed patterns (ENG-0007 lifecycle).
-title: "[Feature]: "
+title: '[Feature]: '
 labels:
   - feature
 body:
