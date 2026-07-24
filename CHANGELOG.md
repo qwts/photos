@@ -1,5 +1,12 @@
 # photos
 
+## 0.61.3
+
+### Patch Changes
+
+- 7f614f8: Prevent iCloud Drive async completions from aborting the app during shutdown by draining raw native operations and suppressing JavaScript callbacks after environment teardown begins (#752).
+- 61b3cb1: Keep unreadable iCloud backup namespaces from blocking a valid library restore.
+
 ## 0.61.2
 
 ### Patch Changes
