@@ -90,6 +90,7 @@ function iCloudProvider(operation: StorageOperation): { readonly provider: IClou
       notify();
     });
   const bridge: ICloudDriveNativeBridge = {
+    drain: () => Promise.resolve(),
     status: () =>
       operation === 'quota' ? stalledStatus() : Promise.resolve({ available: true, reason: null, accountToken: ACCOUNT_TOKEN }),
     list: () => stalledList(),

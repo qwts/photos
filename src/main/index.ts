@@ -683,7 +683,7 @@ async function closeLibrary(mode: 'restore' | 'lock' | 'switch'): Promise<void> 
     libraryParts?.protected.drain() ?? Promise.resolve(),
     purgeRuntime?.drain() ?? Promise.resolve(),
     startupMaintenance.drain(),
-    Promise.allSettled([...activeBackupRuns]),
+    Promise.allSettled([...activeBackupRuns, providerRuntime?.drainICloudDriveOperations()]),
     full ? (restoreRuntime?.close() ?? Promise.resolve()) : Promise.resolve(),
     full ? providerIdle() : Promise.resolve(),
     Promise.all([thumbService?.close() ?? Promise.resolve(), fullService?.close() ?? Promise.resolve()]),

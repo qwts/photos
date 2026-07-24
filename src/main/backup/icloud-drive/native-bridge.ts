@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { isAbsolute } from 'node:path';
 
 import { OVERLOOK_ICLOUD_CONTAINER_ID, OVERLOOK_MAC_BUNDLE_ID } from '../../../shared/app-identity.js';
+import { CustodyWorkTracker } from '../../crypto/library-shutdown.js';
 
 const nativeRequire = createRequire(import.meta.url);
 const RELATIVE_PATH = /^(?!.*(?:^|\/)\.\.?(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/u;
@@ -51,6 +52,7 @@ export class ICloudDriveNativeError extends Error {
 }
 
 export interface ICloudDriveNativeBridge {
+  drain(): Promise<void>;
   status(): Promise<ICloudDriveNativeStatus>;
   replaceFile(path: string, sourceFile: string, accountToken: string): Promise<void>;
   materializeFile(path: string, destinationFile: string, accountToken: string): Promise<void>;
@@ -106,6 +108,7 @@ function isNativeBinding(value: unknown): value is NativeBinding {
 function failClosed(reason: ICloudDriveUnavailableReason): ICloudDriveNativeBridge {
   const reject = (): Promise<never> => Promise.reject(new ICloudDriveNativeError('unavailable'));
   return {
+    drain: () => Promise.resolve(),
     status: () => Promise.resolve({ available: false, reason, accountToken: null }),
     replaceFile: reject,
     materializeFile: reject,
@@ -214,10 +217,14 @@ export function createNativeICloudDriveBridge(options: NativeICloudDriveBridgeOp
     return failClosed('native-unavailable');
   }
 
+  const active = new CustodyWorkTracker();
+  const invoke = <T>(operation: () => Promise<T>): Promise<T> => active.track(Promise.resolve().then(operation));
+
   return {
+    drain: () => active.drain(),
     status: async () => {
       try {
-        return normalizeStatus(await binding.status(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID));
+        return normalizeStatus(await invoke(() => binding.status(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID)));
       } catch (error) {
         throw mappedError(error);
       }
@@ -227,7 +234,7 @@ export function createNativeICloudDriveBridge(options: NativeICloudDriveBridgeOp
       validFile(sourceFile);
       validAccountToken(accountToken);
       try {
-        await binding.replaceFile(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, sourceFile, accountToken);
+        await invoke(() => binding.replaceFile(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, sourceFile, accountToken));
       } catch (error) {
         throw mappedError(error);
       }
@@ -237,7 +244,9 @@ export function createNativeICloudDriveBridge(options: NativeICloudDriveBridgeOp
       validFile(destinationFile);
       validAccountToken(accountToken);
       try {
-        await binding.materializeFile(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, destinationFile, accountToken);
+        await invoke(() =>
+          binding.materializeFile(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, destinationFile, accountToken),
+        );
       } catch (error) {
         throw mappedError(error);
       }
@@ -248,7 +257,9 @@ export function createNativeICloudDriveBridge(options: NativeICloudDriveBridgeOp
       if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE_SIZE) throw new ICloudDriveNativeError('invalid-path');
       validAccountToken(accountToken);
       try {
-        return normalizePage(await binding.list(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, cursor, limit, accountToken));
+        return normalizePage(
+          await invoke(() => binding.list(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, cursor, limit, accountToken)),
+        );
       } catch (error) {
         throw mappedError(error);
       }
@@ -257,7 +268,7 @@ export function createNativeICloudDriveBridge(options: NativeICloudDriveBridgeOp
       validPath(path);
       validAccountToken(accountToken);
       try {
-        await binding.delete(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, accountToken);
+        await invoke(() => binding.delete(OVERLOOK_MAC_BUNDLE_ID, OVERLOOK_ICLOUD_CONTAINER_ID, path, accountToken));
       } catch (error) {
         throw mappedError(error);
       }

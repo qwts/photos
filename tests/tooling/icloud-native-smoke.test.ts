@@ -14,6 +14,7 @@ function fakeBridge(): ICloudDriveNativeBridge & { readonly deleted: string[] } 
   const deleted: string[] = [];
   return {
     deleted,
+    drain: () => Promise.resolve(),
     status: () => Promise.resolve({ available: true, reason: null, accountToken: '0123456789abcdef' }),
     replaceFile: async (path, source) => {
       objects.set(path, await import('node:fs/promises').then(({ readFile }) => readFile(source)));

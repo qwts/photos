@@ -61,6 +61,13 @@ and account token. Account changes, offline errors, delayed materialization,
 unresolved versions, missing objects, and I/O failures cross the boundary only
 as stable fail-closed reason codes.
 
+The main process tracks the raw native promise for every operation, independently
+of caller-level cancellation, and drains those promises during the universal
+library-close sequence. The addon also registers an environment cleanup hook;
+once teardown begins, every worker suppresses its JavaScript completion path.
+This guard is the final safety boundary when native file coordination outlives
+the library shutdown deadline.
+
 ## Provider contract
 
 The `icloud-drive` adapter owns `Overlook/<library-id>/` and exposes only
